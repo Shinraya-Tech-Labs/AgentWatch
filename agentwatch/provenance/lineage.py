@@ -167,6 +167,13 @@ def dependents(
     }
 
 
+def impact_radius(
+    ws: Workspace, ref: str, *, max_depth: int = 50, run_id: str | None = None
+) -> dict[str, Any]:
+    """Forward blast/impact radius calculation using the hyperedge store."""
+    return ws.impact_radius(ref, max_depth=max_depth, run_id=run_id)
+
+
 def metrics(tree: LineageNode) -> dict[str, Any]:
     """Descriptive lineage metrics (EXPERIMENTAL; definitions in docs/v3/metrics/provenance.md)."""
     depth_max = 0

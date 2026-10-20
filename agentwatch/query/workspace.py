@@ -6,12 +6,12 @@ separate interpretations of the same evidence.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from functools import cached_property
 from typing import Any
 
 from agentwatch.evidence.model import parse_ts
-from agentwatch.graph.traverse import Graph
+from agentwatch.graph.traverse import Graph, Step
 from agentwatch.runtime.engine import Engine
 from agentwatch.storage.store import Store
 
@@ -103,10 +103,103 @@ class Workspace:
         return out
 
     # ── graph ─────────────────────────────────────────────────────────────
-    def relations(self, run_id: str | None = None, view: str | None = None) -> list[dict[str, Any]]:
+    def relations(
+        self,
+        run_id: str | None = None,
+        view: str | None = None,
+        rtype: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
         if run_id is None:
-            return self.store.relations(self.interp_id, view=view, all_runs=True)
-        return self.store.relations(self.interp_id, run_id=run_id, view=view)
+            return self.store.relations(
+                self.interp_id,
+                tenant_id=self.tenant_id,
+                view=view,
+                rtype=rtype,
+                all_runs=True,
+                limit=limit,
+            )
+        return self.store.relations(
+            self.interp_id,
+            tenant_id=self.tenant_id,
+            run_id=run_id,
+            view=view,
+            rtype=rtype,
+            limit=limit,
+        )
+
+    def put_relations(self, relations: Sequence[dict[str, Any]]) -> int:
+        return self.store.put_relations(self.tenant_id, self.interp_id, relations)
+
+    def seal_run(self, run_id: str) -> None:
+        self.store.seal_run(self.tenant_id, self.interp_id, run_id)
+
+    def is_run_sealed(self, run_id: str) -> bool:
+        return self.store.is_run_sealed(self.tenant_id, self.interp_id, run_id)
+
+    def adjacent_relations(
+        self,
+        ref: str,
+        direction: str = "forward",
+        *,
+        run_id: str | None = None,
+        views: Iterable[str] | None = None,
+        types: Iterable[str] | None = None,
+    ) -> list[tuple[dict[str, Any], list[str]]]:
+        node = self.resolve_node(ref, run_id)
+        return self.store.adjacent_relations(
+            self.interp_id,
+            node,
+            direction=direction,
+            tenant_id=self.tenant_id,
+            run_id=run_id,
+            views=views,
+            types=types,
+        )
+
+    def storage_lineage(
+        self,
+        ref: str,
+        direction: str = "reverse",
+        *,
+        run_id: str | None = None,
+        views: Iterable[str] | None = None,
+        types: Iterable[str] | None = None,
+        max_depth: int = 50,
+        skip_kinds: Iterable[str] = (),
+    ) -> list[Step]:
+        node = self.resolve_node(ref, run_id)
+        return self.store.storage_traverse(
+            self.interp_id,
+            node,
+            direction=direction,
+            tenant_id=self.tenant_id,
+            run_id=run_id,
+            views=views,
+            types=types,
+            max_depth=max_depth,
+            skip_kinds=skip_kinds,
+        )
+
+    def impact_radius(
+        self,
+        ref: str,
+        *,
+        run_id: str | None = None,
+        views: Iterable[str] | None = None,
+        types: Iterable[str] | None = None,
+        max_depth: int = 50,
+    ) -> dict[str, Any]:
+        node = self.resolve_node(ref, run_id)
+        return self.store.impact_radius(
+            self.interp_id,
+            node,
+            tenant_id=self.tenant_id,
+            run_id=run_id,
+            views=views,
+            types=types,
+            max_depth=max_depth,
+        )
 
     def graph(self, run_id: str | None = None, views: Iterable[str] | None = None) -> Graph:
         key = (run_id, tuple(sorted(views)) if views else None)
