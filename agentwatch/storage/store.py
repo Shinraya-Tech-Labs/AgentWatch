@@ -22,7 +22,7 @@ from typing import Any
 
 from sqlalchemy import bindparam, create_engine, delete, event, func, insert, select, text, update
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError, SQLAlchemyError
 
 from agentwatch.evidence import crypto
 from agentwatch.evidence.blobs import BlobStore, FsBlobStore, MemoryBlobStore
@@ -55,6 +55,8 @@ from agentwatch.graph.model import (
 )
 from agentwatch.graph.traverse import Step
 from agentwatch.storage import schema as s
+
+logger = logging.getLogger(__name__)
 
 INLINE_PAYLOAD_LIMIT = 64 * 1024
 
@@ -1811,240 +1813,246 @@ class Store:
         needs_doc = (min_strength is not None) or (not include_ambiguous)
 
         # ── 1. Fast-path: Single database round-trip via recursive CTE ────────────
-        try:
-            filter_clauses: list[str] = []
-            params: dict[str, Any] = {
-                "interp_id": interp_id,
-                "query_role": query_role,
-                "target_role": target_role,
-                "start_node": start_node,
-                "max_depth": max_depth,
-            }
+        # Traversal eligibility must be enforced BEFORE expanding descendants.
+        # Complex in-memory filters (temporal order across in-memory dicts, custom strength ranking)
+        # cannot be evaluated inside SQL and route directly to iterative BFS.
+        can_use_cte = (not bool(times)) and (min_strength is None)
 
-            if tenant_id is not None:
-                filter_clauses.append("AND r.tenant_id = :tenant_id")
-                params["tenant_id"] = tenant_id
-            if run_id is not None:
-                filter_clauses.append("AND r.run_id = :run_id")
-                params["run_id"] = run_id
-            if views:
-                v_list = list(views)
-                v_ph = [f":view_{i}" for i in range(len(v_list))]
-                for i, v in enumerate(v_list):
-                    params[f"view_{i}"] = v
-                filter_clauses.append(f"AND r.view IN ({', '.join(v_ph)})")
-            if types:
-                t_list = list(types)
-                t_ph = [f":type_{i}" for i in range(len(t_list))]
-                for i, t in enumerate(t_list):
-                    params[f"type_{i}"] = t
-                filter_clauses.append(f"AND r.type IN ({', '.join(t_ph)})")
-            if min_confidence > 0.0:
-                filter_clauses.append("AND r.confidence >= :min_confidence")
-                params["min_confidence"] = min_confidence
+        if can_use_cte:
+            try:
+                filter_clauses: list[str] = []
+                params: dict[str, Any] = {
+                    "interp_id": interp_id,
+                    "query_role": query_role,
+                    "target_role": target_role,
+                    "start_node": start_node,
+                    "max_depth": max_depth,
+                    "delim": "\x1f",
+                }
 
-            filter_sql = "\n      ".join(filter_clauses)
-
-            join_op = "CROSS JOIN" if self.is_sqlite else "JOIN"
-
-            cte_sql = f"""
-            WITH RECURSIVE lineage(target_node, depth, rel_id, rel_type, evidence_class, doc, prev_node) AS (
-                SELECT
-                    m_next.node,
-                    1 AS depth,
-                    r.rel_id,
-                    r.type,
-                    r.evidence_class,
-                    r.doc,
-                    m_curr.node AS prev_node
-                FROM aw3_relation_members m_curr
-                JOIN aw3_relations r
-                  ON r.rel_id = m_curr.rel_id AND r.interp_id = m_curr.interp_id
-                JOIN aw3_relation_members m_next
-                  ON m_next.rel_id = r.rel_id AND m_next.interp_id = r.interp_id AND m_next.role = :target_role
-                WHERE m_curr.interp_id = :interp_id
-                  AND m_curr.role = :query_role
-                  AND m_curr.node = :start_node
-                  {filter_sql}
-
-                UNION ALL
-
-                SELECT
-                    m_next.node,
-                    lineage.depth + 1,
-                    r.rel_id,
-                    r.type,
-                    r.evidence_class,
-                    r.doc,
-                    m_curr.node AS prev_node
-                FROM lineage
-                {join_op} aw3_relation_members m_curr
-                  ON m_curr.interp_id = :interp_id AND m_curr.role = :query_role AND m_curr.node = lineage.target_node
-                {join_op} aw3_relations r
-                  ON r.rel_id = m_curr.rel_id AND r.interp_id = m_curr.interp_id
-                {join_op} aw3_relation_members m_next
-                  ON m_next.rel_id = r.rel_id AND m_next.interp_id = r.interp_id AND m_next.role = :target_role
-                WHERE lineage.depth < :max_depth
-                  {filter_sql}
-            )
-            SELECT target_node, depth, rel_id, rel_type, evidence_class, doc, prev_node
-            FROM lineage
-            ORDER BY depth ASC, rel_id ASC, target_node ASC;
-            """  # noqa: S608 # nosec B608
-
-            with self.engine.connect() as conn:
-                rows = conn.execute(text(cte_sql), params).all()
-
-            seen = {start_node}
-            out: list[Step] = []
-            doc_cache: dict[str, dict[str, Any]] = {}
-            times_visited: dict[str, float | None] = {start_node: times.get(start_node)}
-
-            for row in rows:
-                nb = row[0]
-                depth = row[1]
-                rel_id = row[2]
-                rtype = row[3]
-                ev_class = row[4]
-                doc_str = row[5]
-                prev_n = row[6]
-
-                if nb in seen or (skip and nb.startswith(skip)):
-                    continue
-
+                if tenant_id is not None:
+                    filter_clauses.append("AND r.tenant_id = :tenant_id")
+                    params["tenant_id"] = tenant_id
+                if run_id is not None:
+                    filter_clauses.append("AND r.run_id = :run_id")
+                    params["run_id"] = run_id
+                if views:
+                    v_list = list(views)
+                    v_ph = [f":view_{i}" for i in range(len(v_list))]
+                    for i, v in enumerate(v_list):
+                        params[f"view_{i}"] = v
+                    filter_clauses.append(f"AND r.view IN ({', '.join(v_ph)})")
+                if types:
+                    t_list = list(types)
+                    t_ph = [f":type_{i}" for i in range(len(t_list))]
+                    for i, t in enumerate(t_list):
+                        params[f"type_{i}"] = t
+                    filter_clauses.append(f"AND r.type IN ({', '.join(t_ph)})")
+                if min_confidence > 0.0:
+                    filter_clauses.append("AND r.confidence >= :min_confidence")
+                    params["min_confidence"] = min_confidence
                 if min_evidence is not None:
-                    ec = EvidenceClass(ev_class) if ev_class else None
-                    if EVIDENCE_RANK.get(ec, 0) < EVIDENCE_RANK.get(min_evidence, 0):
+                    min_rank = EVIDENCE_RANK.get(min_evidence, 0)
+                    allowed_classes = [ec.value for ec, r in EVIDENCE_RANK.items() if r >= min_rank]
+                    ev_ph = [f":ev_{i}" for i in range(len(allowed_classes))]
+                    for i, ec_val in enumerate(allowed_classes):
+                        params[f"ev_{i}"] = ec_val
+                    filter_clauses.append(f"AND r.evidence_class IN ({', '.join(ev_ph)})")
+                if skip_kinds:
+                    skip_ph = []
+                    for i, k in enumerate(skip_kinds):
+                        param_name = f"skip_prefix_{i}"
+                        params[param_name] = f"{k}:%"
+                        skip_ph.append(f"m_next.node NOT LIKE :{param_name}")
+                    filter_clauses.append(f"AND {' AND '.join(skip_ph)}")
+                if not include_ambiguous:
+                    if self.is_sqlite:
+                        filter_clauses.append(
+                            "AND (json_extract(r.doc, '$.attributes.resolution') IS NULL OR json_extract(r.doc, '$.attributes.resolution') != 'AMBIGUOUS')"
+                            " AND (json_extract(r.doc, '$.attributes.strength') IS NULL OR json_extract(r.doc, '$.attributes.strength') != 'NONE')"
+                        )
+                    else:
+                        filter_clauses.append(
+                            "AND (r.doc::jsonb->'attributes'->>'resolution' IS NULL OR r.doc::jsonb->'attributes'->>'resolution' != 'AMBIGUOUS')"
+                            " AND (r.doc::jsonb->'attributes'->>'strength' IS NULL OR r.doc::jsonb->'attributes'->>'strength' != 'NONE')"
+                        )
+
+                filter_sql = "\n      ".join(filter_clauses)
+                join_op = "CROSS JOIN" if self.is_sqlite else "JOIN"
+                cycle_check = (
+                    "instr(lineage.path, :delim || m_next.node || :delim) = 0"
+                    if self.is_sqlite
+                    else "strpos(lineage.path, :delim || m_next.node || :delim) = 0"
+                )
+
+                cte_sql = f"""
+                WITH RECURSIVE lineage(target_node, depth, rel_id, rel_type, prev_node, path) AS (
+                    SELECT
+                        m_next.node,
+                        1 AS depth,
+                        r.rel_id,
+                        r.type,
+                        m_curr.node AS prev_node,
+                        :delim || :start_node || :delim || m_next.node || :delim AS path
+                    FROM aw3_relation_members m_curr
+                    JOIN aw3_relations r
+                      ON r.rel_id = m_curr.rel_id AND r.interp_id = m_curr.interp_id
+                    JOIN aw3_relation_members m_next
+                      ON m_next.rel_id = r.rel_id AND m_next.interp_id = r.interp_id AND m_next.role = :target_role
+                    WHERE m_curr.interp_id = :interp_id
+                      AND m_curr.role = :query_role
+                      AND m_curr.node = :start_node
+                      AND m_next.node != :start_node
+                      {filter_sql}
+
+                    UNION ALL
+
+                    SELECT
+                        m_next.node,
+                        lineage.depth + 1,
+                        r.rel_id,
+                        r.type,
+                        m_curr.node AS prev_node,
+                        lineage.path || m_next.node || :delim AS path
+                    FROM lineage
+                    {join_op} aw3_relation_members m_curr
+                      ON m_curr.interp_id = :interp_id AND m_curr.role = :query_role AND m_curr.node = lineage.target_node
+                    {join_op} aw3_relations r
+                      ON r.rel_id = m_curr.rel_id AND r.interp_id = m_curr.interp_id
+                    {join_op} aw3_relation_members m_next
+                      ON m_next.rel_id = r.rel_id AND m_next.interp_id = r.interp_id AND m_next.role = :target_role
+                    WHERE lineage.depth < :max_depth
+                      AND m_next.node != :start_node
+                      AND {cycle_check}
+                      {filter_sql}
+                )
+                SELECT target_node, depth, rel_id, rel_type, prev_node
+                FROM lineage
+                ORDER BY depth ASC, rel_id ASC, target_node ASC;
+                """  # noqa: S608 # nosec B608
+
+                with self.engine.connect() as conn:
+                    rows = conn.execute(text(cte_sql), params).all()
+
+                seen = {start_node}
+                out: list[Step] = []
+
+                for row in rows:
+                    nb = row[0]
+                    depth = row[1]
+                    rel_id = row[2]
+                    rtype = row[3]
+                    prev_n = row[4]
+
+                    if nb in seen:
                         continue
 
-                if needs_doc:
-                    if rel_id not in doc_cache:
-                        doc_cache[rel_id] = json.loads(doc_str)
-                    rel_doc = doc_cache[rel_id]
-                    if not self._check_relation_filters(
-                        rel_doc,
-                        None,
-                        None,
-                        min_confidence,
-                        min_evidence,
-                        include_ambiguous,
-                        min_strength,
-                    ):
-                        continue
+                    seen.add(nb)
+                    out.append(Step(nb, depth, rel_id, rtype, prev_n))
 
-                t_prev = times_visited.get(prev_n)
-                tn = times.get(nb)
-                if t_prev is not None and tn is not None and (tn - t_prev) * dir_factor < -eps:
+                return out
+
+            except (DBAPIError, SQLAlchemyError) as err:
+                logger.debug("CTE traversal failed, falling back to iterative BFS: %s", err)
+        # ── 2. Fallback: iterative BFS loop ──────────────────────────────
+        seen = {start_node}
+        out = []
+        q: deque[tuple[str, int, float | None]] = deque([(start_node, 0, times.get(start_node))])
+
+        m_curr = s.relation_members.alias("m_curr")
+        m_next = s.relation_members.alias("m_next")
+        r = s.relations
+
+        cols = [
+            m_next.c.node.label("target_node"),
+            r.c.rel_id,
+            r.c.type,
+            r.c.evidence_class,
+        ]
+        if needs_doc:
+            cols.append(r.c.doc)
+
+        stmt = (
+            select(*cols)
+            .select_from(
+                m_curr.join(
+                    r,
+                    (r.c.rel_id == m_curr.c.rel_id) & (r.c.interp_id == m_curr.c.interp_id),
+                ).join(
+                    m_next,
+                    (m_next.c.rel_id == r.c.rel_id)
+                    & (m_next.c.interp_id == r.c.interp_id)
+                    & (m_next.c.role == target_role),
+                )
+            )
+            .where(
+                m_curr.c.interp_id == interp_id,
+                m_curr.c.role == query_role,
+                m_curr.c.node == bindparam("curr_node"),
+            )
+        )
+
+        if tenant_id is not None:
+            stmt = stmt.where(r.c.tenant_id == tenant_id)
+        if run_id is not None:
+            stmt = stmt.where(r.c.run_id == run_id)
+        if views:
+            stmt = stmt.where(r.c.view.in_(tuple(views)))
+        if types:
+            stmt = stmt.where(r.c.type.in_(tuple(types)))
+        if min_confidence > 0.0:
+            stmt = stmt.where(r.c.confidence >= min_confidence)
+
+        doc_cache = {}
+
+        with self.engine.connect() as conn:
+            while q:
+                curr, depth, t = q.popleft()
+                if depth >= max_depth:
                     continue
 
-                seen.add(nb)
-                times_visited[nb] = tn if tn is not None else t_prev
-                out.append(Step(nb, depth, rel_id, rtype, prev_n))
+                rows = conn.execute(stmt, {"curr_node": curr}).all()
+                if not rows:
+                    continue
 
-            return out
-
-        except Exception:
-            # ── 2. Fallback: iterative BFS loop ──────────────────────────────
-            seen = {start_node}
-            out = []
-            q: deque[tuple[str, int, float | None]] = deque(
-                [(start_node, 0, times.get(start_node))]
-            )
-
-            m_curr = s.relation_members.alias("m_curr")
-            m_next = s.relation_members.alias("m_next")
-            r = s.relations
-
-            cols = [
-                m_next.c.node.label("target_node"),
-                r.c.rel_id,
-                r.c.type,
-                r.c.evidence_class,
-            ]
-            if needs_doc:
-                cols.append(r.c.doc)
-
-            stmt = (
-                select(*cols)
-                .select_from(
-                    m_curr.join(
-                        r,
-                        (r.c.rel_id == m_curr.c.rel_id) & (r.c.interp_id == m_curr.c.interp_id),
-                    ).join(
-                        m_next,
-                        (m_next.c.rel_id == r.c.rel_id)
-                        & (m_next.c.interp_id == r.c.interp_id)
-                        & (m_next.c.role == target_role),
-                    )
-                )
-                .where(
-                    m_curr.c.interp_id == interp_id,
-                    m_curr.c.role == query_role,
-                    m_curr.c.node == bindparam("curr_node"),
-                )
-            )
-
-            if tenant_id is not None:
-                stmt = stmt.where(r.c.tenant_id == tenant_id)
-            if run_id is not None:
-                stmt = stmt.where(r.c.run_id == run_id)
-            if views:
-                stmt = stmt.where(r.c.view.in_(tuple(views)))
-            if types:
-                stmt = stmt.where(r.c.type.in_(tuple(types)))
-            if min_confidence > 0.0:
-                stmt = stmt.where(r.c.confidence >= min_confidence)
-
-            doc_cache = {}
-
-            with self.engine.connect() as conn:
-                while q:
-                    curr, depth, t = q.popleft()
-                    if depth >= max_depth:
-                        continue
-
-                    rows = conn.execute(stmt, {"curr_node": curr}).all()
-                    if not rows:
-                        continue
-
-                    valid_rows = []
-                    for row in rows:
-                        if min_evidence is not None:
-                            ec = EvidenceClass(row.evidence_class) if row.evidence_class else None
-                            if EVIDENCE_RANK.get(ec, 0) < EVIDENCE_RANK.get(min_evidence, 0):
-                                continue
-                        if needs_doc:
-                            rel_id = row.rel_id
-                            if rel_id not in doc_cache:
-                                doc_cache[rel_id] = json.loads(row.doc)
-                            rel_doc = doc_cache[rel_id]
-                            if not self._check_relation_filters(
-                                rel_doc,
-                                None,
-                                None,
-                                min_confidence,
-                                min_evidence,
-                                include_ambiguous,
-                                min_strength,
-                            ):
-                                continue
-                        valid_rows.append(row)
-
-                    valid_rows.sort(key=lambda r: (r.rel_id, r.type, r.target_node))
-
-                    for r_row in valid_rows:
-                        nb = r_row.target_node
-                        if nb in seen or (skip and nb.startswith(skip)):
+                valid_rows = []
+                for row in rows:
+                    if min_evidence is not None:
+                        ec = EvidenceClass(row.evidence_class) if row.evidence_class else None
+                        if EVIDENCE_RANK.get(ec, 0) < EVIDENCE_RANK.get(min_evidence, 0):
                             continue
-                        tn = times.get(nb)
-                        if t is not None and tn is not None and (tn - t) * dir_factor < -eps:
+                    if needs_doc:
+                        rel_id = row.rel_id
+                        if rel_id not in doc_cache:
+                            doc_cache[rel_id] = json.loads(row.doc)
+                        rel_doc = doc_cache[rel_id]
+                        if not self._check_relation_filters(
+                            rel_doc,
+                            None,
+                            None,
+                            min_confidence,
+                            min_evidence,
+                            include_ambiguous,
+                            min_strength,
+                        ):
                             continue
-                        seen.add(nb)
-                        step = Step(nb, depth + 1, r_row.rel_id, r_row.type, curr)
-                        out.append(step)
-                        q.append((nb, depth + 1, tn if tn is not None else t))
+                    valid_rows.append(row)
 
-            return out
+                valid_rows.sort(key=lambda r: (r.rel_id, r.type, r.target_node))
+
+                for r_row in valid_rows:
+                    nb = r_row.target_node
+                    if nb in seen or (skip and nb.startswith(skip)):
+                        continue
+                    tn = times.get(nb)
+                    if t is not None and tn is not None and (tn - t) * dir_factor < -eps:
+                        continue
+                    seen.add(nb)
+                    step = Step(nb, depth + 1, r_row.rel_id, r_row.type, curr)
+                    out.append(step)
+                    q.append((nb, depth + 1, tn if tn is not None else t))
+
+        return out
 
     def impact_radius(
         self,

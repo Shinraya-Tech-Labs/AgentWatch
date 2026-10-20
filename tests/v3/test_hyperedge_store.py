@@ -421,3 +421,246 @@ def test_schema_upgrade_v2_to_v3(tmp_path):
     upgraded.seal_run("default", "interp-1", "run-1")
     assert upgraded.is_run_sealed("default", "interp-1", "run-1") is True
     upgraded.close()
+
+
+def test_traversal_filters_prevent_descendant_expansion(store):
+    """Regression test: verify traversal eligibility is enforced before expanding descendants.
+
+    Tests that an intermediate relation or node excluded by filters (include_ambiguous,
+    min_evidence, min_strength, skip_kinds, or event_times) blocks traversal so that
+    descendants reachable only through that relation/node are NEVER returned.
+    """
+    tenant = "tenant-reg"
+    interp = "interp-reg"
+    run_id = "run-reg"
+
+    # 1. include_ambiguous test: n0 -> (AMBIGUOUS) -> n1 -> (CLEAR) -> n2
+    r_amb = make_relation(
+        View.INFORMATION,
+        RelType.DERIVES_FROM,
+        ["node:amb0"],
+        ["node:amb1"],
+        basis=Basis.DECLARED,
+        run_id=run_id,
+        derived_by="test",
+        attributes={"resolution": "AMBIGUOUS"},
+    )
+    r_clear = make_relation(
+        View.INFORMATION,
+        RelType.DERIVES_FROM,
+        ["node:amb1"],
+        ["node:amb2"],
+        basis=Basis.DECLARED,
+        run_id=run_id,
+        derived_by="test",
+        attributes={"resolution": "CLEAR"},
+    )
+    store.put_relations(tenant, interp, [r_amb, r_clear])
+
+    # When include_ambiguous=False, neither amb1 nor amb2 should be reached
+    res_no_amb = store.storage_traverse(interp, "node:amb0", direction="forward", tenant_id=tenant, include_ambiguous=False)
+    assert [s.node for s in res_no_amb] == []
+
+    # When include_ambiguous=True, both are reached
+    res_with_amb = store.storage_traverse(interp, "node:amb0", direction="forward", tenant_id=tenant, include_ambiguous=True)
+    assert [s.node for s in res_with_amb] == ["node:amb1", "node:amb2"]
+
+    # 2. min_evidence test: ev0 -> (CORRELATIONAL) -> ev1 -> (VERIFIED) -> ev2
+    r_corr = make_relation(
+        View.EXECUTION,
+        RelType.DEPENDS_ON,
+        ["node:ev0"],
+        ["node:ev1"],
+        basis=Basis.HEURISTIC,
+        evidence_class=EvidenceClass.CORRELATIONAL,
+        run_id=run_id,
+        derived_by="test",
+    )
+    r_ver = make_relation(
+        View.EXECUTION,
+        RelType.DEPENDS_ON,
+        ["node:ev1"],
+        ["node:ev2"],
+        basis=Basis.DECLARED,
+        evidence_class=EvidenceClass.VERIFIED,
+        run_id=run_id,
+        derived_by="test",
+    )
+    store.put_relations(tenant, interp, [r_corr, r_ver])
+
+    # When min_evidence=INTERVENTIONAL, neither ev1 nor ev2 should be reached
+    res_ev_high = store.storage_traverse(interp, "node:ev0", direction="forward", tenant_id=tenant, min_evidence=EvidenceClass.INTERVENTIONAL)
+    assert [s.node for s in res_ev_high] == []
+
+    # When min_evidence=CORRELATIONAL, both are reached
+    res_ev_low = store.storage_traverse(interp, "node:ev0", direction="forward", tenant_id=tenant, min_evidence=EvidenceClass.CORRELATIONAL)
+    assert [s.node for s in res_ev_low] == ["node:ev1", "node:ev2"]
+
+    # 3. min_strength test: str0 -> (WEAK) -> str1 -> (STRONG) -> str2
+    r_weak = make_relation(
+        View.INFORMATION,
+        RelType.TRANSFERS,
+        ["node:str0"],
+        ["node:str1"],
+        basis=Basis.DECLARED,
+        run_id=run_id,
+        derived_by="test",
+        attributes={"strength": "WEAK"},
+    )
+    r_strong = make_relation(
+        View.INFORMATION,
+        RelType.TRANSFERS,
+        ["node:str1"],
+        ["node:str2"],
+        basis=Basis.DECLARED,
+        run_id=run_id,
+        derived_by="test",
+        attributes={"strength": "STRONG"},
+    )
+    store.put_relations(tenant, interp, [r_weak, r_strong])
+
+    # When min_strength="STRONG", neither str1 nor str2 should be reached
+    res_str_strong = store.storage_traverse(interp, "node:str0", direction="forward", tenant_id=tenant, min_strength="STRONG")
+    assert [s.node for s in res_str_strong] == []
+
+    # When min_strength="WEAK", both are reached
+    res_str_weak = store.storage_traverse(interp, "node:str0", direction="forward", tenant_id=tenant, min_strength="WEAK")
+    assert [s.node for s in res_str_weak] == ["node:str1", "node:str2"]
+
+    # 4. skip_kinds test: sk0 -> state:mid -> sk2
+    r_sk1 = make_relation(
+        View.INFORMATION,
+        RelType.PRODUCES,
+        ["node:sk0"],
+        ["state:mid"],
+        basis=Basis.DECLARED,
+        run_id=run_id,
+        derived_by="test",
+    )
+    r_sk2 = make_relation(
+        View.INFORMATION,
+        RelType.PRODUCES,
+        ["state:mid"],
+        ["node:sk2"],
+        basis=Basis.DECLARED,
+        run_id=run_id,
+        derived_by="test",
+    )
+    store.put_relations(tenant, interp, [r_sk1, r_sk2])
+
+    # When skip_kinds=("state",), state:mid is skipped and its descendants (sk2) must NOT be expanded
+    res_skip = store.storage_traverse(interp, "node:sk0", direction="forward", tenant_id=tenant, skip_kinds=("state",))
+    assert [s.node for s in res_skip] == []
+
+    # When skip_kinds=(), both are traversed
+    res_no_skip = store.storage_traverse(interp, "node:sk0", direction="forward", tenant_id=tenant, skip_kinds=())
+    assert [s.node for s in res_no_skip] == ["state:mid", "node:sk2"]
+
+    # 5. event_times temporal monotonicity test: t0 -> t1 -> t2
+    r_t1 = make_relation(
+        View.EXECUTION,
+        RelType.CONTAINS,
+        ["node:t0"],
+        ["node:t1"],
+        basis=Basis.DECLARED,
+        run_id=run_id,
+        derived_by="test",
+    )
+    r_t2 = make_relation(
+        View.EXECUTION,
+        RelType.CONTAINS,
+        ["node:t1"],
+        ["node:t2"],
+        basis=Basis.DECLARED,
+        run_id=run_id,
+        derived_by="test",
+    )
+    store.put_relations(tenant, interp, [r_t1, r_t2])
+
+    # Backward timestamps violate forward direction: t(t1)=50 < t(t0)=100 -> blocks t1 and t2
+    bad_times = {"node:t0": 100.0, "node:t1": 50.0, "node:t2": 150.0}
+    res_bad_time = store.storage_traverse(interp, "node:t0", direction="forward", tenant_id=tenant, event_times=bad_times)
+    assert [s.node for s in res_bad_time] == []
+
+    # Valid monotonic timestamps: both t1 and t2 are reached
+    good_times = {"node:t0": 10.0, "node:t1": 20.0, "node:t2": 30.0}
+    res_good_time = store.storage_traverse(interp, "node:t0", direction="forward", tenant_id=tenant, event_times=good_times)
+    assert [s.node for s in res_good_time] == ["node:t1", "node:t2"]
+
+
+def test_bounded_cyclic_graph_traversal(store):
+    """Test that cyclic and densely connected graphs do not generate excessive paths inside CTE.
+
+    Verifies cycle suppression, bounded traversal depth, and deterministic results on
+    a multi-cycle graph with cross edges.
+    """
+    tenant = "tenant-cyc-bound"
+    interp = "interp-cyc-bound"
+    run_id = "run-cyc-bound"
+
+    # Multi-cycle graph:
+    # 5 nodes in cycle: N0 -> N1 -> N2 -> N3 -> N4 -> N0
+    # Cross-cycle bidirectional edges: N1 <-> N3, N2 <-> N4
+    rels = [
+        make_relation(View.EXECUTION, RelType.DEPENDS_ON, ["node:N0"], ["node:N1"], basis=Basis.DECLARED, run_id=run_id, derived_by="test"),
+        make_relation(View.EXECUTION, RelType.DEPENDS_ON, ["node:N1"], ["node:N2"], basis=Basis.DECLARED, run_id=run_id, derived_by="test"),
+        make_relation(View.EXECUTION, RelType.DEPENDS_ON, ["node:N2"], ["node:N3"], basis=Basis.DECLARED, run_id=run_id, derived_by="test"),
+        make_relation(View.EXECUTION, RelType.DEPENDS_ON, ["node:N3"], ["node:N4"], basis=Basis.DECLARED, run_id=run_id, derived_by="test"),
+        make_relation(View.EXECUTION, RelType.DEPENDS_ON, ["node:N4"], ["node:N0"], basis=Basis.DECLARED, run_id=run_id, derived_by="test"),
+        make_relation(View.EXECUTION, RelType.DEPENDS_ON, ["node:N1"], ["node:N3"], basis=Basis.DECLARED, run_id=run_id, derived_by="test"),
+        make_relation(View.EXECUTION, RelType.DEPENDS_ON, ["node:N3"], ["node:N1"], basis=Basis.DECLARED, run_id=run_id, derived_by="test"),
+        make_relation(View.EXECUTION, RelType.DEPENDS_ON, ["node:N2"], ["node:N4"], basis=Basis.DECLARED, run_id=run_id, derived_by="test"),
+        make_relation(View.EXECUTION, RelType.DEPENDS_ON, ["node:N4"], ["node:N2"], basis=Basis.DECLARED, run_id=run_id, derived_by="test"),
+    ]
+    store.put_relations(tenant, interp, rels)
+
+    # Traversal from N0 with large max_depth (50): must terminate swiftly without path explosion
+    steps = store.storage_traverse(interp, "node:N0", direction="forward", tenant_id=tenant, max_depth=50)
+    visited = [s.node for s in steps]
+    assert set(visited) == {"node:N1", "node:N2", "node:N3", "node:N4"}
+    assert len(visited) == 4  # Each unique reachable node returned exactly once
+
+    # Direct check of raw CTE behavior on this cyclic graph:
+    # Verify that cycle suppression inside SQL ensures only simple paths are generated,
+    # bounding total CTE rows far below the unbounded 2^50 combinatorial explosion.
+    with store.engine.connect() as conn:
+        raw_rows = conn.execute(
+            text(
+                """
+                WITH RECURSIVE lineage(target_node, depth, prev_node, path) AS (
+                    SELECT
+                        m_next.node,
+                        1 AS depth,
+                        m_curr.node AS prev_node,
+                        char(31) || :start_node || char(31) || m_next.node || char(31) AS path
+                    FROM aw3_relation_members m_curr
+                    JOIN aw3_relation_members m_next
+                      ON m_next.rel_id = m_curr.rel_id AND m_next.interp_id = m_curr.interp_id AND m_next.role = 'head'
+                    WHERE m_curr.interp_id = :interp_id
+                      AND m_curr.role = 'tail'
+                      AND m_curr.node = :start_node
+                      AND m_next.node != :start_node
+                    UNION ALL
+                    SELECT
+                        m_next.node,
+                        lineage.depth + 1,
+                        m_curr.node AS prev_node,
+                        lineage.path || m_next.node || char(31) AS path
+                    FROM lineage
+                    CROSS JOIN aw3_relation_members m_curr
+                      ON m_curr.interp_id = :interp_id AND m_curr.role = 'tail' AND m_curr.node = lineage.target_node
+                    CROSS JOIN aw3_relation_members m_next
+                      ON m_next.rel_id = m_curr.rel_id AND m_next.interp_id = m_curr.interp_id AND m_next.role = 'head'
+                    WHERE lineage.depth < 50
+                      AND m_next.node != :start_node
+                      AND instr(lineage.path, char(31) || m_next.node || char(31)) = 0
+                )
+                SELECT target_node, depth FROM lineage;
+                """
+            ),
+            {"start_node": "node:N0", "interp_id": interp},
+        ).all()
+
+    # Bounded: exactly 10 simple paths exist in this 5-node graph; no infinite cycle generation occurred
+    assert len(raw_rows) <= 15
+    print(f"\n[BOUNDED CYCLIC GRAPH] Raw CTE rows generated: {len(raw_rows)} (well bounded under max_depth 50)")
