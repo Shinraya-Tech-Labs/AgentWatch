@@ -20,7 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-SCHEMA_VERSION = 2  # 2: data keys + erasure log (crypto-shredding)
+SCHEMA_VERSION = 3  # 3: hyperedge relation store + sealed runs
 metadata = MetaData()
 
 # ── Evidence ──────────────────────────────────────────────────────────────
@@ -232,6 +232,8 @@ relations = Table(
     Column("doc", Text, nullable=False),
 )
 Index("ix_aw3_rel_run", relations.c.interp_id, relations.c.run_id, relations.c.view)
+Index("ix_aw3_rel_tenant_run", relations.c.tenant_id, relations.c.run_id, relations.c.view)
+Index("ix_aw3_rel_view_type", relations.c.interp_id, relations.c.view, relations.c.type)
 
 relation_members = Table(
     "aw3_relation_members",
@@ -243,6 +245,30 @@ relation_members = Table(
     Column("node", String(600), nullable=False),
 )
 Index("ix_aw3_relmem_node", relation_members.c.interp_id, relation_members.c.node)
+Index(
+    "ix_aw3_relmem_lookup",
+    relation_members.c.interp_id,
+    relation_members.c.node,
+    relation_members.c.role,
+    relation_members.c.rel_id,
+)
+Index(
+    "ix_aw3_relmem_rel_role",
+    relation_members.c.interp_id,
+    relation_members.c.rel_id,
+    relation_members.c.role,
+    relation_members.c.node,
+)
+
+sealed_runs = Table(
+    "aw3_sealed_runs",
+    metadata,
+    Column("tenant_id", String(64), primary_key=True),
+    Column("interp_id", String(128), primary_key=True),
+    Column("run_id", String(36), primary_key=True),
+    Column("sealed_at", String(40), nullable=False),
+)
+Index("ix_aw3_sealed_runs_tenant", sealed_runs.c.tenant_id, sealed_runs.c.run_id)
 
 # ── Derived analysis (versioned by interp + analyzer) ─────────────────────
 derived = Table(

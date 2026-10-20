@@ -13,13 +13,14 @@ import json
 import logging
 import os
 import secrets
+from collections import deque
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import create_engine, delete, event, func, insert, select, text, update
+from sqlalchemy import bindparam, create_engine, delete, event, func, insert, select, text, update
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
@@ -45,6 +46,14 @@ from agentwatch.evidence.segments import (
     merkle_root,
     segment_hash,
 )
+from agentwatch.graph.model import (
+    EVIDENCE_RANK,
+    STRENGTH_RANK,
+    EvidenceClass,
+    RelType,
+    View,
+)
+from agentwatch.graph.traverse import Step
 from agentwatch.storage import schema as s
 
 INLINE_PAYLOAD_LIMIT = 64 * 1024
@@ -52,6 +61,10 @@ INLINE_PAYLOAD_LIMIT = 64 * 1024
 
 class ImmutableEvidenceError(RuntimeError):
     """Raised when something attempts to modify stored evidence."""
+
+
+class SealedRunError(PermissionError):
+    """Raised when an operation attempts to mutate or delete data for a sealed run."""
 
 
 @dataclass
@@ -1102,38 +1115,7 @@ class Store:
                 ],
             )
         if relations:
-            conn.execute(
-                insert(s.relations),
-                [
-                    {
-                        "rel_id": rel["rel_id"],
-                        "interp_id": interp_id,
-                        "tenant_id": tenant_id,
-                        "run_id": rel.get("run_id"),
-                        "view": rel["view"],
-                        "type": rel["type"],
-                        "basis": rel["basis"],
-                        "evidence_class": rel.get("evidence_class"),
-                        "confidence": rel["confidence"],
-                        "doc": canonical_json(rel),
-                    }
-                    for rel in relations
-                ],
-            )
-            members = []
-            for rel in relations:
-                for role in ("tail", "head"):
-                    for i, node in enumerate(rel[role]):
-                        members.append(
-                            {
-                                "rel_id": rel["rel_id"],
-                                "interp_id": interp_id,
-                                "role": role,
-                                "ordinal": i,
-                                "node": node[:600],
-                            }
-                        )
-            conn.execute(insert(s.relation_members), members)
+            self._put_relations_conn(conn, tenant_id, interp_id, relations)
         if derived:
             conn.execute(
                 insert(s.derived), [self._derived_row(interp_id, tenant_id, r) for r in derived]
@@ -1463,21 +1445,506 @@ class Store:
             ).first()
         return json.loads(r[0]) if r else None
 
+    # ── hyperedge relation store (Issue #736) ──────────────────────────────
+    def is_run_sealed(
+        self, tenant_id: str, interp_id: str, run_id: str, *, conn: Any | None = None
+    ) -> bool:
+        """Check if relations for this run have been sealed."""
+        q = select(s.sealed_runs.c.run_id).where(
+            s.sealed_runs.c.tenant_id == tenant_id,
+            s.sealed_runs.c.interp_id == interp_id,
+            s.sealed_runs.c.run_id == run_id,
+        )
+        if conn is not None:
+            return conn.execute(q).first() is not None
+        with self.engine.connect() as c:
+            return c.execute(q).first() is not None
+
+    def seal_run(self, tenant_id: str, interp_id: str, run_id: str) -> None:
+        """Seal a run and its relations. Sealed relations cannot be modified or deleted."""
+        with self.engine.begin() as conn:
+            existing = conn.execute(
+                select(s.sealed_runs.c.sealed_at).where(
+                    s.sealed_runs.c.tenant_id == tenant_id,
+                    s.sealed_runs.c.interp_id == interp_id,
+                    s.sealed_runs.c.run_id == run_id,
+                )
+            ).scalar()
+            if not existing:
+                conn.execute(
+                    insert(s.sealed_runs).values(
+                        tenant_id=tenant_id,
+                        interp_id=interp_id,
+                        run_id=run_id,
+                        sealed_at=_now(),
+                    )
+                )
+
+    def put_relations(
+        self,
+        tenant_id: str,
+        interp_id: str,
+        relations: Sequence[dict[str, Any]],
+        *,
+        conn: Any | None = None,
+    ) -> int:
+        """Validate, persist, and index typed hyperedge relations idempotently."""
+        if not relations:
+            return 0
+
+        # Validate typed hyperedges and ADR-0005 view constraints
+        for rel in relations:
+            tail = rel.get("tail")
+            head = rel.get("head")
+            if (
+                not tail
+                or not head
+                or not isinstance(tail, (list, tuple))
+                or not isinstance(head, (list, tuple))
+            ):
+                raise ValueError(
+                    f"Relation {rel.get('rel_id')!r} must have non-empty tail and head member lists."
+                )
+            view = rel.get("view")
+            valid_views = {View.EXECUTION.value, View.INFORMATION.value, View.CAUSAL.value}
+            if view not in valid_views:
+                raise ValueError(
+                    f"Invalid relation view {view!r}; expected one of {sorted(valid_views)}"
+                )
+            if view == View.CAUSAL.value and not rel.get("evidence_class"):
+                raise ValueError("CAUSAL relations require an evidence class")
+            causal_types = {
+                RelType.CAUSES.value,
+                RelType.INFLUENCES.value,
+                RelType.ENABLES.value,
+                RelType.PREVENTS.value,
+            }
+            if view != View.CAUSAL.value and rel.get("type") in causal_types:
+                raise ValueError(
+                    f"{rel.get('type')} is a causal relation type and belongs to the CAUSAL view"
+                )
+
+        if conn is not None:
+            return self._put_relations_conn(conn, tenant_id, interp_id, relations)
+        with self.engine.begin() as c:
+            return self._put_relations_conn(c, tenant_id, interp_id, relations)
+
+    def _put_relations_conn(
+        self, conn: Any, tenant_id: str, interp_id: str, relations: Sequence[dict[str, Any]]
+    ) -> int:
+        run_ids = {rel.get("run_id") for rel in relations if rel.get("run_id")}
+        if run_ids:
+            sealed = set(
+                r[0]
+                for r in conn.execute(
+                    select(s.sealed_runs.c.run_id).where(
+                        s.sealed_runs.c.tenant_id == tenant_id,
+                        s.sealed_runs.c.interp_id == interp_id,
+                        s.sealed_runs.c.run_id.in_(list(run_ids)),
+                    )
+                )
+            )
+            if sealed:
+                raise SealedRunError(
+                    f"Run(s) {sorted(sealed)} are sealed; cannot mutate or add relations."
+                )
+
+        rel_ids = [rel["rel_id"] for rel in relations]
+        existing = set()
+        for chunk in _chunks(rel_ids, 500):
+            existing.update(
+                r[0]
+                for r in conn.execute(
+                    select(s.relations.c.rel_id).where(
+                        s.relations.c.interp_id == interp_id,
+                        s.relations.c.rel_id.in_(chunk),
+                    )
+                )
+            )
+
+        to_insert = [r for r in relations if r["rel_id"] not in existing]
+        if not to_insert:
+            return 0
+
+        conn.execute(
+            insert(s.relations),
+            [
+                {
+                    "rel_id": rel["rel_id"],
+                    "interp_id": interp_id,
+                    "tenant_id": tenant_id,
+                    "run_id": rel.get("run_id"),
+                    "view": rel["view"],
+                    "type": rel["type"],
+                    "basis": rel["basis"],
+                    "evidence_class": rel.get("evidence_class"),
+                    "confidence": float(rel.get("confidence", 1.0)),
+                    "doc": canonical_json(rel),
+                }
+                for rel in to_insert
+            ],
+        )
+
+        members = []
+        for rel in to_insert:
+            for role in ("tail", "head"):
+                for i, node in enumerate(rel[role]):
+                    members.append(
+                        {
+                            "rel_id": rel["rel_id"],
+                            "interp_id": interp_id,
+                            "role": role,
+                            "ordinal": i,
+                            "node": str(node)[:600],
+                        }
+                    )
+        if members:
+            for mchunk in _chunks(members, 1000):
+                conn.execute(insert(s.relation_members), mchunk)
+        return len(to_insert)
+
+    def get_relation(
+        self, interp_id: str, rel_id: str, *, tenant_id: str | None = None
+    ) -> dict[str, Any] | None:
+        """Retrieve a stored relation by ID."""
+        q = select(s.relations.c.doc).where(
+            s.relations.c.interp_id == interp_id, s.relations.c.rel_id == rel_id
+        )
+        if tenant_id is not None:
+            q = q.where(s.relations.c.tenant_id == tenant_id)
+        with self.engine.connect() as conn:
+            r = conn.execute(q).first()
+        return json.loads(r[0]) if r else None
+
+    def delete_relations_for_run(self, tenant_id: str, interp_id: str, run_id: str) -> int:
+        """Delete all relations belonging to a run, checking for run sealing."""
+        with self.engine.begin() as conn:
+            if self.is_run_sealed(tenant_id, interp_id, run_id, conn=conn):
+                raise SealedRunError(f"Run {run_id!r} is sealed; cannot delete relations.")
+            rel_ids = [
+                r[0]
+                for r in conn.execute(
+                    select(s.relations.c.rel_id).where(
+                        s.relations.c.tenant_id == tenant_id,
+                        s.relations.c.interp_id == interp_id,
+                        s.relations.c.run_id == run_id,
+                    )
+                )
+            ]
+            if not rel_ids:
+                return 0
+            for rchunk in _chunks(rel_ids, 500):
+                conn.execute(
+                    delete(s.relation_members).where(
+                        s.relation_members.c.interp_id == interp_id,
+                        s.relation_members.c.rel_id.in_(rchunk),
+                    )
+                )
+                conn.execute(
+                    delete(s.relations).where(
+                        s.relations.c.interp_id == interp_id,
+                        s.relations.c.rel_id.in_(rchunk),
+                    )
+                )
+            return len(rel_ids)
+
     def relations(
         self,
         interp_id: str,
         *,
+        tenant_id: str | None = None,
         run_id: str | None = None,
         view: str | None = None,
+        rtype: str | None = None,
         all_runs: bool = False,
+        limit: int | None = None,
     ) -> list[dict[str, Any]]:
         q = select(s.relations.c.doc).where(s.relations.c.interp_id == interp_id)
+        if tenant_id is not None:
+            q = q.where(s.relations.c.tenant_id == tenant_id)
         if not all_runs:
             q = q.where(s.relations.c.run_id == run_id) if run_id is not None else q
         if view:
             q = q.where(s.relations.c.view == view)
+        if rtype:
+            q = q.where(s.relations.c.type == rtype)
+        if limit:
+            q = q.limit(limit)
         with self.engine.connect() as conn:
             return [json.loads(r[0]) for r in conn.execute(q)]
+
+    def _check_relation_filters(
+        self,
+        rel: dict[str, Any],
+        views: set[str] | None,
+        types: set[str] | None,
+        min_confidence: float,
+        min_evidence: EvidenceClass | None,
+        include_ambiguous: bool = False,
+        min_strength: str | None = None,
+    ) -> bool:
+        attrs = rel.get("attributes") or {}
+        if not include_ambiguous and (
+            attrs.get("resolution") == "AMBIGUOUS" or attrs.get("strength") == "NONE"
+        ):
+            return False
+        if min_strength is not None and "strength" in attrs:
+            if STRENGTH_RANK.get(attrs["strength"], 0) < STRENGTH_RANK.get(min_strength, 0):
+                return False
+        if views and rel["view"] not in views:
+            return False
+        if types and rel["type"] not in types:
+            return False
+        if rel.get("confidence", 1.0) < min_confidence:
+            return False
+        if min_evidence is not None:
+            ec = EvidenceClass(rel["evidence_class"]) if rel.get("evidence_class") else None
+            if EVIDENCE_RANK.get(ec, 0) < EVIDENCE_RANK.get(min_evidence, 0):
+                return False
+        return True
+
+    def adjacent_relations(
+        self,
+        interp_id: str,
+        node: str,
+        direction: str = "forward",
+        *,
+        tenant_id: str | None = None,
+        run_id: str | None = None,
+        views: Iterable[str] | None = None,
+        types: Iterable[str] | None = None,
+        min_confidence: float = 0.0,
+        min_evidence: EvidenceClass | None = None,
+        include_ambiguous: bool = False,
+        min_strength: str | None = None,
+        conn: Any | None = None,
+    ) -> list[tuple[dict[str, Any], list[str]]]:
+        """Indexed hyperedge adjacency lookup.
+        forward: node is in tail -> yields head members
+        reverse: node is in head -> yields tail members
+        """
+        if direction not in ("forward", "reverse"):
+            raise ValueError(f"Direction must be 'forward' or 'reverse', got: {direction!r}")
+
+        query_role = "tail" if direction == "forward" else "head"
+        target_role = "head" if direction == "forward" else "tail"
+
+        q = (
+            select(s.relation_members.c.rel_id, s.relations.c.doc)
+            .join(
+                s.relations,
+                (s.relations.c.rel_id == s.relation_members.c.rel_id)
+                & (s.relations.c.interp_id == s.relation_members.c.interp_id),
+            )
+            .where(
+                s.relation_members.c.interp_id == interp_id,
+                s.relation_members.c.node == node,
+                s.relation_members.c.role == query_role,
+            )
+        )
+        if tenant_id is not None:
+            q = q.where(s.relations.c.tenant_id == tenant_id)
+        if run_id is not None:
+            q = q.where(s.relations.c.run_id == run_id)
+        if views:
+            q = q.where(s.relations.c.view.in_(tuple(views)))
+        if types:
+            q = q.where(s.relations.c.type.in_(tuple(types)))
+        if min_confidence > 0.0:
+            q = q.where(s.relations.c.confidence >= min_confidence)
+
+        vset = set(views) if views else None
+        tset = set(types) if types else None
+
+        def do_query(connection):
+            results = []
+            for row in connection.execute(q):
+                rel_doc = json.loads(row[1])
+                if not self._check_relation_filters(
+                    rel_doc,
+                    vset,
+                    tset,
+                    min_confidence,
+                    min_evidence,
+                    include_ambiguous,
+                    min_strength,
+                ):
+                    continue
+                adj_nodes = rel_doc.get(target_role, [])
+                results.append((rel_doc, adj_nodes))
+            return results
+
+        if conn is not None:
+            return do_query(conn)
+        with self.engine.connect() as c:
+            return do_query(c)
+
+    def storage_traverse(
+        self,
+        interp_id: str,
+        start_node: str,
+        direction: str = "reverse",
+        *,
+        tenant_id: str | None = None,
+        run_id: str | None = None,
+        views: Iterable[str] | None = None,
+        types: Iterable[str] | None = None,
+        max_depth: int = 50,
+        min_confidence: float = 0.0,
+        min_evidence: EvidenceClass | None = None,
+        include_ambiguous: bool = False,
+        min_strength: str | None = None,
+        skip_kinds: Iterable[str] = (),
+        event_times: dict[str, float] | None = None,
+    ) -> list[Step]:
+        """Storage-backed bidirectional lineage traversal using indexed adjacency."""
+        if direction not in ("forward", "reverse"):
+            raise ValueError(f"Direction must be 'forward' or 'reverse', got: {direction!r}")
+
+        query_role = "tail" if direction == "forward" else "head"
+        target_role = "head" if direction == "forward" else "tail"
+
+        skip = tuple(f"{k}:" for k in skip_kinds)
+        seen = {start_node}
+        out: list[Step] = []
+        times = event_times or {}
+        dir_factor = 1 if direction == "forward" else -1
+        eps = 1e-6
+
+        q: deque[tuple[str, int, float | None]] = deque([(start_node, 0, times.get(start_node))])
+
+        m_curr = s.relation_members.alias("m_curr")
+        m_next = s.relation_members.alias("m_next")
+        r = s.relations
+
+        needs_doc = (min_strength is not None) or (not include_ambiguous)
+
+        cols = [
+            m_next.c.node.label("target_node"),
+            r.c.rel_id,
+            r.c.type,
+            r.c.evidence_class,
+        ]
+        if needs_doc:
+            cols.append(r.c.doc)
+
+        stmt = (
+            select(*cols)
+            .select_from(
+                m_curr.join(
+                    r,
+                    (r.c.rel_id == m_curr.c.rel_id) & (r.c.interp_id == m_curr.c.interp_id),
+                ).join(
+                    m_next,
+                    (m_next.c.rel_id == r.c.rel_id)
+                    & (m_next.c.interp_id == r.c.interp_id)
+                    & (m_next.c.role == target_role),
+                )
+            )
+            .where(
+                m_curr.c.interp_id == interp_id,
+                m_curr.c.role == query_role,
+                m_curr.c.node == bindparam("curr_node"),
+            )
+        )
+
+        if tenant_id is not None:
+            stmt = stmt.where(r.c.tenant_id == tenant_id)
+        if run_id is not None:
+            stmt = stmt.where(r.c.run_id == run_id)
+        if views:
+            stmt = stmt.where(r.c.view.in_(tuple(views)))
+        if types:
+            stmt = stmt.where(r.c.type.in_(tuple(types)))
+        if min_confidence > 0.0:
+            stmt = stmt.where(r.c.confidence >= min_confidence)
+
+        doc_cache: dict[str, dict[str, Any]] = {}
+
+        with self.engine.connect() as conn:
+            while q:
+                curr, depth, t = q.popleft()
+                if depth >= max_depth:
+                    continue
+
+                rows = conn.execute(stmt, {"curr_node": curr}).all()
+                if not rows:
+                    continue
+
+                valid_rows = []
+                for row in rows:
+                    if min_evidence is not None:
+                        ec = EvidenceClass(row.evidence_class) if row.evidence_class else None
+                        if EVIDENCE_RANK.get(ec, 0) < EVIDENCE_RANK.get(min_evidence, 0):
+                            continue
+                    if needs_doc:
+                        rel_id = row.rel_id
+                        if rel_id not in doc_cache:
+                            doc_cache[rel_id] = json.loads(row.doc)
+                        rel_doc = doc_cache[rel_id]
+                        if not self._check_relation_filters(
+                            rel_doc,
+                            None,
+                            None,
+                            min_confidence,
+                            min_evidence,
+                            include_ambiguous,
+                            min_strength,
+                        ):
+                            continue
+                    valid_rows.append(row)
+
+                valid_rows.sort(key=lambda r: (r.rel_id, r.type, r.target_node))
+
+                for r_row in valid_rows:
+                    nb = r_row.target_node
+                    if nb in seen or (skip and nb.startswith(skip)):
+                        continue
+                    tn = times.get(nb)
+                    if t is not None and tn is not None and (tn - t) * dir_factor < -eps:
+                        continue
+                    seen.add(nb)
+                    step = Step(nb, depth + 1, r_row.rel_id, r_row.type, curr)
+                    out.append(step)
+                    q.append((nb, depth + 1, tn if tn is not None else t))
+
+        return out
+
+    def impact_radius(
+        self,
+        interp_id: str,
+        start_node: str,
+        *,
+        tenant_id: str | None = None,
+        run_id: str | None = None,
+        max_depth: int = 50,
+        views: Iterable[str] | None = None,
+        types: Iterable[str] | None = None,
+    ) -> dict[str, Any]:
+        """Compute the reachable downstream nodes and impact radius from start_node."""
+        steps = self.storage_traverse(
+            interp_id,
+            start_node,
+            direction="forward",
+            tenant_id=tenant_id,
+            run_id=run_id,
+            views=views,
+            types=types,
+            max_depth=max_depth,
+        )
+        max_d = max((s.depth for s in steps), default=0)
+        reachable = [s.node for s in steps]
+        events = [n for n in reachable if n.startswith("event:")]
+        artifacts = [n for n in reachable if n.startswith("artifact:")]
+        return {
+            "root": start_node,
+            "radius": max_d,
+            "reachable_count": len(reachable),
+            "reachable_nodes": reachable,
+            "affected_events": events,
+            "affected_artifacts": artifacts,
+            "steps": [s.to_dict() for s in steps],
+        }
 
     def relations_touching(self, interp_id: str, node: str) -> list[dict[str, Any]]:
         with self.engine.connect() as conn:
