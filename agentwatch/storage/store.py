@@ -23,6 +23,7 @@ from sqlalchemy import create_engine, delete, event, func, insert, select, text,
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
+from agentwatch.contracts.schema import EvidenceContract
 from agentwatch.evidence import crypto
 from agentwatch.evidence.blobs import BlobStore, FsBlobStore, MemoryBlobStore
 from agentwatch.evidence.canonical import canonical_json, sha256_hex
@@ -1554,6 +1555,137 @@ class Store:
             r = conn.execute(
                 select(s.experiments.c.doc).where(s.experiments.c.record_id == record_id)
             ).first()
+        return json.loads(r[0]) if r else None
+
+    # ── contracts & assessments (v3.1) ─────────────────────────────────────
+    def register_contract(self, tenant_id: str, contract: EvidenceContract) -> str:
+        cid = f"ctr-{new_ulid()}"
+        doc = contract.to_dict()
+        doc["contract_id"] = cid
+        doc["tenant_id"] = tenant_id
+        with self.engine.begin() as conn:
+            existing = conn.execute(
+                select(s.contracts.c.contract_id).where(
+                    s.contracts.c.tenant_id == tenant_id,
+                    s.contracts.c.name == contract.name,
+                    s.contracts.c.version == contract.version,
+                )
+            ).scalar()
+            if existing:
+                doc["contract_id"] = existing
+                conn.execute(
+                    update(s.contracts)
+                    .where(s.contracts.c.contract_id == existing)
+                    .values(doc=canonical_json(doc))
+                )
+                return existing
+            conn.execute(
+                insert(s.contracts).values(
+                    contract_id=cid,
+                    tenant_id=tenant_id,
+                    name=contract.name,
+                    version=contract.version,
+                    doc=canonical_json(doc),
+                )
+            )
+        return cid
+
+    def get_contract(
+        self, tenant_id: str, name: str, version: str | None = None
+    ) -> EvidenceContract | None:
+        q = select(s.contracts.c.doc).where(
+            s.contracts.c.tenant_id == tenant_id,
+            s.contracts.c.name == name,
+        )
+        if version:
+            q = q.where(s.contracts.c.version == version)
+        with self.engine.connect() as conn:
+            r = conn.execute(q.order_by(s.contracts.c.version.desc())).first()
+        if not r:
+            return None
+        return EvidenceContract.from_dict(json.loads(r[0]))
+
+    def list_contracts(self, tenant_id: str) -> list[EvidenceContract]:
+        q = select(s.contracts.c.doc).where(s.contracts.c.tenant_id == tenant_id)
+        with self.engine.connect() as conn:
+            rows = conn.execute(q.order_by(s.contracts.c.name, s.contracts.c.version)).fetchall()
+        return [EvidenceContract.from_dict(json.loads(r[0])) for r in rows]
+
+    def create_assessment(
+        self,
+        tenant_id: str,
+        assessment_id: str,
+        run_id: str,
+        contract_name: str,
+        status: str = "pending",
+        doc: dict[str, Any] | None = None,
+    ) -> str:
+        now_str = datetime.now(UTC).isoformat()
+        payload = dict(doc or {})
+        payload.setdefault("assessment_id", assessment_id)
+        payload.setdefault("tenant_id", tenant_id)
+        payload.setdefault("run_id", run_id)
+        payload.setdefault("contract_name", contract_name)
+        payload.setdefault("status", status)
+        payload.setdefault("created_at", now_str)
+        payload.setdefault("updated_at", now_str)
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                insert(s.assessments).values(
+                    assessment_id=assessment_id,
+                    tenant_id=tenant_id,
+                    run_id=run_id,
+                    contract_name=contract_name,
+                    status=status,
+                    verdict=payload.get("verdict"),
+                    created_at=now_str,
+                    updated_at=now_str,
+                    doc=canonical_json(payload),
+                )
+            )
+        return assessment_id
+
+    def update_assessment(
+        self,
+        assessment_id: str,
+        status: str,
+        verdict: str | None = None,
+        doc: dict[str, Any] | None = None,
+    ) -> None:
+        now_str = datetime.now(UTC).isoformat()
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                select(s.assessments.c.doc).where(s.assessments.c.assessment_id == assessment_id)
+            ).scalar()
+            if not row:
+                return
+            current_doc = json.loads(row)
+            if doc:
+                current_doc.update(doc)
+            current_doc["status"] = status
+            current_doc["updated_at"] = now_str
+            if verdict:
+                current_doc["verdict"] = verdict
+
+            conn.execute(
+                update(s.assessments)
+                .where(s.assessments.c.assessment_id == assessment_id)
+                .values(
+                    status=status,
+                    verdict=verdict or current_doc.get("verdict"),
+                    updated_at=now_str,
+                    doc=canonical_json(current_doc),
+                )
+            )
+
+    def get_assessment(self, tenant_id: str, assessment_id: str) -> dict[str, Any] | None:
+        q = select(s.assessments.c.doc).where(
+            s.assessments.c.tenant_id == tenant_id,
+            s.assessments.c.assessment_id == assessment_id,
+        )
+        with self.engine.connect() as conn:
+            r = conn.execute(q).first()
         return json.loads(r[0]) if r else None
 
     # ── guarded mutation entry points (always refuse) ──────────────────────

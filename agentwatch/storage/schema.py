@@ -20,8 +20,9 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-SCHEMA_VERSION = 2  # 2: data keys + erasure log (crypto-shredding)
+SCHEMA_VERSION = 3  # 3: contracts + assessments (v3.1 contract evaluation)
 metadata = MetaData()
+
 
 # ── Evidence ──────────────────────────────────────────────────────────────
 observations = Table(
@@ -275,6 +276,36 @@ experiments = Table(
     Column("doc", Text, nullable=False),
 )
 Index("ix_aw3_exp_type", experiments.c.tenant_id, experiments.c.record_type, experiments.c.subject)
+
+# ── Contracts & Assessments (v3.1) ─────────────────────────────────────────
+contracts = Table(
+    "aw3_contracts",
+    metadata,
+    Column("contract_id", String(64), primary_key=True),
+    Column("tenant_id", String(64), nullable=False),
+    Column("name", String(128), nullable=False),
+    Column("version", String(32), nullable=False),
+    Column("doc", Text, nullable=False),
+    UniqueConstraint("tenant_id", "name", "version", name="uq_aw3_contract_name_ver"),
+)
+Index("ix_aw3_contracts_tenant", contracts.c.tenant_id, contracts.c.name)
+
+assessments = Table(
+    "aw3_assessments",
+    metadata,
+    Column("assessment_id", String(64), primary_key=True),
+    Column("tenant_id", String(64), nullable=False),
+    Column("run_id", String(36), nullable=False),
+    Column("contract_name", String(128), nullable=False),
+    Column(
+        "status", String(16), nullable=False
+    ),  # pending | running | completed | failed | cancelled
+    Column("verdict", String(32)),  # supported | refuted | inconclusive | conflicting_evidence
+    Column("created_at", String(40), nullable=False),
+    Column("updated_at", String(40), nullable=False),
+    Column("doc", Text, nullable=False),
+)
+Index("ix_aw3_assessments_tenant", assessments.c.tenant_id, assessments.c.run_id)
 
 meta_table = Table(
     "aw3_meta",

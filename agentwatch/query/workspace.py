@@ -358,3 +358,14 @@ class Workspace:
 
     def derived(self, record_type: str, scope: str | None = None) -> list[dict[str, Any]]:
         return self.store.derived(self.interp_id, record_type, scope)
+
+    # ── contracts & assessments (v3.1) ─────────────────────────────────────
+    def contracts(self) -> list[dict[str, Any]]:
+        return [c.to_dict() for c in self.store.list_contracts(self.tenant_id)]
+
+    def contract(self, name: str, version: str | None = None) -> dict[str, Any] | None:
+        c = self.store.get_contract(self.tenant_id, name, version)
+        return c.to_dict() if c else None
+
+    def assessment(self, assessment_id: str) -> dict[str, Any] | None:
+        return self.store.get_assessment(self.tenant_id, assessment_id)
