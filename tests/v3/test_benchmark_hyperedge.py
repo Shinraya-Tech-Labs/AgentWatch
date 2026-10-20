@@ -30,19 +30,40 @@ def test_hyperedge_store_100k_events_benchmark(tmp_path):
     interp_id = "bench-interp"
     run_id = "bench-run-100k"
 
-    total_events = 100_000
-    chain_length = 60  # includes at least 50 steps
+    total_events = 100_050
+    chain_length = 60  # includes 50+ step chain
 
-    print(f"\n[BENCHMARK] Generating {total_events:,} events and relations...")
+    print(f"\n[BENCHMARK] Generating {total_events:,} actual events and relations...")
     t0 = time.perf_counter()
 
     # Pre-generate batch data
-    # 1. A 60-step deep linear derivation chain: step_0 -> step_1 -> ... -> step_59
-    # 2. Remaining relations to exceed 100,000 items
+    # 1. 60-step deep linear derivation chain: step_0 -> step_1 -> ... -> step_59
+    event_rows = []
     rel_rows = []
     mem_rows = []
 
-    # Deep chain
+    # Deep chain events
+    for i in range(chain_length):
+        eid = f"step-{i}"
+        event_rows.append(
+            {
+                "event_id": eid,
+                "interp_id": interp_id,
+                "tenant_id": tenant_id,
+                "run_id": run_id,
+                "kind": "step",
+                "operation": f"operation-step-{i}",
+                "actor": "bench-agent",
+                "object": None,
+                "status": "OK",
+                "t_start": f"2026-10-20T10:{i // 60:02d}:{i % 60:02d}.000Z",
+                "t_end": f"2026-10-20T10:{i // 60:02d}:{i % 60:02d}.100Z",
+                "ordering_key": f"{i:08d}",
+                "doc": json.dumps({"step": i}),
+            }
+        )
+
+    # Deep chain relations
     for i in range(chain_length - 1):
         rel_id = f"rel-chain-{i:05d}"
         tail_node = f"event:step-{i}"
@@ -77,24 +98,43 @@ def test_hyperedge_store_100k_events_benchmark(tmp_path):
         mem_rows.append({"rel_id": rel_id, "interp_id": interp_id, "role": "tail", "ordinal": 0, "node": tail_node})
         mem_rows.append({"rel_id": rel_id, "interp_id": interp_id, "role": "head", "ordinal": 0, "node": head_node})
 
-    # Filler relations to reach > 100,000 items
     batch_size = 5000
     with store.engine.begin() as conn:
-        # Insert chain first
+        # Insert initial chain events & relations
+        conn.execute(insert(s.events), event_rows)
         conn.execute(insert(s.relations), rel_rows)
         conn.execute(insert(s.relation_members), mem_rows)
 
-        # Insert remainder in fast bulk chunks
-        remaining = total_events - len(rel_rows)
-        curr_id = len(rel_rows)
+        # Insert remainder in fast bulk chunks to exceed 100,000 actual events
+        remaining = total_events - len(event_rows)
+        curr_id = len(event_rows)
         while remaining > 0:
             chunk_n = min(remaining, batch_size)
+            chunk_events = []
             chunk_rels = []
             chunk_mems = []
             for j in range(chunk_n):
                 idx = curr_id + j
+                eid = f"bulk-evt-{idx:07d}"
+                chunk_events.append(
+                    {
+                        "event_id": eid,
+                        "interp_id": interp_id,
+                        "tenant_id": tenant_id,
+                        "run_id": run_id,
+                        "kind": "call",
+                        "operation": "bulk-op",
+                        "actor": "bench-worker",
+                        "object": None,
+                        "status": "OK",
+                        "t_start": "2026-10-20T11:00:00.000Z",
+                        "t_end": "2026-10-20T11:00:00.050Z",
+                        "ordering_key": f"{idx:08d}",
+                        "doc": "{}",
+                    }
+                )
                 rid = f"rel-bulk-{idx:07d}"
-                t_node = f"event:bulk-src-{idx}"
+                t_node = f"event:{eid}"
                 h_node = f"event:bulk-dst-{idx}"
                 doc = {
                     "rel_id": rid,
@@ -125,21 +165,24 @@ def test_hyperedge_store_100k_events_benchmark(tmp_path):
                 chunk_mems.append({"rel_id": rid, "interp_id": interp_id, "role": "tail", "ordinal": 0, "node": t_node})
                 chunk_mems.append({"rel_id": rid, "interp_id": interp_id, "role": "head", "ordinal": 0, "node": h_node})
 
+            conn.execute(insert(s.events), chunk_events)
             conn.execute(insert(s.relations), chunk_rels)
             conn.execute(insert(s.relation_members), chunk_mems)
             remaining -= chunk_n
             curr_id += chunk_n
 
     pop_time = time.perf_counter() - t0
-    print(f"[BENCHMARK] Populated {total_events:,} relations in {pop_time:.2f}s ({total_events / pop_time:,.0f} rel/s)")
+    print(f"[BENCHMARK] Populated {total_events:,} events and relations in {pop_time:.2f}s ({total_events / pop_time:,.0f} items/s)")
 
     # Verify counts in database
     with store.engine.connect() as conn:
+        event_count = conn.execute(select(func.count()).select_from(s.events)).scalar_one()
         rel_count = conn.execute(select(func.count()).select_from(s.relations)).scalar_one()
         mem_count = conn.execute(select(func.count()).select_from(s.relation_members)).scalar_one()
 
-    assert rel_count >= total_events
-    print(f"[BENCHMARK] Verified store size: {rel_count:,} relations, {mem_count:,} relation members.")
+    assert event_count > 100_000, f"Expected > 100,000 events, got {event_count}"
+    assert rel_count >= 100_000, f"Expected >= 100,000 relations, got {rel_count}"
+    print(f"[BENCHMARK] Verified store size: {event_count:,} actual events, {rel_count:,} relations, {mem_count:,} relation members.")
 
     # Target query: 50-step recursive backward provenance query from step-50 to step-0
     start_target = "event:step-50"
@@ -175,7 +218,7 @@ def test_hyperedge_store_100k_events_benchmark(tmp_path):
     print("=" * 60)
     print(f"Environment: Python {sys.version.split()[0]} on {platform.system()} ({platform.machine()})")
     print(f"Backend: SQLite 3 (WAL mode) via SQLAlchemy Core")
-    print(f"Dataset Size: {rel_count:,} relations ({mem_count:,} members)")
+    print(f"Dataset Size: {event_count:,} actual events, {rel_count:,} relations ({mem_count:,} members)")
     print(f"Query: 50-step recursive backward provenance traversal ({start_target} -> event:step-0)")
     print(f"Sample Count: {num_samples} iterations")
     print(f"Latency (mean):   {mean_lat:.3f} ms")
