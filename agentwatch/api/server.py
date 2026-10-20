@@ -1588,6 +1588,62 @@ async def websocket_events(websocket: WebSocket) -> None:
             _ws_clients.remove(websocket)
 
 
+@app.websocket("/ws/assessments/{assessment_id}")
+async def websocket_assessment_progress(websocket: WebSocket, assessment_id: str) -> None:
+    """Real-time contract assessment progress stream over WebSocket."""
+    supplied_key = websocket.headers.get("x-api-key") or websocket.query_params.get("api_key")
+
+    if _IS_PROD and not _API_KEY:
+        logger.error(
+            "AGENTWATCH_API_KEY is missing in production environment; "
+            "rejecting WebSocket connection"
+        )
+        await websocket.close(code=4500, reason="Server misconfiguration")
+        return
+
+    if _API_KEY and not _key_matches(supplied_key):
+        logger.warning("WebSocket connection rejected: invalid or missing API key")
+        await websocket.close(code=4001, reason="Unauthorized")
+        return
+
+    tenant_id = _v3_tenant(supplied_key)
+
+    from agentwatch.contracts.stream import get_assessment_manager
+
+    manager = get_assessment_manager()
+    job = manager.get_job(tenant_id, assessment_id)
+    eng = get_v3_engine()
+
+    if job is None:
+        stored = eng.store.get_assessment(tenant_id, assessment_id)
+        if stored is None:
+            await websocket.close(code=4004, reason="Assessment not found")
+            return
+
+    await websocket.accept()
+
+    current_status = job.get_status() if job else eng.store.get_assessment(tenant_id, assessment_id)
+    if current_status:
+        await websocket.send_json(current_status)
+
+    if job is None or job.processor.status.value in ("completed", "failed", "cancelled"):
+        await websocket.close(code=1000, reason="Assessment completed")
+        return
+
+    async def forward_progress(progress_doc: dict[str, Any]) -> None:
+        try:
+            await websocket.send_json(progress_doc)
+        except Exception:
+            logger.debug("Assessment WebSocket client send failed", exc_info=True)
+
+    job.processor.subscribe(forward_progress)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+
+
 # ─────────────────────────────────────────────
 # Tenant management endpoints (Cloud mode)
 # ─────────────────────────────────────────────

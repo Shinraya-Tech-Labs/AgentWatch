@@ -10,16 +10,34 @@ commands on the server and is therefore disabled unless ``AGENTWATCH_ALLOW_REEXE
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import threading
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from agentwatch.contracts.schema import (
+    ContractOperator,
+    ContractRule,
+    CoverageSnapshot,
+    EvidenceContract,
+)
+from agentwatch.contracts.stream import get_assessment_manager
+from agentwatch.events.model import (
+    ComputationalEvent,
+    DeclaredLink,
+    EventKind,
+    EventStatus,
+    TemporalInfo,
+)
+from agentwatch.evidence.ids import new_ulid
 from agentwatch.evidence.model import ObservationDraft
 from agentwatch.query.workspace import AmbiguousError, NotFoundError, Workspace
 from agentwatch.runtime.engine import Engine
@@ -102,6 +120,37 @@ class EraseRequest(BaseModel):
 
 class QueryRequest(BaseModel):
     text: str
+
+
+class ContractRuleModel(BaseModel):
+    operator: str
+    target_operation: str
+    required_operation: str
+    max_window_seconds: float = 600.0
+    join_on: list[str] = Field(default_factory=lambda: ["transaction_id"])
+
+
+class ContractRegistrationRequest(BaseModel):
+    name: str = Field(min_length=1)
+    version: str = "1.0"
+    rule: ContractRuleModel
+    description: str = ""
+    require_authoritative_log_for_refutation: bool = True
+
+
+class CoverageModel(BaseModel):
+    sensor_id: str
+    authoritative_for: list[str] = Field(default_factory=list)
+    active: bool = True
+    dropped_count: int = 0
+    clock_uncertainty_ms: float = 0.0
+
+
+class AssessmentRequest(BaseModel):
+    contract_name: str
+    contract_version: str | None = None
+    coverage: list[CoverageModel] = Field(default_factory=list)
+    queue_capacity: int = 1_000
 
 
 def build_router(auth: Callable[..., Any], tenant: Callable[..., str]) -> APIRouter:
@@ -598,5 +647,215 @@ def build_router(auth: Callable[..., Any], tenant: Callable[..., str]) -> APIRou
                 "message": str(exc),
                 "evidence": [],
             }
+
+    # ── contracts & assessments (v3.1) ─────────────────────────────────────
+    @router.post("/api/v3/contracts", status_code=201, tags=["v3 contracts"])
+    def post_contract(
+        req: ContractRegistrationRequest, tenant_id: str = Depends(tenant)
+    ) -> dict[str, Any]:
+        # Validate operator
+        valid_operators = {o.value for o in ContractOperator}
+        if req.rule.operator not in valid_operators:
+            raise HTTPException(
+                400,
+                f"Invalid contract operator '{req.rule.operator}'. Supported: {sorted(valid_operators)}",
+            )
+
+        # Validate operations
+        target_op = req.rule.target_operation.strip()
+        required_op = req.rule.required_operation.strip()
+        if not target_op or not required_op:
+            raise HTTPException(400, "target_operation and required_operation must not be empty.")
+
+        # Validate window
+        if req.rule.max_window_seconds <= 0:
+            raise HTTPException(400, "max_window_seconds must be positive.")
+
+        contract = EvidenceContract(
+            name=req.name.strip(),
+            version=req.version.strip(),
+            rule=ContractRule(
+                operator=ContractOperator(req.rule.operator),
+                target_operation=target_op,
+                required_operation=required_op,
+                max_window_seconds=req.rule.max_window_seconds,
+                join_on=tuple(req.rule.join_on),
+            ),
+            description=req.description,
+            require_authoritative_log_for_refutation=req.require_authoritative_log_for_refutation,
+        )
+
+        eng = get_engine()
+        cid = eng.store.register_contract(tenant_id, contract)
+        res = contract.to_dict()
+        res["contract_id"] = cid
+        return res
+
+    @router.get("/api/v3/contracts", tags=["v3 contracts"])
+    def get_contracts(tenant_id: str = Depends(tenant)) -> dict[str, Any]:
+        contracts_list = get_engine().store.list_contracts(tenant_id)
+        return {"contracts": [c.to_dict() for c in contracts_list]}
+
+    @router.get("/api/v3/contracts/{name}", tags=["v3 contracts"])
+    def get_contract(
+        name: str, version: str | None = None, tenant_id: str = Depends(tenant)
+    ) -> dict[str, Any]:
+        c = get_engine().store.get_contract(tenant_id, name, version)
+        if c is None:
+            raise HTTPException(404, f"Contract '{name}' not found.")
+        return c.to_dict()
+
+    @router.post("/api/v3/runs/{ref}/assess", status_code=202, tags=["v3 contracts"])
+    async def post_assess_run(
+        ref: str,
+        req: AssessmentRequest,
+        tenant_id: str = Depends(tenant),
+        w: Workspace = Depends(ws),
+    ) -> dict[str, Any]:
+        # Validate run exists for caller's tenant
+        try:
+            run_doc = w.resolve_run(ref)
+        except NotFoundError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        run_id = run_doc["run_id"]
+
+        # Validate contract exists for caller's tenant
+        eng = get_engine()
+        contract = eng.store.get_contract(tenant_id, req.contract_name, req.contract_version)
+        if contract is None:
+            raise HTTPException(404, f"Contract '{req.contract_name}' not found for tenant.")
+
+        aid = f"asm-{new_ulid()}"
+        coverage_snapshots = tuple(
+            CoverageSnapshot(
+                sensor_id=cov.sensor_id,
+                authoritative_for=tuple(cov.authoritative_for),
+                active=cov.active,
+                dropped_count=cov.dropped_count,
+                clock_uncertainty_ms=cov.clock_uncertainty_ms,
+            )
+            for cov in req.coverage
+        )
+
+        manager = get_assessment_manager()
+        job = await manager.create_assessment(
+            tenant_id=tenant_id,
+            run_id=run_id,
+            contract=contract,
+            coverage=coverage_snapshots,
+            assessment_id=aid,
+            queue_capacity=req.queue_capacity,
+        )
+
+        eng.store.create_assessment(
+            tenant_id=tenant_id,
+            assessment_id=aid,
+            run_id=run_id,
+            contract_name=contract.name,
+            status="pending",
+            doc={
+                "assessment_id": aid,
+                "tenant_id": tenant_id,
+                "run_id": run_id,
+                "contract_name": contract.name,
+                "status": "pending",
+                "events_evaluated": 0,
+                "created_at": datetime.now(UTC).isoformat(),
+            },
+        )
+
+        async def run_assessment_stream() -> None:
+            try:
+                events = w.events(run_id)
+                for rev in events:
+                    t_dict = rev.get("time", {})
+                    t_start = (
+                        datetime.fromisoformat(t_dict["start"]) if t_dict.get("start") else None
+                    )
+                    t_end = datetime.fromisoformat(t_dict["end"]) if t_dict.get("end") else None
+                    comp_ev = ComputationalEvent(
+                        event_id=rev["event_id"],
+                        tenant_id=tenant_id,
+                        interp_id=w.interp_id,
+                        normalizer=rev.get("normalizer", ""),
+                        derived_from=tuple(rev.get("derived_from", ())),
+                        kind=EventKind(rev.get("kind", "UNKNOWN")),
+                        operation=rev.get("operation", ""),
+                        time=TemporalInfo(
+                            start=t_start,
+                            end=t_end,
+                            uncertainty_ms=t_dict.get("uncertainty_ms"),
+                        ),
+                        status=EventStatus(rev.get("status", "UNKNOWN")),
+                        attributes_json=json.dumps(rev.get("attributes", {})),
+                        source_ids=tuple((s[0], s[1]) for s in rev.get("source_ids", ())),
+                        parents=tuple(
+                            DeclaredLink(p["relation"], p["key_space"], p["value"])
+                            for p in rev.get("parents", ())
+                        ),
+                    )
+                    await job.push_event(comp_ev)
+
+                assessment = await job.finalize()
+                eng.store.update_assessment(
+                    assessment_id=aid,
+                    status="completed",
+                    verdict=assessment.verdict.value,
+                    doc=job.get_status(),
+                )
+            except Exception as exc:
+                logger.error("Async evaluation of assessment %s failed", aid, exc_info=True)
+                eng.store.update_assessment(
+                    assessment_id=aid,
+                    status="failed",
+                    doc={"error": str(exc)},
+                )
+
+        asyncio.create_task(run_assessment_stream())
+
+        return {
+            "assessment_id": aid,
+            "status": "pending",
+            "run_id": run_id,
+            "contract_name": contract.name,
+        }
+
+    @router.get("/api/v3/assessments/{assessment_id}", tags=["v3 contracts"])
+    def get_assessment_status(
+        assessment_id: str, tenant_id: str = Depends(tenant)
+    ) -> dict[str, Any]:
+        # Check active job in memory first
+        job_status = get_assessment_manager().get_assessment(tenant_id, assessment_id)
+        if job_status is not None:
+            return job_status
+
+        # Fallback to store
+        doc = get_engine().store.get_assessment(tenant_id, assessment_id)
+        if doc is None:
+            raise HTTPException(404, f"Assessment '{assessment_id}' not found.")
+        return doc
+
+    @router.get("/api/v3/assessments/{assessment_id}/witness", tags=["v3 contracts"])
+    def get_assessment_witness(
+        assessment_id: str, tenant_id: str = Depends(tenant)
+    ) -> StreamingResponse:
+        # Check assessment exists and belongs to this tenant
+        doc = get_assessment_manager().get_assessment(tenant_id, assessment_id)
+        if doc is None:
+            doc = get_engine().store.get_assessment(tenant_id, assessment_id)
+        if doc is None:
+            raise HTTPException(404, f"Assessment '{assessment_id}' not found.")
+
+        witness_ids = list(doc.get("support_obs_ids", [])) + list(doc.get("refute_obs_ids", []))
+        dedup_witness_ids = list(dict.fromkeys(witness_ids))
+        eng = get_engine()
+
+        async def stream_witness():
+            for oid in dedup_witness_ids:
+                obs = eng.store.get_observation(oid)
+                if obs and obs.tenant_id == tenant_id:
+                    yield json.dumps(obs.to_dict()) + "\n"
+
+        return StreamingResponse(stream_witness(), media_type="application/x-ndjson")
 
     return router
