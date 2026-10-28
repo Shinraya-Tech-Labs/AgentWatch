@@ -285,6 +285,150 @@
     .log-tag-veto { color: var(--danger); font-weight: bold; }
     .log-tag-info { color: var(--accent); }
 
+    /* Filter & Search Bar */
+    .log-controls-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      margin-bottom: 8px;
+    }
+
+    .log-counter {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .log-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .search-box-wrapper {
+      position: relative;
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .search-box-wrapper input {
+      width: 100%;
+      height: 32px;
+      padding: 6px 26px 6px 10px;
+      font-size: 12px;
+      background: #060911;
+      border: 1px solid #1f293d;
+      border-radius: 6px;
+      color: #fff;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-box-wrapper input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 8px var(--accent-dim);
+    }
+
+    .search-box-wrapper input::placeholder {
+      color: #4e678e;
+    }
+
+    .search-clear-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .search-clear-btn:hover {
+      color: #fff;
+    }
+
+    .filter-btn-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .filter-btn {
+      background: #090e18;
+      border: 1px solid #1f293d;
+      color: var(--text-muted);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .filter-btn:hover {
+      border-color: #3b4e72;
+      color: var(--text);
+    }
+
+    .filter-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 8px var(--accent-dim);
+    }
+
+    .filter-btn.filter-btn-veto.active {
+      background: var(--danger-dim);
+      border-color: var(--danger);
+      color: var(--danger);
+      box-shadow: 0 0 8px var(--danger-dim);
+    }
+
+    .filter-btn.filter-btn-allow.active {
+      background: var(--success-dim);
+      border-color: var(--success);
+      color: var(--success);
+      box-shadow: 0 0 8px var(--success-dim);
+    }
+
+    .empty-log-msg {
+      text-align: center;
+      padding: 24px 10px;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-style: italic;
+    }
+
+    @media (max-width: 600px) {
+      .log-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .filter-btn-group {
+        width: 100%;
+        display: flex;
+      }
+      .filter-btn {
+        flex: 1;
+        text-align: center;
+        padding: 7px 4px;
+        font-size: 10px;
+      }
+    }
+
     /* Visual Graph Canvas */
     #graphCanvas {
       width: 100%;
@@ -380,12 +524,42 @@
       <label style="margin-top: 4px;">Dynamic Invariant Flow Graph</label>
       <canvas id="graphCanvas"></canvas>
 
-      <label style="margin-top: 4px;">Cryptographic Court Audit Log</label>
+      <div class="log-controls-header">
+        <label style="margin-bottom: 0;">Cryptographic Court Audit Log</label>
+        <span id="logCounter" class="log-counter">Showing 1 / 1 events</span>
+      </div>
+
+      <div class="log-toolbar">
+        <div class="search-box-wrapper">
+          <input
+            type="text"
+            id="logSearchInput"
+            placeholder="Filter by tool or keyword..."
+            oninput="handleSearchInput(this.value)"
+          />
+          <button
+            id="searchClearBtn"
+            class="search-clear-btn"
+            style="display: none;"
+            onclick="clearSearch()"
+            title="Clear search"
+          >✕</button>
+        </div>
+        <div class="filter-btn-group" role="tablist">
+          <button class="filter-btn active" data-filter="ALL" onclick="setLogFilter('ALL')">All</button>
+          <button class="filter-btn filter-btn-veto" data-filter="VETO" onclick="setLogFilter('VETO')">Vetoes Only</button>
+          <button class="filter-btn filter-btn-allow" data-filter="ALLOW" onclick="setLogFilter('ALLOW')">Approved Only</button>
+        </div>
+      </div>
+
       <div class="console-log" id="consoleLog">
-        <div class="log-line">
+        <div class="log-line" data-tag="INIT" data-veto="false">
           <span class="log-time">[00:00:01]</span>
           <span class="log-tag-info">[INIT]</span>
           <span>Panopti Pre-Execution Sentinel Hypervisor initialized.</span>
+        </div>
+        <div id="emptyLogMsg" class="empty-log-msg" style="display: none;">
+          ⚡ No audit events matching current filter or search criteria.
         </div>
       </div>
     </div>
@@ -420,14 +594,96 @@
       runIntercept();
     }
 
+    let activeFilter = 'ALL';
+    let searchQuery = '';
+
+    function setLogFilter(filter) {
+      activeFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (btn.dataset.filter === filter) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+      applyLogFilters();
+    }
+
+    function handleSearchInput(value) {
+      searchQuery = (value || '').trim().toLowerCase();
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (clearBtn) {
+        clearBtn.style.display = searchQuery.length > 0 ? 'block' : 'none';
+      }
+      applyLogFilters();
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('logSearchInput');
+      if (input) {
+        input.value = '';
+        handleSearchInput('');
+        input.focus();
+      }
+    }
+
+    function applyLogFilters() {
+      const logContainer = document.getElementById('consoleLog');
+      const lines = logContainer.querySelectorAll('.log-line');
+      let visibleCount = 0;
+      const totalCount = lines.length;
+
+      lines.forEach(line => {
+        const isVeto = line.dataset.veto === 'true';
+        const tag = line.dataset.tag || '';
+        const text = line.textContent.toLowerCase();
+
+        let matchesFilter = true;
+        if (activeFilter === 'VETO') {
+          matchesFilter = isVeto || tag === 'VETO';
+        } else if (activeFilter === 'ALLOW') {
+          matchesFilter = tag === 'ALLOW' || (!isVeto && tag !== 'INIT');
+        }
+
+        const matchesSearch = !searchQuery || text.includes(searchQuery);
+
+        if (matchesFilter && matchesSearch) {
+          line.style.display = 'flex';
+          visibleCount++;
+        } else {
+          line.style.display = 'none';
+        }
+      });
+
+      const emptyMsg = document.getElementById('emptyLogMsg');
+      if (emptyMsg) {
+        emptyMsg.style.display = visibleCount === 0 ? 'block' : 'none';
+      }
+
+      const counter = document.getElementById('logCounter');
+      if (counter) {
+        counter.textContent = `Showing ${visibleCount} / ${totalCount} events`;
+      }
+    }
+
     function addLog(tag, msg, isVeto) {
       const log = document.getElementById('consoleLog');
+      const emptyMsg = document.getElementById('emptyLogMsg');
       const now = new Date().toTimeString().split(' ')[0];
       const tagClass = isVeto ? 'log-tag-veto' : (tag === 'ALLOW' ? 'log-tag-allow' : 'log-tag-info');
       const line = document.createElement('div');
       line.className = 'log-line';
+      line.dataset.tag = tag;
+      line.dataset.veto = isVeto ? 'true' : 'false';
       line.innerHTML = `<span class="log-time">[${now}]</span> <span class="${tagClass}">[${tag}]</span> <span>${msg}</span>`;
-      log.appendChild(line);
+
+      if (emptyMsg && emptyMsg.parentNode === log) {
+        log.insertBefore(line, emptyMsg);
+      } else {
+        log.appendChild(line);
+      }
+
+      applyLogFilters();
       log.scrollTop = log.scrollHeight;
     }
 
@@ -527,6 +783,7 @@
 
     window.onload = () => {
       runIntercept();
+      applyLogFilters();
     };
     window.onresize = () => drawGraph(true);
   </script>
