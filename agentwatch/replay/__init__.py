@@ -4,6 +4,7 @@ from agentwatch.replay.divergence import *
 from agentwatch.replay.engine import *
 from agentwatch.replay.interventions import *
 from agentwatch.replay.invariants import *
+from agentwatch.replay.shadow import *
 
 __all__ = [
     # Engine & Session
@@ -50,4 +51,18 @@ __all__ = [
     "CausalScoringResult",
     "compute_empirical_causal_scores",
     "generate_experimental_hypothesis",
+    # Shadow replay (deterministic vs stochastic failure isolation)
+    "ShadowClassification",
+    "ShadowConfig",
+    "ShadowContext",
+    "ShadowModel",
+    "ShadowReplayRunner",
+    "ShadowReplayReport",
+    "ShadowDivergence",
+    "MissingEvidence",
+    "ToolEvidence",
+    "ToolEvidenceStore",
+    "PromptCompletionModel",
+    "run_shadow_replay",
+    "from_step_fn",
 ]
