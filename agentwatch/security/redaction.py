@@ -14,12 +14,64 @@ dependency on the heavyweight Presidio stack.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from agentwatch.governance.gdpr import pii_patterns
 from agentwatch.governance.hipaa import phi_patterns
 
 MASK = "[REDACTED]"
+SECRET_MASK = "[REDACTED_API_KEY]"
+
+# Pre-compiled secret patterns preserving format prefix identifiers (Issue #744)
+SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(r"(?i)\b(Bearer\s+)(?!\[REDACTED_API_KEY\])[A-Za-z0-9\-_=.]+\b"),
+        r"\g<1>[REDACTED_API_KEY]",
+    ),
+    (
+        re.compile(r"\b(sk-ant-)(?!\[REDACTED_API_KEY\])[A-Za-z0-9_\-]{20,}\b"),
+        r"\g<1>[REDACTED_API_KEY]",
+    ),
+    (
+        re.compile(r"\b(sk-proj-)(?!\[REDACTED_API_KEY\])[A-Za-z0-9_\-]{20,}\b"),
+        r"\g<1>[REDACTED_API_KEY]",
+    ),
+    (
+        re.compile(r"\b(sk-)(?!ant-|proj-|\[REDACTED_API_KEY\])[A-Za-z0-9_\-]{20,}\b"),
+        r"\g<1>[REDACTED_API_KEY]",
+    ),
+    (
+        re.compile(r"\b((?:ghp|gho|ghu|ghs|ghr)_)(?!\[REDACTED_API_KEY\])[A-Za-z0-9]{20,}\b"),
+        r"\g<1>[REDACTED_API_KEY]",
+    ),
+    (
+        re.compile(r"\b(AKIA|ASIA)(?!\[REDACTED_API_KEY\])[0-9A-Z]{16}\b"),
+        r"\g<1>[REDACTED_API_KEY]",
+    ),
+)
+
+
+def redact_secrets(payload: Any) -> Any:
+    """Recursively scrub API keys, auth tokens, and environment secrets from payloads.
+
+    Replaces matched credentials with ``[REDACTED_API_KEY]`` while preserving
+    informative format prefix identifiers (e.g. ``sk-proj-[REDACTED_API_KEY]``).
+    """
+    if isinstance(payload, str):
+        out = payload
+        for pattern, replacement in SECRET_PATTERNS:
+            out = pattern.sub(replacement, out)
+        return out
+    if isinstance(payload, dict):
+        return {redact_secrets(k): redact_secrets(v) for k, v in payload.items()}
+    if isinstance(payload, list):
+        return [redact_secrets(item) for item in payload]
+    if isinstance(payload, tuple):
+        return tuple(redact_secrets(item) for item in payload)
+    if isinstance(payload, set):
+        return {redact_secrets(item) for item in payload}
+    return payload
 
 # Regex fallback: PII (email/SSN/credit-card/phone/IP/keys) + PHI (MRN, ICD,
 # diagnosis, conditions), reusing the governance engines' public pattern
@@ -129,9 +181,12 @@ def redact_tool_call(tool_call: Any) -> Any:
 
 __all__ = [
     "MASK",
+    "SECRET_MASK",
+    "SECRET_PATTERNS",
     "Redactor",
     "default_redactor",
     "redact",
     "redact_payload",
+    "redact_secrets",
     "redact_tool_call",
 ]
