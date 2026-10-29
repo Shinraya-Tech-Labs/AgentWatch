@@ -21,7 +21,7 @@ from agentwatch.governance.gdpr import pii_patterns
 from agentwatch.governance.hipaa import phi_patterns
 
 MASK = "[REDACTED]"
-SECRET_MASK = "[REDACTED_API_KEY]"
+SECRET_MASK = "[REDACTED_API_KEY]"  # nosec B105  # noqa: S105
 
 # Pre-compiled secret patterns preserving format prefix identifiers (Issue #744)
 SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (

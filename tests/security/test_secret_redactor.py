@@ -7,7 +7,6 @@ import uuid
 
 from agentwatch.security.redaction import (
     SECRET_MASK,
-    SECRET_PATTERNS,
     redact_secrets,
 )
 
