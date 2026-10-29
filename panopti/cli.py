@@ -91,7 +91,7 @@ def main(args: list[str] | None = None) -> Any:
             print(PANOPTI_ASCII_BANNER)
             print("Usage: panopti [COMMAND] [ARGS]...\n")
             print("Panopti Commands:")
-            print("  demo            Run interactive terminal hypervisor simulation (DROP TABLE intercept)")
+            print("  demo            Run interactive terminal hypervisor simulation [--theme <name>]")
             print("  playground      Launch zero-dependency local web interactive playground")
             print("  doctor          Run system, interceptor, and circuit breaker health checks")
             print(
@@ -111,7 +111,12 @@ def main(args: list[str] | None = None) -> Any:
         from panopti.demo import run_interactive_demo
         fast = "--fast" in argv
         no_color = "--no-color" in argv
-        return run_interactive_demo(fast=fast, no_color=no_color)
+        theme: str | None = None
+        if "--theme" in argv:
+            t_idx = argv.index("--theme")
+            if t_idx + 1 < len(argv):
+                theme = argv[t_idx + 1]
+        return run_interactive_demo(fast=fast, no_color=no_color, theme=theme)
 
     if argv and argv[0] == "playground":
         from panopti.playground import launch_local_playground
