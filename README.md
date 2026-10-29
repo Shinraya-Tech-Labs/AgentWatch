@@ -23,6 +23,7 @@
 [![Stars](https://img.shields.io/github/stars/Shinraya-Tech-Labs/AgentWatch?style=flat-square&color=gold)](https://github.com/Shinraya-Tech-Labs/AgentWatch/stargazers)
 [![Forks](https://img.shields.io/github/forks/Shinraya-Tech-Labs/AgentWatch?style=flat-square&color=orange)](https://github.com/Shinraya-Tech-Labs/AgentWatch/network)
 [![NSoC](https://img.shields.io/badge/NSoC_26'-participating-purple?style=flat-square)](https://github.com/Shinraya-Tech-Labs/AgentWatch/issues)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Shinraya-Tech-Labs/AgentWatch/blob/main/examples/quickstart_panopti_guardrails.ipynb)
 
 <br/>
 
@@ -42,7 +43,7 @@ panopti playground
 
 <br/>
 
-[**Interactive Demo**](#-instant-interactive-demo) · [**Quick Start**](#-quick-start) · [**How It Works**](#-how-it-works) · [**Architecture**](#-architecture) · [**Discord**](https://discord.gg/UT9uaeY46e) · [**Contribute**](#-contributing)
+[**Open in Colab**](https://colab.research.google.com/github/Shinraya-Tech-Labs/AgentWatch/blob/main/examples/quickstart_panopti_guardrails.ipynb) · [**Interactive Demo**](#-instant-interactive-demo) · [**Quick Start**](#-quick-start) · [**How It Works**](#-how-it-works) · [**Architecture**](#-architecture) · [**Discord**](https://discord.gg/UT9uaeY46e) · [**Contribute**](#-contributing)
 
 </div>
 
@@ -257,6 +258,10 @@ sequenceDiagram
 ---
 
 ## 🚀 Quick Start
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Shinraya-Tech-Labs/AgentWatch/blob/main/examples/quickstart_panopti_guardrails.ipynb)
+
+*Run the interactive [Panopti Pre-Execution Guardrails Tutorial](examples/quickstart_panopti_guardrails.ipynb) directly in Google Colab with zero local installation, or follow the local setup below:*
 
 ```bash
 # Install
