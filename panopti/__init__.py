@@ -28,6 +28,10 @@ from panopti.court import (
     WitnessChain,
     WitnessEntry,
 )
+from panopti.egress import (
+    EgressGuard,
+    SSRFBlockedError,
+)
 from panopti.killswitch import (
     EmergencyKillSwitch,
     EmergencyStopTriggered,
@@ -44,6 +48,10 @@ from panopti.replay import (
     ReplayReport,
     ReplayTape,
     ShadowReplayer,
+)
+from panopti.shield import (
+    AntiTamperShield,
+    TamperAttemptBlocked,
 )
 from panopti.synth import (
     PolicySynthesizer,
@@ -147,4 +155,8 @@ __all__ = [
     "SynthesizedInvariant",
     "EmergencyKillSwitch",
     "EmergencyStopTriggered",
+    "AntiTamperShield",
+    "TamperAttemptBlocked",
+    "EgressGuard",
+    "SSRFBlockedError",
 ]
