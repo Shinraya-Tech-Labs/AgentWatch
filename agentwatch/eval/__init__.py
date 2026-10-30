@@ -1,5 +1,10 @@
 """Batch evaluation and benchmarking for AgentWatch (issue #342)."""
 
+from agentwatch.eval.retrieval_drift import (
+    ALERT_RETRIEVAL_PRECISION_DRIFT,
+    DriftReport,
+    RetrievalDriftDetector,
+)
 from agentwatch.eval.runner import (
     DEFAULT_PASS_THRESHOLD,
     AgentRunner,
@@ -24,4 +29,7 @@ __all__ = [
     "load_agent",
     "load_dataset",
     "run_eval",
+    "RetrievalDriftDetector",
+    "DriftReport",
+    "ALERT_RETRIEVAL_PRECISION_DRIFT",
 ]
