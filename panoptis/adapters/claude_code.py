@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -358,8 +359,15 @@ class ClaudeCodeAdapter:
             agent_id=self.agent_id,
         )
 
+        # Windows npm installs a .cmd shim, which CreateProcess cannot find by
+        # bare name; resolve through PATHEXT before spawning.
+        resolved = shutil.which(cmd[0])
+        if resolved is None:
+            raise RuntimeError(f"'{cmd[0]}' CLI not found on PATH — install it or add it to PATH.")
+
         process = await asyncio.create_subprocess_exec(
-            *cmd,
+            resolved,
+            *cmd[1:],
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=self._working_dir,
