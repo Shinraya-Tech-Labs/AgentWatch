@@ -16,16 +16,16 @@ from datetime import UTC, datetime
 import pytest
 from cryptography.exceptions import InvalidTag
 
-from agentwatch.evidence import crypto
-from agentwatch.evidence.attestation import (
+from panoptis.evidence import crypto
+from panoptis.evidence.attestation import (
     AuditToken,
     HmacSha256Signer,
     issue_token,
     verify_token,
 )
-from agentwatch.evidence.crypto import CryptoImportError
-from agentwatch.evidence.merkle import MerkleTree, verify_inclusion
-from agentwatch.evidence.shredding import (
+from panoptis.evidence.crypto import CryptoImportError
+from panoptis.evidence.merkle import MerkleTree, verify_inclusion
+from panoptis.evidence.shredding import (
     InMemoryKeyStore,
     ShreddingVault,
     SubjectErasedError,
@@ -240,4 +240,4 @@ def test_missing_cryptography_gives_an_actionable_import_error(
         ShreddingVault()
     assert isinstance(info.value, CryptoImportError)
     message = str(info.value)
-    assert "AES-256-GCM" in message and "pip install 'agentwatch-ai[crypto]'" in message
+    assert "AES-256-GCM" in message and "pip install 'panoptis[crypto]'" in message

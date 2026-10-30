@@ -1,6 +1,6 @@
 """Pre-packaged destructive command presets for Panopti.
 
-Each category is a list of :class:`~agentwatch.core.safety.RiskPattern` objects, so
+Each category is a list of :class:`~panoptis.core.safety.RiskPattern` objects, so
 they can be passed straight to ``RiskScorer(extra_patterns=...)``,
 ``SafetyPolicy(custom_patterns=...)`` or ``PanoptiGuard(extra_patterns=...)``.
 
@@ -14,8 +14,8 @@ command text. Patterns that have a safe "dry run" form skip it with a lookahead.
 
 from __future__ import annotations
 
-from agentwatch.core.safety import RiskPattern
-from agentwatch.core.schema import RiskLevel
+from panoptis.core.safety import RiskPattern
+from panoptis.core.schema import RiskLevel
 
 SQL_DESTRUCTIVE = "sql_destructive"
 SHELL_DESTRUCTIVE = "shell_destructive"

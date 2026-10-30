@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from agentwatch.core.schema import (
+from panoptis.core.schema import (
     AgentEvent,
     AgentFramework,
     EventType,
@@ -14,17 +14,17 @@ from agentwatch.core.schema import (
     ToolCallData,
     ToolResultData,
 )
-from agentwatch.reasoning.adversarial import run_adversarial_probes
-from agentwatch.reasoning.benchmark import run_benchmark
-from agentwatch.reasoning.calibration import CalibrationTracker
-from agentwatch.reasoning.dual_eval import dual_evaluate
-from agentwatch.reasoning.explainer import explain
-from agentwatch.reasoning.fingerprint import detect_mid_session_change
-from agentwatch.reasoning.goal_drift import GoalDriftDetector
-from agentwatch.reasoning.hallucination import HallucinationClassifier, HallucinationRisk
-from agentwatch.reasoning.quality import compute_quality
-from agentwatch.reasoning.semantic_drift import CrossSessionDrift
-from agentwatch.reasoning.trust_score import compute_trust
+from panoptis.reasoning.adversarial import run_adversarial_probes
+from panoptis.reasoning.benchmark import run_benchmark
+from panoptis.reasoning.calibration import CalibrationTracker
+from panoptis.reasoning.dual_eval import dual_evaluate
+from panoptis.reasoning.explainer import explain
+from panoptis.reasoning.fingerprint import detect_mid_session_change
+from panoptis.reasoning.goal_drift import GoalDriftDetector
+from panoptis.reasoning.hallucination import HallucinationClassifier, HallucinationRisk
+from panoptis.reasoning.quality import compute_quality
+from panoptis.reasoning.semantic_drift import CrossSessionDrift
+from panoptis.reasoning.trust_score import compute_trust
 
 
 def _tool_call(tool: str, args: dict, raw: str | None = None) -> AgentEvent:

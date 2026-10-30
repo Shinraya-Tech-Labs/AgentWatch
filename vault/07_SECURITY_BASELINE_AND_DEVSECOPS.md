@@ -35,9 +35,9 @@ Three mandatory components:
 | **B311** | `orchestration/shapley.py:58` | Monte Carlo sampling for Shapley value attribution. Seeded with `random.Random(0)` intentionally so attribution results are deterministic and reproducible. |
 | **B311** | `platform/prompts.py:90` | A/B routing between prompt variants. No cryptographic or security impact. |
 | **B311** | `tracing/sampling.py:34, 58, 86` | Trace reservoir sampling. Performance mechanism, not an access control. |
-| **B311** | `agentwatch/state/latent.py:72` | Seeded statistical permutation tests and K-means centroid initialization. |
-| **B101** | `agentwatch/events/normalizer.py:45` | Internal invariant check ensuring caller passed either `start` or `end` timestamp. |
-| **B101** | `agentwatch/storage/keys.py:88` | Internal invariant check verifying tenant partition keys are formatted properly. |
+| **B311** | `panoptis/state/latent.py:72` | Seeded statistical permutation tests and K-means centroid initialization. |
+| **B101** | `panoptis/events/normalizer.py:45` | Internal invariant check ensuring caller passed either `start` or `end` timestamp. |
+| **B101** | `panoptis/storage/keys.py:88` | Internal invariant check verifying tenant partition keys are formatted properly. |
 
 ---
 
@@ -53,7 +53,7 @@ All pushes to `main` and active PRs are gated by GitHub Actions:
 │                  │       CI        │                  │     Build      │
 ├──────────────────┼─────────────────┼──────────────────┼────────────────┤
 │ bandit -r        │ ruff check      │ pytest tests/    │ mkdocs build   │
-│ agentwatch       │ ruff format     │ coverage gate    │ links verify   │
+│ panoptis       │ ruff format     │ coverage gate    │ links verify   │
 │ (Zero baseline)  │ type check      │ (> 70%)          │                │
 └──────────────────┴─────────────────┴──────────────────┴────────────────┘
 ```

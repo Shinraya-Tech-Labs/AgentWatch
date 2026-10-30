@@ -127,11 +127,11 @@ python -m pytest tests/ --tb=short -q
 
 ## Caveats (rough-edges acceptance)
 
-- **API surface not modified.** `agentwatch/api/main.py` is owned by issue #22. New backend modules ship as importable Python; route mounting is left to whoever owns that file.
-- **pyproject.toml version still `0.1.0`.** Owned by issue #21. The in-package `agentwatch.__version__` is `0.2.0`. Final version bump deferred until issue #21 lands.
+- **API surface not modified.** `panoptis/api/main.py` is owned by issue #22. New backend modules ship as importable Python; route mounting is left to whoever owns that file.
+- **pyproject.toml version still `0.1.0`.** Owned by issue #21. The in-package `panoptis.__version__` is `0.2.0`. Final version bump deferred until issue #21 lands.
 - **Some new modules don't have wired-up API routes yet.** Frontend pages render empty states cleanly when their endpoint is missing — they don't crash.
-- **`agentwatch/telemetry/publisher.py`** still untouched (issue #23). Only new files `agentwatch/telemetry/otel.py` and `__init__.py` were added.
-- **`agentwatch/core/config.py`** untouched (issue #24).
+- **`panoptis/telemetry/publisher.py`** still untouched (issue #23). Only new files `panoptis/telemetry/otel.py` and `__init__.py` were added.
+- **`panoptis/core/config.py`** untouched (issue #24).
 - **Python 3.14 environment.** `asyncio.iscoroutinefunction` deprecation warnings are harmless.
 
 ## Tag

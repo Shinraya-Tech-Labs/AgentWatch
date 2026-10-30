@@ -12,8 +12,8 @@ import sys
 
 import pytest
 
-from agentwatch.core.schema import PluginManifest, PluginPermissions
-from agentwatch.plugins.sandbox import (
+from panoptis.core.schema import PluginManifest, PluginPermissions
+from panoptis.plugins.sandbox import (
     PermissionEnforcer,
     SandboxViolationError,
     _build_allowed_modules,

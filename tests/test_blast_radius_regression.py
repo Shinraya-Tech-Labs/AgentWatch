@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.core.blast_radius import BlastRadiusEstimator
-from agentwatch.core.safety import SafetyEngine
-from agentwatch.core.schema import (
+from panoptis.core.blast_radius import BlastRadiusEstimator
+from panoptis.core.safety import SafetyEngine
+from panoptis.core.schema import (
     AgentEvent,
     AgentFramework,
     EventType,

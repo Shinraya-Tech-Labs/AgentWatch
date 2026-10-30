@@ -6,16 +6,16 @@ import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from agentwatch import instrument as aw
-from agentwatch.core.schema import AgentEvent, EventType, ToolCallData, ToolResultData
-from agentwatch.evidence.model import ObservationDraft, SensorRef
-from agentwatch.sensors.base import ListSink
-from agentwatch.sensors.claude_code import drafts_from_lines
-from agentwatch.sensors.langchain import AgentWatchLangChainSensor
-from agentwatch.sensors.legacy.translator import LegacyTranslator, TranslationStatus
-from agentwatch.sensors.llm_clients import instrument_anthropic, instrument_openai
-from agentwatch.sensors.mcp import MCPTap
-from agentwatch.sensors.otel import drafts_from_spans, spans_from_otlp_json
+from panoptis import instrument as aw
+from panoptis.core.schema import AgentEvent, EventType, ToolCallData, ToolResultData
+from panoptis.evidence.model import ObservationDraft, SensorRef
+from panoptis.sensors.base import ListSink
+from panoptis.sensors.claude_code import drafts_from_lines
+from panoptis.sensors.langchain import AgentWatchLangChainSensor
+from panoptis.sensors.legacy.translator import LegacyTranslator, TranslationStatus
+from panoptis.sensors.llm_clients import instrument_anthropic, instrument_openai
+from panoptis.sensors.mcp import MCPTap
+from panoptis.sensors.otel import drafts_from_spans, spans_from_otlp_json
 
 
 def events_of(engine, drafts):
@@ -374,8 +374,8 @@ def _otlp_span(span_id: str, name: str, attrs: dict, parent: str | None = None, 
     }
 
 
-def test_otel_agentwatch_extension_declares_artifacts_and_lineage(engine):
-    """ADR-0018: the agentwatch.* attributes (AgentWatch's own convention, not an OTel standard)
+def test_otel_panoptis_extension_declares_artifacts_and_lineage(engine):
+    """ADR-0018: the panoptis.* attributes (AgentWatch's own convention, not an OTel standard)
     turn an otherwise opaque span into an artifact write whose input is a declared instance."""
     spans = [
         _otlp_span("1", "agent", {"gen_ai.operation.name": "invoke_agent"}),
@@ -386,7 +386,7 @@ def test_otel_agentwatch_extension_declares_artifacts_and_lineage(engine):
                 "gen_ai.operation.name": "chat",
                 "gen_ai.request.model": "m",
                 "gen_ai.completion": "the summary text produced by the model for the report",
-                "agentwatch.information.instance_id": "summary-1",
+                "panoptis.information.instance_id": "summary-1",
             },
             parent="1",
             t=1,
@@ -396,10 +396,10 @@ def test_otel_agentwatch_extension_declares_artifacts_and_lineage(engine):
             "4",
             "write report",
             {
-                "agentwatch.artifact.operation": "create",
-                "agentwatch.artifact.id": "report.md",
-                "agentwatch.artifact.content": "# Report\nthe summary text produced by the model",
-                "agentwatch.information.source": "summary-1",
+                "panoptis.artifact.operation": "create",
+                "panoptis.artifact.id": "report.md",
+                "panoptis.artifact.content": "# Report\nthe summary text produced by the model",
+                "panoptis.information.source": "summary-1",
             },
             parent="1",
             t=3,

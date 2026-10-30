@@ -1,7 +1,7 @@
 # Feature 02: Computational Event Algebra & Canonical Hashing
 
-> **Submodule:** [`agentwatch/events/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/), [`agentwatch/evidence/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/)  
-> **Source Files:** [`model.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/model.py), [`canonical.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/canonical.py), [`codec.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/codec.py), [`blobs.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/blobs.py)  
+> **Submodule:** [`panoptis/events/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/), [`panoptis/evidence/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/)  
+> **Source Files:** [`model.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/model.py), [`canonical.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/canonical.py), [`codec.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/codec.py), [`blobs.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/blobs.py)  
 > **ADR Anchor:** [ADR-0004: Computational Event Model](file:///data/data/com.termux/files/home/AgentWatch/docs/v3/adr/0004-computational-event-model.md)  
 > **Obsidian Backlinks:** [[README]], [[01_ARCHITECTURE_AND_PLANES]], [[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB]], [[03_INGEST_SENSORS_AND_ADAPTERS]], [[04_HYPEREDGE_GRAPH_AND_PROVENANCE]]  
 
@@ -65,7 +65,7 @@ Where:
 
 ## 3. The `ComputationalEvent` Data Model (`model.py`)
 
-In [`agentwatch/events/model.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/model.py#L32-L46), the algebraic model is implemented as a frozen, immutable Python dataclass:
+In [`panoptis/events/model.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/model.py#L32-L46), the algebraic model is implemented as a frozen, immutable Python dataclass:
 
 ```python
 @dataclass(frozen=True)
@@ -103,7 +103,7 @@ class ComputationalEvent:
 
 ## 4. The Event Taxonomy (`EventKind`)
 
-Defined in [`agentwatch/events/model.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/model.py#L27-L35):
+Defined in [`panoptis/events/model.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/model.py#L27-L35):
 
 ```python
 class EventKind(StrEnum):
@@ -151,7 +151,7 @@ class EventKind(StrEnum):
 
 In distributed multi-agent systems, relying on unannotated wall-clock timestamps causes race conditions under clock drift, network jitter, or asynchronous event delivery.
 
-Defined in [`agentwatch/events/model.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/model.py#L18-L23):
+Defined in [`panoptis/events/model.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/model.py#L18-L23):
 
 ```python
 @dataclass(frozen=True)
@@ -219,7 +219,7 @@ AgentWatch guarantees:
 
 Standard JSON serialization in Python (`json.dumps()`) is non-deterministic: dictionary key ordering depends on insertion history, float formatting varies across platforms, and whitespace formatting differs.
 
-In [`agentwatch/evidence/canonical.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/canonical.py), AgentWatch implements **IETF RFC 8785 (JSON Canonicalization Scheme - JCS)**:
+In [`panoptis/evidence/canonical.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/canonical.py), AgentWatch implements **IETF RFC 8785 (JSON Canonicalization Scheme - JCS)**:
 
 ```python
 def canonical_json(obj: Any) -> str:
@@ -264,7 +264,7 @@ Under RFC 8785, floating point numbers follow rigorous formatting rules:
 
 ## 9. Serialization Codec & Validation Pipeline (`codec.py`)
 
-In [`agentwatch/events/codec.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/codec.py), AgentWatch implements high-performance binary and JSON codecs:
+In [`panoptis/events/codec.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/codec.py), AgentWatch implements high-performance binary and JSON codecs:
 
 ```python
 def encode_event(event: ComputationalEvent) -> bytes:
@@ -315,7 +315,7 @@ def decode_event(raw_bytes: bytes) -> ComputationalEvent:
 
 ## 10. The Normalizer Registry Architecture (`registry.py`)
 
-In [`agentwatch/events/registry.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/registry.py), the engine maintains a dynamic, version-aware registry:
+In [`panoptis/events/registry.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/registry.py), the engine maintains a dynamic, version-aware registry:
 
 ```python
 class NormalizerRegistry:
@@ -348,7 +348,7 @@ class NormalizerRegistry:
 
 Large payloads (full LLM prompt templates, raw document embeddings, multi-megabyte tool outputs) are not stored directly inside relational database rows.
 
-In [`agentwatch/evidence/blobs.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/blobs.py):
+In [`panoptis/evidence/blobs.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/blobs.py):
 - Large attributes are offloaded to an append-only, content-addressed `BlobStore`.
 - The `attributes_json` of the `ComputationalEvent` retains a lightweight pointer:
   ```json
@@ -389,7 +389,7 @@ The computational event algebra is verified under automated test suites in `test
 
 1. **Rundgren, A., Jordan, M., & Erdtman, S. (2020)**: *"JSON Canonicalization Scheme (JCS)"*. IETF RFC 8785.
    - *URL*: [https://datatracker.ietf.org/doc/html/rfc8785](https://datatracker.ietf.org/doc/html/rfc8785)
-   - *Influence*: Canonical JSON serialization standard implemented in `agentwatch/evidence/canonical.py`.
+   - *Influence*: Canonical JSON serialization standard implemented in `panoptis/evidence/canonical.py`.
 2. **Lehman, A. (2023)**: *"An Event Algebra for Observable Distributed Multi-Agent Architectures"*. ACM Transactions on Autonomous and Adaptive Systems.
    - *Influence*: Algebraic formulation of computational events and state projections.
 3. **OpenTelemetry Project (2024)**: *"OpenTelemetry Semantic Conventions for AI and LLM Telemetry"*.

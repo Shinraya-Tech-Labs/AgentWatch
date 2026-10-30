@@ -12,7 +12,7 @@ Three independent applications share the repository root. They are deliberately 
 root `package.json`, no workspaces, and no shared build — and the differences between them are larger
 than they look.
 
-| | `agentwatch/` | `frontend/` | `agentwatch-landing/` |
+| | `panoptis/` | `frontend/` | `agentwatch-landing/` |
 |---|---|---|---|
 | what it is | the Python package | the dashboard | the marketing landing page |
 | stack | Python 3.12 | Next **14.2.30** | Next **16.2.6** |

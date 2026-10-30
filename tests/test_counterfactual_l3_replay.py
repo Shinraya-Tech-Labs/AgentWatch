@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from agentwatch.core.schema import (
+from panoptis.core.schema import (
     AgentEvent,
     EventType,
     ExecutionStatus,
@@ -27,29 +27,29 @@ from agentwatch.core.schema import (
     ToolCallData,
     ToolResultData,
 )
-from agentwatch.evidence.blobs import MemoryBlobStore
-from agentwatch.replay.causal_scoring import (
+from panoptis.evidence.blobs import MemoryBlobStore
+from panoptis.replay.causal_scoring import (
     compute_empirical_causal_scores,
     generate_experimental_hypothesis,
 )
-from agentwatch.replay.counterfactual import (
+from panoptis.replay.counterfactual import (
     CounterfactualEngine,
     CounterfactualScenario,
     L3CounterfactualResult,
     L3PerturbationEngine,
 )
-from agentwatch.replay.divergence import (
+from panoptis.replay.divergence import (
     compare_structured_outputs,
     compute_trajectory_divergence,
     levenshtein_distance,
     normalized_tool_sequence_edit_distance,
 )
-from agentwatch.replay.interventions import (
+from panoptis.replay.interventions import (
     PromptContextChange,
     SimulatedAPIError,
     ToolResultMutation,
 )
-from agentwatch.replay.invariants import (
+from panoptis.replay.invariants import (
     custom_invariant,
     evaluate_invariants,
     forbidden_tools_invariant,
@@ -529,10 +529,10 @@ def test_counterfactual_engine_backward_compat() -> None:
 
 
 def test_workspace_hypothesis_consumption_compatibility() -> None:
-    """Verify that generated hypotheses match repository schema and are consumed by agentwatch.causality."""
-    from agentwatch.causality import hypotheses
-    from agentwatch.query.workspace import Workspace
-    from agentwatch.storage.store import Store
+    """Verify that generated hypotheses match repository schema and are consumed by panoptis.causality."""
+    from panoptis.causality import hypotheses
+    from panoptis.query.workspace import Workspace
+    from panoptis.storage.store import Store
 
     ws = Workspace(Store("sqlite:///:memory:"))
     trials = [(True, False)]
@@ -561,7 +561,7 @@ def test_workspace_hypothesis_consumption_compatibility() -> None:
 
 def test_invariant_evaluator_exception_gracefully_handled() -> None:
     """Verify that an evaluator raising an unexpected exception does not crash replay."""
-    from agentwatch.replay.invariants import Invariant
+    from panoptis.replay.invariants import Invariant
 
     def crashing_evaluator(events: list[AgentEvent]) -> tuple[bool, str | None, int | None]:
         raise ZeroDivisionError("artificial division by zero in custom evaluator")
@@ -618,7 +618,7 @@ def test_l3_engine_run_suite_multi_trial() -> None:
 
 def test_tool_sequence_extraction_with_paired_events() -> None:
     """Verify that traces with paired TOOL_CALL and TOOL_RESULT events do not duplicate tool names."""
-    from agentwatch.replay.divergence import _extract_tool_sequence
+    from panoptis.replay.divergence import _extract_tool_sequence
 
     events = [
         AgentEvent(

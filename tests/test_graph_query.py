@@ -9,8 +9,8 @@ surfaces the right nodes.
 
 from __future__ import annotations
 
-from agentwatch.memory.causal_graph import CausalGraph, CausalNode, EdgeKind
-from agentwatch.memory.graph_query import (
+from panoptis.memory.causal_graph import CausalGraph, CausalNode, EdgeKind
+from panoptis.memory.graph_query import (
     GraphQueryResult,
     TraversalDirection,
     parse,

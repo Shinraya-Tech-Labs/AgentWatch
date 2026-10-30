@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from agentwatch.api.server import app
-from agentwatch.core.schema import ToolCallData
-from agentwatch.core.watcher import GenericAdapter, watch
-from agentwatch.security.redaction import (
+from panoptis.api.server import app
+from panoptis.core.schema import ToolCallData
+from panoptis.core.watcher import GenericAdapter, watch
+from panoptis.security.redaction import (
     MASK,
     Redactor,
     redact,
@@ -95,8 +95,8 @@ def test_watcher_maybe_redact_scrubs_when_enabled():
 def test_safety_checks_raw_then_publishes_redacted_event():
     """The safety engine must evaluate the raw payload; only the published /
     persisted event is scrubbed (redaction must not run before the check)."""
-    from agentwatch.core.event_bus import EventBus
-    from agentwatch.core.schema import EventType
+    from panoptis.core.event_bus import EventBus
+    from panoptis.core.schema import EventType
 
     seen: dict[str, str] = {}
 
@@ -126,8 +126,8 @@ def test_safety_checks_raw_then_publishes_redacted_event():
 
 
 def test_watch_passes_redact_through():
-    from agentwatch.core.event_bus import EventBus
-    from agentwatch.core.schema import EventType
+    from panoptis.core.event_bus import EventBus
+    from panoptis.core.schema import EventType
 
     class _Agent:
         def run(self, command):
@@ -147,7 +147,7 @@ def test_watch_passes_redact_through():
 
 def test_eu_ai_act_report_endpoint(monkeypatch):
     # Pin auth off so the test doesn't depend on a stray AGENTWATCH_API_KEY.
-    monkeypatch.setattr("agentwatch.api.server._API_KEY", None)
+    monkeypatch.setattr("panoptis.api.server._API_KEY", None)
     client = TestClient(app)
     resp = client.get("/api/v1/governance/eu-ai-act-report")
     assert resp.status_code == 200

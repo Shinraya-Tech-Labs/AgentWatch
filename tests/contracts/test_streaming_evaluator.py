@@ -17,9 +17,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from agentwatch.contracts.coverage import SequenceContinuityTracker
-from agentwatch.contracts.evaluator import evaluate_contract
-from agentwatch.contracts.schema import (
+from panoptis.contracts.coverage import SequenceContinuityTracker
+from panoptis.contracts.evaluator import evaluate_contract
+from panoptis.contracts.schema import (
     ContractOperator,
     ContractRule,
     CoverageSnapshot,
@@ -28,11 +28,11 @@ from agentwatch.contracts.schema import (
     MissingReason,
     SequenceGap,
 )
-from agentwatch.contracts.streaming import (
+from panoptis.contracts.streaming import (
     ObligationState,
     StreamingContractEvaluator,
 )
-from agentwatch.events.model import (
+from panoptis.events.model import (
     ComputationalEvent,
     EventKind,
     EventStatus,

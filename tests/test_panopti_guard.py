@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.circuit_breaker.loop_detector import AgentLoopError
-from agentwatch.core.watcher import AgentWatchBlockedError
+from panoptis.circuit_breaker.loop_detector import AgentLoopError
+from panoptis.core.watcher import AgentWatchBlockedError
 from panopti import guard
 from panopti.guard import PanoptiGuard
 

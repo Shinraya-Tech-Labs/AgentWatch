@@ -1,6 +1,6 @@
 # Shadow replay
 
-`agentwatch.replay.shadow` answers one debugging question: **did this agent fail because the model
+`panoptis.replay.shadow` answers one debugging question: **did this agent fail because the model
 wrote something unexpected, or would it fail again if shown the same tool results?**
 
 It replays a recorded session against a model while every tool call is answered from the
@@ -8,7 +8,7 @@ It replays a recorded session against a model while every tool call is answered 
 system, and no HTTP mock server is needed.
 
 ```python
-from agentwatch.replay import ShadowConfig, run_shadow_replay
+from panoptis.replay import ShadowConfig, run_shadow_replay
 
 report = run_shadow_replay(recorded_events, model, ShadowConfig(temperature=0.0, seed=42))
 print(report.classification, report.summary)

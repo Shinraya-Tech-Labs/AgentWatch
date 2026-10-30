@@ -8,7 +8,7 @@ be grouped as identical, and an all-empty round is not an actionable consensus.
 
 from __future__ import annotations
 
-from agentwatch.orchestration.consensus import AgentVote, detect_consensus
+from panoptis.orchestration.consensus import AgentVote, detect_consensus
 
 
 def test_all_empty_proposals_group_and_are_not_maximal_disagreement():

@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from agentwatch.core.schema import AgentEvent, ConfidenceData, EventType, ExecutionStatus
-from agentwatch.telemetry.exporter import (
+from panoptis.core.schema import AgentEvent, ConfidenceData, EventType, ExecutionStatus
+from panoptis.telemetry.exporter import (
     CSV_COLUMNS,
     export_to_csv,
     export_to_jsonl,

@@ -10,10 +10,10 @@ import time
 import unittest
 from pathlib import Path
 
-from agentwatch.runtime.killswitch import (
+from panoptis.runtime.killswitch import (
     EmergencyKillSwitch as RuntimeEmergencyKillSwitch,
 )
-from agentwatch.runtime.killswitch import (
+from panoptis.runtime.killswitch import (
     EmergencyStopTriggered as RuntimeEmergencyStopTriggered,
 )
 from panopti.demo import ActiveSentinel
@@ -238,6 +238,6 @@ class TestEmergencyKillSwitch(unittest.TestCase):
         self.assertIn("Emergency kill switch tripped", verdict_2.reason)
 
     def test_runtime_alias_import(self) -> None:
-        """agentwatch.runtime.killswitch re-exports identical classes."""
+        """panoptis.runtime.killswitch re-exports identical classes."""
         self.assertIs(RuntimeEmergencyKillSwitch, EmergencyKillSwitch)
         self.assertIs(RuntimeEmergencyStopTriggered, EmergencyStopTriggered)

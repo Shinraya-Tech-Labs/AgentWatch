@@ -1,7 +1,7 @@
 # Feature 04: Three-View Hyperedge Graph & Information Lineage Engine
 
-> **Submodule:** [`agentwatch/graph/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/graph/), [`agentwatch/provenance/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/provenance/)  
-> **Source Files:** [`model.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/graph/model.py), [`build.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/graph/build.py), [`information.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/graph/information.py), [`lineage.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/provenance/lineage.py), [`ambiguity.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/provenance/ambiguity.py)  
+> **Submodule:** [`panoptis/graph/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/graph/), [`panoptis/provenance/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/provenance/)  
+> **Source Files:** [`model.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/graph/model.py), [`build.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/graph/build.py), [`information.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/graph/information.py), [`lineage.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/provenance/lineage.py), [`ambiguity.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/provenance/ambiguity.py)  
 > **ADR Anchor:** [ADR-0005: Three Views, One Relation Store](file:///data/data/com.termux/files/home/AgentWatch/docs/v3/adr/0005-three-views-one-relation-store.md)  
 > **Test Suite:** [`tests/v3/test_information_lineage.py`](file:///data/data/com.termux/files/home/AgentWatch/tests/v3/test_information_lineage.py), [`tests/v3/test_graph_invariants.py`](file:///data/data/com.termux/files/home/AgentWatch/tests/v3/test_graph_invariants.py)  
 > **Obsidian Backlinks:** [[README]], [[01_ARCHITECTURE_AND_PLANES]], [[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB]], [[02_COMPUTATIONAL_EVENT_ALGEBRA]], [[03_INGEST_SENSORS_AND_ADAPTERS]], [[05_CAUSAL_INFERENCE_AND_BLAST_RADIUS]]  
@@ -94,7 +94,7 @@ Models true counterfactual dependence ($a \prec b$):
 
 ## 4. Graph Construction Pipeline (`build.py`)
 
-In [`agentwatch/graph/build.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/graph/build.py), AgentWatch implements an incremental, streaming graph builder that processes incoming `ComputationalEvent`s and synthesizes hyperedges:
+In [`panoptis/graph/build.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/graph/build.py), AgentWatch implements an incremental, streaming graph builder that processes incoming `ComputationalEvent`s and synthesizes hyperedges:
 
 ```python
 class GraphBuilder:
@@ -155,7 +155,7 @@ class GraphBuilder:
 
 ## 5. The Provenance Engine: Backward & Forward Lineage (`lineage.py`)
 
-In [`agentwatch/provenance/lineage.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/provenance/lineage.py), the engine executes bi-directional graph traversals over the Information View:
+In [`panoptis/provenance/lineage.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/provenance/lineage.py), the engine executes bi-directional graph traversals over the Information View:
 
 ```python
 class ProvenanceEngine:
@@ -232,7 +232,7 @@ To maintain strict Directed Acyclic Graph (DAG) invariants required for mathemat
 
 In real-world traces, some causal links cannot be established with 100% mathematical certainty (e.g., an agent reads five memory documents and outputs an answer without citing which document it used).
 
-In [`agentwatch/provenance/ambiguity.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/provenance/ambiguity.py), AgentWatch introduces **Probabilistic Hyperedges**:
+In [`panoptis/provenance/ambiguity.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/provenance/ambiguity.py), AgentWatch introduces **Probabilistic Hyperedges**:
 - Rather than discarding uncertain relationships or assuming a spurious link, the engine assigns an explicit confidence weight $\omega \in (0.0, 1.0)$.
 - **Confidence Computation**:
   $$\omega_h = \text{CosineSimilarity}(\text{Embedding}(\text{Input}), \text{Embedding}(\text{Output})) \times \text{TemporalDecay}(t_{\text{out}} - t_{\text{in}})$$
@@ -349,10 +349,10 @@ When AgentWatch's security monitor detects suspicious tool arguments in `event_0
 
 ```python
 # Exact Lineage Extraction API Execution
-from agentwatch.graph import HyperedgeGraphStore
-from agentwatch.provenance import LineageTracker
+from panoptis.graph import HyperedgeGraphStore
+from panoptis.provenance import LineageTracker
 
-store = HyperedgeGraphStore.from_connection_string("postgresql://agentwatch:secret@localhost:5432/graph")
+store = HyperedgeGraphStore.from_connection_string("postgresql://panoptis:secret@localhost:5432/graph")
 tracker = LineageTracker(graph_store=store)
 
 # Extract full root-cause causal slice
@@ -450,9 +450,9 @@ For enterprise clusters generating over 50,000 agent events per second, AgentWat
 *Researched and verified via `agent-reach` across database theory and graph literature:*
 
 1. **Buneman, P., Khanna, S., & Tan, W. C. (2001)**: *"Why and Where: A Characterization of Data Provenance"*. International Conference on Database Theory (ICDT).
-   - *Influence*: Theoretical foundation for backward derivation and where-provenance in `agentwatch/provenance/lineage.py`.
+   - *Influence*: Theoretical foundation for backward derivation and where-provenance in `panoptis/provenance/lineage.py`.
 2. **Berge, C. (1973)**: *"Graphs and Hypergraphs"*. North-Holland Mathematical Library.
-   - *Influence*: Mathematical formulation of n-ary relation storage in `agentwatch/graph/model.py`.
+   - *Influence*: Mathematical formulation of n-ary relation storage in `panoptis/graph/model.py`.
 3. **OWASP Foundation (2023)**: *"OWASP Top 10 for Large Language Model Applications (LLM01: Prompt Injection, LLM02: Insecure Output Handling)"*.
    - *URL*: [https://genai.owasp.org/](https://genai.owasp.org/)
    - *Influence*: Governs the forward taint certification rules and security threat models.

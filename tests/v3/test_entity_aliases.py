@@ -6,10 +6,10 @@ import json
 
 import pytest
 
-from agentwatch import instrument as aw
-from agentwatch.entities.resolve import load_aliases
-from agentwatch.runtime.engine import Engine
-from agentwatch.storage.store import Store
+from panoptis import instrument as aw
+from panoptis.entities.resolve import load_aliases
+from panoptis.runtime.engine import Engine
+from panoptis.storage.store import Store
 
 
 def _record(sink) -> None:
@@ -94,7 +94,7 @@ def test_incremental_equals_full_with_aliases(store: Store, sink):
 
 
 def test_read_model_describes_aliases_on_both_names(store: Store, sink):
-    from agentwatch.query.workspace import Workspace
+    from panoptis.query.workspace import Workspace
 
     engine = Engine(store, entity_aliases={"model:gpt-4o": "model:openai/gpt-4o"})
     _record(sink)

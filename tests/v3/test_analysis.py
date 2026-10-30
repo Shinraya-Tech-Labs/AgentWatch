@@ -4,19 +4,19 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch import instrument as aw
-from agentwatch.behaviour.drift import benjamini_hochberg, drift
-from agentwatch.behaviour.motifs import REGISTRY
-from agentwatch.causality.cones import causes, effects
-from agentwatch.causality.hypotheses import EvidenceKind, add_evidence, get, propose
-from agentwatch.compare.runs import compare
-from agentwatch.forecasting.trajectory import forecast
-from agentwatch.graph.model import Basis, EvidenceClass, RelType, View, make_relation
-from agentwatch.graph.traverse import Graph
-from agentwatch.provenance.lineage import dependents, lineage, render
-from agentwatch.query.engine import ask, compile_question, execute
-from agentwatch.query.workspace import Workspace, run_order_key
-from agentwatch.state.latent import infer_states
+from panoptis import instrument as aw
+from panoptis.behaviour.drift import benjamini_hochberg, drift
+from panoptis.behaviour.motifs import REGISTRY
+from panoptis.causality.cones import causes, effects
+from panoptis.causality.hypotheses import EvidenceKind, add_evidence, get, propose
+from panoptis.compare.runs import compare
+from panoptis.forecasting.trajectory import forecast
+from panoptis.graph.model import Basis, EvidenceClass, RelType, View, make_relation
+from panoptis.graph.traverse import Graph
+from panoptis.provenance.lineage import dependents, lineage, render
+from panoptis.query.engine import ask, compile_question, execute
+from panoptis.query.workspace import Workspace, run_order_key
+from panoptis.state.latent import infer_states
 
 DOCS = [
     {
@@ -341,7 +341,7 @@ def test_causes_separates_sections(ws):
 
 
 def _profile(**feats):
-    from agentwatch.behaviour.profile import FEATURES
+    from panoptis.behaviour.profile import FEATURES
 
     base = dict.fromkeys(FEATURES, 1.0)
     base.update(feats)

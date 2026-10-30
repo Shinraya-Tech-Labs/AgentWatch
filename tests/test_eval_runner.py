@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from agentwatch.core.schema import AgentEvent, EventType, ToolCallData
-from agentwatch.eval.runner import (
+from panoptis.core.schema import AgentEvent, EventType, ToolCallData
+from panoptis.eval.runner import (
     EvalCase,
     EvalCaseResult,
     aggregate,
@@ -17,7 +17,7 @@ from agentwatch.eval.runner import (
     load_dataset,
     run_eval,
 )
-from agentwatch.scoring.confidence import ConfidenceScorer
+from panoptis.scoring.confidence import ConfidenceScorer
 
 
 def _event(text: str = "ok") -> AgentEvent:
@@ -30,7 +30,7 @@ def _event(text: str = "ok") -> AgentEvent:
 
 
 _AGENT_SRC = """
-from agentwatch.core.schema import AgentEvent, EventType, ToolCallData
+from panoptis.core.schema import AgentEvent, EventType, ToolCallData
 
 
 def run(prompt):

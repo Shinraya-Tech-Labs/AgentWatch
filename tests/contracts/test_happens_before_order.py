@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from agentwatch.contracts.order import (
+from panoptis.contracts.order import (
     CausalCycleError,
     CausalRelation,
     EventTimeWatermarkBuffer,
@@ -24,13 +24,13 @@ from agentwatch.contracts.order import (
     IngestionStatus,
     TimestampInterval,
 )
-from agentwatch.contracts.schema import (
+from panoptis.contracts.schema import (
     ContractOperator,
     ContractRule,
     EvidenceContract,
     EvidenceVerdict,
 )
-from agentwatch.events.model import (
+from panoptis.events.model import (
     ComputationalEvent,
     DeclaredLink,
     EventKind,
@@ -444,8 +444,8 @@ def test_evaluator_causal_order_overrides_wall_clock_inversion(transfer_contract
         attrs={"transaction_id": "tx-123"},
     )
 
-    from agentwatch.contracts.evaluator import evaluate_contract
-    from agentwatch.contracts.schema import EvidenceVerdict
+    from panoptis.contracts.evaluator import evaluate_contract
+    from panoptis.contracts.schema import EvidenceVerdict
 
     assessment = evaluate_contract([approval, transfer], transfer_contract)
     assert assessment.verdict == EvidenceVerdict.SUPPORTED
@@ -475,8 +475,8 @@ def test_evaluator_causal_order_window_exceeded_yields_refuted(transfer_contract
         attrs={"transaction_id": "tx-123"},
     )
 
-    from agentwatch.contracts.evaluator import evaluate_contract
-    from agentwatch.contracts.schema import EvidenceVerdict
+    from panoptis.contracts.evaluator import evaluate_contract
+    from panoptis.contracts.schema import EvidenceVerdict
 
     assessment = evaluate_contract([approval, transfer], transfer_contract)
     assert assessment.verdict == EvidenceVerdict.REFUTED
@@ -503,8 +503,8 @@ def test_evaluator_concurrent_independent_events_overlapping_yields_conflicting(
         attrs={"transaction_id": "tx-123"},
     )
 
-    from agentwatch.contracts.evaluator import evaluate_contract
-    from agentwatch.contracts.schema import EvidenceVerdict, MissingReason
+    from panoptis.contracts.evaluator import evaluate_contract
+    from panoptis.contracts.schema import EvidenceVerdict, MissingReason
 
     assessment = evaluate_contract([approval, transfer], transfer_contract)
     assert assessment.verdict == EvidenceVerdict.CONFLICTING_EVIDENCE
@@ -533,8 +533,8 @@ def test_evaluator_causal_cycle_yields_conflicting_evidence(transfer_contract):
         attrs={"transaction_id": "tx-123"},
     )
 
-    from agentwatch.contracts.evaluator import evaluate_contract
-    from agentwatch.contracts.schema import EvidenceVerdict
+    from panoptis.contracts.evaluator import evaluate_contract
+    from panoptis.contracts.schema import EvidenceVerdict
 
     assessment = evaluate_contract([e1, e2], transfer_contract)
     assert assessment.verdict == EvidenceVerdict.CONFLICTING_EVIDENCE
@@ -575,7 +575,7 @@ def test_evaluator_eventually_within_causal_after_supported(order_fulfillment_co
         attrs={"order_id": "ord-100"},
     )
 
-    from agentwatch.contracts.evaluator import evaluate_contract
+    from panoptis.contracts.evaluator import evaluate_contract
 
     assessment = evaluate_contract([placed, fulfilled], order_fulfillment_contract)
     assert assessment.verdict == EvidenceVerdict.SUPPORTED
@@ -600,7 +600,7 @@ def test_evaluator_eventually_within_window_exceeded_refuted(order_fulfillment_c
         attrs={"order_id": "ord-200"},
     )
 
-    from agentwatch.contracts.evaluator import evaluate_contract
+    from panoptis.contracts.evaluator import evaluate_contract
 
     assessment = evaluate_contract([placed, fulfilled], order_fulfillment_contract)
     assert assessment.verdict == EvidenceVerdict.REFUTED
@@ -626,7 +626,7 @@ def test_evaluator_eventually_within_causal_before_refuted(order_fulfillment_con
         attrs={"order_id": "ord-300"},
     )
 
-    from agentwatch.contracts.evaluator import evaluate_contract
+    from panoptis.contracts.evaluator import evaluate_contract
 
     assessment = evaluate_contract([placed, fulfilled], order_fulfillment_contract)
     assert assessment.verdict == EvidenceVerdict.REFUTED
@@ -651,7 +651,7 @@ def test_evaluator_eventually_within_concurrent_overlapping_ambiguity(order_fulf
         attrs={"order_id": "ord-400"},
     )
 
-    from agentwatch.contracts.evaluator import evaluate_contract
+    from panoptis.contracts.evaluator import evaluate_contract
 
     assessment = evaluate_contract([placed, fulfilled], order_fulfillment_contract)
     assert assessment.verdict == EvidenceVerdict.CONFLICTING_EVIDENCE

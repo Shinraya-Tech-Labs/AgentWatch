@@ -19,8 +19,8 @@ This document provides a exhaustive, line-by-line technical specification of eve
 
 ## Section 1: Epistemic Verification & Temporal Contracts (EvidenceLab Core)
 
-> **Submodule:** [`agentwatch/contracts/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/)  
-> **Source Files:** [`schema.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/schema.py), [`evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/evaluator.py), [`remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/remedies.py)  
+> **Submodule:** [`panoptis/contracts/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/)  
+> **Source Files:** [`schema.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/schema.py), [`evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/evaluator.py), [`remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/remedies.py)  
 > **Obsidian Backlink:** [[02_EVIDENCELAB_AND_TEMPORAL_CONTRACTS]]  
 
 ### 1.1 The Open-World Epistemic Model
@@ -47,13 +47,13 @@ The evaluation engine natively executes first-order temporal operators over even
    A global safety invariant asserting predicate $P(e)$ holds across every event $e$ in the execution scope.
 
 ### 1.3 Minimal Witness Extraction
-When an evaluation completes, [`evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/evaluator.py) extracts a **minimal witness graph** $\mathcal{W} \subseteq \mathcal{E}$. The witness is the smallest subset of events required to mathematically substantiate the verdict:
+When an evaluation completes, [`evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/evaluator.py) extracts a **minimal witness graph** $\mathcal{W} \subseteq \mathcal{E}$. The witness is the smallest subset of events required to mathematically substantiate the verdict:
 - For `SUPPORTED`, $\mathcal{W}$ contains the trigger event, the fulfilling event, and intermediate span links.
 - For `REFUTED`, $\mathcal{W}$ contains the trigger event along with verified sensor coverage snapshots proving the fulfilling event was missing.
 - For `INCONCLUSIVE`, $\mathcal{W}$ contains the trigger event and an explicit `MissingFact` record.
 
 ### 1.4 Telemetry Gap Remediation Engine (`remedies.py`)
-When a contract is `INCONCLUSIVE`, [`remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/remedies.py) executes automated gap diagnosis. It maps the `MissingReason` (`SENSOR_DISABLED`, `FIELD_ABSENT`, `SPAN_ORPHAN`, `SEQUENCE_GAP`, `CLOCK_AMBIGUITY`) to an actionable `RemediationRecommendation`:
+When a contract is `INCONCLUSIVE`, [`remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/remedies.py) executes automated gap diagnosis. It maps the `MissingReason` (`SENSOR_DISABLED`, `FIELD_ABSENT`, `SPAN_ORPHAN`, `SEQUENCE_GAP`, `CLOCK_AMBIGUITY`) to an actionable `RemediationRecommendation`:
 - Identifies the uninstrumented library (e.g., `langchain.callbacks`, `fastapi.middleware`).
 - Recommends the configuration patch or SDK wrapper needed to turn the inconclusive contract into a definitive proof.
 
@@ -61,12 +61,12 @@ When a contract is `INCONCLUSIVE`, [`remedies.py`](file:///data/data/com.termux/
 
 ## Section 2: The Computational Event Algebra & Canonical Hashing
 
-> **Submodule:** [`agentwatch/events/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/), [`agentwatch/evidence/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/)  
-> **Source Files:** [`model.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/model.py), [`canonical.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/canonical.py), [`codec.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/codec.py)  
+> **Submodule:** [`panoptis/events/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/), [`panoptis/evidence/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/)  
+> **Source Files:** [`model.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/model.py), [`canonical.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/canonical.py), [`codec.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/codec.py)  
 > **Obsidian Backlink:** [[03_EVENT_ALGEBRA_AND_NORMALIZERS]]  
 
 ### 2.1 The `ComputationalEvent` Primitive
-A [`ComputationalEvent`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/model.py#L32-L46) is the normalized unit of agent computation. It decouples raw wire protocols from higher-order graph algorithms:
+A [`ComputationalEvent`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/model.py#L32-L46) is the normalized unit of agent computation. It decouples raw wire protocols from higher-order graph algorithms:
 
 ```python
 @dataclass(frozen=True)
@@ -100,7 +100,7 @@ $$I(e) = [t_{\text{start}}(e) - \delta_e, t_{\text{end}}(e) + \delta_e]$$
 If two events have overlapping uncertainty intervals and no explicit causal edge connects them, the evaluation engine treats them as concurrent ($a \parallel b$) rather than guessing their order based on arbitrary nanosecond timestamps.
 
 ### 2.4 RFC 8785 Canonical JSON Serialization
-To guarantee deterministic cryptographic hashing across different languages and JSON encoders, [`canonical.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/canonical.py) implements **RFC 8785 (JSON Canonicalization Scheme - JCS)**:
+To guarantee deterministic cryptographic hashing across different languages and JSON encoders, [`canonical.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/canonical.py) implements **RFC 8785 (JSON Canonicalization Scheme - JCS)**:
 - Keys are sorted lexicographically by UTF-16 code units.
 - Whitespace outside strings is removed.
 - Numbers are formatted using IEEE 754 representation without trailing zeroes.
@@ -110,7 +110,7 @@ To guarantee deterministic cryptographic hashing across different languages and 
 
 ## Section 3: Ingestion Adapters & Normalizer Ecosystem
 
-> **Submodule:** [`agentwatch/adapters/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/adapters/), [`agentwatch/sensors/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/sensors/)  
+> **Submodule:** [`panoptis/adapters/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/adapters/), [`panoptis/sensors/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/sensors/)  
 > **Obsidian Backlink:** [[03_EVENT_ALGEBRA_AND_NORMALIZERS]]  
 
 ### 3.1 Normalization Architecture
@@ -121,21 +121,21 @@ Normalizers extract structured effects (reads and writes of state), pair asynchr
 ### 3.2 Supported Sensor Families
 1. **OpenTelemetry GenAI Semantic Conventions** (`otel`):
    Ingests OTLP/HTTP traces adhering to the OpenTelemetry GenAI working group specifications. Automatically maps `gen_ai.system`, `gen_ai.request.model`, and span links into `ComputationalEvent` attributes.
-2. **LangChain & LangGraph Adapter** (`agentwatch/adapters/langchain.py`):
+2. **LangChain & LangGraph Adapter** (`panoptis/adapters/langchain.py`):
    Hooks into LangChain `BaseCallbackHandler`. Maps `on_chain_start`, `on_tool_start`, and `on_llm_end` into structured event trees, tracking LangGraph state snapshots and edge routing.
-3. **Claude Code & Anthropic Transcripts** (`agentwatch/sensors/claude_code/`):
+3. **Claude Code & Anthropic Transcripts** (`panoptis/sensors/claude_code/`):
    Parses `stream-json` emissions and session transcripts. Ingests subagent delegations (`invoke_subagent`), bash tool executions, and multi-turn conversations.
-4. **Model Context Protocol (MCP) Message Tap** (`agentwatch/cli/mcp.py`):
+4. **Model Context Protocol (MCP) Message Tap** (`panoptis/cli/mcp.py`):
    Sits as a transparent JSON-RPC proxy between MCP clients and servers, observing tool definitions, resource queries, and prompt template expansions.
-5. **Multi-Agent Adapters** (`agentwatch/adapters/crewai.py`, `openai_agents.py`):
+5. **Multi-Agent Adapters** (`panoptis/adapters/crewai.py`, `openai_agents.py`):
    Specialized callback bridges for CrewAI task delegation, AutoGen conversation turns, and OpenAI Assistant API thread events.
 
 ---
 
 ## Section 4: Three-View Hyperedge Graph & Provenance Engine
 
-> **Submodule:** [`agentwatch/graph/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/graph/), [`agentwatch/provenance/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/provenance/)  
-> **Source Files:** [`model.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/graph/model.py), [`build.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/graph/build.py), [`lineage.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/provenance/lineage.py), [`ambiguity.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/provenance/ambiguity.py)  
+> **Submodule:** [`panoptis/graph/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/graph/), [`panoptis/provenance/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/provenance/)  
+> **Source Files:** [`model.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/graph/model.py), [`build.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/graph/build.py), [`lineage.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/provenance/lineage.py), [`ambiguity.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/provenance/ambiguity.py)  
 > **ADR Anchor:** [ADR-0005: Three Views, One Relation Store](file:///data/data/com.termux/files/home/AgentWatch/docs/v3/adr/0005-three-views-one-relation-store.md)  
 > **Obsidian Backlink:** [[04_STORAGE_CAUSALITY_AND_GRAPH]]  
 
@@ -171,8 +171,8 @@ When traces have gaps or uninstrumented spans, the graph engine does not guess c
 
 ## Section 5: Causal Cones & Blast Radius Analysis
 
-> **Submodule:** [`agentwatch/causality/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/causality/)  
-> **Source Files:** [`cones.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/causality/cones.py), [`hypotheses.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/causality/hypotheses.py)  
+> **Submodule:** [`panoptis/causality/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/causality/)  
+> **Source Files:** [`cones.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/causality/cones.py), [`hypotheses.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/causality/hypotheses.py)  
 > **Obsidian Backlink:** [[04_STORAGE_CAUSALITY_AND_GRAPH]]  
 
 ### 5.1 Causal Cones
@@ -185,7 +185,7 @@ For any computational event $e$, the causality engine computes two topological c
    $$\mathcal{C}^+(e) = \{ y \in \mathcal{E} \mid e \prec y \}$$
 
 ### 5.2 Blast Radius Computation
-When an agent suffers a catastrophic failure, prompt injection, or hallucinatory tool execution, [`cones.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/causality/cones.py) calculates the exact **blast radius**:
+When an agent suffers a catastrophic failure, prompt injection, or hallucinatory tool execution, [`cones.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/causality/cones.py) calculates the exact **blast radius**:
 - Quantifies external state mutations (files written, API endpoints invoked, database records updated).
 - Isolates unaffected execution branches, allowing safe partial rollbacks without restarting the entire multi-agent workflow.
 
@@ -196,12 +196,12 @@ Generates formal hypotheses regarding system failures: evaluates whether an erro
 
 ## Section 6: Latent Cognitive State Discovery & Motif Engine
 
-> **Submodule:** [`agentwatch/state/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/state/), [`agentwatch/analysis/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/analysis/), [`agentwatch/behaviour/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/behaviour/)  
-> **Source Files:** [`latent.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/state/latent.py), [`motifs.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/behaviour/motifs.py), [`profile.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/behaviour/profile.py)  
+> **Submodule:** [`panoptis/state/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/state/), [`panoptis/analysis/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/analysis/), [`panoptis/behaviour/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/behaviour/)  
+> **Source Files:** [`latent.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/state/latent.py), [`motifs.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/behaviour/motifs.py), [`profile.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/behaviour/profile.py)  
 > **Obsidian Backlink:** [[04_STORAGE_CAUSALITY_AND_GRAPH]]  
 
 ### 6.1 Latent Cognitive State Clustering
-[`latent.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/state/latent.py) projects heterogeneous trace features (token distribution, tool diversity, transition rates, latency) into an embedding space. It clusters raw agent actions into high-level cognitive modes:
+[`latent.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/state/latent.py) projects heterogeneous trace features (token distribution, tool diversity, transition rates, latency) into an embedding space. It clusters raw agent actions into high-level cognitive modes:
 - **`PLANNING`**: High ratio of reasoning tokens, structured list generation, goal decomposition.
 - **`EXPLORATION`**: High frequency of read-only tool calls, web searches, documentation lookups.
 - **`ACTUATION`**: Invocation of state-mutating external tools (APIs, filesystem writes, payments).
@@ -241,8 +241,8 @@ Discovers recurrent subgraphs within execution trees:
 
 ## Section 7: Behavioral Genome & Statistical Drift Detection
 
-> **Submodule:** [`agentwatch/behaviour/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/behaviour/)  
-> **Source Files:** [`drift.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/behaviour/drift.py), [`profile.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/behaviour/profile.py)  
+> **Submodule:** [`panoptis/behaviour/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/behaviour/)  
+> **Source Files:** [`drift.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/behaviour/drift.py), [`profile.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/behaviour/profile.py)  
 > **Obsidian Backlink:** [[04_STORAGE_CAUSALITY_AND_GRAPH]]  
 
 ### 7.1 The Agent Genome
@@ -262,8 +262,8 @@ When upstream model weights change, prompt templates are modified, or tools are 
 
 ## Section 8: Deterministic Replay (L0–L4) & Counterfactual Falsification
 
-> **Submodule:** [`agentwatch/replay/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/replay/), [`agentwatch/rollback/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/rollback/)  
-> **Source Files:** [`engine.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/replay/engine.py), [`counterfactual.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/replay/counterfactual.py)  
+> **Submodule:** [`panoptis/replay/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/replay/), [`panoptis/rollback/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/rollback/)  
+> **Source Files:** [`engine.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/replay/engine.py), [`counterfactual.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/replay/counterfactual.py)  
 > **Obsidian Backlink:** [[01_ARCHITECTURE_AND_PLANES]]  
 
 ### 8.1 The Replay Hierarchy
@@ -286,8 +286,8 @@ Enables formal stress-testing of agent safety rules:
 
 ## Section 9: Active Defense, Circuit Breakers & Human-in-the-Loop (HITL)
 
-> **Submodule:** [`agentwatch/circuit_breaker/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/circuit_breaker/), [`agentwatch/hitl/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/hitl/)  
-> **Source Files:** [`breaker.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/circuit_breaker/breaker.py), [`orchestrator.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/hitl/orchestrator.py), [`decisions.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/hitl/decisions.py)  
+> **Submodule:** [`panoptis/circuit_breaker/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/circuit_breaker/), [`panoptis/hitl/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/hitl/)  
+> **Source Files:** [`breaker.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/circuit_breaker/breaker.py), [`orchestrator.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/hitl/orchestrator.py), [`decisions.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/hitl/decisions.py)  
 > **Obsidian Backlink:** [[01_ARCHITECTURE_AND_PLANES]]  
 
 ### 9.1 Safety Circuit Breakers (`breaker.py`)
@@ -306,8 +306,8 @@ Manages human escalation when invariants require manual validation:
 
 ## Section 10: Cost Governance, Complexity Routing & Semantic Caching
 
-> **Submodule:** [`agentwatch/cost/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/cost/)  
-> **Source Files:** [`governance.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/cost/governance.py), [`complexity_router.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/cost/complexity_router.py), [`caching.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/cost/caching.py), [`anomaly.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/cost/anomaly.py)  
+> **Submodule:** [`panoptis/cost/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/cost/)  
+> **Source Files:** [`governance.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/cost/governance.py), [`complexity_router.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/cost/complexity_router.py), [`caching.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/cost/caching.py), [`anomaly.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/cost/anomaly.py)  
 
 ### 10.1 Real-Time Cost Accounting
 Calculates token expenditures across prompt tokens, completion tokens, and cached tokens using continuously updated model pricing tables.
@@ -322,8 +322,8 @@ Vector-similarity caching layer that identifies semantically equivalent prompts 
 
 ## Section 11: Enterprise Security, Redaction & Privacy Crypto-Shredding
 
-> **Submodule:** [`agentwatch/evidence/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/), [`agentwatch/security/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/security/)  
-> **Source Files:** [`redaction.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/redaction.py), [`crypto.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/crypto.py)  
+> **Submodule:** [`panoptis/evidence/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/), [`panoptis/security/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/security/)  
+> **Source Files:** [`redaction.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/redaction.py), [`crypto.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/crypto.py)  
 > **Policy Anchor:** [`SECURITY-BASELINE.md`](file:///data/data/com.termux/files/home/AgentWatch/SECURITY-BASELINE.md)  
 > **Obsidian Backlink:** [[07_SECURITY_BASELINE_AND_DEVSECOPS]]  
 
@@ -348,7 +348,7 @@ Artifacts are encrypted with per-user or per-session ephemeral keys:
 
 ## Section 12: Developer Interfaces: FastAPI Server, Typer CLI & Web UI
 
-> **Submodules:** [`agentwatch/api/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/api/), [`agentwatch/cli/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/cli/), [`frontend/`](file:///data/data/com.termux/files/home/AgentWatch/frontend/)  
+> **Submodules:** [`panoptis/api/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/api/), [`panoptis/cli/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/cli/), [`frontend/`](file:///data/data/com.termux/files/home/AgentWatch/frontend/)  
 > **Obsidian Backlink:** [[05_PLATFORM_API_AND_FRONTEND]]  
 
 ### 12.1 FastAPI High-Throughput Engine (`server.py`)
@@ -358,9 +358,9 @@ Artifacts are encrypted with per-user or per-session ephemeral keys:
 ### 12.2 Typer Developer CLI (`main.py`)
 Full terminal suite supporting headless CI verification, interactive replay, and offline lab analysis:
 ```bash
-agentwatch contract verify ./traces/run.json --contract ./contracts/safety.json
-agentwatch replay --run-id 8a4c-1290 --level L2
-agentwatch doctor
+panoptis contract verify ./traces/run.json --contract ./contracts/safety.json
+panoptis replay --run-id 8a4c-1290 --level L2
+panoptis doctor
 ```
 
 ### 12.3 Next.js Frontends
@@ -376,24 +376,24 @@ agentwatch doctor
 1. **OpenTelemetry GenAI Semantic Conventions**:
    - *Specification*: OpenTelemetry Semantic Conventions for Generative AI Systems (v1.28.0+).
    - *Source*: [https://opentelemetry.io/docs/specs/semconv/gen-ai/](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
-   - *Influence*: Governs AgentWatch's sensor normalization in `agentwatch/sensors/otel/`.
+   - *Influence*: Governs AgentWatch's sensor normalization in `panoptis/sensors/otel/`.
 2. **RFC 8785: JSON Canonicalization Scheme (JCS)**:
    - *Standard*: IETF RFC 8785 (Rundgren, Jordan, Erdtman).
    - *Source*: [https://datatracker.ietf.org/doc/html/rfc8785](https://datatracker.ietf.org/doc/html/rfc8785)
-   - *Influence*: Governs canonical event serialization in `agentwatch/evidence/canonical.py`.
+   - *Influence*: Governs canonical event serialization in `panoptis/evidence/canonical.py`.
 3. **Lamport's Logical Clocks & Partial Ordering**:
    - *Paper*: "Time, Clocks, and the Ordering of Events in a Distributed System", Leslie Lamport, Communications of the ACM, 1978.
    - *Influence*: Foundational basis for Issue #729 happens-before partial order engine.
 4. **Metric First-Order Temporal Logic (MFOTL)**:
    - *Research*: "Monitoring Metric First-Order Temporal Logic", David Basin, Felix Klaedtke, Samuel Müller, Journal of the ACM.
-   - *Influence*: Governs temporal operator formulation in `agentwatch/contracts/evaluator.py`.
+   - *Influence*: Governs temporal operator formulation in `panoptis/contracts/evaluator.py`.
 5. **OWASP Top 10 for Large Language Models**:
    - *Standard*: OWASP Foundation LLM Security Guidelines (LLM01: Prompt Injection, LLM02: Insecure Output Handling).
    - *Source*: [https://genai.owasp.org/](https://genai.owasp.org/)
-   - *Influence*: Informs the Information Lineage taint certifier in `agentwatch/provenance/`.
+   - *Influence*: Informs the Information Lineage taint certifier in `panoptis/provenance/`.
 6. **Cooperative Game Theory & Shapley Value Attribution**:
    - *Foundation*: "A Value for n-Person Games", Lloyd Shapley, 1953; "A Unified Approach to Interpreting Model Predictions", Scott Lundberg & Su-In Lee, NeurIPS 2017.
-   - *Influence*: Powers multi-agent credit attribution in `agentwatch/orchestration/shapley.py`.
+   - *Influence*: Powers multi-agent credit attribution in `panoptis/orchestration/shapley.py`.
 
 ---
 
@@ -402,11 +402,11 @@ agentwatch doctor
 | Dossier | Core Subject Matter | Primary Code Directory |
 | :--- | :--- | :--- |
 | **[[README]]** | Master Vault Index & Anatomy | [`~/AgentWatch/`](file:///data/data/com.termux/files/home/AgentWatch/) |
-| **[[01_ARCHITECTURE_AND_PLANES]]** | The 6 Planes & Monolith Invariants | [`agentwatch/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/), [`docs/v3/`](file:///data/data/com.termux/files/home/AgentWatch/docs/v3/) |
-| **[[02_EVIDENCELAB_AND_TEMPORAL_CONTRACTS]]** | 4-Valued Verdicts & PR #728 | [`agentwatch/contracts/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/) |
-| **[[03_EVENT_ALGEBRA_AND_NORMALIZERS]]** | Event Schemas & Ingest Sensors | [`agentwatch/events/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/), [`agentwatch/sensors/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/sensors/) |
-| **[[04_STORAGE_CAUSALITY_AND_GRAPH]]** | 3-View Hypergraph & Provenance | [`agentwatch/graph/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/graph/), [`agentwatch/causality/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/causality/) |
-| **[[05_PLATFORM_API_AND_FRONTEND]]** | FastAPI, CLI & Next.js Apps | [`agentwatch/api/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/api/), [`frontend/`](file:///data/data/com.termux/files/home/AgentWatch/frontend/) |
+| **[[01_ARCHITECTURE_AND_PLANES]]** | The 6 Planes & Monolith Invariants | [`panoptis/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/), [`docs/v3/`](file:///data/data/com.termux/files/home/AgentWatch/docs/v3/) |
+| **[[02_EVIDENCELAB_AND_TEMPORAL_CONTRACTS]]** | 4-Valued Verdicts & PR #728 | [`panoptis/contracts/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/) |
+| **[[03_EVENT_ALGEBRA_AND_NORMALIZERS]]** | Event Schemas & Ingest Sensors | [`panoptis/events/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/), [`panoptis/sensors/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/sensors/) |
+| **[[04_STORAGE_CAUSALITY_AND_GRAPH]]** | 3-View Hypergraph & Provenance | [`panoptis/graph/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/graph/), [`panoptis/causality/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/causality/) |
+| **[[05_PLATFORM_API_AND_FRONTEND]]** | FastAPI, CLI & Next.js Apps | [`panoptis/api/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/api/), [`frontend/`](file:///data/data/com.termux/files/home/AgentWatch/frontend/) |
 | **[[06_ROADMAP_AND_ISSUES_729_738]]** | Contributor Milestone Issues | [GitHub Issues #729–#738](https://github.com/Shinraya-Tech-Labs/AgentWatch/issues) |
 | **[[07_SECURITY_BASELINE_AND_DEVSECOPS]]** | Zero-Baseline Bandit Standards | [`SECURITY-BASELINE.md`](file:///data/data/com.termux/files/home/AgentWatch/SECURITY-BASELINE.md) |
 | **[[08_MOBILE_TERMUX_WORKFLOW]]** | Mobile Development Runbook | [`~/.termux/`](file:///data/data/com.termux/files/home/.termux/) |

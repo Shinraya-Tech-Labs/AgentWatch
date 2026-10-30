@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 import unittest
 
-from agentwatch.security import AntiTamperShield as AWShield
-from agentwatch.security import TamperAttemptBlocked as AWTamperAttemptBlocked
+from panoptis.security import AntiTamperShield as AWShield
+from panoptis.security import TamperAttemptBlocked as AWTamperAttemptBlocked
 from panopti.shield import AntiTamperShield, TamperAttemptBlocked
 
 
@@ -22,13 +22,13 @@ class TestAntiTamperShield(unittest.TestCase):
         self.assertTrue(self.shield.is_tampering_attempt("pkill -9 panopti"))
         self.assertTrue(self.shield.is_tampering_attempt("pkill panopti"))
 
-    def test_kill_pgrep_agentwatch_intercepted(self) -> None:
-        self.assertTrue(self.shield.is_tampering_attempt("kill $(pgrep -f agentwatch)"))
-        self.assertTrue(self.shield.is_tampering_attempt("kill `pgrep agentwatch`"))
+    def test_kill_pgrep_panoptis_intercepted(self) -> None:
+        self.assertTrue(self.shield.is_tampering_attempt("kill $(pgrep -f panoptis)"))
+        self.assertTrue(self.shield.is_tampering_attempt("kill `pgrep panoptis`"))
 
-    def test_killall_agentwatch_intercepted(self) -> None:
-        self.assertTrue(self.shield.is_tampering_attempt("killall agentwatch"))
-        self.assertTrue(self.shield.is_tampering_attempt("killall -9 agentwatch"))
+    def test_killall_panoptis_intercepted(self) -> None:
+        self.assertTrue(self.shield.is_tampering_attempt("killall panoptis"))
+        self.assertTrue(self.shield.is_tampering_attempt("killall -9 panoptis"))
 
     def test_guardian_current_pid_kill_intercepted(self) -> None:
         current_pid = os.getpid()
@@ -47,11 +47,11 @@ class TestAntiTamperShield(unittest.TestCase):
         self.assertTrue(self.shield.is_tampering_attempt("rm panopti.db"))
         self.assertTrue(self.shield.is_tampering_attempt("rm -rf /data/panopti.db"))
 
-    def test_rm_rf_agentwatch_jsonl_intercepted(self) -> None:
+    def test_rm_rf_panoptis_jsonl_intercepted(self) -> None:
         self.assertTrue(self.shield.is_tampering_attempt("rm -f /var/log/agentwatch.jsonl"))
         self.assertTrue(self.shield.is_tampering_attempt("unlink agentwatch.jsonl"))
 
-    def test_truncate_agentwatch_jsonl_intercepted(self) -> None:
+    def test_truncate_panoptis_jsonl_intercepted(self) -> None:
         self.assertTrue(self.shield.is_tampering_attempt("truncate -s 0 /var/log/agentwatch.jsonl"))
         self.assertTrue(self.shield.is_tampering_attempt("truncate -s 0 panopti.log"))
 
@@ -103,7 +103,7 @@ class TestAntiTamperShield(unittest.TestCase):
         with self.assertRaises(TamperAttemptBlocked):
             execute_cmd("rm panopti.db")
 
-    def test_agentwatch_security_import_alias(self) -> None:
+    def test_panoptis_security_import_alias(self) -> None:
         self.assertIs(AWShield, AntiTamperShield)
         self.assertIs(AWTamperAttemptBlocked, TamperAttemptBlocked)
 

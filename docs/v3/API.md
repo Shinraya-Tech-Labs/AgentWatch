@@ -1,6 +1,6 @@
 # AgentWatch v3 HTTP API
 
-Source: `agentwatch/api/v3.py` (mounted by `agentwatch/api/server.py`). FastAPI serves the OpenAPI schema at `/docs`.
+Source: `panoptis/api/v3.py` (mounted by `panoptis/api/server.py`). FastAPI serves the OpenAPI schema at `/docs`.
 
 - **Authentication:** same as v0.2 (`X-Api-Key`).
 - **Tenancy:** comes from the API key in cloud mode, and is `default` otherwise. A payload can never select a tenant.

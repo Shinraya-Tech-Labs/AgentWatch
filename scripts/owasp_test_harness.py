@@ -22,9 +22,9 @@ import sys
 import uuid
 from dataclasses import dataclass
 
-from agentwatch.core.schema import AgentEvent, EventType, ToolCallData
-from agentwatch.security.owasp import OwaspVector, validate_owasp
-from agentwatch.security.redteam import RedTeamHarness
+from panoptis.core.schema import AgentEvent, EventType, ToolCallData
+from panoptis.security.owasp import OwaspVector, validate_owasp
+from panoptis.security.redteam import RedTeamHarness
 
 # ── Synthetic attack events for OWASP scanner ──────────────────────
 

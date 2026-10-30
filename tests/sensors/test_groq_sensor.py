@@ -7,15 +7,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.schema import EventType, ExecutionStatus
-from agentwatch.sensors.groq_sensor import GroqSensor, instrument_groq
+from panoptis.core.event_bus import EventBus
+from panoptis.core.schema import EventType, ExecutionStatus
+from panoptis.sensors.groq_sensor import GroqSensor, instrument_groq
 
 
 @pytest.fixture(autouse=True)
 def _mock_groq_available(monkeypatch):
     """Mock Groq as available for all tests."""
-    monkeypatch.setattr("agentwatch.sensors.groq_sensor._GROQ_AVAILABLE", True)
+    monkeypatch.setattr("panoptis.sensors.groq_sensor._GROQ_AVAILABLE", True)
 
 
 class _MockGroqMessage:
@@ -84,7 +84,7 @@ def _make_bus():
 
 def test_groq_sensor_missing_sdk(monkeypatch):
     """Test that GroqSensor raises RuntimeError when Groq SDK is not available."""
-    monkeypatch.setattr("agentwatch.sensors.groq_sensor._GROQ_AVAILABLE", False)
+    monkeypatch.setattr("panoptis.sensors.groq_sensor._GROQ_AVAILABLE", False)
     client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace()))
     with pytest.raises(RuntimeError, match="Groq SDK not installed"):
         GroqSensor(client, "sess1", "agent1")
@@ -227,7 +227,7 @@ def test_instrument_groq_returns_sensor():
     client, _ = _make_mock_groq_client()
     # We can't easily test the full instrument_groq without the SDK,
     # but we can verify the function exists and returns the right type
-    from agentwatch.sensors.groq_sensor import instrument_groq
+    from panoptis.sensors.groq_sensor import instrument_groq
     assert callable(instrument_groq)
 
 

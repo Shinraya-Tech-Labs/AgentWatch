@@ -10,14 +10,14 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from typer.testing import CliRunner
 
-from agentwatch.cli.main import app
-from agentwatch.security.checkout import (
+from panoptis.cli.main import app
+from panoptis.security.checkout import (
     DEFAULT_CHECKOUT_URL,
     SESSION_TTL,
     checkout_url,
     new_session,
 )
-from agentwatch.security.entitlement_store import (
+from panoptis.security.entitlement_store import (
     clear_entitlement,
     load_entitlement,
     load_entitlement_token,
@@ -171,7 +171,7 @@ def test_upgrade_activate_rejects_unsigned_token(home, keypair, monkeypatch):
 def test_ensure_premium_prompts_on_free_tier(home):
     import typer
 
-    from agentwatch.cli.main import _ensure_premium
+    from panoptis.cli.main import _ensure_premium
 
     with pytest.raises(typer.Exit) as exc_info:
         _ensure_premium("redteam")

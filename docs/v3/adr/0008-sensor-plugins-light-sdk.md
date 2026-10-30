@@ -13,14 +13,14 @@ Sensors run *inside observed applications*. Today the base install pulls FastAPI
 
 - Sensors capture raw payloads plus declared identifiers only.
 - Sensors never interpret. Normalizers live server-side in `events/normalizers`.
-- Discovery uses Python entry points (`agentwatch.sensors`), so third-party sensors need no core change.
+- Discovery uses Python entry points (`panoptis.sensors`), so third-party sensors need no core change.
 - Each sensor imports its framework lazily.
 
 **Packaging:**
 
-- `agentwatch-ai` (base) depends on `pydantic` and `httpx` only. It contains `evidence` (envelope and codecs), `sensors`, and exporters.
-- `agentwatch-ai[server]` adds FastAPI, SQLAlchemy, Alembic, drivers and workers.
-- `agentwatch-ai[analysis]` adds the graph library and numpy/scipy.
+- `panoptis` (base) depends on `pydantic` and `httpx` only. It contains `evidence` (envelope and codecs), `sensors`, and exporters.
+- `panoptis[server]` adds FastAPI, SQLAlchemy, Alembic, drivers and workers.
+- `panoptis[analysis]` adds the graph library and numpy/scipy.
 - Per-framework extras (`[langchain]`, `[otel]`, …) remain.
 
 **Sensor contract:**
@@ -34,5 +34,5 @@ Sensors run *inside observed applications*. Today the base install pulls FastAPI
 
 ## Consequences
 
-- Breaking packaging change: `pip install agentwatch-ai` no longer installs the server. The CLI detects the missing extra and prints the fix. The change is documented in migration notes (MIGRATION_MAP M2).
+- Breaking packaging change: `pip install panoptis` no longer installs the server. The CLI detects the missing extra and prints the fix. The change is documented in migration notes (MIGRATION_MAP M2).
 - An import-linter contract ensures `sensors/*` import only `evidence` and their own framework.

@@ -1,4 +1,4 @@
-// Types mirroring the AgentWatch v3 API (agentwatch/api/v3.py). The frontend renders the
+// Types mirroring the AgentWatch v3 API (panoptis/api/v3.py). The frontend renders the
 // canonical v3 model as served; it never re-derives interpretations of its own.
 
 export type EventKind =

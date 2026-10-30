@@ -2,15 +2,15 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_DB: agentwatch
-      POSTGRES_USER: agentwatch
-      POSTGRES_PASSWORD: agentwatch
+      POSTGRES_DB: panoptis
+      POSTGRES_USER: panoptis
+      POSTGRES_PASSWORD: panoptis
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agentwatch"]
+      test: ["CMD-SHELL", "pg_isready -U panoptis"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -32,7 +32,7 @@ services:
       context: .
       dockerfile: Dockerfile.api
     environment:
-      DATABASE_URL: postgresql+asyncpg://agentwatch:agentwatch@postgres:5432/agentwatch
+      DATABASE_URL: postgresql+asyncpg://panoptis:panoptis@postgres:5432/panoptis
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       AGENTWATCH_ENV: production
@@ -40,11 +40,11 @@ services:
       AGENTWATCH_API_KEY: ${AGENTWATCH_API_KEY:?set AGENTWATCH_API_KEY in .env - see .env.example}
       # v3 evidence store: on the Postgres service, whose volume persists (otherwise it would
       # be SQLite inside the container and lost when the container is recreated)
-      AGENTWATCH_STORE: postgresql+psycopg://agentwatch:agentwatch@postgres:5432/agentwatch
+      AGENTWATCH_STORE: postgresql+psycopg://panoptis:panoptis@postgres:5432/panoptis
       # payloads over 64 KB are stored as files; keep them on a volume
       AGENTWATCH_BLOB_DIR: /data/blobs
     volumes:
-      - agentwatch_blobs:/data/blobs
+      - panoptis_blobs:/data/blobs
     ports:
       - "8000:8000"
     depends_on:
@@ -64,7 +64,7 @@ services:
       context: .
       dockerfile: Dockerfile.worker
     environment:
-      DATABASE_URL: postgresql+asyncpg://agentwatch:agentwatch@postgres:5432/agentwatch
+      DATABASE_URL: postgresql+asyncpg://panoptis:panoptis@postgres:5432/panoptis
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
     depends_on:
@@ -104,8 +104,8 @@ services:
 
 volumes:
   postgres_data:
-  agentwatch_blobs:
+  panoptis_blobs:
 
 networks:
   default:
-    name: agentwatch-network
+    name: panoptis-network

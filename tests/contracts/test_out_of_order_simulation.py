@@ -21,20 +21,20 @@ from typing import Any
 
 import pytest
 
-from agentwatch.contracts.evaluator import evaluate_contract
-from agentwatch.contracts.order import (
+from panoptis.contracts.evaluator import evaluate_contract
+from panoptis.contracts.order import (
     CausalRelation,
     EventTimeWatermarkBuffer,
     HappensBeforeGraph,
     IngestionStatus,
 )
-from agentwatch.contracts.schema import (
+from panoptis.contracts.schema import (
     ContractOperator,
     ContractRule,
     EvidenceContract,
     EvidenceVerdict,
 )
-from agentwatch.events.model import (
+from panoptis.events.model import (
     ComputationalEvent,
     DeclaredLink,
     EventKind,

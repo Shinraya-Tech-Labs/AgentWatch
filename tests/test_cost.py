@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import time
 
-from agentwatch.core.schema import AgentEvent, EventType, TokenUsage
-from agentwatch.cost.anomaly import CostAnomalyDetector
-from agentwatch.cost.comparator import estimate, estimate_for_text
-from agentwatch.cost.governance import BudgetAction, BudgetGovernance
-from agentwatch.cost.predictor import TaskCostPredictor
-from agentwatch.cost.roi import DAMAGE_BY_SEVERITY, ROILedger
-from agentwatch.cost.tracker import CostTracker
+from panoptis.core.schema import AgentEvent, EventType, TokenUsage
+from panoptis.cost.anomaly import CostAnomalyDetector
+from panoptis.cost.comparator import estimate, estimate_for_text
+from panoptis.cost.governance import BudgetAction, BudgetGovernance
+from panoptis.cost.predictor import TaskCostPredictor
+from panoptis.cost.roi import DAMAGE_BY_SEVERITY, ROILedger
+from panoptis.cost.tracker import CostTracker
 
 # ─────────────────────────────────────────────
 # CST-001 — Per-session token budget (existing tracker)

@@ -8,7 +8,7 @@ shadow replay for agent swarms.
 from __future__ import annotations
 
 try:
-    from agentwatch._version import __version__
+    from panoptis._version import __version__
 except (ImportError, ModuleNotFoundError):
     __version__ = "0.2.0"
 
@@ -59,12 +59,12 @@ from panopti.synth import (
 )
 
 try:
-    from agentwatch.causality import (
+    from panoptis.causality import (
         CUMULATIVE_CONFIDENCE_COLLAPSE,
         ConfidenceCollapseWarning,
         ConfidenceDecayTracker,
     )
-    from agentwatch.circuit_breaker import (
+    from panoptis.circuit_breaker import (
         AgentLoopError,
         AgentLoopException,
         CircuitBreaker,
@@ -73,7 +73,7 @@ try:
         LoopDetector,
         TripReason,
     )
-    from agentwatch.core.watcher import (
+    from panoptis.core.watcher import (
         AgentWatchBlockedError,
         GenericAdapter,
         detect_framework,

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.schema import AgentEvent, EventType
-from agentwatch.tracing.collector import TraceCollector
+from panoptis.core.event_bus import EventBus
+from panoptis.core.schema import AgentEvent, EventType
+from panoptis.tracing.collector import TraceCollector
 
 
 def test_hipaa_redaction_does_not_leak_into_other_handlers():
@@ -37,7 +37,7 @@ def test_hipaa_redaction_does_not_leak_into_other_handlers():
 def test_motif_explanation_does_not_claim_none_when_motifs_exist():
     """Regression: explain() used `lines.extend(...) or lines.append(...)`; extend returns
     None, so 'No motifs detected.' was appended even when motifs were listed."""
-    from agentwatch.query.engine import explain
+    from panoptis.query.engine import explain
 
     lines = explain(
         {
@@ -53,9 +53,9 @@ def test_compare_blames_the_first_differing_retry_not_an_identical_one(engine, s
     """Regression (held-out AWBench async_event_pipeline, tool_timeout): with retries the
     earliest divergence is the first attempt whose outcome differs, not an attempt that
     failed identically in both runs."""
-    from agentwatch import instrument as aw
-    from agentwatch.compare.runs import compare
-    from agentwatch.query.workspace import Workspace, run_order_key
+    from panoptis import instrument as aw
+    from panoptis.compare.runs import compare
+    from panoptis.query.workspace import Workspace, run_order_key
 
     def run(fails: int) -> None:
         state = {"n": fails}
@@ -96,8 +96,8 @@ def test_compare_blames_the_first_differing_retry_not_an_identical_one(engine, s
 def test_memory_read_value_is_explained_by_the_write_not_by_content(engine, sink):
     """Regression (held-out AWBench): declared structure outranks content — a memory read that
     returned the written value gets its lineage from the write, not from similar text."""
-    from agentwatch import instrument as aw
-    from agentwatch.query.workspace import Workspace
+    from panoptis import instrument as aw
+    from panoptis.query.workspace import Workspace
 
     text = "the enriched record lists the solar and storage findings for the report"
 

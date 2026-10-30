@@ -11,11 +11,11 @@ from __future__ import annotations
 import inspect
 import warnings
 
-from agentwatch.adapters.autogen import AutoGenAdapter
-from agentwatch.adapters.langgraph import LangGraphAdapter
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.schema import AgentFramework
-from agentwatch.core.watcher import GenericAdapter
+from panoptis.adapters.autogen import AutoGenAdapter
+from panoptis.adapters.langgraph import LangGraphAdapter
+from panoptis.core.event_bus import EventBus
+from panoptis.core.schema import AgentFramework
+from panoptis.core.watcher import GenericAdapter
 
 # ── Stub agents ──────────────────────────────────────────────────────────────
 

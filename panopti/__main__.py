@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from agentwatch.cli.main import main
+from panoptis.cli.main import main
 
 if __name__ == "__main__":
     main()

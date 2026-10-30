@@ -7,8 +7,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.schema import (
+from panoptis.core.event_bus import EventBus
+from panoptis.core.schema import (
     AgentEvent,
     AgentSession,
     EventType,
@@ -16,23 +16,23 @@ from agentwatch.core.schema import (
     ToolCallData,
     ToolResultData,
 )
-from agentwatch.replay.counterfactual import (
+from panoptis.replay.counterfactual import (
     CounterfactualEngine,
     CounterfactualScenario,
 )
-from agentwatch.scoring.drift import DriftHeatmap, cosine, embed
-from agentwatch.scoring.silence import SilentFailureDetector
-from agentwatch.telemetry.otel import OTELConfig, OTELExporter
-from agentwatch.tracing.audit import ToolAuditLog, detect_hallucinated_arguments
-from agentwatch.tracing.live import LiveStreamHub
-from agentwatch.tracing.sampling import (
+from panoptis.scoring.drift import DriftHeatmap, cosine, embed
+from panoptis.scoring.silence import SilentFailureDetector
+from panoptis.telemetry.otel import OTELConfig, OTELExporter
+from panoptis.tracing.audit import ToolAuditLog, detect_hallucinated_arguments
+from panoptis.tracing.live import LiveStreamHub
+from panoptis.tracing.sampling import (
     FailureAlwaysSampler,
     HeadSampler,
     ReservoirSampler,
     TailSampler,
 )
-from agentwatch.tracing.spans import SpanKind, SpanRegistry, event_to_span
-from agentwatch.tracing.trajectory import build_trajectory
+from panoptis.tracing.spans import SpanKind, SpanRegistry, event_to_span
+from panoptis.tracing.trajectory import build_trajectory
 
 
 def _ev(
@@ -93,7 +93,7 @@ def test_span_registry_indexes_by_trace_and_kind():
 
 
 def test_span_finish_records_latency():
-    from agentwatch.tracing.spans import Span
+    from panoptis.tracing.spans import Span
 
     span = Span(kind=SpanKind.MODEL_CALL, name="test")
     span.finish(output="ok")
@@ -254,7 +254,7 @@ def test_otel_exporter_buffers_when_fallback():
 def test_otel_grafana_template_contains_panels():
     exporter = OTELExporter()
     tpl = exporter.grafana_dashboard_template()
-    assert tpl["uid"] == "agentwatch-main"
+    assert tpl["uid"] == "panoptis-main"
     assert any(p["title"] == "Confidence (p50 / p95)" for p in tpl["panels"])
 
 

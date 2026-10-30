@@ -6,21 +6,21 @@ contributors.
 
 ## Animation helpers
 
-::: agentwatch.cli.animator
+::: panoptis.cli.animator
     options:
       show_root_heading: true
       heading_level: 3
 
 ## Environment verification
 
-::: agentwatch.cli.verify_env
+::: panoptis.cli.verify_env
     options:
       show_root_heading: true
       heading_level: 3
 
 ## Interactive demos
 
-::: agentwatch.cli.demo
+::: panoptis.cli.demo
     options:
       show_root_heading: true
       heading_level: 3

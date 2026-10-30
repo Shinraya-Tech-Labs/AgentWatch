@@ -2,20 +2,20 @@
 
 AgentWatch v3 passively records what an AI-native system does. It reconstructs each run as an execution graph and an information graph, and lets you inspect, compare, replay and question that reconstruction. Every answer points back to immutable raw evidence.
 
-Everything below describes features that exist on the `architecture/v3` branch. Maturity labels, as shown by `agentwatch status`, tell you what has been validated. Most analysis features are still **EXPERIMENTAL**.
+Everything below describes features that exist on the `architecture/v3` branch. Maturity labels, as shown by `panoptis status`, tell you what has been validated. Most analysis features are still **EXPERIMENTAL**.
 
 ## 1. Install
 
 ```bash
 pip install -e ".[dev]"            # from a checkout (Python 3.12)
-pip install "agentwatch-ai[otel]"  # optional: OTLP protobuf decoding and the OTel SDK processor
+pip install "panoptis[otel]"  # optional: OTLP protobuf decoding and the OTel SDK processor
 ```
 
 By default the store is `~/.agentwatch/agentwatch.db` (SQLite). You can point it elsewhere with `--store` or `AGENTWATCH_STORE`:
 
 ```bash
 export AGENTWATCH_STORE=sqlite:///./aw.db
-export AGENTWATCH_STORE=postgresql+psycopg://user:pass@host:5432/agentwatch   # server mode
+export AGENTWATCH_STORE=postgresql+psycopg://user:pass@host:5432/panoptis   # server mode
 ```
 
 ## 2. Record a program
@@ -23,7 +23,7 @@ export AGENTWATCH_STORE=postgresql+psycopg://user:pass@host:5432/agentwatch   # 
 ### Native SDK
 
 ```python
-from agentwatch import instrument as aw
+from panoptis import instrument as aw
 
 @aw.retriever("kb")
 def search(q): ...
@@ -55,8 +55,8 @@ The SDK provides:
 ### Run it under observation
 
 ```bash
-agentwatch observe python examples/research_system.py
-agentwatch observe python examples/research_system.py --variant flaky_tool
+panoptis observe python examples/research_system.py
+panoptis observe python examples/research_system.py --variant flaky_tool
 ```
 
 `observe` runs the program in its own process. It records its command so the run can be replayed later, ingests what it recorded, and prints the run id.
@@ -65,30 +65,30 @@ agentwatch observe python examples/research_system.py --variant flaky_tool
 
 | Source | How |
 |---|---|
-| OpenTelemetry (incl. GenAI conventions) | Send OTLP/HTTP to `POST /v1/traces`, add `AgentWatchSpanProcessor(sink)` to your SDK, or run `agentwatch ingest spans.json`. Optional `agentwatch.*` attributes (ADR-0018) declare artifact writes and information identity. |
+| OpenTelemetry (incl. GenAI conventions) | Send OTLP/HTTP to `POST /v1/traces`, add `AgentWatchSpanProcessor(sink)` to your SDK, or run `panoptis ingest spans.json`. Optional `panoptis.*` attributes (ADR-0018) declare artifact writes and information identity. |
 | LangChain / LangGraph | `callbacks=[AgentWatchLangChainSensor(sink)]` (keeps `run_id` / `parent_run_id`) |
-| Claude Code | `agentwatch ingest transcript.jsonl` (stream-json or transcript files) |
+| Claude Code | `panoptis ingest transcript.jsonl` (stream-json or transcript files) |
 | OpenAI / Anthropic SDK | `instrument_openai(client, sink)`, `instrument_anthropic(client, sink)` |
 | MCP | `MCPTap(sink, server="github").record(direction, message)` |
-| v0.2 `AgentEvent` | `POST /api/v1/events` (automatically teed into v3) or `agentwatch ingest events.jsonl` |
+| v0.2 `AgentEvent` | `POST /api/v1/events` (automatically teed into v3) or `panoptis ingest events.jsonl` |
 
 Each legacy event goes through `LegacyTranslator`, which reports ACCEPTED, ACCEPTED_WITH_LOSS or REJECTED, together with the fields that were lost.
 
 ## 3. Investigate
 
 ```bash
-agentwatch runs                                # reconstructed runs
-agentwatch inspect latest                      # execution tree, failures, motifs, missing facts
-agentwatch events latest --kind TOOL_INVOCATION
-agentwatch show <event>                        # normalized event + raw evidence + relations
-agentwatch graph latest --view information --format dot | dot -Tsvg > g.svg
-agentwatch provenance report.md --run latest   # where did this come from?
-agentwatch dependents report.md                # what depends on it?
-agentwatch compare latest~1 latest             # earliest divergence, structure, resources
-agentwatch motifs latest                       # behavioural motifs (EXPERIMENTAL)
-agentwatch causes <event>                      # dependency / correlation / hypotheses / interventions
-agentwatch effects <event>
-agentwatch query "why did latest take longer than latest~1?"
+panoptis runs                                # reconstructed runs
+panoptis inspect latest                      # execution tree, failures, motifs, missing facts
+panoptis events latest --kind TOOL_INVOCATION
+panoptis show <event>                        # normalized event + raw evidence + relations
+panoptis graph latest --view information --format dot | dot -Tsvg > g.svg
+panoptis provenance report.md --run latest   # where did this come from?
+panoptis dependents report.md                # what depends on it?
+panoptis compare latest~1 latest             # earliest divergence, structure, resources
+panoptis motifs latest                       # behavioural motifs (EXPERIMENTAL)
+panoptis causes <event>                      # dependency / correlation / hypotheses / interventions
+panoptis effects <event>
+panoptis query "why did latest take longer than latest~1?"
 ```
 
 Run references can be full ids, prefixes, run names, `latest` or `latest~N`.
@@ -123,7 +123,7 @@ with aw.span("STATE_MUTATION", "write_report", facets=["artifact_creation"]) as 
     s.output(report, role="artifact", label="report.md")
 ```
 
-`agentwatch inspect` reports each run's share of declared (high-fidelity) links, and how many consumed values are resolved, ambiguous or of unknown origin.
+`panoptis inspect` reports each run's share of declared (high-fidelity) links, and how many consumed values are resolved, ambiguous or of unknown origin.
 
 **Entity aliases.** Different sensors can name the same thing differently (`model:gpt-4o` vs `model:openai/gpt-4o`). AgentWatch never merges entities by similarity. To merge them, declare it:
 
@@ -152,13 +152,13 @@ The merged entity has resolution basis `DECLARED_ALIAS` and lists the keys it ab
 ## 4. Replay, branch, counterfactual (LAB)
 
 ```bash
-agentwatch replay latest --level L0   # timeline reconstruction, nothing executed
-agentwatch replay latest --level L1   # re-derive structure from raw evidence and check consistency
-agentwatch replay latest --level L2   # re-execute; every instrumented call served from captures
-agentwatch replay latest --level L3 --live calculator  # selected calls run live
-agentwatch branch latest --at <retrieval-event> --substitute '[{"id":"X","text":"..."}]'
-agentwatch counterfactual latest --at <event> --alternative '<json>'
-agentwatch branches latest
+panoptis replay latest --level L0   # timeline reconstruction, nothing executed
+panoptis replay latest --level L1   # re-derive structure from raw evidence and check consistency
+panoptis replay latest --level L2   # re-execute; every instrumented call served from captures
+panoptis replay latest --level L3 --live calculator  # selected calls run live
+panoptis branch latest --at <retrieval-event> --substitute '[{"id":"X","text":"..."}]'
+panoptis counterfactual latest --at <event> --alternative '<json>'
+panoptis branches latest
 ```
 
 Replay is never claimed to be deterministic. Each replay reports:
@@ -180,11 +180,11 @@ Counterfactual results are labelled with one of:
 ## 5. Behaviour over many runs (EXPERIMENTAL)
 
 ```bash
-agentwatch genome name:research_system
-agentwatch drift variant:normal variant:model_v2
-agentwatch states
-agentwatch forecast latest
-agentwatch forecast --evaluate
+panoptis genome name:research_system
+panoptis drift variant:normal variant:model_v2
+panoptis states
+panoptis forecast latest
+panoptis forecast --evaluate
 ```
 
 - **Drift** runs permutation tests with FDR control. It reports `insufficient_data` or `underpowered` rather than "no drift" when the sample cannot support a conclusion.
@@ -193,16 +193,16 @@ agentwatch forecast --evaluate
 ## 6. Evidence integrity
 
 ```bash
-agentwatch evidence verify                                   # seal pending observations, verify the Merkle chain
-agentwatch evidence show <obs_id>                            # raw observation + inclusion proof
-agentwatch evidence purge --older-than-days 90 --reason "retention" --yes
-agentwatch reprocess                                         # rebuild the interpretation from evidence
+panoptis evidence verify                                   # seal pending observations, verify the Merkle chain
+panoptis evidence show <obs_id>                            # raw observation + inclusion proof
+panoptis evidence purge --older-than-days 90 --reason "retention" --yes
+panoptis reprocess                                         # rebuild the interpretation from evidence
 ```
 
 **Per-subject erasure (crypto-shredding).** Set `AGENTWATCH_ENCRYPT_PAYLOADS=1` and declare the data subject when recording (`with aw.run("intake", subject_id="customer-42"):`). Then:
 
 ```bash
-agentwatch evidence erase-subject customer-42 --reason "GDPR art. 17" --yes
+panoptis evidence erase-subject customer-42 --reason "GDPR art. 17" --yes
 ```
 
 This destroys the subject's key, purges every derived copy and rebuilds. The raw evidence chain still verifies.
@@ -212,7 +212,7 @@ Raw observations cannot be updated or deleted. Database triggers reject both. Re
 ## 7. Server and UI
 
 ```bash
-AGENTWATCH_STORE=postgresql+psycopg://... uvicorn agentwatch.api.server:app   # /api/v3 + /v1/traces
+AGENTWATCH_STORE=postgresql+psycopg://... uvicorn panoptis.api.server:app   # /api/v3 + /v1/traces
 cd frontend && AGENTWATCH_API_URL=http://localhost:8000 npm run dev            # http://localhost:3000
 ```
 

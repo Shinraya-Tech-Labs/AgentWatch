@@ -54,26 +54,26 @@ AgentWatch v3 is organized into six strictly stratified architectural planes. In
 
 ## 🔎 Plane Breakdown & Core Modules
 
-### Plane A: Evidence Plane (`agentwatch/evidence/`)
+### Plane A: Evidence Plane (`panoptis/evidence/`)
 - **Sensors**: Passive collectors that produce `RawObservation` envelopes. Sensors never interpret, filter, or evaluate business logic.
 - **Store**: Append-only `ObservationStore` partitioned into SHA-256 hash-sealed segments. Large payloads (prompts, raw tool outputs, binaries) go to content-addressed `BlobStore`.
 - **Edge Redaction** ([ADR-0011](file:///data/data/com.termux/files/home/AgentWatch/docs/v3/adr/0011-privacy-redaction-and-erasure.md)): PII and secret redaction occurs at the sensor boundary or ingest gateway *before* persistent storage. Observations carry a `redaction_manifest`.
 
-### Plane B: Interpretation Plane (`agentwatch/events/`, `agentwatch/entities/`)
+### Plane B: Interpretation Plane (`panoptis/events/`, `panoptis/entities/`)
 - **Normalizers**: Pure functions `list[RawObservation] -> list[ComputationalEvent]` that pair start/end timestamps, resolve span identifiers, and map tool calls to formal operations.
 - **Run Segmentation**: Identifies multi-agent session boundaries, trace roots, and assigns execution units to a `SystemVersion`.
 
-### Plane C: Structure Plane (`agentwatch/graph/`, `agentwatch/causality/`, `agentwatch/provenance/`)
+### Plane C: Structure Plane (`panoptis/graph/`, `panoptis/causality/`, `panoptis/provenance/`)
 - **Hyperedge Relation Store**: Single storage layer holding typed relations partitioned into three distinct views:
   - `EXECUTION`: Call tree, parent-child delegation, sequencing.
   - `INFORMATION`: Read/write lineage, artifact transformation, prompt injection flow.
   - `CAUSAL`: Counterfactual dependency ($A \prec B$).
 
-### Plane D: Model Plane (`agentwatch/state/`, `agentwatch/behaviour/`, `agentwatch/models/`)
+### Plane D: Model Plane (`panoptis/state/`, `panoptis/behaviour/`, `panoptis/models/`)
 - **Latent State Clustering**: Identifies agent cognitive modes (planning, tool execution, reflection, recovery).
 - **Behavioral Genome & Drift**: Statistical permutation tests across bootstrap samples to detect reasoning drift.
 
-### Plane E: Experiment Plane (`agentwatch/replay/`, `agentwatch/rollback/`, `benchmarks/awbench/`)
+### Plane E: Experiment Plane (`panoptis/replay/`, `panoptis/rollback/`, `benchmarks/awbench/`)
 - **Replay Levels**:
   - `L0`: Static trace inspection.
   - `L1`: Mocked replay (cached tool responses).
@@ -81,7 +81,7 @@ AgentWatch v3 is organized into six strictly stratified architectural planes. In
   - `L3`: Perturbed counterfactual execution (injecting synthetic errors).
   - `L4`: Live shadowed execution.
 
-### Plane F: Interface Plane (`agentwatch/api/`, `agentwatch/cli/`, `frontend/`)
+### Plane F: Interface Plane (`panoptis/api/`, `panoptis/cli/`, `frontend/`)
 - **APIs**: FastAPI async endpoints, websocket telemetry broadcast, MCP protocol tap.
-- **CLI**: Rich Typer CLI (`agentwatch verify`, `agentwatch replay`, `agentwatch export`).
+- **CLI**: Rich Typer CLI (`panoptis verify`, `panoptis replay`, `panoptis export`).
 - **UI**: Live dashboard, interactive execution graphs, contract verification waterfall.

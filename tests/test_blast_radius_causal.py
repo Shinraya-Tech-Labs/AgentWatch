@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.core.blast_radius import BlastRadiusEstimator
-from agentwatch.core.safety import SafetyEngine
-from agentwatch.core.schema import (
+from panoptis.core.blast_radius import BlastRadiusEstimator
+from panoptis.core.safety import SafetyEngine
+from panoptis.core.schema import (
     AgentEvent,
     AgentFramework,
     EventType,
@@ -60,7 +60,7 @@ def test_blast_radius_detects_production_tag():
 @pytest.mark.asyncio
 async def test_safety_engine_escalates_on_high_blast_radius():
     # Setup a lenient policy
-    from agentwatch.core.safety import SafetyPolicy
+    from panoptis.core.safety import SafetyPolicy
 
     lenient_policy = SafetyPolicy(
         policy_id="lenient",

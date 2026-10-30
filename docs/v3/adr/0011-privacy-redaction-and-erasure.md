@@ -36,7 +36,7 @@ Tenancy uses HMAC-keyed artifact ids per tenant, which prevents cross-tenant con
   - Each (tenant, subject) pair gets its own AES-256-GCM key in `aw3_data_keys`.
   - The subject is the declared id `subject_id`, e.g. `aw.run(..., subject_id=...)`. Observations without one use the tenant default key.
 - **What is hashed.** Stored payloads are ciphertext (`enc:v1:<key_id>:…`), and the segment chain hashes the ciphertext. The dedup key is an HMAC under the subject key, so no plaintext hash survives erasure.
-- **Erasure.** `Engine.erase_subject` / `agentwatch evidence erase-subject` / `POST /api/v3/evidence/erase`:
+- **Erasure.** `Engine.erase_subject` / `panoptis evidence erase-subject` / `POST /api/v3/evidence/erase`:
   1. destroys the key;
   2. deletes every derived row of the tenant (all interpretations, and all artifacts), plus experiment records about the affected runs;
   3. logs the erasure in `aw3_erasures`;

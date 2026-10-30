@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 from typer.testing import CliRunner
 
-from agentwatch.cli.main import app
+from panoptis.cli.main import app
 
 runner = CliRunner()
 

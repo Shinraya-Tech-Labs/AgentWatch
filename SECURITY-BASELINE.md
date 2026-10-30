@@ -1,6 +1,6 @@
 # Security scanning: suppressions and how to add one
 
-AgentWatch runs [Bandit](https://bandit.readthedocs.io/) over `agentwatch/` on every push and pull
+AgentWatch runs [Bandit](https://bandit.readthedocs.io/) over `panoptis/` on every push and pull
 request. This document records how findings are suppressed, why the ones that are suppressed are
 acceptable, and what you have to do if you need to add another.
 
@@ -30,7 +30,7 @@ it should be reviewed as one rather than arriving as an unremarked line in a dif
 ## Why there is no baseline file
 
 There used to be one — `bandit-baseline.json`, holding nine findings, wired into CI with
-`bandit -r agentwatch -b bandit-baseline.json`.
+`bandit -r panoptis -b bandit-baseline.json`.
 
 By the time it was examined it had stopped doing anything. Every finding it listed had since been
 either fixed or suppressed inline with a justification, and Bandit reported **zero findings with the
@@ -44,7 +44,7 @@ near a baselined one can be swallowed without anyone seeing it — and it fails 
 worst way for a security control to fail. It also *looks* like diligence, which makes it less likely
 anyone will go and check.
 
-So the baseline was removed and CI now runs plain `bandit -r agentwatch`. Any new finding fails the
+So the baseline was removed and CI now runs plain `bandit -r panoptis`. Any new finding fails the
 build, and the only way to accept one is to write down why, next to the code, where it will be read.
 
 ## The suppressions that exist today

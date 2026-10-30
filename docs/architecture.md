@@ -30,7 +30,7 @@ graph TD
 - **Adapters**: Framework-specific hook handlers that intercept method executions (like `invoke`, `run`, `kickoff`, `step`) and translate them to unified `AgentEvent` payloads.
 
 ## 2. The Event Bus
-- Located in `agentwatch/core/event_bus.py`.
+- Located in `panoptis/core/event_bus.py`.
 - Thread-safe publisher-subscriber engine that routes events to background tasks without interrupting or delaying the host agent's primary loop.
 
 ## 3. Safety Engine & Sandbox Simulation

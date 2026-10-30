@@ -10,11 +10,11 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from agentwatch.evidence.canonical import canonical_json
-from agentwatch.evidence.model import ObservationDraft, SensorRef
-from agentwatch.evidence.redaction import PayloadPolicy, redact_payload
-from agentwatch.evidence.segments import merkle_proof, merkle_root, verify_proof
-from agentwatch.storage.store import ImmutableEvidenceError
+from panoptis.evidence.canonical import canonical_json
+from panoptis.evidence.model import ObservationDraft, SensorRef
+from panoptis.evidence.redaction import PayloadPolicy, redact_payload
+from panoptis.evidence.segments import merkle_proof, merkle_root, verify_proof
+from panoptis.storage.store import ImmutableEvidenceError
 
 REF = SensorRef("test", "1", "test-1")
 

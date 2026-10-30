@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from agentwatch.cli.main import app
-from agentwatch.security.license import LicenseError
+from panoptis.cli.main import app
+from panoptis.security.license import LicenseError
 
 runner = CliRunner()
 
@@ -18,7 +18,7 @@ def test_upgrade_dry_run():
     assert "Dry-run complete" in result.stdout
 
 
-@patch("agentwatch.cli.main._active_entitlement")
+@patch("panoptis.cli.main._active_entitlement")
 def test_upgrade_status_free(mock_entitlement):
     mock_entitlement.return_value = None
 
@@ -29,7 +29,7 @@ def test_upgrade_status_free(mock_entitlement):
     assert "Free" in result.stdout
 
 
-@patch("agentwatch.cli.main._active_entitlement")
+@patch("panoptis.cli.main._active_entitlement")
 def test_upgrade_status_premium(mock_entitlement):
     entitlement = MagicMock()
     entitlement.tier = "Premium"
@@ -47,7 +47,7 @@ def test_upgrade_status_premium(mock_entitlement):
     assert "2027-01-01" in result.stdout
 
 
-@patch("agentwatch.cli.main._license_public_key")
+@patch("panoptis.cli.main._license_public_key")
 def test_upgrade_activate_no_public_key(mock_key):
     mock_key.return_value = None
 
@@ -60,8 +60,8 @@ def test_upgrade_activate_no_public_key(mock_key):
     assert "No license public key configured" in result.stdout
 
 
-@patch("agentwatch.cli.main._license_public_key")
-@patch("agentwatch.security.license.verify_entitlement")
+@patch("panoptis.cli.main._license_public_key")
+@patch("panoptis.security.license.verify_entitlement")
 def test_upgrade_activate_invalid_token(mock_verify, mock_key):
     mock_key.return_value = "PUBLIC_KEY"
     mock_verify.side_effect = LicenseError("Invalid token")
@@ -76,9 +76,9 @@ def test_upgrade_activate_invalid_token(mock_verify, mock_key):
     assert "Invalid token" in result.stdout
 
 
-@patch("agentwatch.security.entitlement_store.store_entitlement_token")
-@patch("agentwatch.security.license.verify_entitlement")
-@patch("agentwatch.cli.main._license_public_key")
+@patch("panoptis.security.entitlement_store.store_entitlement_token")
+@patch("panoptis.security.license.verify_entitlement")
+@patch("panoptis.cli.main._license_public_key")
 def test_upgrade_activate_success(
     mock_key,
     mock_verify,
@@ -103,8 +103,8 @@ def test_upgrade_activate_success(
     mock_store.assert_called_once_with("good-token")
 
 
-@patch("agentwatch.security.checkout.checkout_url")
-@patch("agentwatch.security.checkout.new_session")
+@patch("panoptis.security.checkout.checkout_url")
+@patch("panoptis.security.checkout.new_session")
 @patch("webbrowser.open")
 def test_upgrade_no_browser(
     mock_browser,
@@ -135,7 +135,7 @@ def test_cli_license_public_key_loading_robustness(monkeypatch, tmp_path):
     """
     import sys
 
-    cli_main = sys.modules["agentwatch.cli.main"]
+    cli_main = sys.modules["panoptis.cli.main"]
     from pathlib import Path
 
     # 1. Clear env to test files

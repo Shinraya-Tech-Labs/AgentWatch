@@ -1,1 +1,1 @@
-agentwatch-ai>=0.2.0
+panoptis>=0.2.0

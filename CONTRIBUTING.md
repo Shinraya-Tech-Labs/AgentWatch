@@ -56,7 +56,7 @@ To maintain fair opportunities and prevent duplicate work:
      
      Technical Implementation Plan:
      1. Architectural Plane: Plane B (Interpretation Plane)
-     2. Files to Modify: agentwatch/events/normalizer.py, agentwatch/contracts/evaluator.py
+     2. Files to Modify: panoptis/events/normalizer.py, panoptis/contracts/evaluator.py
      3. Invariant & Edge Cases Handled: Clock skew where delta exceeds window bound
      4. Testing Strategy: Add unit test in tests/contracts/ verifying overlapping intervals
      ```
@@ -106,13 +106,13 @@ Code must adhere strictly to Ruff formatting rules (Python 3.12+, 100 character 
 
 ```bash
 # Check formatting
-ruff format --check agentwatch/
+ruff format --check panoptis/
 
 # Check linter rules
-ruff check agentwatch/
+ruff check panoptis/
 
 # Run security scan
-bandit -r agentwatch
+bandit -r panoptis
 ```
 
 ### 3. Architecture Plane Boundaries
@@ -168,9 +168,9 @@ Before opening or requesting review on a Pull Request, verify every item below:
 - [ ] **Discord Verified**: You have joined our [Discord](https://discord.gg/UT9uaeY46e) and shared your handle.
 - [ ] **Branch Naming**: Branch follows `feat/issue-<number>-...` or `fix/issue-<number>-...`.
 - [ ] **Test Coverage**: All unit/integration tests pass (`pytest`) with >= 70% package coverage.
-- [ ] **Formatting**: Clean formatting checked via `ruff format --check agentwatch/`.
-- [ ] **Linting**: No errors reported by `ruff check agentwatch/`.
-- [ ] **Security Baseline**: Scanned with `bandit -r agentwatch`. **Zero** global suppression or baseline files created.
+- [ ] **Formatting**: Clean formatting checked via `ruff format --check panoptis/`.
+- [ ] **Linting**: No errors reported by `ruff check panoptis/`.
+- [ ] **Security Baseline**: Scanned with `bandit -r panoptis`. **Zero** global suppression or baseline files created.
 - [ ] **Architectural Planes**: Code strictly adheres to Plane boundaries (`Evidence -> Interpretation -> Structure`).
 - [ ] **No Unverified AI Slop**: You understand every line of code submitted and can defend it in review.
 

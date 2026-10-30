@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.circuit_breaker import (
+from panoptis.circuit_breaker import (
     CircuitBreaker,
     CircuitState,
     CircuitThresholds,
     TripReason,
 )
-from agentwatch.core.schema import (
+from panoptis.core.schema import (
     AgentEvent,
     ConfidenceData,
     EventType,

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from agentwatch.core.policy_dsl import PolicyAction, PolicyDecision, Rule
-from agentwatch.core.policy_loader import (
+from panoptis.core.policy_dsl import PolicyAction, PolicyDecision, Rule
+from panoptis.core.policy_loader import (
     DEFAULT_POLICY_YAML,
     POLICY_FILENAME,
     CombinedVerdict,
@@ -16,7 +16,7 @@ from agentwatch.core.policy_loader import (
     discover_policy_file,
     load_policy_engine,
 )
-from agentwatch.core.schema import AgentEvent, EventType, RiskLevel, ToolCallData
+from panoptis.core.schema import AgentEvent, EventType, RiskLevel, ToolCallData
 
 # ── discovery ──────────────────────────────────────────────────────────────
 

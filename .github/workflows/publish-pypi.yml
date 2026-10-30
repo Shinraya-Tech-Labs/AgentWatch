@@ -94,7 +94,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: AgentWatch v${{ steps.version.outputs.version }}
+          name: PANOPTIS v${{ steps.version.outputs.version }}
           body_path: release_notes.md
           # When no matching CHANGELOG section exists, let GitHub auto-generate
           # notes from merged PRs/commits instead.

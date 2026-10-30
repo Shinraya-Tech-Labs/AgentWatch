@@ -1,6 +1,6 @@
 # Feature Dossier 09: Active Circuit Breakers & Human-in-the-Loop (HITL) Orchestration
 
-**Module Path**: [`agentwatch/circuit_breaker/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/circuit_breaker/) (`breaker.py`, `thresholds.py`) & [`agentwatch/hitl/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/hitl/) (`orchestrator.py`, `decisions.py`, `feedback.py`)  
+**Module Path**: [`panoptis/circuit_breaker/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/circuit_breaker/) (`breaker.py`, `thresholds.py`) & [`panoptis/hitl/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/hitl/) (`orchestrator.py`, `decisions.py`, `feedback.py`)  
 **System Plane**: Plane 4 (Intervention & Policy Plane)  
 **Primary Maintainer**: Autonomous Safety, Tripwires & Human Oversight Team  
 **Obsidian Backlinks**: [[01_ARCHITECTURE_AND_PLANES]], [[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB]], [[05_CAUSAL_INFERENCE_AND_BLAST_RADIUS]], [[08_REPLAY_AND_COUNTERFACTUALS]], [[10_COST_GOVERNANCE_AND_CACHE]], [[12_ENTERPRISE_SECURITY_AND_PRIVACY]]
@@ -47,7 +47,7 @@ AgentWatch bridges the gap between passive telemetry and active defense through 
 
 ---
 
-## 2. Active Circuit Breaker State Machine (`agentwatch/circuit_breaker/breaker.py`)
+## 2. Active Circuit Breaker State Machine (`panoptis/circuit_breaker/breaker.py`)
 
 The AgentWatch Circuit Breaker adapts the classical Michael Nygard software stability pattern to the non-deterministic dynamics of multi-agent cognitive systems.
 
@@ -191,7 +191,7 @@ class CircuitBreaker:
 
 ---
 
-## 3. Human-in-the-Loop (HITL) Orchestration (`agentwatch/hitl/`)
+## 3. Human-in-the-Loop (HITL) Orchestration (`panoptis/hitl/`)
 
 The HITL subsystem implements ambient oversight, ensuring agents do not execute critical operations without appropriate human participation.
 
@@ -302,7 +302,7 @@ class HITLOrchestrator:
 
 ---
 
-## 4. Reinforcement Feedback Learning (`agentwatch/hitl/feedback.py`)
+## 4. Reinforcement Feedback Learning (`panoptis/hitl/feedback.py`)
 
 A major obstacle to enterprise adoption of HITL systems is **Approval Fatigue**. If operators are prompted for trivial, repetitive actions, they begin blind-approving requests without review.
 
@@ -351,34 +351,34 @@ AgentWatch provides complete operator commands via the unified CLI:
 ### 6.1 Circuit Breaker Management
 ```bash
 # Check active breaker state and threshold metrics
-agentwatch breaker status sess_prod_881
+panoptis breaker status sess_prod_881
 
 # Manually trip breaker (emergency stop)
-agentwatch breaker trip sess_prod_881 --reason "Security alert received from SOC"
+panoptis breaker trip sess_prod_881 --reason "Security alert received from SOC"
 
 # Pause and snapshot agent state
-agentwatch breaker pause sess_prod_881
+panoptis breaker pause sess_prod_881
 
 # Resume in half-open probe mode
-agentwatch breaker resume sess_prod_881
+panoptis breaker resume sess_prod_881
 
 # Reset breaker to closed state
-agentwatch breaker reset sess_prod_881
+panoptis breaker reset sess_prod_881
 ```
 
 ### 6.2 HITL Review Surface
 ```bash
 # List all pending high-risk requests awaiting human sign-off
-agentwatch hitl list --status pending
+panoptis hitl list --status pending
 
 # Approve pending tool execution
-agentwatch hitl approve req_9a8f02 --comment "Verified safe for staging migration"
+panoptis hitl approve req_9a8f02 --comment "Verified safe for staging migration"
 
 # Reject dangerous action
-agentwatch hitl reject req_9a8f02 --reason "Destructive drop database prohibited"
+panoptis hitl reject req_9a8f02 --reason "Destructive drop database prohibited"
 
 # Approve with modified arguments
-agentwatch hitl edit req_9a8f02 --payload '{"table": "orders_archive"}'
+panoptis hitl edit req_9a8f02 --payload '{"table": "orders_archive"}'
 ```
 
 ---
@@ -388,9 +388,9 @@ agentwatch hitl edit req_9a8f02 --payload '{"table": "orders_archive"}'
 ```python
 # Complete Agent Integration Loop with Circuit Breaker and HITL
 import asyncio
-from agentwatch.circuit_breaker import CircuitBreaker, CircuitThresholds, CircuitState
-from agentwatch.hitl import HITLOrchestrator, HITLThresholds, DecisionOutcome
-from agentwatch.core.schema import AgentEvent, EventType, ToolCallData, RiskLevel
+from panoptis.circuit_breaker import CircuitBreaker, CircuitThresholds, CircuitState
+from panoptis.hitl import HITLOrchestrator, HITLThresholds, DecisionOutcome
+from panoptis.core.schema import AgentEvent, EventType, ToolCallData, RiskLevel
 
 async def guarded_agent_execution_cycle(session_id: str):
     breaker = CircuitBreaker(session_id=session_id, thresholds=CircuitThresholds(max_tokens=50_000))
@@ -468,7 +468,7 @@ tests/
 
 1. **European Parliament & Council of the European Union (2024)**: *"Artificial Intelligence Act (Regulation (EU) 2024/1689)"*. Official Journal of the European Union.
    - *Key Articles*: Article 12 (Record-keeping), Article 14 (Human oversight), Article 15 (Accuracy, robustness and cybersecurity).
-   - *Influence*: Direct legal specification for `agentwatch/hitl/` and `agentwatch/governance/eu_ai_act.py`.
+   - *Influence*: Direct legal specification for `panoptis/hitl/` and `panoptis/governance/eu_ai_act.py`.
 2. **Nygard, M. T. (2018)**: *"Release It! Design and Deploy Production-Ready Software (2nd Edition)"*. Pragmatic Bookshelf.
    - *Influence*: The architectural foundation for the Circuit Breaker finite-state machine (`breaker.py`).
 3. **NIST (National Institute of Standards and Technology) (2023)**: *"Artificial Intelligence Risk Management Framework (AI RMF 1.0)"*. NIST Trustworthy and Responsible AI.

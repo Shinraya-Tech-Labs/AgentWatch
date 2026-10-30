@@ -11,11 +11,11 @@ COPY . .
 RUN pip wheel --no-cache-dir --wheel-dir /wheels .
 
 FROM python:3.12-slim AS runtime
-RUN useradd --create-home --uid 10001 agentwatch
+RUN useradd --create-home --uid 10001 panoptis
 COPY --from=builder /wheels /wheels
 RUN pip install --no-cache-dir /wheels/*.whl && rm -rf /wheels
-USER agentwatch
+USER panoptis
 
 # Default CMD is the celery worker; the worker service in docker-compose
 # supplies the broker and database URLs through environment variables.
-CMD ["celery", "-A", "agentwatch.tasks.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+CMD ["celery", "-A", "panoptis.tasks.celery_app", "worker", "--loglevel=info", "--concurrency=2"]

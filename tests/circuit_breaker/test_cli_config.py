@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from agentwatch.circuit_breaker import CircuitBreaker, CircuitState, CircuitThresholds
-from agentwatch.cli.main import app
-from agentwatch.core.schema import AgentEvent, EventType, ExecutionStatus
+from panoptis.circuit_breaker import CircuitBreaker, CircuitState, CircuitThresholds
+from panoptis.cli.main import app
+from panoptis.core.schema import AgentEvent, EventType, ExecutionStatus
 from panopti.cli import main as panopti_main
 
 runner = CliRunner()
@@ -141,7 +141,7 @@ def test_panopti_live_rejects_invalid_flags(argv, message, capsys) -> None:
     assert message in capsys.readouterr().err
 
 
-# ------------------------------------------------------------------ agentwatch top
+# ------------------------------------------------------------------ panoptis top
 
 
 def _mock_top_api() -> MagicMock:
@@ -154,7 +154,7 @@ def _mock_top_api() -> MagicMock:
 
 
 @patch("asyncio.sleep", side_effect=RuntimeError("stop polling"))
-def test_agentwatch_top_shows_breaker_config(mock_sleep) -> None:
+def test_panoptis_top_shows_breaker_config(mock_sleep) -> None:
     with patch("httpx.AsyncClient", return_value=_mock_top_api()):
         result = runner.invoke(app, ["server", "top", "--cooldown", "30", "--max-failures", "5"])
 
@@ -170,6 +170,6 @@ def test_agentwatch_top_shows_breaker_config(mock_sleep) -> None:
         ["--max-failures", "2.5"],
     ],
 )
-def test_agentwatch_top_rejects_invalid_flags(args) -> None:
+def test_panoptis_top_rejects_invalid_flags(args) -> None:
     result = runner.invoke(app, ["server", "top", *args])
     assert result.exit_code == 2

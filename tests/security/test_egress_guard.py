@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from agentwatch.security import EgressGuard as AWEgressGuard
-from agentwatch.security import SSRFBlockedError as AWSSRFBlockedError
+from panoptis.security import EgressGuard as AWEgressGuard
+from panoptis.security import SSRFBlockedError as AWSSRFBlockedError
 from panopti.egress import EgressGuard, SSRFBlockedError
 
 
@@ -111,7 +111,7 @@ class TestEgressGuard(unittest.TestCase):
         with self.assertRaises(SSRFBlockedError):
             http_get("http://127.0.0.1:8000/secrets")
 
-    def test_agentwatch_security_import_alias(self) -> None:
+    def test_panoptis_security_import_alias(self) -> None:
         self.assertIs(AWEgressGuard, EgressGuard)
         self.assertIs(AWSSRFBlockedError, SSRFBlockedError)
 

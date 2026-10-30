@@ -9,18 +9,18 @@ from types import SimpleNamespace
 
 import pytest
 
-from agentwatch import instrument as aw
-from agentwatch.analysis.base import AnalysisInput
-from agentwatch.analysis.entropy import (
+from panoptis import instrument as aw
+from panoptis.analysis.base import AnalysisInput
+from panoptis.analysis.entropy import (
     AnomalyType,
     TokenEntropyMonitor,
     shannon_entropy,
     token_entropies,
 )
-from agentwatch.analysis.registry import builtin_analyzers
-from agentwatch.events.model import ArtifactRef, ComputationalEvent, EventKind, TemporalInfo
-from agentwatch.events.normalizers.llm_api import token_logprobs
-from agentwatch.sensors.llm_clients import instrument_openai
+from panoptis.analysis.registry import builtin_analyzers
+from panoptis.events.model import ArtifactRef, ComputationalEvent, EventKind, TemporalInfo
+from panoptis.events.normalizers.llm_api import token_logprobs
+from panoptis.sensors.llm_clients import instrument_openai
 
 T0 = datetime(2026, 1, 1, tzinfo=UTC)
 

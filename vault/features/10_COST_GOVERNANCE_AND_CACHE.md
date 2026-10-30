@@ -1,6 +1,6 @@
 # Feature Dossier 10: Cost Governance, Complexity Routing & Semantic Caching
 
-**Module Path**: [`agentwatch/cost/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/cost/) (`complexity_router.py`, `semantic_cache.py`, `governance.py`, `tracker.py`)  
+**Module Path**: [`panoptis/cost/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/cost/) (`complexity_router.py`, `semantic_cache.py`, `governance.py`, `tracker.py`)  
 **System Plane**: Plane 4 (Intervention & Policy Plane) & Plane 1 (Runtime & Ingestion Plane)  
 **Primary Maintainer**: Financial Engineering & AI Cost Governance Team  
 **Obsidian Backlinks**: [[01_ARCHITECTURE_AND_PLANES]], [[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB]], [[02_COMPUTATIONAL_EVENT_ALGEBRA]], [[07_BEHAVIORAL_GENOME_AND_DRIFT]], [[09_CIRCUIT_BREAKERS_AND_HITL]]
@@ -52,7 +52,7 @@ AgentWatch eliminates economic inefficiency through a three-tier cost-intelligen
 
 ---
 
-## 2. Cost-Aware Complexity Router (`agentwatch/cost/complexity_router.py`)
+## 2. Cost-Aware Complexity Router (`panoptis/cost/complexity_router.py`)
 
 The Complexity Router implements CST-009, dynamically matching task demands with model capabilities while minimizing API expenditures.
 
@@ -125,7 +125,7 @@ def score_complexity(signals: TaskSignals) -> TaskComplexity:
 
 ### 2.4 Dynamic Rate Calculation & Pricing Matrix (`comparator.py`)
 
-AgentWatch maintains an authoritative pricing table in `agentwatch/cost/comparator.py`, tracking real-time input and output token rates per million tokens:
+AgentWatch maintains an authoritative pricing table in `panoptis/cost/comparator.py`, tracking real-time input and output token rates per million tokens:
 
 ```python
 DEFAULT_PRICING: dict[str, dict[str, float]] = {
@@ -150,7 +150,7 @@ By continuously evaluating this table, the router determines that routing a simp
 
 ---
 
-## 3. Semantic Caching Engine (`agentwatch/cost/semantic_cache.py`)
+## 3. Semantic Caching Engine (`panoptis/cost/semantic_cache.py`)
 
 A significant portion of multi-agent workloads consists of repetitive inquiries—such as checking repository status, validating common error codes, or retrieving schema definitions. Naively querying remote LLMs for identical semantic prompts wastes money and adds $1$–$3$ seconds of latency.
 
@@ -220,7 +220,7 @@ class SemanticCache:
 
 ---
 
-## 4. Multi-Tenant Budget Governance (`agentwatch/cost/governance.py`)
+## 4. Multi-Tenant Budget Governance (`panoptis/cost/governance.py`)
 
 Enterprise cost governance requires clear delegation of financial responsibility across engineering departments and individual agents.
 
@@ -254,7 +254,7 @@ When an agent requests model invocation, `BudgetGovernance.evaluate_action()` re
 | `BLOCK` | Cumulative usage exceeds hard cap ($> 100\%$) or single action $> \text{HardBlockCeiling}$ | Hard abort with HTTP 429 / `QuotaExceededException`. |
 
 ```python
-# Governance decision evaluation in agentwatch/cost/governance.py
+# Governance decision evaluation in panoptis/cost/governance.py
 class BudgetGovernance:
     def check_action(self, agent_id: str, estimated_cost_usd: Decimal) -> BudgetDecision:
         team_id = self._agent_to_team.get(agent_id)
@@ -306,9 +306,9 @@ In benchmark enterprise deployments, AgentWatch routinely demonstrates a **68% t
 
 ```python
 # Complete Cost-Guarded LLM Client Wrapper
-from agentwatch.cost.complexity_router import CostAwareRouter, TaskSignals, TaskComplexity
-from agentwatch.cost.semantic_cache import SemanticCache
-from agentwatch.cost.governance import BudgetGovernance, BudgetAction
+from panoptis.cost.complexity_router import CostAwareRouter, TaskSignals, TaskComplexity
+from panoptis.cost.semantic_cache import SemanticCache
+from panoptis.cost.governance import BudgetGovernance, BudgetAction
 
 class GuardedLLMClient:
     def __init__(self):

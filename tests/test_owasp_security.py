@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from agentwatch.core.schema import AgentEvent, AgentFramework, EventType, ToolCallData
-from agentwatch.security.owasp import OwaspVector, validate_owasp
+from panoptis.core.schema import AgentEvent, AgentFramework, EventType, ToolCallData
+from panoptis.security.owasp import OwaspVector, validate_owasp
 
 
 def _tool_event(tool: str, raw: str, args: dict | None = None) -> AgentEvent:

@@ -39,7 +39,7 @@ jobs:
         continue-on-error: true
         run: |
           pytest tests/ -v --tb=short \
-            --cov=agentwatch \
+            --cov=panoptis \
             --cov-report=term-missing \
             --cov-report=json
 

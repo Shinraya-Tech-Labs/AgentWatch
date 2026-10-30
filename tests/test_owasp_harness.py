@@ -6,7 +6,7 @@ import json
 import subprocess
 import sys
 
-from agentwatch.security.owasp import validate_owasp
+from panoptis.security.owasp import validate_owasp
 from scripts.owasp_test_harness import (
     OWASP_ATTACK_VECTORS,
     HarnessResult,

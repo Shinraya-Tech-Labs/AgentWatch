@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from agentwatch.evidence.attestation import (
+from panoptis.evidence.attestation import (
     FORMAT_ID,
     AuditToken,
     CommittedRecord,
@@ -29,8 +29,8 @@ from agentwatch.evidence.attestation import (
     verify_rule,
     verify_token,
 )
-from agentwatch.evidence.crypto import CryptoImportError, CryptoUnavailableError
-from agentwatch.evidence.merkle import MerkleProof, MerkleTree
+from panoptis.evidence.crypto import CryptoImportError, CryptoUnavailableError
+from panoptis.evidence.merkle import MerkleProof, MerkleTree
 
 SEALED_AT = datetime(2026, 10, 27, 9, 30, tzinfo=UTC)
 
@@ -137,7 +137,7 @@ def test_algorithm_and_key_id_must_match_the_verifier(
 
 
 def test_unsupported_version_rejected(token: AuditToken, signer: HmacSha256Signer) -> None:
-    result = verify_token(dataclasses.replace(token, version="agentwatch-audit-token/2"), signer)
+    result = verify_token(dataclasses.replace(token, version="panoptis-audit-token/2"), signer)
     assert not result and "version" in result.reason
 
 
@@ -239,7 +239,7 @@ def test_missing_cryptography_gives_an_actionable_import_error(
         Ed25519Signer.generate()
     assert isinstance(info.value, CryptoImportError)
     assert isinstance(info.value, CryptoUnavailableError)  # existing handlers still catch it
-    assert "pip install 'agentwatch-ai[crypto]'" in str(info.value)
+    assert "pip install 'panoptis[crypto]'" in str(info.value)
     with pytest.raises(ImportError):
         Ed25519Verifier(b"\x00" * 32)
 
@@ -249,9 +249,9 @@ def test_core_works_with_cryptography_blocked() -> None:
     code = (
         "import sys; sys.modules['cryptography'] = None\n"
         "import hashlib, secrets\n"
-        "from agentwatch.evidence.attestation import (HmacSha256Signer, issue_token, verify_token,"
+        "from panoptis.evidence.attestation import (HmacSha256Signer, issue_token, verify_token,"
         " CommittedRecord, verify_rule)\n"
-        "from agentwatch.evidence.merkle import MerkleTree\n"
+        "from panoptis.evidence.merkle import MerkleTree\n"
         "rec = CommittedRecord({'human_approval': True, 'prompt': 'secret text'})\n"
         "tree = MerkleTree([hashlib.sha256(b'x').hexdigest(), rec.digest])\n"
         "s = HmacSha256Signer(secrets.token_bytes(32))\n"

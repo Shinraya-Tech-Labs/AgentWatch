@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from agentwatch import instrument as aw
-from agentwatch.runtime.engine import Engine
-from agentwatch.storage.store import Store
+from panoptis import instrument as aw
+from panoptis.runtime.engine import Engine
+from panoptis.storage.store import Store
 
 SUBJECT_TEXT = "Alice Example's medical history mentions a rare condition"
 

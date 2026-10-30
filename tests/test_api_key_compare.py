@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException
 
-from agentwatch.api import server
+from panoptis.api import server
 
 
 def test_key_matches_only_the_exact_key(monkeypatch):

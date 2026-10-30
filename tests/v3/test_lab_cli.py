@@ -8,11 +8,11 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from agentwatch.cli.main import app
-from agentwatch.lab.branch import branch_history, counterfactual, create_branch, execute_branch
-from agentwatch.lab.observe import observe
-from agentwatch.lab.replay import replay
-from agentwatch.query.workspace import Workspace, run_order_key
+from panoptis.cli.main import app
+from panoptis.lab.branch import branch_history, counterfactual, create_branch, execute_branch
+from panoptis.lab.observe import observe
+from panoptis.lab.replay import replay
+from panoptis.query.workspace import Workspace, run_order_key
 
 EXAMPLE = str(Path(__file__).resolve().parents[2] / "examples" / "research_system.py")
 OFF_TOPIC = [
@@ -174,8 +174,8 @@ def test_cli_ingest_legacy_jsonl(tmp_path, monkeypatch, store):
 
 
 def test_cli_full_surface_on_persisted_data(tmp_path, monkeypatch):
-    """Every major command against a store written by `agentwatch observe` (release gate)."""
-    from agentwatch.storage.store import Store
+    """Every major command against a store written by `panoptis observe` (release gate)."""
+    from panoptis.storage.store import Store
 
     url = f"sqlite:///{(tmp_path / 'cli.db').as_posix()}"
     monkeypatch.setenv("AGENTWATCH_STORE", url)

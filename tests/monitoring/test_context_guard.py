@@ -6,8 +6,8 @@ import hashlib
 
 import pytest
 
-from agentwatch.events.model import Diagnostic
-from agentwatch.monitoring.context_guard import (
+from panoptis.events.model import Diagnostic
+from panoptis.monitoring.context_guard import (
     CONTEXT_LIMIT_UNKNOWN,
     CONTEXT_USAGE_UNAVAILABLE,
     CONTEXT_WINDOW_EXHAUSTED,

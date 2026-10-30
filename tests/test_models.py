@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.core.models import EventRecord, SessionRecord, get_database_url
+from panoptis.core.models import EventRecord, SessionRecord, get_database_url
 
 
 def test_get_database_url_from_args():

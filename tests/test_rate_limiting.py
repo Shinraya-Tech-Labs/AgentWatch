@@ -2,7 +2,7 @@
 
 Covers two layers:
 - The reusable ``RateLimiter`` / ``RateLimitMiddleware`` (per-user and global
-  limits) under ``agentwatch.api.middleware.rate_limiter``.
+  limits) under ``panoptis.api.middleware.rate_limiter``.
 - The per-IP rate limiting wired directly into the AgentWatch API server.
 """
 
@@ -14,7 +14,7 @@ import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 
-from agentwatch.api.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
+from panoptis.api.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
 
 
 class TestRateLimiter:
@@ -95,7 +95,7 @@ def rate_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.delenv("AGENTWATCH_API_KEY", raising=False)
     monkeypatch.delenv("AGENTWATCH_ENV", raising=False)
 
-    import agentwatch.api.server as server
+    import panoptis.api.server as server
 
     server.RATE_WRITE = int(os.getenv("API_RATE_LIMIT_WRITE", "10"))
     server.RATE_READ = int(os.getenv("API_RATE_LIMIT_READ", "1000"))
@@ -154,7 +154,7 @@ def test_429_body_matches_spec(rate_client: TestClient) -> None:
 
 
 def test_client_ip_prefers_forwarded_for() -> None:
-    import agentwatch.api.server as server
+    import panoptis.api.server as server
 
     class _Request:
         client = None
@@ -166,7 +166,7 @@ def test_client_ip_prefers_forwarded_for() -> None:
 def test_limiter_prunes_stale_buckets() -> None:
     import time
 
-    import agentwatch.api.server as server
+    import panoptis.api.server as server
 
     server.reset_rate_limiter_for_tests()
     server._limiter._buckets["stale-ip:w"] = {

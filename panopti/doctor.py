@@ -6,8 +6,8 @@ import platform
 import sys
 from typing import Any
 
-from agentwatch.circuit_breaker.loop_detector import LoopDetector
-from agentwatch.core.safety import SafetyEngine
+from panoptis.circuit_breaker.loop_detector import LoopDetector
+from panoptis.core.safety import SafetyEngine
 from panopti.court import WitnessChain
 from panopti.guard import guard
 
@@ -56,7 +56,7 @@ def run_diagnostics() -> dict[str, Any]:
 
     # 3. Storage Layer Check
     try:
-        from agentwatch.storage.store import get_storage_engine
+        from panoptis.storage.store import get_storage_engine
         results["components"]["storage"] = {
             "status": "ok",
             "engine": "available",

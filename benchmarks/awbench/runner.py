@@ -4,7 +4,7 @@
     python -m benchmarks.awbench.runner --seeds 3  # more seeds
 
 1. Runs every (architecture, scenario, seed) of the registry as a separate observed
-   process (``agentwatch observe``) into a fresh store. Ground truth goes to separate files
+   process (``panoptis observe``) into a fresh store. Ground truth goes to separate files
    that the AgentWatch pipeline never reads.
 2. Evaluates each task against ground truth.
 3. Writes a machine-generated result file (git SHA, registry hash, environment) and
@@ -27,10 +27,10 @@ from typing import Any
 
 import yaml
 
-from agentwatch.evidence.canonical import canonical_json, sha256_hex
-from agentwatch.lab.observe import observe
-from agentwatch.query.workspace import Workspace
-from agentwatch.runtime.engine import Engine
+from panoptis.evidence.canonical import canonical_json, sha256_hex
+from panoptis.lab.observe import observe
+from panoptis.query.workspace import Workspace
+from panoptis.runtime.engine import Engine
 
 HERE = Path(__file__).resolve().parent
 SYSTEM = HERE / "systems" / "workbench.py"
@@ -51,7 +51,7 @@ class RunRecord:
 
 
 def _git(*args: str) -> str | None:
-    from agentwatch.cli._utils.run_cmd import run_validated_command
+    from panoptis.cli._utils.run_cmd import run_validated_command
 
     try:
         code, out, _ = run_validated_command(["git", *args], check=False)
@@ -61,7 +61,7 @@ def _git(*args: str) -> str | None:
 
 
 def _git_dirty() -> bool | None:
-    out = _git("status", "--porcelain", "--", "agentwatch", "benchmarks/awbench")
+    out = _git("status", "--porcelain", "--", "panoptis", "benchmarks/awbench")
     if out is None:
         return None
     return any(
@@ -107,13 +107,13 @@ def effective_status(spec: dict[str, Any] | None) -> dict[str, Any]:
         return {"status": declared}
     if not first:
         return {"status": "HELD_OUT", "reason": "first scored run"}
-    changed = _git("diff", "--name-only", first["commit"], "HEAD", "--", "agentwatch")
+    changed = _git("diff", "--name-only", first["commit"], "HEAD", "--", "panoptis")
     if changed is None:
         return {"status": "UNKNOWN", "reason": "git unavailable"}
     if changed.strip() or _git_dirty():
         return {
             "status": "FORMER_HELD_OUT",
-            "reason": f"agentwatch/ changed since first scored run {first['commit']}",
+            "reason": f"panoptis/ changed since first scored run {first['commit']}",
             "first_scored_run": first,
         }
     return {"status": "HELD_OUT", "first_scored_run": first}

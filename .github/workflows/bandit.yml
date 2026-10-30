@@ -30,4 +30,4 @@ jobs:
         # since been fixed or suppressed inline with a justification, so it suppressed nothing —
         # while remaining a broad positional mute that could swallow a genuinely new finding.
         # Suppressions now live in the code as `# nosec <ID> — reason`; see SECURITY-BASELINE.md.
-        run: bandit -r agentwatch
+        run: bandit -r panoptis

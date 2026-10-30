@@ -11,14 +11,14 @@ import socket
 
 import pytest
 
-from agentwatch.core.schema import (
+from panoptis.core.schema import (
     AgentEvent,
     EventType,
     ExecutionStatus,
     ToolCallData,
     ToolResultData,
 )
-from agentwatch.replay import (
+from panoptis.replay import (
     PromptCompletionModel,
     ShadowClassification,
     ShadowConfig,
@@ -28,7 +28,7 @@ from agentwatch.replay import (
     from_step_fn,
     run_shadow_replay,
 )
-from agentwatch.replay.shadow import (
+from panoptis.replay.shadow import (
     arguments_hash,
     compare_traces,
     event_signature,
@@ -563,7 +563,7 @@ def test_the_report_is_json_serialisable_and_complete():
 
 
 def test_the_public_api_is_exported_from_the_replay_package():
-    import agentwatch.replay as replay
+    import panoptis.replay as replay
 
     for name in (
         "ShadowReplayRunner",

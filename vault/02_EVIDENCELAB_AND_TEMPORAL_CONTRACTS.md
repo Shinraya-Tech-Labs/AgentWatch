@@ -1,9 +1,9 @@
 # 02 — EvidenceLab & Temporal Contract Verification
 
 > **Implementation Files:**  
-> - [`agentwatch/contracts/schema.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/schema.py) (Data models & 4-valued verdicts)  
-> - [`agentwatch/contracts/evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/evaluator.py) (Temporal contract evaluator & witness extraction)  
-> - [`agentwatch/contracts/remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/remedies.py) (Remediation recommendations for missing telemetry)  
+> - [`panoptis/contracts/schema.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/schema.py) (Data models & 4-valued verdicts)  
+> - [`panoptis/contracts/evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/evaluator.py) (Temporal contract evaluator & witness extraction)  
+> - [`panoptis/contracts/remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/remedies.py) (Remediation recommendations for missing telemetry)  
 > - [`tests/contracts/test_evidence_sufficiency.py`](file:///data/data/com.termux/files/home/AgentWatch/tests/contracts/test_evidence_sufficiency.py) (Contract verification test suite)  
 > **Merged PR:** [PR #728](https://github.com/Shinraya-Tech-Labs/AgentWatch/pull/728) (`f87693a`) into `main`  
 
@@ -27,7 +27,7 @@ Under closed-world logic, a safety contract like *"All fund transfers must be pr
 
 ## ⚖️ Four-Valued Epistemic Logic (`EvidenceVerdict`)
 
-Defined in [`agentwatch/contracts/schema.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/schema.py#L14-L23):
+Defined in [`panoptis/contracts/schema.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/schema.py#L14-L23):
 
 ```python
 class EvidenceVerdict(StrEnum):
@@ -75,9 +75,9 @@ When a contract evaluates to `INCONCLUSIVE`, AgentWatch attaches a typed `Missin
 
 ---
 
-## 🩹 Remediation Engine (`agentwatch/contracts/remedies.py`)
+## 🩹 Remediation Engine (`panoptis/contracts/remedies.py`)
 
-When an invariant cannot be proven, [`remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/remedies.py) maps missing facts to actionable remediation objects:
+When an invariant cannot be proven, [`remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/remedies.py) maps missing facts to actionable remediation objects:
 
 - **`remedy_type`**: `CONFIG_CHANGE`, `INSTRUMENTATION_REQUIRED`, or `NETWORK_FIX`.
 - **`suggestion`**: Exact human-readable instruction (e.g., *"Enable the 'approval_sensor' in AgentWatch capture profile"*).

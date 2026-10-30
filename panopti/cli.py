@@ -169,7 +169,7 @@ def main(args: list[str] | None = None) -> Any:
         return 0
 
     if argv and argv[0] in ("top", "live"):
-        from agentwatch.circuit_breaker import CircuitBreaker, CircuitThresholds
+        from panoptis.circuit_breaker import CircuitBreaker, CircuitThresholds
         from panopti.presets.profiles import get_profile
 
         profile_name = "devops"
@@ -309,10 +309,10 @@ def main(args: list[str] | None = None) -> Any:
         print("Usage: panopti synth <trace_file.json>")
         return 1
 
-    # Delegate all standard commands to agentwatch.cli.main
-    from agentwatch.cli.main import main as agentwatch_main
+    # Delegate all standard commands to panoptis.cli.main
+    from panoptis.cli.main import main as panoptis_main
 
-    return agentwatch_main()
+    return panoptis_main()
 
 
 if __name__ == "__main__":

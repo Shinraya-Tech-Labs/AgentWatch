@@ -5,7 +5,7 @@
 # Prerequisites:
 #   pip install locust --break-system-packages
 #   # start the API first, e.g.:
-#   uvicorn agentwatch.api.server:app --host 0.0.0.0 --port 8000
+#   uvicorn panoptis.api.server:app --host 0.0.0.0 --port 8000
 #
 # Results are written to tests/load/results_*.csv
 #

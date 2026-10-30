@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from agentwatch.cli.main import app
+from panoptis.cli.main import app
 
 runner = CliRunner()
 
@@ -158,7 +158,7 @@ def test_export_csv_default_file_name(mock_httpx_client, tmp_path, monkeypatch):
     result = runner.invoke(app, ["session", "export", "abc-123", "--format", "csv"])
 
     assert result.exit_code == 0
-    assert (tmp_path / "agentwatch-session-abc-123.csv").exists()
+    assert (tmp_path / "panoptis-session-abc-123.csv").exists()
 
 
 def test_export_jsonl_default_file_name(mock_httpx_client, tmp_path, monkeypatch):
@@ -167,7 +167,7 @@ def test_export_jsonl_default_file_name(mock_httpx_client, tmp_path, monkeypatch
     result = runner.invoke(app, ["session", "export", "abc-123", "--format", "jsonl"])
 
     assert result.exit_code == 0
-    assert (tmp_path / "agentwatch-session-abc-123.jsonl").exists()
+    assert (tmp_path / "panoptis-session-abc-123.jsonl").exists()
 
 
 @pytest.mark.parametrize("fmt", ["jsonl", "csv"])

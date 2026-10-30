@@ -9,7 +9,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from agentwatch.security.license import (
+from panoptis.security.license import (
     Entitlement,
     LicenseExpiredError,
     LicenseInvalidError,

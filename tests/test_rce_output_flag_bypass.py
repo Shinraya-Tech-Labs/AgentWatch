@@ -6,8 +6,8 @@ exactly like the short ``-o`` form, otherwise pre-execution blocking is
 defeated by simply spelling the download flag out in long form.
 """
 
-from agentwatch.core.safety import RiskScorer, is_remote_code_execution
-from agentwatch.core.schema import RiskLevel, ToolCallData
+from panoptis.core.safety import RiskScorer, is_remote_code_execution
+from panoptis.core.schema import RiskLevel, ToolCallData
 
 
 def _score(cmd: str) -> RiskLevel:

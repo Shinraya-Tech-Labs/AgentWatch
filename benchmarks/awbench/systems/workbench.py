@@ -31,7 +31,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from agentwatch import instrument as aw
+from panoptis import instrument as aw
 
 SCENARIOS = [
     "normal",

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 try:
-    from agentwatch.core.watcher import AgentWatchBlockedError
+    from panoptis.core.watcher import AgentWatchBlockedError
 except (ImportError, ModuleNotFoundError):
     class AgentWatchBlockedError(Exception):  # type: ignore[no-redef]
         def __init__(

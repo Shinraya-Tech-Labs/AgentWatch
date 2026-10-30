@@ -6,28 +6,28 @@ import csv
 import io
 from datetime import UTC, datetime
 
-from agentwatch.governance.causal import AdverseOutcome, attribute
-from agentwatch.governance.compliance_reporter import ComplianceReporter
-from agentwatch.governance.engine import (
+from panoptis.governance.causal import AdverseOutcome, attribute
+from panoptis.governance.compliance_reporter import ComplianceReporter
+from panoptis.governance.engine import (
     AuditEventType,
     GovernanceEngine,
     Permission,
     Principal,
 )
-from agentwatch.governance.eu_ai_act import (
+from panoptis.governance.eu_ai_act import (
     EUAIActPackage,
     TechnicalDocumentation,
 )
-from agentwatch.governance.gdpr import GDPREngine, detect_pii, redact
-from agentwatch.governance.hipaa import HIPAAEngine, detect_phi
-from agentwatch.governance.iso42001 import (
+from panoptis.governance.gdpr import GDPREngine, detect_pii, redact
+from panoptis.governance.hipaa import HIPAAEngine, detect_phi
+from panoptis.governance.iso42001 import (
     ISO42001AMS,
     GovernanceDoc,
     Incident,
     IncidentSeverity,
     RiskAssessment,
 )
-from agentwatch.governance.rbac import (
+from panoptis.governance.rbac import (
     RBACEngine,
     Role,
     SAMLClaims,
@@ -36,13 +36,13 @@ from agentwatch.governance.rbac import (
     issue_token,
     verify_token,
 )
-from agentwatch.governance.reports import ReportInputs, export
-from agentwatch.governance.residency import (
+from panoptis.governance.reports import ReportInputs, export
+from panoptis.governance.residency import (
     Region,
     ResidencyRouter,
     eu_only_policy,
 )
-from agentwatch.memory.causal_graph import CausalGraph, CausalNode, EdgeKind
+from panoptis.memory.causal_graph import CausalGraph, CausalNode, EdgeKind
 
 # ─────────────────────────────────────────────
 # CMP-001 — GDPR

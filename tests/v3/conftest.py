@@ -4,10 +4,10 @@ from collections.abc import Iterator
 
 import pytest
 
-from agentwatch import instrument as aw
-from agentwatch.runtime.engine import Engine
-from agentwatch.sensors.base import ListSink
-from agentwatch.storage.store import Store
+from panoptis import instrument as aw
+from panoptis.runtime.engine import Engine
+from panoptis.sensors.base import ListSink
+from panoptis.storage.store import Store
 
 
 @pytest.fixture

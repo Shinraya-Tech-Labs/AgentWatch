@@ -1,6 +1,6 @@
 # Feature Dossier 05: Causal Inference Engine & Blast Radius Analysis
 
-**Module Path**: [`agentwatch/causality/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/causality/) (`cones.py`, `hypotheses.py`) & [`agentwatch/core/blast_radius.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/core/blast_radius.py)  
+**Module Path**: [`panoptis/causality/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/causality/) (`cones.py`, `hypotheses.py`) & [`panoptis/core/blast_radius.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/core/blast_radius.py)  
 **System Plane**: Plane 3 (Analysis & Attribution Plane) & Plane 4 (Intervention & Policy Plane)  
 **Primary Maintainer**: AI Safety & Causal Attribution Core Team  
 **Obsidian Backlinks**: [[01_ARCHITECTURE_AND_PLANES]], [[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB]], [[02_COMPUTATIONAL_EVENT_ALGEBRA]], [[04_HYPEREDGE_GRAPH_AND_PROVENANCE]], [[08_REPLAY_AND_COUNTERFACTUALS]]
@@ -23,15 +23,15 @@ Furthermore, AgentWatch marries retrospective root-cause analysis with **SAF-004
   ┌─────────────────────────────────────────────────────────────────────────────┐
   │ RUNG 3: COUNTERFACTUALS (Imagining)                                        │
   │ "What would have occurred had tool output Y been substituted in step k?"   │
-  │ Engine: agentwatch/replay/engine.py & branch_result interventional forks  │
+  │ Engine: panoptis/replay/engine.py & branch_result interventional forks  │
   ├─────────────────────────────────────────────────────────────────────────────┤
   │ RUNG 2: INTERVENTIONS (Doing)                                              │
   │ "If we execute do(Tool=Sandbox), does downstream failure probability drop?" │
-  │ Engine: agentwatch/causality/hypotheses.py & EvidenceClass.INTERVENTIONAL  │
+  │ Engine: panoptis/causality/hypotheses.py & EvidenceClass.INTERVENTIONAL  │
   ├─────────────────────────────────────────────────────────────────────────────┤
   │ RUNG 1: ASSOCIATION (Seeing)                                               │
   │ "Is error event E in the forward/backward causal cone of event C?"         │
-  │ Engine: agentwatch/causality/cones.py (Dual EXECUTION & INFORMATION walk)   │
+  │ Engine: panoptis/causality/cones.py (Dual EXECUTION & INFORMATION walk)   │
   └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -61,7 +61,7 @@ The forward cone defines the **Observational Blast Radius** of any failure, pois
 
 ---
 
-## 3. Architecture of the Causal Engine (`agentwatch/causality/`)
+## 3. Architecture of the Causal Engine (`panoptis/causality/`)
 
 The causal inference engine is organized into two primary pillars:
 1. `cones.py`: Structural causal cone extraction across multi-view hypergraphs.
@@ -133,8 +133,8 @@ In classical monitoring tools, an LLM might declare: *"I have diagnosed the bug:
 The evidence class of any hypothesis is **computed programmatically** from recorded execution branches:
 
 ```python
-from agentwatch.graph.model import EvidenceClass
-from agentwatch.causality.hypotheses import EvidenceKind, KIND_CLASS
+from panoptis.graph.model import EvidenceClass
+from panoptis.causality.hypotheses import EvidenceKind, KIND_CLASS
 
 class HypothesisView:
     record: dict[str, Any]
@@ -177,9 +177,9 @@ class HypothesisView:
 
 ---
 
-## 5. SAF-004: Predictive Blast Radius Estimator (`agentwatch/core/blast_radius.py`)
+## 5. SAF-004: Predictive Blast Radius Estimator (`panoptis/core/blast_radius.py`)
 
-While `agentwatch/causality/cones.py` performs retrospective causal slicing, `BlastRadiusEstimator` provides **proactive pre-execution safety gating**. Before any agent tool call is dispatched to an operating system shell, database engine, cloud API, or git remote, AgentWatch calculates its worst-case blast radius score ($S \in [0, 100]$) and reversibility class.
+While `panoptis/causality/cones.py` performs retrospective causal slicing, `BlastRadiusEstimator` provides **proactive pre-execution safety gating**. Before any agent tool call is dispatched to an operating system shell, database engine, cloud API, or git remote, AgentWatch calculates its worst-case blast radius score ($S \in [0, 100]$) and reversibility class.
 
 ### 5.1 Reversibility Classification
 Agent actions are classified into three strictly ordered reversibility tiers:
@@ -297,7 +297,7 @@ This prevents common LLM hallucinations where an agent generates `DELETE FROM us
 
 ## 6. Bidirectional Causal Slicing: `causes()` and `effects()`
 
-AgentWatch exposes high-level causal inspection endpoints in `agentwatch/causality/cones.py`:
+AgentWatch exposes high-level causal inspection endpoints in `panoptis/causality/cones.py`:
 
 ```python
 def causes(ws: Workspace, event_ref: str, *, max_depth: int = 25) -> dict[str, Any]:
@@ -420,16 +420,16 @@ tests/
 *Researched and verified via `agent-reach` across causal inference, distributed systems, and AI safety literature:*
 
 1. **Pearl, J. (2000, 2009)**: *"Causality: Models, Reasoning, and Inference"*. Cambridge University Press.
-   - *Influence*: Direct foundation for Pearl's Three Rungs of Causation implemented in `agentwatch/causality/hypotheses.py`.
+   - *Influence*: Direct foundation for Pearl's Three Rungs of Causation implemented in `panoptis/causality/hypotheses.py`.
 2. **Pearl, J., & Mackenzie, D. (2018)**: *"The Book of Why: The New Science of Cause and Effect"*. Basic Books.
    - *Influence*: Informs the epistemic separation of observation, intervention, and counterfactuals.
 3. **Rubin, D. B. (1974)**: *"Estimating Causal Effects of Treatments in Randomized and Nonrandomized Studies"*. Journal of Educational Psychology, 66(5), 688–701.
-   - *Influence*: Governs quasi-experimental matching and potential outcomes in `agentwatch/replay/counterfactual.py`.
+   - *Influence*: Governs quasi-experimental matching and potential outcomes in `panoptis/replay/counterfactual.py`.
 4. **Spirtes, P., Glymour, C., & Scheines, R. (2000)**: *"Causation, Prediction, and Search"*. MIT Press.
    - *Influence*: Informs DAG structure learning and faithfulness assumptions in causal cone graph walks.
 5. **OWASP Top 10 for LLM Applications (2025)**: *LLM06: Excessive Agency & LLM08: Vector and Embedding Weaknesses*.
    - *URL*: [https://owasp.org/www-project-top-10-for-large-language-model-applications/](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
-   - *Influence*: Mandates the pre-execution gating criteria implemented in `agentwatch/core/blast_radius.py`.
+   - *Influence*: Mandates the pre-execution gating criteria implemented in `panoptis/core/blast_radius.py`.
 
 ---
 

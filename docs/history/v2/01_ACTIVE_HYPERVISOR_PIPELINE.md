@@ -1,7 +1,7 @@
 # Version 2.0 Subsystem Specification: 01 — Active Hypervisor Pipeline
 
 > **Subsystem Identifier**: `V2-GUARD-01`  
-> **Module Path**: `agentwatch.circuit_breaker.pipeline`  
+> **Module Path**: `panoptis.circuit_breaker.pipeline`  
 > **Milestone Architecture**: Version 2.0 (Runtime Guardrails & Active Circuit Breakers)  
 > **Standard Compliance**: Pure Python Standard Library (Zero External Dependencies)  
 > **Document Status**: Production Reference Specification  
@@ -17,7 +17,7 @@ Version 1.0 successfully provided high-resolution visibility into autonomous age
 * **Non-Deterministic Reasoning Failures**: LLMs frequently enter cognitive feedback loops where an unexpected tool error causes the model to repeat the identical failed command dozens of times with imperceptible argument whitespace variations.
 * **Malicious and Accidental System Mutations**: Sub-agents instructed to "clean up temporary files" or "optimize indexes" routinely propose catastrophic system operations (`rm -rf /`, `DROP TABLE users`) due to attention drift or prompt injection.
 
-The `Active Hypervisor Pipeline` subsystem was engineered within `agentwatch.circuit_breaker.pipeline` to introduce the **Active Hypervisor Architecture**: establishing an inline, synchronous, zero-latency execution gatekeeper that intercepts, evaluates, and possesses absolute veto power over every proposed tool invocation.
+The `Active Hypervisor Pipeline` subsystem was engineered within `panoptis.circuit_breaker.pipeline` to introduce the **Active Hypervisor Architecture**: establishing an inline, synchronous, zero-latency execution gatekeeper that intercepts, evaluates, and possesses absolute veto power over every proposed tool invocation.
 
 ### 1.2 Core Design Principles
 1. **Synchronous Pre-Execution Veto**: Operates inline between the LLM's proposed action and the host operating system's execution drivers. If an invariant or safety boundary is violated, execution is halted immediately.
@@ -26,7 +26,7 @@ The `Active Hypervisor Pipeline` subsystem was engineered within `agentwatch.cir
 4. **Actionable Closed-Loop Feedback**: Rather than simply aborting the host process, blocked operations return structured error descriptions directly back into the agent's reasoning context, enabling autonomous self-correction.
 
 ### 1.3 Explicit Architectural Non-Goals
-To preserve strict operational focus, `agentwatch.circuit_breaker.pipeline` explicitly rejects the following responsibilities:
+To preserve strict operational focus, `panoptis.circuit_breaker.pipeline` explicitly rejects the following responsibilities:
 * **Post-Hoc Batch Auditing**: Does not delay evaluation for offline batch analysis; all safety decisions occur synchronously in the hot path.
 * **Heuristic Intent Guessing**: Avoids probabilistic or fuzzy ML models to evaluate safety; relies exclusively on deterministic finite state machines, mathematical thresholds, and compiled regex engines.
 * **Cryptographic Attestation Generation**: Cryptographic leaf chaining and formal Merkle proofs are deferred to Version 3.0 / Panopti.
@@ -53,7 +53,7 @@ The diagram below outlines the synchronous execution intercept enforced by `Acti
                                        │ 2. Hot-Path Evaluation
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                      ACTIVE HYPERVISOR PIPELINE ENGINE (agentwatch.circuit_breaker.pipeline)                      │
+│                      ACTIVE HYPERVISOR PIPELINE ENGINE (panoptis.circuit_breaker.pipeline)                      │
 │                                                                             │
 │   ┌───────────────────────────┐         ┌───────────────────────────────┐   │
 │   │     DETECTION ENGINE      │         │     CIRCUIT STATE MACHINE     │   │
@@ -138,7 +138,7 @@ Below is the complete, self-contained reference implementation for `Active Hyper
 ```python
 """
 Production Reference Implementation: Active Hypervisor Pipeline
-Module: agentwatch.circuit_breaker.pipeline
+Module: panoptis.circuit_breaker.pipeline
 Milestone: Version 2.0 (Active Runtime Guardrails)
 """
 
@@ -275,7 +275,7 @@ Executes all heuristic checks within the calling thread, eliminating asynchronou
 When the circuit breaker is in the `CLOSED` state and proposed arguments match no dangerous patterns, the execution overhead is strictly bounded under $0.08\text{ ms}$.
 
 ### 6.4 Closed-Loop Autonomous Self-Correction
-When `agentwatch.circuit_breaker.pipeline` intercepts an unsafe action, it catches `AgentWatchBlockedError` and formats a corrective prompt:
+When `panoptis.circuit_breaker.pipeline` intercepts an unsafe action, it catches `AgentWatchBlockedError` and formats a corrective prompt:
 ```python
 try:
     hypervisor.evaluate_pre_execution(tool_name="bash", arguments={"cmd": "rm -rf /"})
@@ -316,7 +316,7 @@ except AgentWatchBlockedError as exc:
 ## 7. Thread Safety, Lock Contention & Concurrency Invariants
 
 ### 7.1 Reentrant State Locks
-Because agent reasoning frameworks often invoke tools across worker thread pools, all state transitions in `agentwatch.circuit_breaker.pipeline` are guarded by `threading.RLock()`.
+Because agent reasoning frameworks often invoke tools across worker thread pools, all state transitions in `panoptis.circuit_breaker.pipeline` are guarded by `threading.RLock()`.
 
 ### 7.2 Microsecond Lock Hold Bounds
 All compute-intensive operations (such as regex matching and SHA-256 hashing) occur on local stack variables before acquiring the mutex. Lock retention is strictly bounded:
@@ -345,7 +345,7 @@ When integrating `Active Hypervisor Pipeline`, developers must adhere to strict 
 ### Case Study 1: The $1,200 Retrying Parameter Loop
 * **Incident Profile**: An agent interacting with a rate-limited REST API received an HTTP 429 response. The agent retried the identical query 2,400 times in 12 minutes.
 * **Root-Cause Investigation**: The agent's prompt lacked exit conditions for rate limits.
-* **Architectural Remedy**: `agentwatch.circuit_breaker.pipeline` tracked the canonical SHA-256 hash of the request, tripped `TripReason.REPETITIVE_CALLS` on the third attempt, and halted token consumption.
+* **Architectural Remedy**: `panoptis.circuit_breaker.pipeline` tracked the canonical SHA-256 hash of the request, tripped `TripReason.REPETITIVE_CALLS` on the third attempt, and halted token consumption.
 
 ### Case Study 2: Accidental Database Destruction in Staging
 * **Incident Profile**: An autonomous database tuning agent attempted to re-index a table by running `DROP TABLE temp_users` but misconfigured the variable, proposing `DROP TABLE users`.
@@ -378,8 +378,8 @@ Under a 100,000 call burst:
 
 | Diagnostic Symptom | Probable Root Cause | Immediate Remediation Action | Verification Command |
 |---|---|---|---|
-| Unintended trip on pagination | Parameter increment not detected in JSON | Verify integer keys are properly serialized | `agentwatch inspect <session_id>` |
-| Breaker stuck in OPEN state | Continuous failures during HALF_OPEN probe | Increase `cooldown_seconds` or fix underlying tool | `agentwatch doctor --guard` |
+| Unintended trip on pagination | Parameter increment not detected in JSON | Verify integer keys are properly serialized | `panoptis inspect <session_id>` |
+| Breaker stuck in OPEN state | Continuous failures during HALF_OPEN probe | Increase `cooldown_seconds` or fix underlying tool | `panoptis doctor --guard` |
 | Regex evaluation timeout | Overly complex custom regex pattern | Replace with non-backtracking regular expressions | `python -m pytest tests/test_safety.py` |
 | False positive secret detection | UUID or public hash matching token regex | Refine token prefix patterns in safety config | `grep 'SENSITIVE_DATA_LEAK' guard.log` |
 | Memory creep on long trajectories | Historical fingerprint list unbounded | Verify `maxlen` slicing in call history deque | `python -m unittest tests/test_memory.py` |

@@ -1,6 +1,6 @@
 # Feature Dossier 08: Replay, Counterfactual Simulation & Rollback Engine
 
-**Module Path**: [`agentwatch/replay/engine.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/replay/engine.py), [`agentwatch/replay/counterfactual.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/replay/counterfactual.py) & [`agentwatch/rollback/engine.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/rollback/engine.py)  
+**Module Path**: [`panoptis/replay/engine.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/replay/engine.py), [`panoptis/replay/counterfactual.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/replay/counterfactual.py) & [`panoptis/rollback/engine.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/rollback/engine.py)  
 **System Plane**: Plane 4 (Intervention & Policy Plane) & Plane 1 (Runtime & Ingestion Plane)  
 **Primary Maintainer**: Replay Engines, Time Travel & Disaster Recovery Team  
 **Obsidian Backlinks**: [[01_ARCHITECTURE_AND_PLANES]], [[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB]], [[02_COMPUTATIONAL_EVENT_ALGEBRA]], [[04_HYPEREDGE_GRAPH_AND_PROVENANCE]], [[05_CAUSAL_INFERENCE_AND_BLAST_RADIUS]], [[09_CIRCUIT_BREAKERS_AND_HITL]]
@@ -43,7 +43,7 @@ AgentWatch provides this complete closed-loop recovery apparatus through its **R
 
 ---
 
-## 2. Deterministic Replay Engine (`agentwatch/replay/engine.py`)
+## 2. Deterministic Replay Engine (`panoptis/replay/engine.py`)
 
 The Replay Engine reconstructs an agent session's execution stream from immutable log archives and provenance hypergraphs.
 
@@ -79,7 +79,7 @@ The replay engine automatically classifies run terminations into four canonical 
 - `INFINITE_LOOP`: Cyclic graph execution detected with zero information entropy growth.
 
 ```python
-# Replay streaming execution core in agentwatch/replay/engine.py
+# Replay streaming execution core in panoptis/replay/engine.py
 class ReplayEngine:
     def __init__(self, storage: EventStorage, speed: ReplaySpeed = ReplaySpeed.INSTANT):
         self.storage = storage
@@ -107,7 +107,7 @@ class ReplayEngine:
 
 ---
 
-## 3. Counterfactual Branching Engine (`agentwatch/replay/counterfactual.py`)
+## 3. Counterfactual Branching Engine (`panoptis/replay/counterfactual.py`)
 
 The Counterfactual Engine implements **Rung 3 of Pearl's Causal Ladder**: retrospective counterfactual simulation. Given an agent trace that ended in failure at step $T$, an engineer can ask:
 > *"What would have happened if at step $k < T$, the search tool had returned the correct API documentation instead of a 404 error?"*
@@ -150,7 +150,7 @@ class CounterfactualResult:
 
 ### 3.2 Dual-Mode Counterfactual Execution
 1. **Deterministic Suffix Replay (Fast)**: For deterministic downstream pipelines, the recorded event suffix is replayed forward with the substituted payload, testing whether downstream assertions and validators pass without calling model APIs.
-2. **Lab-Tier Counterfactual Re-execution (`agentwatch.lab.branch`)**: The agent's step function is re-executed forward from the fork point in an isolated sandbox, emitting fresh branch events labeled `SIMULATED` or `INTERVENTIONAL`.
+2. **Lab-Tier Counterfactual Re-execution (`panoptis.lab.branch`)**: The agent's step function is re-executed forward from the fork point in an isolated sandbox, emitting fresh branch events labeled `SIMULATED` or `INTERVENTIONAL`.
 
 ### 3.3 End-to-End Counterfactual Experiment Walkthrough
 
@@ -158,8 +158,8 @@ Consider a security triage engineer investigating whether an agent's failure to 
 
 ```python
 # Counterfactual Experiment: Substitute generic DB error with detailed schema advice
-from agentwatch.replay.counterfactual import CounterfactualEngine, CounterfactualScenario
-from agentwatch.core.schema import AgentEvent, EventType, ToolResultData
+from panoptis.replay.counterfactual import CounterfactualEngine, CounterfactualScenario
+from panoptis.core.schema import AgentEvent, EventType, ToolResultData
 
 def step_simulator(prior_events: list[AgentEvent], substituted_event: AgentEvent) -> AgentEvent | None:
     """Simulates next step given the substituted observation."""
@@ -189,7 +189,7 @@ print(f"Counterfactual terminal status: SUCCESS (recovered via fix_schema)")
 
 ---
 
-## 4. Framework-Agnostic Rollback Engine (`agentwatch/rollback/engine.py`)
+## 4. Framework-Agnostic Rollback Engine (`panoptis/rollback/engine.py`)
 
 The Rollback Engine provides transaction-like atomicity for agent operations across filesystems, git repositories, and memory stores.
 
@@ -239,7 +239,7 @@ class GitCheckpointManager:
     @staticmethod
     async def create_checkpoint(repo_path: Path, session_id: str, step: int) -> str:
         """Creates a detached git commit or stash ref representing the current step."""
-        ref_name = f"refs/agentwatch/{session_id}/step_{step}"
+        ref_name = f"refs/panoptis/{session_id}/step_{step}"
         # Write git tree object without polluting user's git commit log
         await run_cmd(f"git -C {repo_path} add -A")
         tree_sha = await run_cmd(f"git -C {repo_path} write-tree")
@@ -315,21 +315,21 @@ AgentWatch equips developers and operations teams with direct CLI commands for t
 ### 6.1 Interactive Terminal Replay
 ```bash
 # Replay session in fast mode with interactive visual stream
-agentwatch session replay sess_89f02a --speed fast
+panoptis session replay sess_89f02a --speed fast
 
 # Export replay diff against historical gold standard
-agentwatch session replay sess_89f02a --compare-against sess_gold_01 --output diff
+panoptis session replay sess_89f02a --compare-against sess_gold_01 --output diff
 ```
 
 ### 6.2 Emergency Rollback Execution
 ```bash
 # Instantly restore working directory and git tree to state prior to step 14
-agentwatch session rollback sess_89f02a --to-step 14
+panoptis session rollback sess_89f02a --to-step 14
 ```
 
 #### Terminal Execution Proof
 ```text
-⚡ ❯ agentwatch session rollback sess_89f02a --to-step 14
+⚡ ❯ panoptis session rollback sess_89f02a --to-step 14
 [✓] Checkpoint ckpt_step14_a8b9 found (Type: COMPOSITE)
 [✓] Restored 18 modified files from snapshot
 [✓] Rolled back git to commit 7f81a02d
@@ -346,7 +346,7 @@ agentwatch session rollback sess_89f02a --to-step 14
 # Programmatic Checkpoint and Rollback Integration
 import asyncio
 from pathlib import Path
-from agentwatch.rollback.engine import RollbackEngine, CheckpointType
+from panoptis.rollback.engine import RollbackEngine, CheckpointType
 
 async def run_guarded_agent_step():
     rollback = RollbackEngine(storage_dir=Path(".agentwatch/checkpoints"))
@@ -418,7 +418,7 @@ tests/
 1. **Chandy, K. M., & Lamport, L. (1985)**: *"Distributed Snapshots: Determining Global States of Distributed Systems"*. ACM Transactions on Computer Systems (TOCS), 3(1), 63–75.
    - *Influence*: Theoretical foundation for consistent snapshot boundaries in composite agent checkpoints (`rollback/engine.py`).
 2. **Pearl, J. (2009)**: *"Causality: Models, Reasoning, and Inference"*. Cambridge University Press.
-   - *Influence*: Foundation for counterfactual branch evaluation ($P(Y_{x'} \mid X=x)$) in `agentwatch/replay/counterfactual.py`.
+   - *Influence*: Foundation for counterfactual branch evaluation ($P(Y_{x'} \mid X=x)$) in `panoptis/replay/counterfactual.py`.
 3. **CWE-22 / CWE-23 (MITRE)**: *"Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal' / 'Zip Slip')"*.
    - *URL*: [https://cwe.mitre.org/data/definitions/22.html](https://cwe.mitre.org/data/definitions/22.html)
    - *Influence*: Governs path resolution and canonicalization security guards in `FilesystemSnapshot.restore()`.

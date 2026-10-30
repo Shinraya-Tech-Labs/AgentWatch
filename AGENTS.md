@@ -6,7 +6,7 @@ Three independent codebases in one repo:
 
 | Path | What | Stack |
 |---|---|---|
-| `agentwatch/` | Python package (`agentwatch-ai`) | FastAPI, SQLAlchemy async, Celery, Pydantic |
+| `panoptis/` | Python package (`panoptis`) | FastAPI, SQLAlchemy async, Celery, Pydantic |
 | `frontend/` | Dashboard UI | Next.js 14, React 18, Tailwind, Jest |
 | `agentwatch-landing/` | Public landing page | Next.js 16, React 19, GSAP, Three.js |
 
@@ -14,7 +14,7 @@ Three independent codebases in one repo:
 
 ## Formatting (issue #644)
 
-- **Python** (`agentwatch/`): `ruff format agentwatch/` (config in `[tool.ruff.format]` of `pyproject.toml`). Double quotes, docstring-code-format on.
+- **Python** (`panoptis/`): `ruff format panoptis/` (config in `[tool.ruff.format]` of `pyproject.toml`). Double quotes, docstring-code-format on.
 - **Frontend** (`frontend/`): `npm run format` (Prettier 3.4 with the shared `.prettierrc.json`).
 - **Landing** (`agentwatch-landing/`): `npm run format` (Prettier 3.4).
 - **All-in-one**: `make format` from the repo root runs all three.
@@ -27,12 +27,12 @@ Three independent codebases in one repo:
 pip install -e ".[dev]"
 
 # Lint
-ruff check agentwatch/
-ruff format --check agentwatch/
+ruff check panoptis/
+ruff format --check panoptis/
 
 # Tests (run without services; Postgres-store and connectivity tests are skipped unless
 # AGENTWATCH_TEST_PG_URL / DATABASE_URL / REDIS_URL are set — CI sets them)
-pytest tests/ -v --cov=agentwatch --cov-fail-under=70
+pytest tests/ -v --cov=panoptis --cov-fail-under=70
 ```
 
 - Python 3.12+. Build system: hatchling.
@@ -112,4 +112,4 @@ Copy `.env.example` to `.env`. Key vars:
 - `agentwatch-landing/` already has its own `AGENTS.md` (Next.js 16 rules). Do not overwrite it.
 - Release: bump version in `pyproject.toml`, then `git tag vX.Y && git push origin vX.Y`. PyPI publish is automatic.
 - CONTRIBUTING.md requires issue assignment before work begins. PRs on unassigned issues may be closed.
-- CLI commands are routed through `agentwatch/cli/_utils` — do not shell out directly.
+- CLI commands are routed through `panoptis/cli/_utils` — do not shell out directly.

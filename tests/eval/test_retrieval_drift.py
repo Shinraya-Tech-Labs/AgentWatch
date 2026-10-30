@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import unittest
 
-from agentwatch.eval import (
+from panoptis.eval import (
     ALERT_RETRIEVAL_PRECISION_DRIFT,
     RetrievalDriftDetector,
 )
-from agentwatch.eval.retrieval_drift import WelfordAccumulator
+from panoptis.eval.retrieval_drift import WelfordAccumulator
 
 
 class TestRetrievalDriftDetector(unittest.TestCase):

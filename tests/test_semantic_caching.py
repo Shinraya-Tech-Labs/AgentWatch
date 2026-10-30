@@ -2,9 +2,9 @@ import datetime
 
 import pytest
 
-from agentwatch.adapters.base import after_provider_call, before_provider_call, set_semantic_cache
-from agentwatch.cost.semantic_cache import SemanticCache
-from agentwatch.memory.engine import EmbeddingProvider
+from panoptis.adapters.base import after_provider_call, before_provider_call, set_semantic_cache
+from panoptis.cost.semantic_cache import SemanticCache
+from panoptis.memory.engine import EmbeddingProvider
 
 
 @pytest.mark.asyncio

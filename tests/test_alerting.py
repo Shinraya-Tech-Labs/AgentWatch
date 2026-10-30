@@ -6,8 +6,8 @@ import asyncio
 
 import httpx
 
-from agentwatch.alerting.engine import AlertingConfig, AlertingEngine
-from agentwatch.core.schema import AgentEvent, AgentFramework, EventType
+from panoptis.alerting.engine import AlertingConfig, AlertingEngine
+from panoptis.core.schema import AgentEvent, AgentFramework, EventType
 
 
 def test_alerting_engine_retries_and_succeeds(monkeypatch):

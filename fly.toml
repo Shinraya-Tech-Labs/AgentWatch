@@ -1,5 +1,5 @@
 # PLT-004 — Fly.io deployment for AgentWatch API
-app = "agentwatch"
+app = "panoptis"
 primary_region = "iad"
 kill_signal = "SIGINT"
 kill_timeout = "5s"
@@ -37,9 +37,9 @@ kill_timeout = "5s"
   memory_mb = 2048
 
 [mounts]
-  source = "agentwatch_data"
+  source = "panoptis_data"
   destination = "/data"
 
 [deploy]
-  release_command = "python -m agentwatch.cli.main migrate"
+  release_command = "python -m panoptis.cli.main migrate"
   strategy = "rolling"

@@ -1,7 +1,7 @@
 # Version 1.0 Subsystem Specification: 07 — LangChain Framework Callback Sensor
 
 > **Subsystem Identifier**: `V1-SUB-07`  
-> **Module Path**: `agentwatch.adapters.langchain`  
+> **Module Path**: `panoptis.adapters.langchain`  
 > **Milestone Architecture**: Version 1.0 (Core Observability & Telemetry Bus)  
 > **Standard Compliance**: Pure Python Standard Library (PEP 557 Slotted Dataclasses, PEP 3156 Async)  
 > **Document Status**: Production Reference Specification  
@@ -17,7 +17,7 @@ During the formative phase of LLM orchestration (early LangChain chains, AutoGen
 * **Invisible Cascading Tool Loops**: When an agent encountered an unexpected HTTP response or missing file, it routinely initiated endless retry loops with microsecond variations, burning entire API token quotas within minutes.
 * **Lack of Uniform Telemetry Normalization**: Every framework and hand-rolled loop emitted disparate log formats—some printed to standard output, some wrote to ad-hoc text files, and others discarded reasoning thoughts completely.
 
-The `LangChain Framework Callback Sensor` subsystem was engineered specifically to solve these fundamental challenges within `agentwatch.adapters.langchain`. By providing a decoupled, zero-dependency, and deterministic architecture, it guarantees that every discrete lifecycle transition is captured with microsecond latency and zero execution interference.
+The `LangChain Framework Callback Sensor` subsystem was engineered specifically to solve these fundamental challenges within `panoptis.adapters.langchain`. By providing a decoupled, zero-dependency, and deterministic architecture, it guarantees that every discrete lifecycle transition is captured with microsecond latency and zero execution interference.
 
 ### 1.2 Core Design Principles
 1. **Zero External Dependencies**: Operates strictly within the Python standard library (`sqlite3`, `dataclasses`, `queue`, `threading`, `time`, `uuid`, `hashlib`), ensuring zero supply-chain vulnerabilities and total portability across edge, container, and local developer environments.
@@ -26,7 +26,7 @@ The `LangChain Framework Callback Sensor` subsystem was engineered specifically 
 4. **Causal Graph Traceability**: Embeds explicit parent-child relational coordinates (`parent_event_id`, `session_id`), allowing retrospective construction of full execution Directed Acyclic Graphs (DAGs).
 
 ### 1.3 Explicit Architectural Non-Goals
-To preserve strict isolation and maintain zero-latency execution, `agentwatch.adapters.langchain` explicitly rejects the following responsibilities:
+To preserve strict isolation and maintain zero-latency execution, `panoptis.adapters.langchain` explicitly rejects the following responsibilities:
 * **Active Execution Vetoing**: Does not attempt to block or modify in-flight tool arguments (deferred to Version 2.0 Guardrails).
 * **Remote Network Telemetry Sinks**: Does not emit outbound HTTP/gRPC requests on the critical path to eliminate external network failure modes.
 * **Heavyweight Parsing & Machine Learning Inference**: Avoids in-line LLM evaluations or semantic embeddings during event dispatch to preserve microsecond execution budgets.
@@ -53,7 +53,7 @@ The diagram below illustrates the exact structural layout of `LangChain Framewor
                                        │ 2. Normalized Data Stream
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                       CORE SUBSYSTEM ENGINE (agentwatch.adapters.langchain)                      │
+│                       CORE SUBSYSTEM ENGINE (panoptis.adapters.langchain)                      │
 │                                                                             │
 │   ┌───────────────────────────┐         ┌───────────────────────────────┐   │
 │   │   CONCURRENCY CONTROLLER  │         │     TRANSFORMATION ENGINE     │   │
@@ -95,13 +95,13 @@ To maintain imperceptible overhead, each operational phase within the subsystem 
 Let $N$ represent the total number of operations executed by the autonomous agent across its lifetime, and let $K$ represent the internal buffer capacity ($K = 10,000$).
 
 1. **Ingestion Complexity**:
-   Every insertion operation into `agentwatch.adapters.langchain` is governed by constant-time bounded arrays or linked deques:
+   Every insertion operation into `panoptis.adapters.langchain` is governed by constant-time bounded arrays or linked deques:
    $$T_{\text{insert}}(e) = O(1)$$
    The amortized time across $N$ sequential events is:
    $$\bar{T} = \frac{1}{N} \sum_{i=1}^N T_{\text{insert}}(e_i) = \Theta(1)$$
 
 2. **Memory Bounding & Eviction Proof**:
-   Let $M(t)$ be the heap memory consumed by `agentwatch.adapters.langchain` at step $t$. Since the internal structure evicts the oldest item upon reaching capacity $K$:
+   Let $M(t)$ be the heap memory consumed by `panoptis.adapters.langchain` at step $t$. Since the internal structure evicts the oldest item upon reaching capacity $K$:
    $$\forall t > K, \quad |\mathcal{S}_t| = K$$
    Given a maximum event payload size $P_{\max}$, the total heap memory is strictly bounded:
    $$M(t) \le K \cdot (S_{\text{struct}} + P_{\max}) + C_{\text{runtime}} < \infty$$
@@ -128,7 +128,7 @@ The complete, production-grade reference implementation for `LangChain Framework
 ```python
 """
 Production Reference Implementation: LangChain Framework Callback Sensor
-Module: agentwatch.adapters.langchain
+Module: panoptis.adapters.langchain
 Milestone: Version 1.0 (Core Observability)
 """
 
@@ -253,7 +253,7 @@ class LangChainFrameworkCallbackSensorCore:
 
 ## 5. Step-by-Step Execution Lifecycle & State Machine
 
-Every transaction processed by `agentwatch.adapters.langchain` moves through four strictly defined phases:
+Every transaction processed by `panoptis.adapters.langchain` moves through four strictly defined phases:
 
 ```
 [ Phase 1: Ingestion ] ──► [ Phase 2: Validation ] ──► [ Phase 3: Enqueue ] ──► [ Phase 4: Commit ]
@@ -311,7 +311,7 @@ manager.close()
 ## 7. Thread Safety, Lock Contention & Concurrency Invariants
 
 ### 7.1 Reentrant Mutual Exclusion (`threading.RLock`)
-Because agent tools can invoke child tools or emit telemetry recursively, standard primitive locks (`threading.Lock`) introduce immediate self-deadlock risks. `agentwatch.adapters.langchain` enforces reentrant locking across all mutable state modifications.
+Because agent tools can invoke child tools or emit telemetry recursively, standard primitive locks (`threading.Lock`) introduce immediate self-deadlock risks. `panoptis.adapters.langchain` enforces reentrant locking across all mutable state modifications.
 
 ### 7.2 Microsecond Lock Hold Duration
 Lock retention times are minimized by preparing all serialization data structures *outside* the critical mutex section:
@@ -376,11 +376,11 @@ Under a synthetic flood test injecting 500,000 events in rapid succession:
 
 | Diagnostic Symptom | Probable Root Cause | Immediate Remediation Action | Verification Command |
 |---|---|---|---|
-| Elevated dropped event count | Ingestion queue backlog exceeding capacity | Increase `capacity` or spawn additional worker threads | `agentwatch doctor --verbose` |
+| Elevated dropped event count | Ingestion queue backlog exceeding capacity | Increase `capacity` or spawn additional worker threads | `panoptis doctor --verbose` |
 | Latency spikes on `dispatch()` | Mutex contention from excessive reader threads | Separate snapshot reads from writing thread | `python -m pytest tests/test_perf.py` |
 | Unserializable payload warnings | Tools emitting raw file descriptors or sockets | Sanitize tool return payloads with `repr()` | `grep 'Unserializable' agentwatch.log` |
 | Database lock timeout on WAL | Long-running analytical query blocking checkpoint | Enable `PRAGMA busy_timeout = 5000` | `sqlite3 events.db "PRAGMA wal_checkpoint;"` |
-| Deserialization schema mismatch | Older trace loaded into upgraded schema | Apply migration fallback in `from_dict()` | `agentwatch inspect <session_id>` |
+| Deserialization schema mismatch | Older trace loaded into upgraded schema | Apply migration fallback in `from_dict()` | `panoptis inspect <session_id>` |
 
 ---
 
@@ -399,6 +399,6 @@ While the `LangChain Framework Callback Sensor` subsystem delivered unparalleled
 
 > **Passive Observation Cannot Halt In-Flight Catastrophes.**
 
-In production deployments, `agentwatch.adapters.langchain` dutifully recorded instances of prompt injections, infinite tool loops, and destructive shell commands. However, because it lacked veto power, it could only document damage rather than prevent it.
+In production deployments, `panoptis.adapters.langchain` dutifully recorded instances of prompt injections, infinite tool loops, and destructive shell commands. However, because it lacked veto power, it could only document damage rather than prevent it.
 
 This fundamental realization led directly to the research and creation of **Version 2.0 (Active Runtime Guardrails & Circuit Breakers)**, where the passive sinks described here were upgraded into synchronous, active pre-execution hypervisors.

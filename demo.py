@@ -3,7 +3,7 @@
 
 Run it with no setup at all::
 
-    pip install agentwatch-ai
+    pip install panoptis
     python demo.py
 
 No Docker, no ``.env``, no API keys. It uses AgentWatch's built-in safety
@@ -19,9 +19,9 @@ from collections.abc import AsyncIterator
 from rich.console import Console
 from rich.panel import Panel
 
-from agentwatch.core.blast_radius import BlastRadiusEstimator
-from agentwatch.core.safety import RiskScorer
-from agentwatch.core.schema import AgentEvent, EventType, RiskLevel, ToolCallData
+from panoptis.core.blast_radius import BlastRadiusEstimator
+from panoptis.core.safety import RiskScorer
+from panoptis.core.schema import AgentEvent, EventType, RiskLevel, ToolCallData
 
 console = Console()
 

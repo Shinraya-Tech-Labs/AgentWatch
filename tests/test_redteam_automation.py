@@ -5,15 +5,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agentwatch.security.redteam import (
+from panoptis.security.redteam import (
     AttackCategory,
     AttackScenario,
     default_corpus,
     load_corpus,
 )
-from agentwatch.tasks import run_redteam
+from panoptis.tasks import run_redteam
 
-_PAYLOADS = Path("agentwatch/security/payloads.json")
+_PAYLOADS = Path("panoptis/security/payloads.json")
 
 
 def test_payloads_json_is_valid_and_complete():

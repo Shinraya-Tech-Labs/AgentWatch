@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 import uuid
 
-from agentwatch.adapters.langchain import AgentWatchCallbackHandler
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.schema import EventType, ExecutionStatus
+from panoptis.adapters.langchain import AgentWatchCallbackHandler
+from panoptis.core.event_bus import EventBus
+from panoptis.core.schema import EventType, ExecutionStatus
 
 
 def _drain() -> None:

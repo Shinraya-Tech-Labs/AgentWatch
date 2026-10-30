@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentwatch-ai"
+name = "panoptis"
 version = "0.3.0"
-description = "Panopti (formerly AgentWatch): Pre-Execution Guardrail & Observability Layer for AI Agents"
+description = "PANOPTIS (formerly AgentWatch): Pre-Execution Guardrail & Observability Layer for AI Agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.12,<3.13"
@@ -95,12 +95,12 @@ dev = [
   "opentelemetry-sdk>=1.27.0",
 ]
 all = [
-  "agentwatch-ai[embeddings,otel,crypto,langchain,postgres]",
+  "panoptis[embeddings,otel,crypto,langchain,postgres]",
 ]
 
 [project.scripts]
 panopti = "panopti.cli:main"
-agentwatch = "agentwatch.cli.main:main"
+panoptis = "panoptis.cli.main:main"
 
 [project.urls]
 Homepage = "https://github.com/Shinraya-Tech-Labs/AgentWatch"
@@ -108,7 +108,7 @@ Repository = "https://github.com/Shinraya-Tech-Labs/AgentWatch"
 Issues = "https://github.com/Shinraya-Tech-Labs/AgentWatch/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agentwatch", "panopti"]
+packages = ["panoptis", "panopti"]
 
 [tool.pytest.ini_options]
 cache_dir = ".pytest_cache"
@@ -143,8 +143,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # __init__.py re-exports: wildcard imports and implicit re-exports are intentional
 # (F405: __all__ names resolve through those wildcards).
-"agentwatch/**/__init__.py" = ["F401", "F403", "F405"]
-"agentwatch/*/__init__.py"  = ["F401", "F403", "F405"]
+"panoptis/**/__init__.py" = ["F401", "F403", "F405"]
+"panoptis/*/__init__.py"  = ["F401", "F403", "F405"]
 
 [tool.mypy]
 python_version = "3.12"

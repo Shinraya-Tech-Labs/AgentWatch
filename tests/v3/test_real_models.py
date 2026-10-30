@@ -14,9 +14,9 @@ from collections.abc import Callable
 
 import pytest
 
-from agentwatch import instrument as aw
-from agentwatch.provenance.lineage import lineage
-from agentwatch.query.workspace import Workspace
+from panoptis import instrument as aw
+from panoptis.provenance.lineage import lineage
+from panoptis.query.workspace import Workspace
 
 pytestmark = pytest.mark.external
 
@@ -96,7 +96,7 @@ def check(ws: Workspace, run_id: str, provider_kind: str = "MODEL_INVOCATION") -
 @needs("OPENAI_API_KEY")
 def test_openai_client_rag_lineage(engine, sink):
     openai = pytest.importorskip("openai")
-    from agentwatch.sensors.llm_clients import instrument_openai
+    from panoptis.sensors.llm_clients import instrument_openai
 
     client = openai.OpenAI()
     credential_usable(lambda: client.models.list(), "OpenAI")
@@ -115,7 +115,7 @@ def test_openai_client_rag_lineage(engine, sink):
 @needs("ANTHROPIC_API_KEY")
 def test_anthropic_client_rag_lineage(engine, sink):
     anthropic = pytest.importorskip("anthropic")
-    from agentwatch.sensors.llm_clients import instrument_anthropic
+    from panoptis.sensors.llm_clients import instrument_anthropic
 
     client = anthropic.Anthropic()
     credential_usable(lambda: client.models.list(limit=1), "Anthropic")

@@ -11,9 +11,9 @@ Six planes could tempt a service-per-plane design. The team is small, and the wo
 
 - Planes are **Python packages** with enforced import direction. They are not services.
 - Deployables:
-  - `agentwatch server` (API + ingest + inline pipeline);
-  - `agentwatch worker` (the same code, running pipeline stages and analyzers off a durable cursor; the existing Celery + Redis stack);
-    *as built:* there is no `agentwatch worker` command. The worker is the Celery container (`Dockerfile.worker`, compose profile `workers`), and v3 processing runs in the API/CLI process: `Engine.process` runs incrementally when the store is read, or via `agentwatch reprocess`.
+  - `panoptis server` (API + ingest + inline pipeline);
+  - `panoptis worker` (the same code, running pipeline stages and analyzers off a durable cursor; the existing Celery + Redis stack);
+    *as built:* there is no `panoptis worker` command. The worker is the Celery container (`Dockerfile.worker`, compose profile `workers`), and v3 processing runs in the API/CLI process: `Engine.process` runs incrementally when the store is read, or via `panoptis reprocess`.
   - the frontend.
 - **All state lives in the stores.** No v3 read path uses process memory as its source of truth. LIVE streaming fans out from the store cursor or Postgres LISTEN/NOTIFY, not from an in-memory bus.
 - Splitting a component into a service requires a new ADR with measured justification.

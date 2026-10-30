@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from agentwatch.telemetry.otel import _OTEL_AVAILABLE, TelemetryConfig, TelemetryProvider
+from panoptis.telemetry.otel import _OTEL_AVAILABLE, TelemetryConfig, TelemetryProvider
 
 
 def test_telemetry_config_backward_compatibility():
@@ -155,9 +155,9 @@ def test_export_reasoning_trace_success():
 
     # Assert attributes were set
     mock_span.set_attribute.assert_any_call(
-        "agentwatch.span_id", "123e4567-e89b-12d3-a456-426614174001"
+        "panoptis.span_id", "123e4567-e89b-12d3-a456-426614174001"
     )
-    mock_span.set_attribute.assert_any_call("agentwatch.token_count", 100)
+    mock_span.set_attribute.assert_any_call("panoptis.token_count", 100)
     mock_span.set_attribute.assert_any_call("custom", "val")
 
 
@@ -214,7 +214,7 @@ def test_export_reasoning_trace_malformed_ids():
 
     provider.export_reasoning_trace(trace_data)
     assert mock_tracer.start_span.call_count == 1
-    mock_span.set_attribute.assert_any_call("agentwatch.span_id", "also-not-a-uuid")
+    mock_span.set_attribute.assert_any_call("panoptis.span_id", "also-not-a-uuid")
 
 
 @pytest.mark.skipif(not _OTEL_AVAILABLE, reason="requires opentelemetry-sdk")
@@ -256,18 +256,18 @@ def test_export_reasoning_trace_otel_unavailable():
 def test_export_reasoning_trace_collector_isolation():
     import asyncio
 
-    from agentwatch.core.schema import AgentEvent, EventType, ExecutionStatus
-    from agentwatch.telemetry.collector import TraceCollector
+    from panoptis.core.schema import AgentEvent, EventType, ExecutionStatus
+    from panoptis.telemetry.collector import TraceCollector
 
     collector = TraceCollector()
 
     # Mock global telemetry provider to throw
-    import agentwatch.telemetry.otel
+    import panoptis.telemetry.otel
 
-    original = agentwatch.telemetry.otel._provider
+    original = panoptis.telemetry.otel._provider
     mock_provider = MagicMock()
     mock_provider.export_reasoning_trace.side_effect = Exception("OTel is down")
-    agentwatch.telemetry.otel._provider = mock_provider
+    panoptis.telemetry.otel._provider = mock_provider
 
     event = AgentEvent(
         session_id="session-1",
@@ -286,23 +286,23 @@ def test_export_reasoning_trace_collector_isolation():
         trace = collector.get_trace("session-1")
         assert trace.is_exported is False
     finally:
-        agentwatch.telemetry.otel._provider = original
+        panoptis.telemetry.otel._provider = original
 
 
 def test_export_reasoning_trace_collector_success():
     import asyncio
 
-    from agentwatch.core.schema import AgentEvent, EventType, ExecutionStatus
-    from agentwatch.telemetry.collector import TraceCollector
+    from panoptis.core.schema import AgentEvent, EventType, ExecutionStatus
+    from panoptis.telemetry.collector import TraceCollector
 
     collector = TraceCollector()
 
-    import agentwatch.telemetry.otel
+    import panoptis.telemetry.otel
 
-    original = agentwatch.telemetry.otel._provider
+    original = panoptis.telemetry.otel._provider
     mock_provider = MagicMock()
     mock_provider.export_reasoning_trace.return_value = True
-    agentwatch.telemetry.otel._provider = mock_provider
+    panoptis.telemetry.otel._provider = mock_provider
 
     event = AgentEvent(
         session_id="session-success",
@@ -321,7 +321,7 @@ def test_export_reasoning_trace_collector_success():
         trace = collector.get_trace("session-success")
         assert trace.is_exported is True
     finally:
-        agentwatch.telemetry.otel._provider = original
+        panoptis.telemetry.otel._provider = original
 
 
 def _single_span_trace_data():
@@ -398,17 +398,17 @@ def test_collector_retries_export_after_failure():
     # and marks the trace exported once the export succeeds.
     import asyncio
 
-    from agentwatch.core.schema import AgentEvent, EventType, ExecutionStatus
-    from agentwatch.telemetry.collector import TraceCollector
+    from panoptis.core.schema import AgentEvent, EventType, ExecutionStatus
+    from panoptis.telemetry.collector import TraceCollector
 
     collector = TraceCollector()
 
-    import agentwatch.telemetry.otel
+    import panoptis.telemetry.otel
 
-    original = agentwatch.telemetry.otel._provider
+    original = panoptis.telemetry.otel._provider
     mock_provider = MagicMock()
     mock_provider.export_reasoning_trace.side_effect = [False, True]
-    agentwatch.telemetry.otel._provider = mock_provider
+    panoptis.telemetry.otel._provider = mock_provider
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -435,7 +435,7 @@ def test_collector_retries_export_after_failure():
         assert trace.is_exported is True
         assert mock_provider.export_reasoning_trace.call_count == 2
     finally:
-        agentwatch.telemetry.otel._provider = original
+        panoptis.telemetry.otel._provider = original
 
 
 @pytest.mark.skipif(not _OTEL_AVAILABLE, reason="requires opentelemetry-sdk")

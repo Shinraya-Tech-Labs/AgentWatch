@@ -7,15 +7,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.schema import AgentFramework, EventType, ExecutionStatus
-from agentwatch.sensors.openrouter_sensor import OpenRouterSensor, instrument_openrouter, _is_openrouter_client
+from panoptis.core.event_bus import EventBus
+from panoptis.core.schema import AgentFramework, EventType, ExecutionStatus
+from panoptis.sensors.openrouter_sensor import OpenRouterSensor, instrument_openrouter, _is_openrouter_client
 
 
 @pytest.fixture(autouse=True)
 def _mock_openai_available(monkeypatch):
     """Mock OpenAI as available for all tests."""
-    monkeypatch.setattr("agentwatch.sensors.openrouter_sensor._OPENAI_AVAILABLE", True)
+    monkeypatch.setattr("panoptis.sensors.openrouter_sensor._OPENAI_AVAILABLE", True)
 
 
 class _MockOpenAIMessage:
@@ -110,7 +110,7 @@ def test_is_openrouter_client_false():
 
 def test_openrouter_sensor_missing_sdk(monkeypatch):
     """Test that OpenRouterSensor raises RuntimeError when OpenAI SDK is not available."""
-    monkeypatch.setattr("agentwatch.sensors.openrouter_sensor._OPENAI_AVAILABLE", False)
+    monkeypatch.setattr("panoptis.sensors.openrouter_sensor._OPENAI_AVAILABLE", False)
     client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace()), base_url="https://openrouter.ai/api/v1")
     with pytest.raises(RuntimeError, match="OpenAI SDK not installed"):
         OpenRouterSensor(client, "sess1", "agent1")
@@ -312,5 +312,5 @@ def test_openrouter_sensor_no_choices_in_response():
 
 def test_instrument_openrouter_returns_sensor():
     """Test that instrument_openrouter function exists."""
-    from agentwatch.sensors.openrouter_sensor import instrument_openrouter
+    from panoptis.sensors.openrouter_sensor import instrument_openrouter
     assert callable(instrument_openrouter)

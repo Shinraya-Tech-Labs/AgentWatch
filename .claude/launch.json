@@ -6,7 +6,7 @@
       "runtimeExecutable": "python",
       "runtimeArgs": [
         "-c",
-        "import os; os.environ.setdefault('AGENTWATCH_STORE', 'sqlite:///data/agentwatch-v3.db'); os.environ.setdefault('AGENTWATCH_ALLOW_REEXECUTION', '1'); import uvicorn; uvicorn.run('agentwatch.api.server:app', host='127.0.0.1', port=8000)"
+        "import os; os.environ.setdefault('AGENTWATCH_STORE', 'sqlite:///data/agentwatch-v3.db'); os.environ.setdefault('AGENTWATCH_ALLOW_REEXECUTION', '1'); import uvicorn; uvicorn.run('panoptis.api.server:app', host='127.0.0.1', port=8000)"
       ],
       "port": 8000
     },

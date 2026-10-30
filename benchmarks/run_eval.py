@@ -10,8 +10,8 @@ from statistics import mean, median
 from rich.console import Console
 from rich.table import Table
 
-from agentwatch.core.schema import AgentEvent
-from agentwatch.reasoning.auditor import ReasoningAuditor
+from panoptis.core.schema import AgentEvent
+from panoptis.reasoning.auditor import ReasoningAuditor
 
 
 def safe_div(n, d):

@@ -71,9 +71,9 @@ sys.modules["crewai"] = _fake_crewai
 
 # ── Real imports (after stub injection) ───────────────────────────────────────
 
-from agentwatch.adapters.crewai import AgentWatchCrewAIAdapter  # noqa: E402
-from agentwatch.core.event_bus import EventBus  # noqa: E402
-from agentwatch.core.schema import EventType, ExecutionStatus  # noqa: E402
+from panoptis.adapters.crewai import AgentWatchCrewAIAdapter  # noqa: E402
+from panoptis.core.event_bus import EventBus  # noqa: E402
+from panoptis.core.schema import EventType, ExecutionStatus  # noqa: E402
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

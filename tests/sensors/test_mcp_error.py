@@ -6,7 +6,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from agentwatch.sensors.mcp_error import (
+from panoptis.sensors.mcp_error import (
     MCPErrorCategory,
     MCPErrorCode,
     MCPErrorEnvelope,

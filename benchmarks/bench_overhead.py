@@ -1,8 +1,8 @@
 import json
 import timeit
 
-from agentwatch.core.safety import SafetyEngine
-from agentwatch.core.watcher import GenericAdapter, watch
+from panoptis.core.safety import SafetyEngine
+from panoptis.core.watcher import GenericAdapter, watch
 
 
 # Simple dummy agent function for baseline
@@ -39,8 +39,8 @@ def full_api_round_trip():
     # dispatch path without starting the FastAPI server.
     import asyncio
 
-    from agentwatch.core.event_bus import EventBus
-    from agentwatch.core.schema import AgentEvent, EventType
+    from panoptis.core.event_bus import EventBus
+    from panoptis.core.schema import AgentEvent, EventType
 
     async def _publish():
         bus = EventBus()

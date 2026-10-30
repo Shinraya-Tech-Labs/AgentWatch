@@ -11,23 +11,23 @@
 # Upgrade to Starter ($7/mo each) for always-on.
 
 databases:
-  - name: agentwatch-db
-    databaseName: agentwatch
-    user: agentwatch
+  - name: panoptis-db
+    databaseName: panoptis
+    user: panoptis
     plan: free
     region: oregon
 
 services:
   # ── Redis ─────────────────────────────────────────────────────────
   - type: redis
-    name: agentwatch-redis
+    name: panoptis-redis
     plan: free
     maxmemoryPolicy: noeviction
     ipAllowList: []
 
   # ── FastAPI backend ────────────────────────────────────────────────
   - type: web
-    name: agentwatch-api
+    name: panoptis-api
     runtime: docker
     dockerfilePath: ./Dockerfile.api
     dockerContext: .
@@ -37,17 +37,17 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: agentwatch-db
+          name: panoptis-db
           property: connectionString
       - key: REDIS_URL
         fromService:
           type: redis
-          name: agentwatch-redis
+          name: panoptis-redis
           property: connectionString
       - key: CELERY_BROKER_URL
         fromService:
           type: redis
-          name: agentwatch-redis
+          name: panoptis-redis
           property: connectionString
       - key: AGENTWATCH_ENV
         value: production
@@ -57,7 +57,7 @@ services:
 
   # ── Next.js dashboard ─────────────────────────────────────────────
   - type: web
-    name: agentwatch-frontend
+    name: panoptis-frontend
     runtime: docker
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
@@ -66,13 +66,13 @@ services:
     healthCheckPath: /api/health
     dockerBuildArgs:
       - key: NEXT_PUBLIC_API_HOST
-        value: agentwatch-api-zefd.onrender.com
+        value: panoptis-api-zefd.onrender.com
       - key: NEXT_PUBLIC_WS_URL
-        value: wss://agentwatch-api-zefd.onrender.com/ws/events
+        value: wss://panoptis-api-zefd.onrender.com/ws/events
     envVars:
       - key: AGENTWATCH_API_URL
-        value: https://agentwatch-api-zefd.onrender.com
+        value: https://panoptis-api-zefd.onrender.com
       - key: NEXT_PUBLIC_API_HOST
-        value: agentwatch-api-zefd.onrender.com
+        value: panoptis-api-zefd.onrender.com
       - key: NODE_ENV
         value: production

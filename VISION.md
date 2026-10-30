@@ -6,7 +6,7 @@ It began as an AI agent observability project, but the repository now shows a br
 
 The strongest product evidence is:
 
-- `agentwatch.watch()` instruments existing agents and framework objects without requiring users to rewrite their agent code.
+- `panoptis.watch()` instruments existing agents and framework objects without requiring users to rewrite their agent code.
 - The core event schema normalizes agent lifecycle, tool calls, memory, safety, confidence, rollback, and multi-agent events.
 - The `SafetyEngine` evaluates tool calls before execution, attaches reasoning confidence, estimates blast radius, enforces policies, and can block or require approval.
 - The FastAPI server exposes sessions, events, replay, rollback, safety policy, safety checks, dashboard summaries, compliance reports, entitlement usage, tenants, metrics, and WebSocket streaming.
@@ -246,37 +246,37 @@ The repo includes Docker Compose, Dockerfiles, Render/Railway/Fly configuration,
 
 | Capability | Repository Evidence | Purpose | Beneficiary | Layer | Completeness | Overlap / Belongs |
 |---|---|---|---|---|---|---|
-| Universal `watch()` SDK | `agentwatch/core/watcher.py`, root exports | Attach observability and safety to existing agents | Developers | SDK/runtime | Strong for generic and several framework paths | Belongs; core adoption surface |
-| Framework adapters | `agentwatch/adapters/*` | Normalize framework-specific events | Developers/platform teams | SDK/integration | Broad coverage; depth varies by framework | Belongs; should be tested against real framework versions |
-| Event schema | `agentwatch/core/schema.py` | Common representation for sessions/actions/safety/memory/cost | All users | Core | Strong | Belongs; should remain canonical |
-| Event bus | `agentwatch/core/event_bus.py` | Route events to collectors/streams/forwarders | Platform/operators | Core/runtime | Strong | Belongs |
-| HTTP forwarding | `agentwatch/core/http_forwarder.py` | Send local events to API | Developers/platform | Integration | Present | Belongs |
-| Trace collection/spans | `agentwatch/tracing`, `agentwatch/telemetry` | Capture spans, trajectories, sampling, OTEL export, live streams | Operators/SRE | Observability | Implemented modules; API integration partial | Belongs |
-| API server | `agentwatch/api/server.py` | Central REST/WebSocket/metrics surface | Dashboard, CLI, integrations | Platform | Strong for sessions/safety/replay/tenant basics | Belongs; route modularization needed |
+| Universal `watch()` SDK | `panoptis/core/watcher.py`, root exports | Attach observability and safety to existing agents | Developers | SDK/runtime | Strong for generic and several framework paths | Belongs; core adoption surface |
+| Framework adapters | `panoptis/adapters/*` | Normalize framework-specific events | Developers/platform teams | SDK/integration | Broad coverage; depth varies by framework | Belongs; should be tested against real framework versions |
+| Event schema | `panoptis/core/schema.py` | Common representation for sessions/actions/safety/memory/cost | All users | Core | Strong | Belongs; should remain canonical |
+| Event bus | `panoptis/core/event_bus.py` | Route events to collectors/streams/forwarders | Platform/operators | Core/runtime | Strong | Belongs |
+| HTTP forwarding | `panoptis/core/http_forwarder.py` | Send local events to API | Developers/platform | Integration | Present | Belongs |
+| Trace collection/spans | `panoptis/tracing`, `panoptis/telemetry` | Capture spans, trajectories, sampling, OTEL export, live streams | Operators/SRE | Observability | Implemented modules; API integration partial | Belongs |
+| API server | `panoptis/api/server.py` | Central REST/WebSocket/metrics surface | Dashboard, CLI, integrations | Platform | Strong for sessions/safety/replay/tenant basics | Belongs; route modularization needed |
 | Dashboard | `frontend/pages/*` | Operator UI for sessions, live feed, safety, replay, domain pages | Operators | Product UI | Core dashboard works; many domain pages hit missing routes | Belongs; incomplete chains need priority |
-| CLI | `agentwatch/cli/main.py` | Local developer/operator control | Developers/operators | DX/control | Broad and useful | Belongs; should keep secure command utility rule |
-| Safety engine | `agentwatch/core/safety.py`, risk/injection/blast policy modules | Block/approve risky actions before execution | Security/operators | Runtime enforcement | Strong core | Belongs; central pillar |
-| Policy DSL | `agentwatch/core/policy_dsl.py`, `policy_loader.py`, CLI/page surfaces | Human-readable runtime policy | Security/platform | Governance | Implemented; frontend endpoints drift from backend | Belongs; needs single API contract |
+| CLI | `panoptis/cli/main.py` | Local developer/operator control | Developers/operators | DX/control | Broad and useful | Belongs; should keep secure command utility rule |
+| Safety engine | `panoptis/core/safety.py`, risk/injection/blast policy modules | Block/approve risky actions before execution | Security/operators | Runtime enforcement | Strong core | Belongs; central pillar |
+| Policy DSL | `panoptis/core/policy_dsl.py`, `policy_loader.py`, CLI/page surfaces | Human-readable runtime policy | Security/platform | Governance | Implemented; frontend endpoints drift from backend | Belongs; needs single API contract |
 | Human approval | Safety policy and approval callback | Pause risky actions for review | Operators/security | Runtime control | CLI callback exists; full workflow partial | Belongs |
-| Sandbox/safety lab | `agentwatch/security/sandbox.py`, frontend sandbox/safety-lab | Simulate command risk and threat path | Developers/security | Security/DX | Safety lab wired to `/safety/check`; sandbox page calls missing `/security/sandbox/simulate` | Belongs; consolidate |
-| OWASP checks | `agentwatch/security/owasp.py`, tests, security page | Detect agentic security vectors | Security | Security/compliance | Module/test present; page calls missing route | Belongs; route needed |
-| Red-team harness | `agentwatch/security/redteam.py`, payload corpus, CLI, Celery task | Test guardrail resilience without executing attacks | Security | Security/eval | Implemented harness | Belongs |
-| Redaction | `agentwatch/security/redaction.py`, GDPR/HIPAA patterns | Scrub PII/PHI from telemetry | Compliance/security | Governance | Implemented, opt-in | Belongs |
-| Reasoning auditor | `agentwatch/reasoning/auditor.py` and related modules | Score trust, hallucination, drift, quality, calibration | Developers/operators | Reasoning trust | Broad module coverage; benchmark semantics depend on judge | Belongs |
-| Confidence scoring | `agentwatch/scoring/confidence.py`, API confidence endpoint | Summarize session trust/anomalies | Operators | Observability/reasoning | Present | Belongs |
-| Benchmarks/eval | `benchmarks`, `agentwatch/eval`, CLI eval | Test reasoning and safety behavior | Developers/platform | Evaluation | Harness present; saved mock result should not be overclaimed | Belongs |
-| Replay | `agentwatch/replay`, API, dashboard | Time-travel session review | Operators | Operational control | Strong | Belongs |
-| Counterfactual simulation | `agentwatch/replay/counterfactual.py`, API simulate | Ask what changes if a step differs | Developers/operators | Operational control | Implemented with user-supplied step behavior; not full autonomous replay | Belongs |
-| Rollback | `agentwatch/rollback`, CLI/API/session UI | Restore filesystem/git checkpoints | Operators | Operational control | Present; high-risk area | Belongs with strict safety/audit |
-| Memory engine | `agentwatch/memory/*` | Store/query/govern causal and temporal memory | Developers/operators | Memory governance | Implemented modules; dashboard routes missing | Belongs if tied to reliability/governance |
-| Multi-agent orchestration analysis | `agentwatch/orchestration/*` | Model DAGs, deadlocks, trust, propagation, consensus | Multi-agent builders | Multi-agent governance | Implemented modules; dashboard routes missing | Belongs |
-| Cost intelligence | `agentwatch/cost/*`, CLI cost | Track budgets, compare models, route, predict, cache, detect anomalies | Engineering/finance | Cost governance | Modules and CLI present; dashboard route missing | Belongs |
-| Compliance/governance | `agentwatch/governance/*`, API reports | Produce audit/compliance evidence | Compliance/security | Governance | Modules plus some mounted reports | Belongs; claims must be evidence-backed |
-| RBAC/auth/tenant | `agentwatch/api/auth.py`, `tenant_auth.py`, models | Auth, permissions, tenant isolation | Enterprise/platform | Platform/security | Present; dashboard auth forwarding mismatch | Belongs |
+| Sandbox/safety lab | `panoptis/security/sandbox.py`, frontend sandbox/safety-lab | Simulate command risk and threat path | Developers/security | Security/DX | Safety lab wired to `/safety/check`; sandbox page calls missing `/security/sandbox/simulate` | Belongs; consolidate |
+| OWASP checks | `panoptis/security/owasp.py`, tests, security page | Detect agentic security vectors | Security | Security/compliance | Module/test present; page calls missing route | Belongs; route needed |
+| Red-team harness | `panoptis/security/redteam.py`, payload corpus, CLI, Celery task | Test guardrail resilience without executing attacks | Security | Security/eval | Implemented harness | Belongs |
+| Redaction | `panoptis/security/redaction.py`, GDPR/HIPAA patterns | Scrub PII/PHI from telemetry | Compliance/security | Governance | Implemented, opt-in | Belongs |
+| Reasoning auditor | `panoptis/reasoning/auditor.py` and related modules | Score trust, hallucination, drift, quality, calibration | Developers/operators | Reasoning trust | Broad module coverage; benchmark semantics depend on judge | Belongs |
+| Confidence scoring | `panoptis/scoring/confidence.py`, API confidence endpoint | Summarize session trust/anomalies | Operators | Observability/reasoning | Present | Belongs |
+| Benchmarks/eval | `benchmarks`, `panoptis/eval`, CLI eval | Test reasoning and safety behavior | Developers/platform | Evaluation | Harness present; saved mock result should not be overclaimed | Belongs |
+| Replay | `panoptis/replay`, API, dashboard | Time-travel session review | Operators | Operational control | Strong | Belongs |
+| Counterfactual simulation | `panoptis/replay/counterfactual.py`, API simulate | Ask what changes if a step differs | Developers/operators | Operational control | Implemented with user-supplied step behavior; not full autonomous replay | Belongs |
+| Rollback | `panoptis/rollback`, CLI/API/session UI | Restore filesystem/git checkpoints | Operators | Operational control | Present; high-risk area | Belongs with strict safety/audit |
+| Memory engine | `panoptis/memory/*` | Store/query/govern causal and temporal memory | Developers/operators | Memory governance | Implemented modules; dashboard routes missing | Belongs if tied to reliability/governance |
+| Multi-agent orchestration analysis | `panoptis/orchestration/*` | Model DAGs, deadlocks, trust, propagation, consensus | Multi-agent builders | Multi-agent governance | Implemented modules; dashboard routes missing | Belongs |
+| Cost intelligence | `panoptis/cost/*`, CLI cost | Track budgets, compare models, route, predict, cache, detect anomalies | Engineering/finance | Cost governance | Modules and CLI present; dashboard route missing | Belongs |
+| Compliance/governance | `panoptis/governance/*`, API reports | Produce audit/compliance evidence | Compliance/security | Governance | Modules plus some mounted reports | Belongs; claims must be evidence-backed |
+| RBAC/auth/tenant | `panoptis/api/auth.py`, `tenant_auth.py`, models | Auth, permissions, tenant isolation | Enterprise/platform | Platform/security | Present; dashboard auth forwarding mismatch | Belongs |
 | Entitlements/licensing | `security/license.py`, `checkout.py`, entitlement API, CLI upgrade | Premium feature gating and abuse detection | Maintainers/cloud users | Commercial platform | Present | Belongs if product includes cloud/commercial path |
-| Plugins | `agentwatch/plugins/*`, manifest schema | Extend safely with permissions | Ecosystem | Platform | Registry/sandbox present | Belongs but should remain constrained |
-| Protocol/MCP/badge | `agentwatch/protocol/*`, CLI MCP | Open trace schema and interoperability | Ecosystem/frameworks | Protocol | Present | Belongs; strategic differentiator |
-| Monitoring/metrics | `agentwatch/monitoring`, `/metrics`, Grafana JSON | Operate AgentWatch itself | SRE/platform | Ops | Present | Belongs |
+| Plugins | `panoptis/plugins/*`, manifest schema | Extend safely with permissions | Ecosystem | Platform | Registry/sandbox present | Belongs but should remain constrained |
+| Protocol/MCP/badge | `panoptis/protocol/*`, CLI MCP | Open trace schema and interoperability | Ecosystem/frameworks | Protocol | Present | Belongs; strategic differentiator |
+| Monitoring/metrics | `panoptis/monitoring`, `/metrics`, Grafana JSON | Operate AgentWatch itself | SRE/platform | Ops | Present | Belongs |
 | Deployment | Docker, Helm, Render, Railway, Fly | Self-host and deploy | Platform/devops | Infra | Present but inconsistent completeness | Belongs; harden |
 | Landing site | `agentwatch-landing` | Public positioning, docs/blog/contributors | Community/users | Marketing/docs | Separate app; contains unverified claims | Belongs as website, not source of product truth |
 
@@ -285,7 +285,7 @@ The repo includes Docker Compose, Dockerfiles, Render/Railway/Fly configuration,
 - Package/runtime versioning is now aligned at `0.2.0`, but generated examples, Helm metadata, docs, and landing-page release claims still need a single release authority.
 - Python support is now documented as 3.12+ in package and primary setup docs; secondary docs and examples should continue to be checked during release work.
 - `MASTERLIST_STATUS.md` explicitly says some new modules do not have wired API routes and frontend pages render empty states when endpoints are missing.
-- Frontend hooks call routes not mounted in `agentwatch/api/server.py`, including `/memory/graph`, `/memory/query`, `/orchestration/dag`, `/orchestration/deadlock`, `/security/owasp`, `/security/sandbox/simulate`, `/cost/summary`, `/governance/compliance/status`, `/reasoning/benchmark/latest`, `/reasoning/benchmark/run`, `/policies/current`, and `/policies/preview`.
+- Frontend hooks call routes not mounted in `panoptis/api/server.py`, including `/memory/graph`, `/memory/query`, `/orchestration/dag`, `/orchestration/deadlock`, `/security/owasp`, `/security/sandbox/simulate`, `/cost/summary`, `/governance/compliance/status`, `/reasoning/benchmark/latest`, `/reasoning/benchmark/run`, `/policies/current`, and `/policies/preview`.
 - Backend exposes `/api/v1/safety/policy`, while frontend policy hooks use `/policies/current`.
 - Backend `/api/v1/safety/blocked` returns an object containing `blocked_events`, while the dashboard hook types it as an array.
 - Backend `/api/v1/sessions` returns `{ sessions, total }`, while the dashboard hook types it as `AgentSession[]`.

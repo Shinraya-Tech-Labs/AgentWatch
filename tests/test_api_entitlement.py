@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 
-from agentwatch.api import entitlement
+from panoptis.api import entitlement
 
 
 @pytest.fixture(scope="module")
@@ -112,10 +112,10 @@ def test_eu_ai_act_report_gated(monkeypatch, keypair):
     private_pem, public_pem = keypair
     from fastapi.testclient import TestClient
 
-    from agentwatch.api.server import app
+    from panoptis.api.server import app
 
-    monkeypatch.setattr("agentwatch.api.server._API_KEY", None)
-    monkeypatch.setattr("agentwatch.api.server._IS_PROD", False)
+    monkeypatch.setattr("panoptis.api.server._API_KEY", None)
+    monkeypatch.setattr("panoptis.api.server._IS_PROD", False)
     monkeypatch.setattr(entitlement, "_LICENSE_PUBLIC_KEY", public_pem)
     client = TestClient(app)
 

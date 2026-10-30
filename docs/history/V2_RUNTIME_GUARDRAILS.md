@@ -87,7 +87,7 @@ The Version 2.0 control plane sits directly between the LLM's reasoning engine a
 
 ---
 
-## 3. The Circuit Breaker Finite State Machine (`agentwatch.circuit_breaker`)
+## 3. The Circuit Breaker Finite State Machine (`panoptis.circuit_breaker`)
 
 Adapted from high-availability distributed systems engineering (e.g., Netflix Hystrix, Michael Nygard's *Release It!*), Version 2.0 created the first formal finite state machine tailored specifically for autonomous agent execution.
 
@@ -219,7 +219,7 @@ class CircuitBreaker:
 
 ---
 
-## 4. Real-Time Loop & Oscillation Detector Engine (`agentwatch.circuit_breaker.loop_detector`)
+## 4. Real-Time Loop & Oscillation Detector Engine (`panoptis.circuit_breaker.loop_detector`)
 
 A major insight driving Version 2.0 was that naive string matching is utterly incapable of detecting real-world agent loops. 
 
@@ -269,7 +269,7 @@ The detector identifies 2-step and 3-step oscillation traps with $O(1)$ time com
 
 ---
 
-## 5. Security Engine & Pattern Risk Assessment (`agentwatch.core.safety`)
+## 5. Security Engine & Pattern Risk Assessment (`panoptis.core.safety`)
 
 Version 2.0 introduced a deterministic security scanner that inspects every proposed command before execution.
 
@@ -310,7 +310,7 @@ If an outbound tool call contains any matching secret pattern, the call is block
 
 ---
 
-## 6. Compounding Epistemic Confidence Decay Tracker (`agentwatch.causality.decay`)
+## 6. Compounding Epistemic Confidence Decay Tracker (`panoptis.causality.decay`)
 
 Issue #748 implemented epistemic uncertainty modeling across multi-step autonomous trajectories.
 
@@ -423,7 +423,7 @@ Version 2.0 was engineered for 100% backward compatibility with Version 1.0 even
 In Version 1.0, developers used the passive `@watch` decorator:
 ```python
 # Version 1.0: Passive Telemetry Only
-from agentwatch import watch
+from panoptis import watch
 
 @watch
 def execute_sql(query: str) -> list[dict]:
@@ -433,7 +433,7 @@ def execute_sql(query: str) -> list[dict]:
 In Version 2.0, developers replace `@watch` with `@guard` to activate active pre-execution vetoes:
 ```python
 # Version 2.0: Active Hypervisor Protection
-from agentwatch import guard, CircuitBreaker, TripReason, AgentWatchBlockedError
+from panoptis import guard, CircuitBreaker, TripReason, AgentWatchBlockedError
 
 # Optional: configure custom circuit breaker thresholds
 breaker = CircuitBreaker(max_consecutive_failures=3, recovery_timeout=45.0)

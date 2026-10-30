@@ -39,7 +39,7 @@ export function Shell({
       </Head>
       <nav className="sticky top-0 z-20 flex items-center gap-1 border-b border-zinc-800 bg-[#08090c]/95 px-3 py-1.5 backdrop-blur">
         <span className="mr-3 font-mono text-sm font-semibold tracking-tight text-zinc-100">
-          agentwatch<span className="text-sky-400">/v3</span>
+          panoptis<span className="text-sky-400">/v3</span>
         </span>
         {VIEWS.map((v) => {
           const active =

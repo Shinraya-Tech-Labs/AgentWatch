@@ -1,10 +1,10 @@
 # 03 — Computational Event Algebra & Normalizers
 
 > **Implementation Files:**  
-> - [`agentwatch/events/model.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/model.py) (The v3 Computational Event Algebra)  
-> - [`agentwatch/evidence/model.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/model.py) (Raw Observation & Envelope)  
-> - [`agentwatch/evidence/canonical.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/canonical.py) (RFC 8785 Canonical JSON & Content Addressing)  
-> - [`agentwatch/adapters/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/adapters/) (Framework Ingest Adapters)  
+> - [`panoptis/events/model.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/model.py) (The v3 Computational Event Algebra)  
+> - [`panoptis/evidence/model.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/model.py) (Raw Observation & Envelope)  
+> - [`panoptis/evidence/canonical.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/canonical.py) (RFC 8785 Canonical JSON & Content Addressing)  
+> - [`panoptis/adapters/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/adapters/) (Framework Ingest Adapters)  
 
 ---
 
@@ -17,7 +17,7 @@ A `ComputationalEvent` is the foundational normalized primitive of AgentWatch. I
 
 ---
 
-## 🧩 Event Anatomy (`agentwatch/events/model.py`)
+## 🧩 Event Anatomy (`panoptis/events/model.py`)
 
 A `ComputationalEvent` contains:
 
@@ -81,14 +81,14 @@ Events record relationships declared explicitly by the source framework:
 
 Normalizers are pure, deterministic functions mapping raw payloads to `ComputationalEvent`s:
 
-1. **OpenTelemetry GenAI Semantic Conventions** (`agentwatch/sensors/otel/`):
+1. **OpenTelemetry GenAI Semantic Conventions** (`panoptis/sensors/otel/`):
    - Ingests OTLP protobuf/JSON traces.
    - Maps `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens` directly to standard attributes.
-2. **LangChain & LangGraph** (`agentwatch/adapters/langchain.py`):
+2. **LangChain & LangGraph** (`panoptis/adapters/langchain.py`):
    - Hooks into `on_chain_start`, `on_tool_end`, `on_llm_start`.
    - Reconstructs state graph execution trees.
-3. **Claude Code / Anthropic Transcripts** (`agentwatch/sensors/claude_code/`):
+3. **Claude Code / Anthropic Transcripts** (`panoptis/sensors/claude_code/`):
    - Ingests JSONL stream outputs and conversation transcripts.
    - Maps subagent calls (`invoke_subagent`), tool executions, and turn completions.
-4. **Legacy Adapter** (`agentwatch/adapters/generic.py`):
+4. **Legacy Adapter** (`panoptis/adapters/generic.py`):
    - Converts v0.2 `AgentEvent` payloads into v3 `ComputationalEvent`s seamlessly.

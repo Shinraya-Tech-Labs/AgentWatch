@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from agentwatch.governance.audit_log import GENESIS_HASH, AuditLog
-from agentwatch.governance.rbac import RBACEngine, Role, TeamPolicy, User
+from panoptis.governance.audit_log import GENESIS_HASH, AuditLog
+from panoptis.governance.rbac import RBACEngine, Role, TeamPolicy, User
 
 # ── AuditLog hash chain ────────────────────────────────────────────────────
 

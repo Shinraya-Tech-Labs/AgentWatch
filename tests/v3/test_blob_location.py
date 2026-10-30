@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agentwatch.evidence.blobs import FsBlobStore, MemoryBlobStore
-from agentwatch.storage.store import agentwatch_home, default_blob_store
+from panoptis.evidence.blobs import FsBlobStore, MemoryBlobStore
+from panoptis.storage.store import panoptis_home, default_blob_store
 
 PG = "postgresql+psycopg://u:p@db:5432/aw"
 
@@ -36,4 +36,4 @@ def test_sqlite_defaults(tmp_path, monkeypatch):
 
 def test_empty_home_means_default_not_current_directory(monkeypatch):
     monkeypatch.setenv("AGENTWATCH_HOME", "")
-    assert agentwatch_home() == Path.home() / ".agentwatch"
+    assert panoptis_home() == Path.home() / ".agentwatch"

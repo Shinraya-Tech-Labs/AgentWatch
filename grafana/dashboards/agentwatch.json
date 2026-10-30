@@ -382,7 +382,7 @@
   "timepicker": {},
   "timezone": "",
   "title": "AgentWatch Enterprise Telemetry",
-  "uid": "agentwatch_otel",
+  "uid": "panoptis_otel",
   "version": 1,
   "weekStart": ""
 }

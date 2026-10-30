@@ -30,7 +30,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const marker = '<!-- agentwatch-pr-tests -->';
+            const marker = '<!-- panoptis-pr-tests -->';
             
             let prNumber;
             let prSha;
@@ -76,7 +76,7 @@ jobs:
               '| --- | --- |',
               `| Tests (\`pytest tests/\`) | ${icon(testOutcome)} ${testOutcome} |`,
               `| Lint (\`ruff check .\`) | ${icon(ruffOutcome)} ${ruffOutcome} |`,
-              `| Coverage (\`agentwatch\`) | **${coverage}** |`,
+              `| Coverage (\`panoptis\`) | **${coverage}** |`,
               '',
               `<sub>Python 3.12 · commit ${prSha.substring(0, 7)}</sub>`,
             ].join('\n');

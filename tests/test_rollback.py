@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from agentwatch.rollback.engine import FilesystemSnapshot
+from panoptis.rollback.engine import FilesystemSnapshot
 
 
 def test_valid_archive_restore(tmp_path: Path):

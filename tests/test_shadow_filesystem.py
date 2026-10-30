@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from agentwatch.lattice.shadow_filesystem import (
+from panoptis.lattice.shadow_filesystem import (
     FileAction,
     FileOperation,
     MutationType,

@@ -131,31 +131,31 @@ while its own budget is untouched. Clients should read both.
 To start monitoring your AI agents, make sure you import the core functions from the root package:
 
 '''python
-import agentwatch'''
+import panoptis'''
 
 Core SDK Methods
-1. agentwatch.watch
+1. panoptis.watch
 What it does: This is the primary entry point for AgentWatch. It dynamically attaches monitoring hooks to an active AI agent instance. Once wrapped, it automatically streams execution trace events, logs performance metrics, and applies active safety policies in real time.
 
 Returns: The monitored, safety wrapped agent instance.
 
-2. agentwatch.detect_framework
+2. panoptis.detect_framework
 What it does: Inspects a live runtime object to identify which orchestration library is being used behind the scenes.
 
 Supported Frameworks: Dynamically identifies popular frameworks like LangChain, CrewAI, and AutoGen.
 
 Returns: A reference to the identified framework adapter class.
 
-3. agentwatch.detect_framework_label
+3. panoptis.detect_framework_label
 What it does: A helper method that identifies the running agent framework and returns a clean, human readable string such as langchain, crewai, or autogen.
 
 Returns: A string label.
 
-4. agentwatch.GenericAdapter
+4. panoptis.GenericAdapter
 What it does: The base adapter class used for parsing agent lifecycles. If you are running an in house or unsupported agent framework, you can subclass GenericAdapter to build custom telemetry parsing logic.
 
 SDK Exceptions
-agentwatch.AgentWatchBlockedError
+panoptis.AgentWatchBlockedError
 What it does: This exception is instantly raised at runtime if an agent action, reasoning step, or tool invocation violates your active safety guardrails, such as attempting an illegal file system command.
 
 REST API Endpoints
