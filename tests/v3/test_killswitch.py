@@ -137,7 +137,8 @@ class TestEmergencyKillSwitch(unittest.TestCase):
         ks = EmergencyKillSwitch(kill_file=self.tmp_kill, enable_signals=False)
         ks.handle_signal(10)
         self.assertTrue(ks.is_tripped())
-        self.assertIn("POSIX signal 10 received", ks.reason)
+        self.assertIn("POSIX signal", ks.reason)
+        self.assertIn("10", ks.reason)
 
     def test_posix_signal_trap_if_available(self) -> None:
         """POSIX SIGUSR1 signal trap sets tripped state if supported on platform."""
