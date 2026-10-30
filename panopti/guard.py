@@ -5,11 +5,11 @@ from __future__ import annotations
 import functools
 import inspect
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from agentwatch.causality.decay import (
-    CUMULATIVE_CONFIDENCE_COLLAPSE,
     ConfidenceDecayTracker,
 )
 from agentwatch.circuit_breaker.loop_detector import AgentLoopError, LoopDetector
@@ -20,10 +20,10 @@ from panopti.contracts import (
     Contract,
     ContractRegistry,
     ContractViolationError,
-    Disallows,
     MaxFrequency,
     RequiresPrior,
 )
+from panopti.killswitch import EmergencyKillSwitch, EmergencyStopTriggered
 
 logger = logging.getLogger("panopti.guard")
 
@@ -49,6 +49,7 @@ class PanoptiGuard:
         self,
         critical_confidence_floor: float = 0.40,
         extra_patterns: list[RiskPattern] | None = None,
+        kill_switch: EmergencyKillSwitch | None = None,
     ) -> None:
         if extra_patterns:
             policy = replace(DEFAULT_POLICY, custom_patterns=list(extra_patterns))
@@ -58,14 +59,22 @@ class PanoptiGuard:
         self._loop_detector = LoopDetector(window_size=10, max_repeats=3, max_oscillations=2)
         self._contracts = ContractRegistry()
         self._confidence_tracker = ConfidenceDecayTracker(critical_floor=critical_confidence_floor)
+        self._kill_switch = kill_switch
+
+    @property
+    def kill_switch(self) -> EmergencyKillSwitch | None:
+        """Attached emergency kill switch instance, if configured."""
+        return self._kill_switch
+
+    @kill_switch.setter
+    def kill_switch(self, value: EmergencyKillSwitch | None) -> None:
+        self._kill_switch = value
 
     def register_contract(self, contract: Contract) -> None:
         """Register a temporal or state invariant contract."""
         self._contracts.add(contract)
 
-    def record_execution(
-        self, tool_name: str, arguments: dict[str, Any] | None = None
-    ) -> None:
+    def record_execution(self, tool_name: str, arguments: dict[str, Any] | None = None) -> None:
         """Record successful tool execution in history for temporal contract tracking."""
         self._contracts.record_success(tool_name, arguments)
 
@@ -77,6 +86,10 @@ class PanoptiGuard:
     ) -> GuardDecision:
         """Evaluate a tool invocation against policies, contracts, decay, and loops."""
         args = arguments or {}
+
+        # 0. Emergency kill switch check
+        if self._kill_switch and self._kill_switch.is_tripped():
+            raise EmergencyStopTriggered(self._kill_switch.reason, self._kill_switch.tripped_at)
 
         # 1. Compounding confidence decay check
         if confidence is not None:

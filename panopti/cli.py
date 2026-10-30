@@ -91,7 +91,9 @@ def main(args: list[str] | None = None) -> Any:
             print(PANOPTI_ASCII_BANNER)
             print("Usage: panopti [COMMAND] [ARGS]...\n")
             print("Panopti Commands:")
-            print("  demo            Run interactive terminal hypervisor simulation [--theme <name>]")
+            print(
+                "  demo            Run interactive terminal hypervisor simulation [--theme <name>] [--kill-file <path>]"
+            )
             print("  playground      Launch zero-dependency local web interactive playground")
             print("  doctor          Run system, interceptor, and circuit breaker health checks")
             print(
@@ -109,6 +111,7 @@ def main(args: list[str] | None = None) -> Any:
 
     if argv and argv[0] == "demo":
         from panopti.demo import run_interactive_demo
+
         fast = "--fast" in argv
         no_color = "--no-color" in argv
         theme: str | None = None
@@ -116,10 +119,16 @@ def main(args: list[str] | None = None) -> Any:
             t_idx = argv.index("--theme")
             if t_idx + 1 < len(argv):
                 theme = argv[t_idx + 1]
-        return run_interactive_demo(fast=fast, no_color=no_color, theme=theme)
+        kill_file: str | None = None
+        if "--kill-file" in argv:
+            k_idx = argv.index("--kill-file")
+            if k_idx + 1 < len(argv):
+                kill_file = argv[k_idx + 1]
+        return run_interactive_demo(fast=fast, no_color=no_color, theme=theme, kill_file=kill_file)
 
     if argv and argv[0] == "playground":
         from panopti.playground import launch_local_playground
+
         port = 8080
         if len(argv) >= 3 and argv[1] in ("-p", "--port"):
             try:
@@ -130,6 +139,7 @@ def main(args: list[str] | None = None) -> Any:
 
     if argv and argv[0] == "doctor":
         from panopti.doctor import format_doctor_report, run_diagnostics
+
         diag = run_diagnostics()
         print(PANOPTI_ASCII_BANNER)
         print(format_doctor_report(diag))
@@ -148,18 +158,20 @@ def main(args: list[str] | None = None) -> Any:
             return 2
         if "--iterations" in rest:
             idx = rest.index("--iterations")
-            rest = rest[:idx] + rest[idx + 2:]
+            rest = rest[:idx] + rest[idx + 2 :]
         if rest:
             print(f"Error: unexpected argument '{rest[0]}'", file=sys.stderr)
             print(usage, file=sys.stderr)
             return 2
         from panopti.bench import format_bench_report, run_bench
+
         print(format_bench_report(run_bench(iterations), iterations))
         return 0
 
     if argv and argv[0] in ("top", "live"):
         from agentwatch.circuit_breaker import CircuitBreaker, CircuitThresholds
         from panopti.presets.profiles import get_profile
+
         profile_name = "devops"
         if "--profile" in argv:
             idx = argv.index("--profile")
@@ -200,11 +212,14 @@ def main(args: list[str] | None = None) -> Any:
             filepath = argv[2]
             try:
                 from panopti.court import WitnessChain
+
                 with open(filepath, encoding="utf-8") as f:
                     proof = json.load(f)
                 valid, err = WitnessChain.verify_proof(proof)
                 if valid:
-                    print(f"✅ VERIFIED: Witness proof in '{filepath}' is cryptographically intact.")
+                    print(
+                        f"✅ VERIFIED: Witness proof in '{filepath}' is cryptographically intact."
+                    )
                     print(f"   Root Hash: {proof.get('root_hash')}")
                     print(f"   Entries:   {len(proof.get('entries', []))}")
                     return 0
@@ -229,6 +244,7 @@ def main(args: list[str] | None = None) -> Any:
             )
             try:
                 from panopti.attest import AttestationEngine, PanoptiAttestationSeal
+
                 with open(filepath, encoding="utf-8") as f:
                     seal = PanoptiAttestationSeal.from_json(f.read())
                 if AttestationEngine.verify_seal(seal, secret_key=key):
@@ -253,6 +269,7 @@ def main(args: list[str] | None = None) -> Any:
             filepath = argv[1]
             try:
                 from panopti.replay import ReplayTape, ShadowReplayer
+
                 with open(filepath, encoding="utf-8") as f:
                     tape = ReplayTape.from_json(f.read())
                 replayer = ShadowReplayer(tape)
@@ -274,6 +291,7 @@ def main(args: list[str] | None = None) -> Any:
             filepath = argv[1]
             try:
                 from panopti.synth import PolicySynthesizer
+
                 with open(filepath, encoding="utf-8") as f:
                     events = json.load(f)
                 if isinstance(events, dict) and "events" in events:
@@ -293,6 +311,7 @@ def main(args: list[str] | None = None) -> Any:
 
     # Delegate all standard commands to agentwatch.cli.main
     from agentwatch.cli.main import main as agentwatch_main
+
     return agentwatch_main()
 
 
