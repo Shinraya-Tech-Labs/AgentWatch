@@ -25,6 +25,11 @@ from panopti.contracts import (
 )
 from panopti.killswitch import EmergencyKillSwitch, EmergencyStopTriggered
 
+try:
+    from agentwatch.contracts.streaming import StreamingContractEvaluator
+except (ImportError, ModuleNotFoundError):
+    StreamingContractEvaluator = Any  # type: ignore[misc,assignment]
+
 logger = logging.getLogger("panopti.guard")
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -50,6 +55,7 @@ class PanoptiGuard:
         critical_confidence_floor: float = 0.40,
         extra_patterns: list[RiskPattern] | None = None,
         kill_switch: EmergencyKillSwitch | None = None,
+        streaming_evaluator: StreamingContractEvaluator | None = None,
     ) -> None:
         if extra_patterns:
             policy = replace(DEFAULT_POLICY, custom_patterns=list(extra_patterns))
@@ -60,6 +66,16 @@ class PanoptiGuard:
         self._contracts = ContractRegistry()
         self._confidence_tracker = ConfidenceDecayTracker(critical_floor=critical_confidence_floor)
         self._kill_switch = kill_switch
+        self._streaming_evaluator = streaming_evaluator
+
+    @property
+    def streaming_evaluator(self) -> StreamingContractEvaluator | None:
+        """Attached streaming contract evaluator, if configured."""
+        return self._streaming_evaluator
+
+    @streaming_evaluator.setter
+    def streaming_evaluator(self, value: StreamingContractEvaluator | None) -> None:
+        self._streaming_evaluator = value
 
     @property
     def kill_switch(self) -> EmergencyKillSwitch | None:
