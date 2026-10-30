@@ -284,10 +284,64 @@ def _dry_run_print(action: str, detail: str = "") -> None:
 # ---------------------------------------------
 
 
+def _print_live_event(event: Any) -> None:
+    """Print a live event from the event bus in a high-end cinematic style."""
+    from panoptis.core.schema import EventType
+
+    etype = getattr(event, "event_type", None)
+    if etype == EventType.SESSION_START:
+        console.print(f"\n[bold cyan]🚀 Session Started:[/bold cyan] [dim]{event.session_id}[/dim]")
+    elif etype == EventType.AGENT_MESSAGE:
+        console.print(f"[bold blue]💭 Message:[/bold blue] {escape(event.agent_message.content)}")
+    elif etype == EventType.TOOL_CALL:
+        tool = event.tool_call
+        console.print(
+            f"[bold yellow]🛠️  Tool Call:[/bold yellow] [bold white]{tool.tool_name}[/bold white] [dim]({tool.raw_command})[/dim]"
+        )
+    elif etype == EventType.TOOL_RESULT:
+        res = event.tool_result
+        color = "green" if not res.error else "red"
+        icon = "✅" if not res.error else "❌"
+        content = res.output if not res.error else res.error
+        console.print(
+            f"[{color}]{icon} Result:[/{color}] [dim]{content[:200]}{'...' if len(content) > 200 else ''}[/dim]"
+        )
+    elif etype == EventType.SESSION_END:
+        console.print("\n[bold green]🏁 Session Completed.[/bold green]")
+    else:
+        console.print(f"[dim]Event: {etype}[/dim]")
+
+
+def _print_session_summary(session: Any, events: list) -> None:
+    """Print a final summary of the agent session."""
+
+    console.print("\n" + "─" * 60)
+    console.print(
+        Panel(
+            f"[bold cyan]Session Summary[/bold cyan]\n"
+            f"[dim]ID:[/dim] {session.session_id}\n"
+            f"[dim]Status:[/dim] [{_status_color(session.status.value)}]{session.status.value}[/{_status_color(session.status.value)}]\n"
+            f"[dim]Total Steps:[/dim] {len(events)}\n"
+            f"[dim]Agent:[/dim] {session.agent_name or session.agent_id}",
+            border_style="cyan",
+            title="[bold white]EXECUTION REPORT[/bold white]",
+        )
+    )
+    console.print("─" * 60 + "\n")
+
+
+# ---------------------------------------------
+# watch command — wrap an agent run
+# ---------------------------------------------
+
+
 @session_app.command(name="watch")
 def watch(
-    prompt: str = typer.Argument(..., help="Prompt to run with Claude Code"),
+    prompt: str = typer.Argument(..., help="Prompt to run with the agent"),
     model: str = typer.Option("claude-opus-4-5", "--model", "-m"),
+    agent: str = typer.Option(
+        "claude", "--agent", "-a", help="Agent to use: claude|ollama|antigravity|custom"
+    ),
     max_turns: int = typer.Option(50, "--max-turns"),
     output: Path | None = typer.Option(None, "--output", "-o", help="Save session to file"),
     no_safety: bool = typer.Option(False, "--no-safety", help="Disable safety checks (dangerous)"),
@@ -300,7 +354,7 @@ def watch(
         help="Preview what would happen without executing or writing to disk",
     ),
 ) -> None:
-    """[bold]Watch[/bold] a Claude Code execution with full observability and safety."""
+    """[bold]Watch[/bold] an agent execution (Claude Code, ollama, antigravity) with full observability and safety."""
 
     if dry_run:
         console.print(
@@ -339,7 +393,7 @@ def watch(
 
         console.print(
             Panel(
-                f"[bold cyan]AgentWatch[/bold cyan] — watching Claude Code\n"
+                f"[bold cyan]AgentWatch[/bold cyan] — watching {agent}\n"
                 f"[dim]Prompt:[/dim] {prompt[:80]}{'...' if len(prompt) > 80 else ''}",
                 border_style="cyan",
             )
@@ -390,7 +444,25 @@ def watch(
 
             safety.set_approval_callback(wrapped_handler)
 
-        adapter = ClaudeCodeAdapter(safety_engine=safety)
+        # Resolve which adapter to use
+        from panoptis.adapters.generic import GenericCLIAdapter
+
+        agent_map = {
+            "claude": (ClaudeCodeAdapter, None),
+            "ollama": (GenericCLIAdapter, "ollama run llama3"),
+            "antigravity": (GenericCLIAdapter, "antigravity"),
+        }
+
+        if agent not in agent_map:
+            print(f"Unsupported agent: {agent}. Choose from {list(agent_map.keys())}")
+            return
+
+        adapter_cls, cmd_override = agent_map[agent]
+
+        if adapter_cls == ClaudeCodeAdapter:
+            adapter = ClaudeCodeAdapter(safety_engine=safety)
+        else:
+            adapter = adapter_cls(agent_cmd=cmd_override, safety_engine=safety)
 
         from panoptis.core.event_bus import get_event_bus
 
@@ -402,7 +474,10 @@ def watch(
         bus.subscribe_fn(on_event, handler_id="cli.watch.live")
 
         try:
-            session = await adapter.run(prompt, model=model, max_turns=max_turns)
+            if isinstance(adapter, ClaudeCodeAdapter):
+                session = await adapter.run(prompt, model=model, max_turns=max_turns)
+            else:
+                session = await adapter.run(prompt)
         finally:
             bus.unsubscribe("cli.watch.live")
 

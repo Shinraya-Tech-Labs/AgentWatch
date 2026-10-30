@@ -408,15 +408,16 @@ command: panoptis session score
     param session_file kind=TyperArgument type=path required=True default=None flags=session_file help='Path to session JSON file'
 
 command: panoptis session watch
-    help: [bold]Watch[/bold] a Claude Code execution with full observability and safety.
+    help: [bold]Watch[/bold] an agent execution (Claude Code, ollama, antigravity) with full observability and safety.
     short_help: 
+    param agent kind=TyperOption type=str required=False default='claude' flags=--agent,-a help='Agent to use: claude|ollama|antigravity|custom'
     param dry_run kind=TyperOption type=boolean required=False default=False flags=--dry-run help='Preview what would happen without executing or writing to disk'
     param max_turns kind=TyperOption type=int required=False default=50 flags=--max-turns help=''
     param model kind=TyperOption type=str required=False default='claude-opus-4-5' flags=--model,-m help=''
     param no_safety kind=TyperOption type=boolean required=False default=False flags=--no-safety help='Disable safety checks (dangerous)'
     param output kind=TyperOption type=path required=False default=None flags=--output,-o help='Save session to file'
     param policy kind=TyperOption type=str required=False default='default' flags=--policy help='Safety policy: default|strict|permissive'
-    param prompt kind=TyperArgument type=str required=True default=None flags=prompt help='Prompt to run with Claude Code'
+    param prompt kind=TyperArgument type=str required=True default=None flags=prompt help='Prompt to run with the agent'
 
 command: panoptis share
     help: [bold]Share[/bold] a trace via a temporary public link (PII/secrets redacted).
