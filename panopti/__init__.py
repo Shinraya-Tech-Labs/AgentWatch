@@ -45,6 +45,10 @@ from panopti.replay import (
     ReplayTape,
     ShadowReplayer,
 )
+from panopti.shield import (
+    AntiTamperShield,
+    TamperAttemptBlocked,
+)
 from panopti.synth import (
     PolicySynthesizer,
     SynthesizedInvariant,
@@ -147,4 +151,6 @@ __all__ = [
     "SynthesizedInvariant",
     "EmergencyKillSwitch",
     "EmergencyStopTriggered",
+    "AntiTamperShield",
+    "TamperAttemptBlocked",
 ]
