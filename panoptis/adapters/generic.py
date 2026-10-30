@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import uuid
 from datetime import UTC, datetime
 
@@ -23,6 +24,10 @@ from panoptis.core.schema import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Agent CLIs write colour and cursor escapes even to a pipe; keep them out of
+# the captured event so every consumer gets readable text.
+_ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
 class GenericCLIAdapter:
@@ -77,6 +82,9 @@ class GenericCLIAdapter:
 
             stdout, stderr = await process.communicate()
 
+            if process.returncode != 0:
+                self._session.status = ExecutionStatus.FAILURE
+
             # Create a result event
             res_event = AgentEvent(
                 session_id=self.session_id,
@@ -88,8 +96,8 @@ class GenericCLIAdapter:
                 else ExecutionStatus.FAILURE,
                 tool_result=ToolResultData(
                     tool_name="cli_exec",
-                    output=stdout.decode(errors="replace"),
-                    error=stderr.decode(errors="replace") if stderr else None,
+                    output=_ANSI_RE.sub("", stdout.decode(errors="replace")),
+                    error=(_ANSI_RE.sub("", stderr.decode(errors="replace")) if stderr else None),
                 ),
             )
             await self._emit(res_event)
@@ -122,6 +130,8 @@ class GenericCLIAdapter:
 
     async def _emit(self, event: AgentEvent) -> None:
         self._events.append(event)
+        if self._session is not None:
+            self._session.total_events = len(self._events)
         await self._bus.publish(event)
 
     @property

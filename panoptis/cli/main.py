@@ -304,30 +304,12 @@ def _print_live_event(event: Any) -> None:
         icon = "✅" if not res.error else "❌"
         content = res.output if not res.error else res.error
         console.print(
-            f"[{color}]{icon} Result:[/{color}] [dim]{content[:200]}{'...' if len(content) > 200 else ''}[/dim]"
+            f"[{color}]{icon} Result:[/{color}] [dim]{escape(content)[:200]}{'...' if len(content) > 200 else ''}[/dim]"
         )
     elif etype == EventType.SESSION_END:
         console.print("\n[bold green]🏁 Session Completed.[/bold green]")
     else:
         console.print(f"[dim]Event: {etype}[/dim]")
-
-
-def _print_session_summary(session: Any, events: list) -> None:
-    """Print a final summary of the agent session."""
-
-    console.print("\n" + "─" * 60)
-    console.print(
-        Panel(
-            f"[bold cyan]Session Summary[/bold cyan]\n"
-            f"[dim]ID:[/dim] {session.session_id}\n"
-            f"[dim]Status:[/dim] [{_status_color(session.status.value)}]{session.status.value}[/{_status_color(session.status.value)}]\n"
-            f"[dim]Total Steps:[/dim] {len(events)}\n"
-            f"[dim]Agent:[/dim] {session.agent_name or session.agent_id}",
-            border_style="cyan",
-            title="[bold white]EXECUTION REPORT[/bold white]",
-        )
-    )
-    console.print("─" * 60 + "\n")
 
 
 # ---------------------------------------------

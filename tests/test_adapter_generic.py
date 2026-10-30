@@ -6,7 +6,7 @@ import pytest
 
 from panoptis.adapters.generic import GenericCLIAdapter
 from panoptis.core.event_bus import EventBus
-from panoptis.core.schema import EventType
+from panoptis.core.schema import EventType, ExecutionStatus
 
 
 class _FakeProcess:
@@ -50,3 +50,25 @@ async def test_run_uses_the_configured_command(monkeypatch) -> None:
 async def test_missing_command_is_rejected_at_construction() -> None:
     with pytest.raises(TypeError):
         GenericCLIAdapter()  # type: ignore[call-arg]
+
+
+class _FailingProcess:
+    returncode = 1
+
+    async def communicate(self) -> tuple[bytes, bytes]:
+        return b"", b"\x1b[91m\x1b[1mError: \x1b[0minsufficient credits"
+
+
+async def test_failed_run_is_marked_failed_and_ansi_stripped(monkeypatch) -> None:
+    async def fake_shell(cmd: str, **kwargs: object) -> _FailingProcess:
+        return _FailingProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_shell", fake_shell)
+    bus = EventBus()
+    events = []
+    bus.subscribe_fn(lambda event: events.append(event), handler_id="test.capture")
+
+    session = await GenericCLIAdapter(agent_cmd="opencode run", event_bus=bus).run("hi")
+
+    assert session.status is ExecutionStatus.FAILURE
+    assert events[1].tool_result.error == "Error: insufficient credits"
