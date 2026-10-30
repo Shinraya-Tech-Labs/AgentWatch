@@ -1,11 +1,11 @@
-command: agentwatch
+command: panoptis
     help: AgentWatch — Reliability, Safety, and Observability Layer for AI Agents
     short_help: 
     param install_completion kind=TyperOption type=boolean required=False default=None flags=--install-completion help='Install completion for the current shell.'
     param show_completion kind=TyperOption type=boolean required=False default=None flags=--show-completion help='Show completion for the current shell, to copy it or customize the installation.'
     param version kind=TyperOption type=boolean required=False default=False flags=--version,-V help='Show version and exit.'
 
-command: agentwatch branch
+command: panoptis branch
     help: Create (and execute) a [bold]branch[/bold]: fork a run at an event with a substituted result.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
@@ -16,25 +16,25 @@ command: agentwatch branch
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param substitute kind=TyperOption type=str required=True default=None flags=--substitute help='JSON (or plain string) result to substitute'
 
-command: agentwatch branches
+command: panoptis branches
     help: Branch history of a run.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
     param run kind=TyperArgument type=str required=False default='latest' flags=run help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch causes
+command: panoptis causes
     help: What may have influenced an event — dependency, correlation, hypothesis, intervention kept separate.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
     param event kind=TyperArgument type=str required=True default=None flags=event help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch check-env
+command: panoptis check-env
     help: [bold]Verify[/bold] local developer environment variables and dependencies.
     short_help: 
 
-command: agentwatch compare
+command: panoptis compare
     help: [bold]Compare[/bold] two runs: earliest divergence, structure, resources, information flow.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
@@ -42,11 +42,11 @@ command: agentwatch compare
     param run_b kind=TyperArgument type=str required=True default=None flags=run_b help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch compliance
+command: panoptis compliance
     help: Compliance audit log export and reporting.
     short_help: 
 
-command: agentwatch compliance export-csv
+command: panoptis compliance export-csv
     help: Export compliance audit log as CSV from the running API server.
     short_help: 
     param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
@@ -54,25 +54,25 @@ command: agentwatch compliance export-csv
     param include_allowed kind=TyperOption type=boolean required=False default=False flags=--include-allowed help='Include allowed actions (denials only by default)'
     param output kind=TyperOption type=path required=False default='compliance-audit.csv' flags=--output,-o help='Output CSV file path'
 
-command: agentwatch compliance export-local
+command: panoptis compliance export-local
     help: Export compliance audit log from a local JSONL file as CSV.
     short_help: 
     param audit_log kind=TyperOption type=path required=False default='data/audit-log.jsonl' flags=--audit-log help='Path to the persisted audit log JSONL file'
     param include_allowed kind=TyperOption type=boolean required=False default=False flags=--include-allowed help='Include allowed actions (denials only by default)'
     param output kind=TyperOption type=path required=False default='compliance-audit.csv' flags=--output,-o help='Output CSV file path'
 
-command: agentwatch cost
+command: panoptis cost
     help: AgentWatch FinOps. Report token usage and API spend across agents and frameworks.
     short_help: 
 
-command: agentwatch cost report
+command: panoptis cost report
     help: [bold]Report[/bold] token usage, USD cost, and cost-per-successful-goal.
 
 Aggregates recent sessions from the AgentWatch API over the last [b]--days[/b],
 grouped by [b]--group-by[/b].
 
 [b]Example Usage:[/b]
-[dim]python -m agentwatch.cli.main cost report --days 30 --group-by framework[/dim]
+[dim]python -m panoptis.cli.main cost report --days 30 --group-by framework[/dim]
     short_help: 
     param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
     param api_url kind=TyperOption type=str required=False default='http://localhost:8000' flags=--api help=''
@@ -80,7 +80,7 @@ grouped by [b]--group-by[/b].
     param days kind=TyperOption type=int required=False default=30 flags=--days help='Reporting window in days (must be >= 1).'
     param group_by kind=TyperOption type=str required=False default='framework' flags=--group-by help='Group by: framework, agent, or status.'
 
-command: agentwatch counterfactual
+command: panoptis counterfactual
     help: EXPERIMENTAL: what might have happened if an event had produced a different result?
     short_help: 
     param alternative kind=TyperOption type=str required=True default=None flags=--alternative help='JSON value'
@@ -90,7 +90,7 @@ command: agentwatch counterfactual
     param run kind=TyperArgument type=str required=True default=None flags=run help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch dependents
+command: panoptis dependents
     help: Which later events and outputs depend on this node?
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
@@ -98,11 +98,11 @@ command: agentwatch dependents
     param run kind=TyperOption type=str required=False default=None flags=--run help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch doctor
+command: panoptis doctor
     help: [bold]Doctor[/bold]: Check AgentWatch installation health.
     short_help: 
 
-command: agentwatch drift
+command: panoptis drift
     help: Behavioural [bold]drift[/bold] between two scopes of runs. EXPERIMENTAL.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
@@ -110,29 +110,29 @@ command: agentwatch drift
     param candidate kind=TyperArgument type=str required=True default=None flags=candidate help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch effects
+command: panoptis effects
     help: What depends on an event, and what changed when it was intervened on.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
     param event kind=TyperArgument type=str required=True default=None flags=event help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch eval
+command: panoptis eval
     help: AgentWatch Evaluation. Run an agent against a dataset and score the batch.
     short_help: 
 
-command: agentwatch eval run
+command: panoptis eval run
     help: [bold]Run[/bold] a batch evaluation of an agent against a dataset of prompts.
 
 [b]Example Usage:[/b]
-[dim]python -m agentwatch.cli.main eval run dataset.json --agent my_agent.py[/dim]
+[dim]python -m panoptis.cli.main eval run dataset.json --agent my_agent.py[/dim]
     short_help: 
     param agent kind=TyperOption type=path required=True default=None flags=--agent help='Path to an agent script exposing run(prompt) -> list[AgentEvent].'
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Emit JSON instead of a table.'
     param dataset kind=TyperArgument type=path required=True default=None flags=dataset help='Path to the dataset JSON: a list of {id, prompt, expected?}.'
     param threshold kind=TyperOption type=float range required=False default=0.5 flags=--threshold help='Minimum confidence for a case to pass.'
 
-command: agentwatch events
+command: panoptis events
     help: List a run's normalized [bold]events[/bold].
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
@@ -140,11 +140,11 @@ command: agentwatch events
     param run kind=TyperArgument type=str required=False default='latest' flags=run help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch evidence
+command: panoptis evidence
     help: Verify, seal and manage immutable evidence.
     short_help: 
 
-command: agentwatch evidence erase-subject
+command: panoptis evidence erase-subject
     help: Crypto-shred a data subject: destroy its key and purge derived copies (irreversible).
     short_help: 
     param reason kind=TyperOption type=str required=True default=None flags=--reason help=''
@@ -153,7 +153,7 @@ command: agentwatch evidence erase-subject
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
     param yes kind=TyperOption type=boolean required=False default=False flags=--yes help=''
 
-command: agentwatch evidence purge
+command: panoptis evidence purge
     help: Retention: remove sealed segments older than N days, their payload files and derived copies (chain preserved).
     short_help: 
     param older_than_days kind=TyperOption type=int required=True default=None flags=--older-than-days help=''
@@ -162,40 +162,40 @@ command: agentwatch evidence purge
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
     param yes kind=TyperOption type=boolean required=False default=False flags=--yes help=''
 
-command: agentwatch evidence seal
+command: panoptis evidence seal
     help: Seal pending observations into hash-chained segments.
     short_help: 
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
 
-command: agentwatch evidence show
+command: panoptis evidence show
     help: Show a raw observation exactly as stored, with its inclusion proof.
     short_help: 
     param obs_id kind=TyperArgument type=str required=True default=None flags=obs_id help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch evidence verify
+command: panoptis evidence verify
     help: Verify the hash chain and Merkle roots of all sealed evidence.
     short_help: 
     param seal kind=TyperOption type=boolean required=False default=True flags=--seal help='seal pending observations first'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
 
-command: agentwatch forecast
+command: panoptis forecast
     help: EXPERIMENTAL outcome forecast for a (partial) run, with calibration evidence.
     short_help: 
     param evaluate_only kind=TyperOption type=boolean required=False default=False flags=--evaluate help=''
     param run kind=TyperArgument type=str required=False default='latest' flags=run help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch genome
+command: panoptis genome
     help: Behavioural [bold]genome[/bold] (aggregate profile) for a scope of runs. EXPERIMENTAL.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
     param scope kind=TyperArgument type=str required=False default='all' flags=scope help='all | name:<run name> | version:<v> | runs:<a>,<b> | variant:<v> | <run>'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch graph
+command: panoptis graph
     help: Print a run's [bold]graph[/bold] (execution, information or causal view).
     short_help: 
     param fmt kind=TyperOption type=str required=False default='text' flags=--format help='text | dot | json'
@@ -203,7 +203,7 @@ command: agentwatch graph
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param view kind=TyperOption type=str required=False default='execution' flags=--view help='execution | information | causal | all'
 
-command: agentwatch ingest
+command: panoptis ingest
     help: [bold]Ingest[/bold] observations from a file into the evidence store.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
@@ -211,18 +211,18 @@ command: agentwatch ingest
     param path kind=TyperArgument type=path required=True default=None flags=path help='File to import'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch inspect
+command: panoptis inspect
     help: [bold]Inspect[/bold] a run: reconstructed execution tree, graph statistics, motifs.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
     param run kind=TyperArgument type=str required=False default='latest' flags=run help="run id/prefix, name, 'latest' or 'latest~N'"
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch legacy
+command: panoptis legacy
     help: v0.2 commands kept for compatibility (superseded by v3 commands).
     short_help: 
 
-command: agentwatch legacy compare
+command: panoptis legacy compare
     help: [bold]Compare[/bold] confidence and quality metrics across two sessions.
     short_help: 
     param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
@@ -230,25 +230,25 @@ command: agentwatch legacy compare
     param session_id_1 kind=TyperArgument type=str required=True default=None flags=session_id_1 help='ID of the first session to compare'
     param session_id_2 kind=TyperArgument type=str required=True default=None flags=session_id_2 help='ID of the second session to compare'
 
-command: agentwatch mcp
+command: panoptis mcp
     help: Run the AgentWatch MCP server over stdio.
     short_help: 
 
-command: agentwatch motifs
+command: panoptis motifs
     help: Behavioural [bold]motifs[/bold] detected in a run (or registry statistics).
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
     param run kind=TyperArgument type=str required=False default=None flags=run help='run reference; omit for registry statistics over all runs'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch observe
+command: panoptis observe
     help: [bold]Observe[/bold] a program: run it under the v3 sensors and reconstruct the run.
     short_help: 
     param command kind=TyperArgument type=str required=True default=None flags=command help='Program to run, e.g. python app.py --flag'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param system kind=TyperOption type=str required=False default=None flags=--system help='System name recorded on the run.'
 
-command: agentwatch provenance
+command: panoptis provenance
     help: [bold]Provenance[/bold]: where did this information come from?
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
@@ -256,19 +256,14 @@ command: agentwatch provenance
     param run kind=TyperOption type=str required=False default=None flags=--run help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch query
+command: panoptis query
     help: [bold]Query[/bold] system behaviour; answers cite the evidence they rest on.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param text kind=TyperArgument type=str required=True default=None flags=text help="structured query (e.g. 'compare A B') or a question"
 
-command: agentwatch redteam
-    help: [bold]Red-team[/bold] the safety engine with simulated attacks and score resilience.
-    short_help: 
-    param json_output kind=TyperOption type=boolean required=False default=False flags=--json help='Emit the report as JSON'
-
-command: agentwatch replay
+command: panoptis replay
     help: [bold]Replay[/bold] a run at an explicit level; reports reproduction confidence and what was mocked or live.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
@@ -277,55 +272,60 @@ command: agentwatch replay
     param run kind=TyperArgument type=str required=False default='latest' flags=run help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch reprocess
+command: panoptis reprocess
     help: Rebuild the current interpretation from raw evidence (evidence is never modified).
     short_help: 
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
 
-command: agentwatch runs
+command: panoptis runs
     help: List reconstructed [bold]runs[/bold].
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
     param limit kind=TyperOption type=int required=False default=20 flags=--limit help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch safety
+command: panoptis safety
     help: AgentWatch Safety & Risk Engine. Analyze shell commands against security policies.
     short_help: 
 
-command: agentwatch safety check
+command: panoptis safety check
     help: [bold]Score[/bold] the risk level of a shell command.
 
 [b]Example Usage:[/b]
-[dim]python -m agentwatch.cli.main safety check "rm -rf /var/log"[/dim]
+[dim]python -m panoptis.cli.main safety check "rm -rf /var/log"[/dim]
     short_help: 
     param command kind=TyperArgument type=str required=True default=None flags=command help='Command to risk-score'
     param verbose kind=TyperOption type=boolean required=False default=False flags=--verbose,-v help=''
 
-command: agentwatch safety config
+command: panoptis safety config
     help: Manage the local safety policy file.
     short_help: 
 
-command: agentwatch safety config generate
+command: panoptis safety config generate
     help: [bold]Generate[/bold] a starter .agentwatch-safety.yml policy file.
     short_help: 
     param force kind=TyperOption type=boolean required=False default=False flags=--force help='Overwrite an existing file.'
     param path kind=TyperOption type=path required=False default='.agentwatch-safety.yml' flags=--path help='Where to write the policy file.'
 
-command: agentwatch safety policies
+command: panoptis safety policies
     help: Inspect the effective safety policy set.
     short_help: 
 
-command: agentwatch safety policies list
+command: panoptis safety policies list
     help: [bold]List[/bold] the effective safety policy set: builtin patterns + local rules.
     short_help: 
 
-command: agentwatch server
+command: panoptis safety redteam
+    help: [bold]Red-team[/bold] the safety engine with simulated attacks and score resilience.
+    short_help: 
+    param json_output kind=TyperOption type=boolean required=False default=False flags=--json help='Emit the report as JSON'
+
+command: panoptis server
     help: Manage the AgentWatch API server
     short_help: 
 
-command: agentwatch server start
+command: panoptis server start
     help: [bold]Start[/bold] the AgentWatch API server.
     short_help: 
     param dry_run kind=TyperOption type=boolean required=False default=False flags=--dry-run help='Preview what would happen without starting the server'
@@ -333,14 +333,14 @@ command: agentwatch server start
     param port kind=TyperOption type=int required=False default=8000 flags=--port help=''
     param reload kind=TyperOption type=boolean required=False default=False flags=--reload help=''
 
-command: agentwatch server status
+command: panoptis server status
     help: [bold]Show[/bold] a real-time live dashboard of AgentWatch runtime status.
     short_help: 
     param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
     param api_url kind=TyperOption type=str required=False default='http://localhost:8000' flags=--api help=''
     param refresh_rate kind=TyperOption type=float range required=False default=1.0 flags=--refresh help='Refresh rate in seconds (must be >= 0.1)'
 
-command: agentwatch server top
+command: panoptis server top
     help: [bold]Live Process Monitor[/bold] showing executing agent loops, active tools, and token burn rate.
     short_help: 
     param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
@@ -349,11 +349,11 @@ command: agentwatch server top
     param max_failures kind=TyperOption type=int range required=False default=3 flags=--max-failures help='Consecutive failures that trip the circuit breaker'
     param refresh_rate kind=TyperOption type=float range required=False default=1.0 flags=--refresh help='Refresh rate in seconds'
 
-command: agentwatch session
+command: panoptis session
     help: Manage and inspect agent sessions
     short_help: 
 
-command: agentwatch session export
+command: panoptis session export
     help: [bold]Export[/bold] a session replay to a portable JSON, Markdown, JSONL or CSV file.
     short_help: 
     param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
@@ -362,7 +362,7 @@ command: agentwatch session export
     param output kind=TyperOption type=path required=False default=None flags=--output,-o help='Custom output file path'
     param session_id kind=TyperArgument type=str required=True default=None flags=session_id help='ID of the session to export'
 
-command: agentwatch session export-csv
+command: panoptis session export-csv
     help: [bold]Export-csv[/bold] a session replay to a CSV file.
     short_help: 
     param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
@@ -370,7 +370,7 @@ command: agentwatch session export-csv
     param out kind=TyperOption type=str required=False default='report.csv' flags=--out help='Custom output file path'
     param session_id kind=TyperArgument type=str required=True default=None flags=session_id help='ID of the session to export'
 
-command: agentwatch session list
+command: panoptis session list
     help: [bold]List[/bold] recent agent sessions from the AgentWatch API.
     short_help: 
     param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
@@ -378,7 +378,7 @@ command: agentwatch session list
     param framework kind=TyperOption type=str required=False default=None flags=--framework help=''
     param limit kind=TyperOption type=int required=False default=20 flags=--limit,-n help=''
 
-command: agentwatch session prune
+command: panoptis session prune
     help: [bold]Prune[/bold] old sessions, traces, and checkpoints to free up disk space.
     short_help: 
     param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
@@ -386,7 +386,7 @@ command: agentwatch session prune
     param dry_run kind=TyperOption type=boolean required=False default=False flags=--dry-run help='Preview what would be deleted without taking action'
     param older_than kind=TyperOption type=str required=True default=None flags=--older-than help='Age of sessions to prune (e.g. 30d, 12h)'
 
-command: agentwatch session replay
+command: panoptis session replay
     help: [bold]Replay[/bold] a captured session step-by-step.
     short_help: 
     param failure_only kind=TyperOption type=boolean required=False default=False flags=--failures,-f help='Show only failure points'
@@ -396,18 +396,18 @@ command: agentwatch session replay
     param speed kind=TyperOption type=str required=False default='instant' flags=--speed,-s help='instant|fast|normal|slow'
     param to_step kind=TyperOption type=int required=False default=None flags=--to help='End at step N'
 
-command: agentwatch session rollback
+command: panoptis session rollback
     help: [bold]Rollback[/bold] a session to a specific step.
     short_help: 
     param session_id kind=TyperArgument type=str required=True default=None flags=session_id help='Session ID to rollback'
     param to_step kind=TyperOption type=int range required=True default=None flags=--to-step help='Step number to rollback to'
 
-command: agentwatch session score
+command: panoptis session score
     help: [bold]Score[/bold] execution confidence and detect anomalies for a session.
     short_help: 
     param session_file kind=TyperArgument type=path required=True default=None flags=session_file help='Path to session JSON file'
 
-command: agentwatch session watch
+command: panoptis session watch
     help: [bold]Watch[/bold] a Claude Code execution with full observability and safety.
     short_help: 
     param dry_run kind=TyperOption type=boolean required=False default=False flags=--dry-run help='Preview what would happen without executing or writing to disk'
@@ -418,7 +418,7 @@ command: agentwatch session watch
     param policy kind=TyperOption type=str required=False default='default' flags=--policy help='Safety policy: default|strict|permissive'
     param prompt kind=TyperArgument type=str required=True default=None flags=prompt help='Prompt to run with Claude Code'
 
-command: agentwatch share
+command: panoptis share
     help: [bold]Share[/bold] a trace via a temporary public link (PII/secrets redacted).
     short_help: 
     param dry_run kind=TyperOption type=boolean required=False default=False flags=--dry-run help='Sanitize and preview the payload locally without uploading.'
@@ -426,14 +426,14 @@ command: agentwatch share
     param session_file kind=TyperArgument type=path required=True default=None flags=session_file help='Path to the trace/session JSON file to share'
     param share_url kind=TyperOption type=str required=False default=None flags=--share-url help='Base URL of the share service (or set AGENTWATCH_SHARE_URL).'
 
-command: agentwatch show
+command: panoptis show
     help: [bold]Show[/bold] an event: normalized form, raw evidence, parents and children.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
     param event kind=TyperArgument type=str required=True default=None flags=event help='event id or prefix'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch states
+command: panoptis states
     help: EXPERIMENTAL latent behavioural states (interpretable baseline).
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
@@ -441,13 +441,13 @@ command: agentwatch states
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param window kind=TyperOption type=int required=False default=4 flags=--window help=''
 
-command: agentwatch status
+command: panoptis status
     help: v3 store status, interpretation and capability maturity.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
-command: agentwatch upgrade
+command: panoptis upgrade
     help: [bold]Upgrade[/bold] to AgentWatch Premium via the secure web checkout.
     short_help: 
     param activate kind=TyperOption type=str required=False default=None flags=--activate help='Store the entitlement token returned by the checkout page.'
@@ -456,7 +456,7 @@ command: agentwatch upgrade
     param no_browser kind=TyperOption type=boolean required=False default=False flags=--no-browser help='Print the checkout URL instead of opening a browser.'
     param show_status kind=TyperOption type=boolean required=False default=False flags=--status help='Show the current entitlement status and exit.'
 
-command: agentwatch version
+command: panoptis version
     help: Show AgentWatch version and diagnostics.
     short_help: 
 

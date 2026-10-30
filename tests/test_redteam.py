@@ -6,9 +6,9 @@ import json
 
 from typer.testing import CliRunner
 
-from agentwatch.cli.main import app
-from agentwatch.security.owasp import OwaspVector
-from agentwatch.security.redteam import (
+from panoptis.cli.main import app
+from panoptis.security.owasp import OwaspVector
+from panoptis.security.redteam import (
     AttackCategory,
     AttackScenario,
     RedTeamHarness,
@@ -88,15 +88,15 @@ def test_empty_corpus_scores_one():
 
 
 def test_cli_redteam_runs():
-    """`agentwatch redteam` exits 0 and renders the resilience panel."""
-    result = runner.invoke(app, ["redteam"])
+    """`panoptis safety redteam` exits 0 and renders the resilience panel."""
+    result = runner.invoke(app, ["safety", "redteam"])
     assert result.exit_code == 0
     assert "Red-Team Resilience" in result.stdout
 
 
 def test_cli_redteam_json():
-    """`agentwatch redteam --json` emits a parseable report with expected keys."""
-    result = runner.invoke(app, ["redteam", "--json"])
+    """`panoptis safety redteam --json` emits a parseable report with expected keys."""
+    result = runner.invoke(app, ["safety", "redteam", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
     assert 0.0 <= data["resilience_score"] <= 1.0

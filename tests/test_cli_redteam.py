@@ -2,9 +2,9 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from agentwatch.cli.main import app
-from agentwatch.security.owasp import OwaspVector
-from agentwatch.security.redteam import (
+from panoptis.cli.main import app
+from panoptis.security.owasp import OwaspVector
+from panoptis.security.redteam import (
     AttackCategory,
     AttackResult,
     AttackScenario,
@@ -32,12 +32,12 @@ def make_report(defended: bool = True) -> ResilienceReport:
     return ResilienceReport([result])
 
 
-@patch("agentwatch.cli.main.console.print_json")
-@patch("agentwatch.security.redteam.RedTeamHarness.run")
+@patch("panoptis.cli.main.console.print_json")
+@patch("panoptis.security.redteam.RedTeamHarness.run")
 def test_redteam_json(mock_run, mock_print_json):
     mock_run.return_value = make_report()
 
-    result = runner.invoke(app, ["redteam", "--json"])
+    result = runner.invoke(app, ["safety", "redteam", "--json"])
 
     assert result.exit_code == 0
 
@@ -51,11 +51,11 @@ def test_redteam_json(mock_run, mock_print_json):
     assert printed["total"] == 1
 
 
-@patch("agentwatch.security.redteam.RedTeamHarness.run")
+@patch("panoptis.security.redteam.RedTeamHarness.run")
 def test_redteam_success(mock_run):
     mock_run.return_value = make_report()
 
-    result = runner.invoke(app, ["redteam"])
+    result = runner.invoke(app, ["safety", "redteam"])
 
     assert result.exit_code == 0
 
@@ -69,11 +69,11 @@ def test_redteam_success(mock_run):
     assert "prompt_injection" in result.stdout
 
 
-@patch("agentwatch.security.redteam.RedTeamHarness.run")
+@patch("panoptis.security.redteam.RedTeamHarness.run")
 def test_redteam_bypassed(mock_run):
     mock_run.return_value = make_report(defended=False)
 
-    result = runner.invoke(app, ["redteam"])
+    result = runner.invoke(app, ["safety", "redteam"])
 
     assert result.exit_code == 0
 
