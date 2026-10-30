@@ -9,4 +9,7 @@ __all__ = [
     "EmbeddingProvider",
     "MemoryStore",
     "MemoryEngine",
+    "MemorySnapshot",
+    "MemoryDelta",
+    "compute_memory_delta",
 ]
