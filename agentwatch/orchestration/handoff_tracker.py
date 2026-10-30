@@ -38,7 +38,9 @@ class HandoffGraphTracker:
     def resolve_delegation(self, src: str, tgt: str, task_id: str = "") -> None:
         if src in self._adj:
             self._adj[src] = [
-                (t, i) for t, i in self._adj[src] if not (t == tgt and (not task_id or i == task_id))
+                (t, i)
+                for t, i in self._adj[src]
+                if not (t == tgt and (not task_id or i == task_id))
             ]
             if not self._adj[src]:
                 self._adj.pop(src, None)
