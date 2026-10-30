@@ -41,7 +41,12 @@ class EmergencyKillSwitch:
                 pass
 
     def handle_signal(self, signum: int | None = None, frame: Any = None) -> None:
-        self.trip(f"POSIX signal {signum or 'SIGUSR1'} received")
+        try:
+            name = signal.Signals(signum).name if signum is not None else "SIGUSR1"
+        except (ValueError, AttributeError):
+            name = str(signum or "SIGUSR1")
+        sig_str = name if str(signum) in name else f"{name} ({signum})"
+        self.trip(f"POSIX signal {sig_str} received")
 
     def trip(self, reason: str = "Manual operator trip") -> None:
         with self._lock:
