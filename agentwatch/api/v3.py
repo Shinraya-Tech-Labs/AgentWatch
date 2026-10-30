@@ -14,18 +14,40 @@ import json
 import logging
 import os
 import threading
+import uuid
+from collections import defaultdict
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from agentwatch.contracts.schema import (
+    ContractOperator,
+    ContractRule,
+    EvidenceContract,
+    EvidenceVerdict,
+)
+from agentwatch.contracts.streaming import StreamingContractEvaluator
+from agentwatch.events.codec import event_from_dict
 from agentwatch.evidence.model import ObservationDraft
 from agentwatch.query.workspace import AmbiguousError, NotFoundError, Workspace
 from agentwatch.runtime.engine import Engine
 
 _engine: Engine | None = None
 _engine_lock = threading.Lock()
+_tenant_contracts: dict[str, dict[str, EvidenceContract]] = defaultdict(dict)
+_tenant_assessments: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
+_contracts_lock = threading.Lock()
+
+
+def reset_contracts_for_tests() -> None:
+    """Reset registered contracts and assessment cache for test isolation."""
+    with _contracts_lock:
+        _tenant_contracts.clear()
+        _tenant_assessments.clear()
 
 
 def get_engine() -> Engine:
@@ -102,6 +124,27 @@ class EraseRequest(BaseModel):
 
 class QueryRequest(BaseModel):
     text: str
+
+
+class ContractRuleRequest(BaseModel):
+    operator: str
+    target_operation: str
+    required_operation: str
+    max_window_seconds: float = 600.0
+    join_on: list[str] = Field(default_factory=lambda: ["transaction_id"])
+
+
+class EvidenceContractRequest(BaseModel):
+    name: str
+    version: str = "1.0"
+    rule: ContractRuleRequest
+    description: str = ""
+    require_authoritative_log_for_refutation: bool = True
+
+
+class AssessRunRequest(BaseModel):
+    contracts: list[str] | None = None
+    async_job: bool = False
 
 
 def build_router(auth: Callable[..., Any], tenant: Callable[..., str]) -> APIRouter:
@@ -598,5 +641,188 @@ def build_router(auth: Callable[..., Any], tenant: Callable[..., str]) -> APIRou
                 "message": str(exc),
                 "evidence": [],
             }
+
+    # ── contracts & assessments ───────────────────────────────────────────
+    @router.post("/api/v3/contracts", tags=["v3 contracts"])
+    def post_contract(
+        req: EvidenceContractRequest,
+        tenant_id: str = Depends(tenant),
+    ) -> dict[str, Any]:
+        """Register and validate a declarative temporal evidence contract."""
+        try:
+            op = ContractOperator(req.rule.operator)
+        except ValueError as exc:
+            valid_ops = [o.value for o in ContractOperator]
+            raise HTTPException(
+                400, f"Unsupported contract operator '{req.rule.operator}'. Supported: {valid_ops}"
+            ) from exc
+
+        rule = ContractRule(
+            operator=op,
+            target_operation=req.rule.target_operation,
+            required_operation=req.rule.required_operation,
+            max_window_seconds=req.rule.max_window_seconds,
+            join_on=tuple(req.rule.join_on),
+        )
+        contract = EvidenceContract(
+            name=req.name,
+            version=req.version,
+            rule=rule,
+            description=req.description,
+            require_authoritative_log_for_refutation=req.require_authoritative_log_for_refutation,
+        )
+
+        with _contracts_lock:
+            _tenant_contracts[tenant_id][contract.name] = contract
+
+        return {
+            "contract_id": contract.name,
+            "name": contract.name,
+            "version": contract.version,
+            "status": "registered",
+            "rule": {
+                "operator": contract.rule.operator.value,
+                "target_operation": contract.rule.target_operation,
+                "required_operation": contract.rule.required_operation,
+                "max_window_seconds": contract.rule.max_window_seconds,
+                "join_on": list(contract.rule.join_on),
+            },
+        }
+
+    @router.get("/api/v3/contracts", tags=["v3 contracts"])
+    def get_contracts(
+        tenant_id: str = Depends(tenant),
+    ) -> dict[str, Any]:
+        """List registered declarative contracts for the authenticated tenant."""
+        with _contracts_lock:
+            contracts = [
+                {
+                    "contract_id": c.name,
+                    "name": c.name,
+                    "version": c.version,
+                    "description": c.description,
+                    "rule": {
+                        "operator": c.rule.operator.value,
+                        "target_operation": c.rule.target_operation,
+                        "required_operation": c.rule.required_operation,
+                        "max_window_seconds": c.rule.max_window_seconds,
+                        "join_on": list(c.rule.join_on),
+                    },
+                }
+                for c in _tenant_contracts[tenant_id].values()
+            ]
+        return {"contracts": contracts}
+
+    @router.post("/api/v3/runs/{run_id}/assess", tags=["v3 contracts"])
+    def assess_run(
+        run_id: str,
+        req: AssessRunRequest = Body(default_factory=AssessRunRequest),
+        tenant_id: str = Depends(tenant),
+        w: Workspace = Depends(ws),
+    ) -> dict[str, Any]:
+        """Trigger asynchronous contract assessment job for an execution run."""
+        run = guard(lambda: w.resolve_run(run_id))
+
+        with _contracts_lock:
+            tenant_contracts = dict(_tenant_contracts[tenant_id])
+
+        if req.contracts:
+            missing = [c for c in req.contracts if c not in tenant_contracts]
+            if missing:
+                raise HTTPException(404, f"Contracts not found for tenant: {missing}")
+            contracts_to_evaluate = [tenant_contracts[c] for c in req.contracts]
+        else:
+            contracts_to_evaluate = list(tenant_contracts.values())
+
+        if not contracts_to_evaluate:
+            raise HTTPException(
+                400,
+                "No contracts registered for tenant. Register contracts at POST /api/v3/contracts first.",
+            )
+
+        raw_events = w.events(run_id=run["run_id"])
+        events = [event_from_dict(e) for e in raw_events]
+
+        evaluator = StreamingContractEvaluator(contracts=contracts_to_evaluate)
+        for evt in events:
+            evaluator.ingest(evt)
+
+        assessments = evaluator.assess()
+
+        # Overall verdict synthesis: REFUTED > INCONCLUSIVE > CONFLICTING > SUPPORTED
+        verdicts = [a.verdict for a in assessments]
+        if EvidenceVerdict.REFUTED in verdicts:
+            overall = EvidenceVerdict.REFUTED
+        elif EvidenceVerdict.INCONCLUSIVE in verdicts:
+            overall = EvidenceVerdict.INCONCLUSIVE
+        elif EvidenceVerdict.CONFLICTING_EVIDENCE in verdicts:
+            overall = EvidenceVerdict.CONFLICTING_EVIDENCE
+        else:
+            overall = EvidenceVerdict.SUPPORTED
+
+        witness_ids: list[str] = []
+        for a in assessments:
+            witness_ids.extend(a.support_obs_ids)
+            witness_ids.extend(a.refute_obs_ids)
+        witness_ids = list(dict.fromkeys(witness_ids))
+
+        asm_id = f"asm_{uuid.uuid4().hex[:16]}"
+        record = {
+            "assessment_id": asm_id,
+            "run_id": run["run_id"],
+            "tenant_id": tenant_id,
+            "status": "completed",
+            "verdict": overall.value,
+            "results": [a.to_dict() for a in assessments],
+            "witness_ids": witness_ids,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+
+        with _contracts_lock:
+            _tenant_assessments[tenant_id][asm_id] = record
+
+        return record
+
+    @router.get("/api/v3/assessments/{assessment_id}", tags=["v3 contracts"])
+    def get_assessment(
+        assessment_id: str,
+        tenant_id: str = Depends(tenant),
+    ) -> dict[str, Any]:
+        """Retrieve verdict, minimal witness IDs, and missing facts for an assessment."""
+        with _contracts_lock:
+            record = _tenant_assessments[tenant_id].get(assessment_id)
+        if not record:
+            raise HTTPException(404, f"Assessment '{assessment_id}' not found for tenant")
+        return record
+
+    @router.get("/api/v3/assessments/{assessment_id}/witness", tags=["v3 contracts"])
+    def get_assessment_witness(
+        assessment_id: str,
+        tenant_id: str = Depends(tenant),
+        w: Workspace = Depends(ws),
+    ) -> Response:
+        """Stream minimal evidence witness payload."""
+        with _contracts_lock:
+            record = _tenant_assessments[tenant_id].get(assessment_id)
+        if not record:
+            raise HTTPException(404, f"Assessment '{assessment_id}' not found for tenant")
+
+        witness_ids = record.get("witness_ids", [])
+        observations = []
+        eng = get_engine()
+        for wid in witness_ids:
+            obs = eng.store.get_observation(wid)
+            if obs:
+                observations.append(obs.to_dict())
+
+        def iter_ndjson():
+            for obs in observations:
+                yield json.dumps(obs) + "\n"
+
+        return StreamingResponse(
+            iter_ndjson(),
+            media_type="application/x-ndjson",
+            headers={"X-Witness-Count": str(len(observations))},
+        )
 
     return router

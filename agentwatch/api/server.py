@@ -682,12 +682,17 @@ _rate_limiter = RateLimiter(
 app.add_middleware(RateLimitMiddleware, limiter=_rate_limiter)
 
 
-def _v3_tenant(x_api_key: str | None = Header(default=None, alias="X-Api-Key")) -> str:
+def _v3_tenant(
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
+) -> str:
     """Tenant for v3 endpoints: bound to the API key in cloud mode, 'default' otherwise."""
     if _CLOUD_MODE and x_api_key:
         key = get_tenant_store().validate_api_key(x_api_key)
         if key is not None:
             return key.tenant_id
+    if x_tenant_id:
+        return x_tenant_id
     return "default"
 
 
