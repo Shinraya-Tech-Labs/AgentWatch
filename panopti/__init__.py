@@ -28,6 +28,10 @@ from panopti.court import (
     WitnessChain,
     WitnessEntry,
 )
+from panopti.killswitch import (
+    EmergencyKillSwitch,
+    EmergencyStopTriggered,
+)
 from panopti.mesh import (
     SwarmAgentNode,
     SwarmMesh,
@@ -141,4 +145,6 @@ __all__ = [
     "AttestationEngine",
     "PolicySynthesizer",
     "SynthesizedInvariant",
+    "EmergencyKillSwitch",
+    "EmergencyStopTriggered",
 ]
