@@ -10,7 +10,7 @@
       "login": "SHAURYASANYAL3",
       "avatar_url": "https://github.com/SHAURYASANYAL3.png",
       "html_url": "https://github.com/SHAURYASANYAL3",
-      "contributions": 43
+      "contributions": 47
     },
     {
       "login": "pavsoss",
@@ -55,6 +55,12 @@
       "contributions": 11
     },
     {
+      "login": "pallamanohar2006-arch",
+      "avatar_url": "https://github.com/pallamanohar2006-arch.png",
+      "html_url": "https://github.com/pallamanohar2006-arch",
+      "contributions": 10
+    },
+    {
       "login": "prachishelke1312",
       "avatar_url": "https://github.com/prachishelke1312.png",
       "html_url": "https://github.com/prachishelke1312",
@@ -76,12 +82,6 @@
       "login": "MayurKharat0390",
       "avatar_url": "https://github.com/MayurKharat0390.png",
       "html_url": "https://github.com/MayurKharat0390",
-      "contributions": 5
-    },
-    {
-      "login": "pallamanohar2006-arch",
-      "avatar_url": "https://github.com/pallamanohar2006-arch.png",
-      "html_url": "https://github.com/pallamanohar2006-arch",
       "contributions": 5
     },
     {
@@ -289,6 +289,6 @@
       "contributions": 1
     }
   ],
-  "updated_at": "2026-10-29T14:10:41Z",
+  "updated_at": "2026-10-30T10:20:11Z",
   "total": 48
 }
