@@ -10,7 +10,7 @@
       "login": "SHAURYASANYAL3",
       "avatar_url": "https://github.com/SHAURYASANYAL3.png",
       "html_url": "https://github.com/SHAURYASANYAL3",
-      "contributions": 49
+      "contributions": 55
     },
     {
       "login": "pavsoss",
@@ -31,9 +31,15 @@
       "contributions": 28
     },
     {
-      "login": "anshul23102",
-      "avatar_url": "https://github.com/anshul23102.png",
-      "html_url": "https://github.com/anshul23102",
+      "login": "DebasmitaBose0",
+      "avatar_url": "https://github.com/DebasmitaBose0.png",
+      "html_url": "https://github.com/DebasmitaBose0",
+      "contributions": 17
+    },
+    {
+      "login": "pallamanohar2006-arch",
+      "avatar_url": "https://github.com/pallamanohar2006-arch.png",
+      "html_url": "https://github.com/pallamanohar2006-arch",
       "contributions": 17
     },
     {
@@ -43,9 +49,9 @@
       "contributions": 17
     },
     {
-      "login": "DebasmitaBose0",
-      "avatar_url": "https://github.com/DebasmitaBose0.png",
-      "html_url": "https://github.com/DebasmitaBose0",
+      "login": "anshul23102",
+      "avatar_url": "https://github.com/anshul23102.png",
+      "html_url": "https://github.com/anshul23102",
       "contributions": 17
     },
     {
@@ -53,12 +59,6 @@
       "avatar_url": "https://github.com/Prateeks16.png",
       "html_url": "https://github.com/Prateeks16",
       "contributions": 11
-    },
-    {
-      "login": "pallamanohar2006-arch",
-      "avatar_url": "https://github.com/pallamanohar2006-arch.png",
-      "html_url": "https://github.com/pallamanohar2006-arch",
-      "contributions": 10
     },
     {
       "login": "prachishelke1312",
@@ -289,6 +289,6 @@
       "contributions": 1
     }
   ],
-  "updated_at": "2026-10-30T10:34:43Z",
+  "updated_at": "2026-10-30T11:28:22Z",
   "total": 48
 }
