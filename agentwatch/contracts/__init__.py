@@ -34,6 +34,12 @@ from agentwatch.contracts.schema import (
     Recoverability,
     SequenceGap,
 )
+from agentwatch.contracts.streaming import (
+    ObligationState,
+    PendingObligation,
+    StreamAssessmentDelta,
+    StreamingContractEvaluator,
+)
 
 __all__ = [
     "CausalCycleError",
@@ -53,10 +59,14 @@ __all__ = [
     "IrreversibleInvariantMonitor",
     "MissingFact",
     "MissingReason",
+    "ObligationState",
+    "PendingObligation",
     "Recoverability",
     "SAFETY_INVARIANT_BREACH",
     "SequenceContinuityTracker",
     "SequenceGap",
+    "StreamAssessmentDelta",
+    "StreamingContractEvaluator",
     "TimestampInterval",
     "build_coverage_profile",
     "evaluate_contract",
