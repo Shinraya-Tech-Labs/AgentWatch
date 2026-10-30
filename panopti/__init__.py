@@ -28,6 +28,10 @@ from panopti.court import (
     WitnessChain,
     WitnessEntry,
 )
+from panopti.egress import (
+    EgressGuard,
+    SSRFBlockedError,
+)
 from panopti.killswitch import (
     EmergencyKillSwitch,
     EmergencyStopTriggered,
@@ -153,4 +157,6 @@ __all__ = [
     "EmergencyStopTriggered",
     "AntiTamperShield",
     "TamperAttemptBlocked",
+    "EgressGuard",
+    "SSRFBlockedError",
 ]
