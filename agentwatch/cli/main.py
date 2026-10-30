@@ -1895,7 +1895,7 @@ def verify_env() -> None:
 # ─────────────────────────────────────────────
 
 
-@app.command()
+@safety_app.command(name="redteam")
 def redteam(
     json_output: bool = typer.Option(False, "--json", help="Emit the report as JSON"),
 ) -> None:
