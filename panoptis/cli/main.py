@@ -340,7 +340,7 @@ def watch(
     prompt: str = typer.Argument(..., help="Prompt to run with the agent"),
     model: str = typer.Option("claude-opus-4-5", "--model", "-m"),
     agent: str = typer.Option(
-        "claude", "--agent", "-a", help="Agent to use: claude|ollama|antigravity|custom"
+        "claude", "--agent", "-a", help="Agent to use: claude|ollama|opencode|antigravity"
     ),
     max_turns: int = typer.Option(50, "--max-turns"),
     output: Path | None = typer.Option(None, "--output", "-o", help="Save session to file"),
@@ -450,6 +450,7 @@ def watch(
         agent_map = {
             "claude": (ClaudeCodeAdapter, None),
             "ollama": (GenericCLIAdapter, "ollama run llama3"),
+            "opencode": (GenericCLIAdapter, "opencode run"),
             "antigravity": (GenericCLIAdapter, "antigravity"),
         }
 

@@ -410,7 +410,7 @@ command: panoptis session score
 command: panoptis session watch
     help: [bold]Watch[/bold] an agent execution (Claude Code, ollama, antigravity) with full observability and safety.
     short_help: 
-    param agent kind=TyperOption type=str required=False default='claude' flags=--agent,-a help='Agent to use: claude|ollama|antigravity|custom'
+    param agent kind=TyperOption type=str required=False default='claude' flags=--agent,-a help='Agent to use: claude|ollama|opencode|antigravity'
     param dry_run kind=TyperOption type=boolean required=False default=False flags=--dry-run help='Preview what would happen without executing or writing to disk'
     param max_turns kind=TyperOption type=int required=False default=50 flags=--max-turns help=''
     param model kind=TyperOption type=str required=False default='claude-opus-4-5' flags=--model,-m help=''
