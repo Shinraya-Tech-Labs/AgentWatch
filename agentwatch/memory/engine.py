@@ -7,6 +7,9 @@ Cross-session continuity with semantic retrieval and contradiction handling.
 from __future__ import annotations
 
 import asyncio
+import difflib
+import hashlib
+import json
 import logging
 import uuid
 from dataclasses import dataclass, field
@@ -517,3 +520,112 @@ class MemoryEngine:
             "total_entries": self._store.count(),
             "total_contradictions": len(self._contradiction_reports),
         }
+
+    def create_snapshot(
+        self,
+        turn_id: int,
+        scratchpad: str = "",
+        agent_id: str | None = None,
+        extra_state: dict[str, Any] | None = None,
+    ) -> MemorySnapshot:
+        """Capture an immutable, cryptographically hashed memory snapshot."""
+        state: dict[str, Any] = {}
+        if agent_id:
+            entries = self._store.get_for_agent(agent_id)
+            state["entries"] = [e.content for e in entries]
+        else:
+            state["entry_count"] = self._store.count()
+        if extra_state:
+            state.update(extra_state)
+
+        timestamp_iso = datetime.now(UTC).isoformat()
+        return MemorySnapshot(
+            turn_id=turn_id,
+            timestamp=timestamp_iso,
+            state=state,
+            scratchpad=scratchpad,
+        )
+
+    def record_mutation(self, before: MemorySnapshot, after: MemorySnapshot) -> MemoryDelta:
+        """Compute delta between turns and return structured mutation record."""
+        return compute_memory_delta(before, after)
+
+
+@dataclass(frozen=True)
+class MemorySnapshot:
+    """Immutable working-memory state snapshot with cryptographic digest."""
+
+    turn_id: int
+    timestamp: str
+    state: dict[str, Any]
+    scratchpad: str = ""
+    sha256_hash: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        payload = {
+            "turn_id": self.turn_id,
+            "timestamp": self.timestamp,
+            "state": self.state,
+            "scratchpad": self.scratchpad,
+        }
+        canonical_bytes = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+        object.__setattr__(self, "sha256_hash", hashlib.sha256(canonical_bytes).hexdigest())
+
+
+@dataclass(frozen=True)
+class MemoryDelta:
+    """Structured mutation diff between two working-memory snapshots."""
+
+    turn_id_before: int
+    turn_id_after: int
+    before_hash: str
+    after_hash: str
+    added_keys: list[str]
+    removed_keys: list[str]
+    modified_values: dict[str, tuple[Any, Any]]
+    scratchpad_diff: list[str]
+    has_mutations: bool
+
+
+def compute_memory_delta(before: MemorySnapshot, after: MemorySnapshot) -> MemoryDelta:
+    """Compute structured state diff and line-level scratchpad unified diff."""
+    if after.turn_id < before.turn_id:
+        raise ValueError(
+            f"Cannot diff backwards in time: before turn {before.turn_id} > after turn {after.turn_id}"
+        )
+
+    before_keys = set(before.state.keys())
+    after_keys = set(after.state.keys())
+
+    added_keys = sorted(after_keys - before_keys)
+    removed_keys = sorted(before_keys - after_keys)
+
+    modified_values: dict[str, tuple[Any, Any]] = {}
+    for k in sorted(before_keys & after_keys):
+        if before.state[k] != after.state[k]:
+            modified_values[k] = (before.state[k], after.state[k])
+
+    before_lines = before.scratchpad.splitlines(keepends=True)
+    after_lines = after.scratchpad.splitlines(keepends=True)
+    scratchpad_diff = list(
+        difflib.unified_diff(
+            before_lines,
+            after_lines,
+            fromfile=f"turn_{before.turn_id}",
+            tofile=f"turn_{after.turn_id}",
+        )
+    )
+
+    has_mutations = bool(added_keys or removed_keys or modified_values or scratchpad_diff)
+
+    return MemoryDelta(
+        turn_id_before=before.turn_id,
+        turn_id_after=after.turn_id,
+        before_hash=before.sha256_hash,
+        after_hash=after.sha256_hash,
+        added_keys=added_keys,
+        removed_keys=removed_keys,
+        modified_values=modified_values,
+        scratchpad_diff=scratchpad_diff,
+        has_mutations=has_mutations,
+    )
