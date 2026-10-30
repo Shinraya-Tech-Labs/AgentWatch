@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentwatch-ai"
-version = "0.2.0"
+version = "0.3.0"
 description = "Panopti (formerly AgentWatch): Pre-Execution Guardrail & Observability Layer for AI Agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
