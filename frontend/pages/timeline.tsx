@@ -2,6 +2,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useMemo } from 'react';
 
 import { EventInspector } from '../components/v3/EventInspector';
+import { ProofAndGapsVisualizer } from '../components/v3/ProofAndGapsVisualizer';
 import { Shell } from '../components/v3/Shell';
 import {
   Empty,
@@ -155,6 +156,13 @@ export default function Timeline() {
                 </div>
               </Panel>
             )}
+            <Panel title="Proof & Gaps Verification (EvidenceLab)">
+              <ProofAndGapsVisualizer
+                events={d.events}
+                selectedEventId={selected}
+                onSelectEvent={select}
+              />
+            </Panel>
             <Panel title="execution tree (declared structure)">
               <div className="max-h-[520px] overflow-auto">
                 {d.tree.map(({ depth, event_id }, i) => {
