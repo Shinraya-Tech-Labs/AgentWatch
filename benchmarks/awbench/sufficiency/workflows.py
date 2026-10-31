@@ -81,26 +81,79 @@ def _make_event(
 # 1. Financial Transfer with Compliance Log
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def generate_financial_transfer(run_id: str, seed: int, should_violate: bool = False) -> WorkflowCase:
+
+def generate_financial_transfer(
+    run_id: str, seed: int, should_violate: bool = False
+) -> WorkflowCase:
     rng = random.Random(seed)  # noqa: S311
     tx_id = f"tx_{rng.randint(100000, 999999)}"
     amount = rng.randint(500, 50000)
 
     events: list[ComputationalEvent] = []
     # 1. User Intent
-    events.append(_make_event(f"{run_id}_intent", "TransferIntent", 0.0, run_id=run_id, seq=1, sensor_id="sensor_gateway", attributes={"transaction_id": tx_id, "amount": amount}))
+    events.append(
+        _make_event(
+            f"{run_id}_intent",
+            "TransferIntent",
+            0.0,
+            run_id=run_id,
+            seq=1,
+            sensor_id="sensor_gateway",
+            attributes={"transaction_id": tx_id, "amount": amount},
+        )
+    )
     # 2. Compliance Check
-    events.append(_make_event(f"{run_id}_compliance", "ComplianceCheck", 2.0, run_id=run_id, seq=2, sensor_id="sensor_compliance", attributes={"transaction_id": tx_id, "risk_score": rng.uniform(0.01, 0.3)}))
+    events.append(
+        _make_event(
+            f"{run_id}_compliance",
+            "ComplianceCheck",
+            2.0,
+            run_id=run_id,
+            seq=2,
+            sensor_id="sensor_compliance",
+            attributes={"transaction_id": tx_id, "risk_score": rng.uniform(0.01, 0.3)},
+        )
+    )
 
     # 3. Manager Approval (omitted if should_violate is True)
     if not should_violate:
-        events.append(_make_event(f"{run_id}_approval", "ManagerApproval", 4.0, run_id=run_id, seq=3, sensor_id="sensor_approval", attributes={"transaction_id": tx_id, "limit": amount + 5000}))
+        events.append(
+            _make_event(
+                f"{run_id}_approval",
+                "ManagerApproval",
+                4.0,
+                run_id=run_id,
+                seq=3,
+                sensor_id="sensor_approval",
+                attributes={"transaction_id": tx_id, "limit": amount + 5000},
+            )
+        )
 
     # 4. Transfer Execution (Target)
-    events.append(_make_event(f"{run_id}_exec", "ExecuteTransfer", 6.0, run_id=run_id, seq=4, sensor_id="sensor_payment", attributes={"transaction_id": tx_id, "amount": amount}))
+    events.append(
+        _make_event(
+            f"{run_id}_exec",
+            "ExecuteTransfer",
+            6.0,
+            run_id=run_id,
+            seq=4,
+            sensor_id="sensor_payment",
+            attributes={"transaction_id": tx_id, "amount": amount},
+        )
+    )
 
     # 5. Ledger Audit
-    events.append(_make_event(f"{run_id}_audit", "LedgerAudit", 8.0, run_id=run_id, seq=5, sensor_id="sensor_ledger", attributes={"transaction_id": tx_id}))
+    events.append(
+        _make_event(
+            f"{run_id}_audit",
+            "LedgerAudit",
+            8.0,
+            run_id=run_id,
+            seq=5,
+            sensor_id="sensor_ledger",
+            attributes={"transaction_id": tx_id},
+        )
+    )
 
     contract = EvidenceContract(
         name="financial_compliance_preceding_approval",
@@ -122,7 +175,13 @@ def generate_financial_transfer(run_id: str, seed: int, should_violate: bool = F
         ground_truth_satisfied=not should_violate,
         target_operation="ExecuteTransfer",
         required_operation="ManagerApproval",
-        sensor_ids=("sensor_gateway", "sensor_compliance", "sensor_approval", "sensor_payment", "sensor_ledger"),
+        sensor_ids=(
+            "sensor_gateway",
+            "sensor_compliance",
+            "sensor_approval",
+            "sensor_payment",
+            "sensor_ledger",
+        ),
     )
 
 
@@ -130,18 +189,59 @@ def generate_financial_transfer(run_id: str, seed: int, should_violate: bool = F
 # 2. Customer Support with Agent Handoffs
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_support_handoff(run_id: str, seed: int, should_violate: bool = False) -> WorkflowCase:
     rng = random.Random(seed)  # noqa: S311
     ticket_id = f"ticket_{rng.randint(1000, 9999)}"
 
     events: list[ComputationalEvent] = []
-    events.append(_make_event(f"{run_id}_ticket", "TicketCreated", 0.0, run_id=run_id, seq=1, sensor_id="sensor_crm", attributes={"transaction_id": ticket_id}))
-    events.append(_make_event(f"{run_id}_triage", "TriageAnalysis", 1.5, run_id=run_id, seq=2, sensor_id="sensor_triage", attributes={"transaction_id": ticket_id}))
+    events.append(
+        _make_event(
+            f"{run_id}_ticket",
+            "TicketCreated",
+            0.0,
+            run_id=run_id,
+            seq=1,
+            sensor_id="sensor_crm",
+            attributes={"transaction_id": ticket_id},
+        )
+    )
+    events.append(
+        _make_event(
+            f"{run_id}_triage",
+            "TriageAnalysis",
+            1.5,
+            run_id=run_id,
+            seq=2,
+            sensor_id="sensor_triage",
+            attributes={"transaction_id": ticket_id},
+        )
+    )
 
     if not should_violate:
-        events.append(_make_event(f"{run_id}_ack", "SpecialistAck", 3.0, run_id=run_id, seq=3, sensor_id="sensor_specialist", attributes={"transaction_id": ticket_id}))
+        events.append(
+            _make_event(
+                f"{run_id}_ack",
+                "SpecialistAck",
+                3.0,
+                run_id=run_id,
+                seq=3,
+                sensor_id="sensor_specialist",
+                attributes={"transaction_id": ticket_id},
+            )
+        )
 
-    events.append(_make_event(f"{run_id}_resolve", "ResolveTicket", 5.0, run_id=run_id, seq=4, sensor_id="sensor_crm", attributes={"transaction_id": ticket_id}))
+    events.append(
+        _make_event(
+            f"{run_id}_resolve",
+            "ResolveTicket",
+            5.0,
+            run_id=run_id,
+            seq=4,
+            sensor_id="sensor_crm",
+            attributes={"transaction_id": ticket_id},
+        )
+    )
 
     contract = EvidenceContract(
         name="support_specialist_ack_before_resolve",
@@ -171,18 +271,59 @@ def generate_support_handoff(run_id: str, seed: int, should_violate: bool = Fals
 # 3. Code Generation with Sandboxed Execution
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_code_sandbox(run_id: str, seed: int, should_violate: bool = False) -> WorkflowCase:
     rng = random.Random(seed)  # noqa: S311
     task_id = f"task_{rng.randint(1000, 9999)}"
 
     events: list[ComputationalEvent] = []
-    events.append(_make_event(f"{run_id}_prompt", "PromptAssembly", 0.0, run_id=run_id, seq=1, sensor_id="sensor_ide", attributes={"transaction_id": task_id}))
-    events.append(_make_event(f"{run_id}_codegen", "GenerateCode", 2.0, run_id=run_id, seq=2, sensor_id="sensor_llm", attributes={"transaction_id": task_id}))
+    events.append(
+        _make_event(
+            f"{run_id}_prompt",
+            "PromptAssembly",
+            0.0,
+            run_id=run_id,
+            seq=1,
+            sensor_id="sensor_ide",
+            attributes={"transaction_id": task_id},
+        )
+    )
+    events.append(
+        _make_event(
+            f"{run_id}_codegen",
+            "GenerateCode",
+            2.0,
+            run_id=run_id,
+            seq=2,
+            sensor_id="sensor_llm",
+            attributes={"transaction_id": task_id},
+        )
+    )
 
     if not should_violate:
-        events.append(_make_event(f"{run_id}_sandbox", "SandboxExecution", 4.0, run_id=run_id, seq=3, sensor_id="sensor_sandbox", attributes={"transaction_id": task_id, "exit_code": 0}))
+        events.append(
+            _make_event(
+                f"{run_id}_sandbox",
+                "SandboxExecution",
+                4.0,
+                run_id=run_id,
+                seq=3,
+                sensor_id="sensor_sandbox",
+                attributes={"transaction_id": task_id, "exit_code": 0},
+            )
+        )
 
-    events.append(_make_event(f"{run_id}_deploy", "DeployCode", 6.0, run_id=run_id, seq=4, sensor_id="sensor_deployer", attributes={"transaction_id": task_id}))
+    events.append(
+        _make_event(
+            f"{run_id}_deploy",
+            "DeployCode",
+            6.0,
+            run_id=run_id,
+            seq=4,
+            sensor_id="sensor_deployer",
+            attributes={"transaction_id": task_id},
+        )
+    )
 
     contract = EvidenceContract(
         name="sandbox_verification_before_deployment",
@@ -212,17 +353,48 @@ def generate_code_sandbox(run_id: str, seed: int, should_violate: bool = False) 
 # 4. Multi-Document RAG Synthesizer
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_rag_synthesizer(run_id: str, seed: int, should_violate: bool = False) -> WorkflowCase:
     rng = random.Random(seed)  # noqa: S311
     query_id = f"query_{rng.randint(1000, 9999)}"
 
     events: list[ComputationalEvent] = []
-    events.append(_make_event(f"{run_id}_embed", "QueryEmbedding", 0.0, run_id=run_id, seq=1, sensor_id="sensor_retriever", attributes={"transaction_id": query_id}))
+    events.append(
+        _make_event(
+            f"{run_id}_embed",
+            "QueryEmbedding",
+            0.0,
+            run_id=run_id,
+            seq=1,
+            sensor_id="sensor_retriever",
+            attributes={"transaction_id": query_id},
+        )
+    )
 
     if not should_violate:
-        events.append(_make_event(f"{run_id}_retrieve", "RetrieveDocs", 1.0, run_id=run_id, seq=2, sensor_id="sensor_retriever", attributes={"transaction_id": query_id, "doc_count": 5}))
+        events.append(
+            _make_event(
+                f"{run_id}_retrieve",
+                "RetrieveDocs",
+                1.0,
+                run_id=run_id,
+                seq=2,
+                sensor_id="sensor_retriever",
+                attributes={"transaction_id": query_id, "doc_count": 5},
+            )
+        )
 
-    events.append(_make_event(f"{run_id}_synthesize", "SynthesizeResponse", 3.0, run_id=run_id, seq=3, sensor_id="sensor_generator", attributes={"transaction_id": query_id}))
+    events.append(
+        _make_event(
+            f"{run_id}_synthesize",
+            "SynthesizeResponse",
+            3.0,
+            run_id=run_id,
+            seq=3,
+            sensor_id="sensor_generator",
+            attributes={"transaction_id": query_id},
+        )
+    )
 
     contract = EvidenceContract(
         name="retrieval_before_synthesis",
@@ -252,18 +424,61 @@ def generate_rag_synthesizer(run_id: str, seed: int, should_violate: bool = Fals
 # 5. Long-Running Orchestrator with Retries
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def generate_orchestrator_retries(run_id: str, seed: int, should_violate: bool = False) -> WorkflowCase:
+
+def generate_orchestrator_retries(
+    run_id: str, seed: int, should_violate: bool = False
+) -> WorkflowCase:
     rng = random.Random(seed)  # noqa: S311
     job_id = f"job_{rng.randint(1000, 9999)}"
 
     events: list[ComputationalEvent] = []
-    events.append(_make_event(f"{run_id}_dispatch", "DispatchJob", 0.0, run_id=run_id, seq=1, sensor_id="sensor_orchestrator", attributes={"transaction_id": job_id}))
-    events.append(_make_event(f"{run_id}_fail", "WorkerFailure", 2.0, run_id=run_id, seq=2, sensor_id="sensor_worker", attributes={"transaction_id": job_id}))
+    events.append(
+        _make_event(
+            f"{run_id}_dispatch",
+            "DispatchJob",
+            0.0,
+            run_id=run_id,
+            seq=1,
+            sensor_id="sensor_orchestrator",
+            attributes={"transaction_id": job_id},
+        )
+    )
+    events.append(
+        _make_event(
+            f"{run_id}_fail",
+            "WorkerFailure",
+            2.0,
+            run_id=run_id,
+            seq=2,
+            sensor_id="sensor_worker",
+            attributes={"transaction_id": job_id},
+        )
+    )
 
     if not should_violate:
-        events.append(_make_event(f"{run_id}_backoff", "BackoffWait", 3.0, run_id=run_id, seq=3, sensor_id="sensor_orchestrator", attributes={"transaction_id": job_id}))
+        events.append(
+            _make_event(
+                f"{run_id}_backoff",
+                "BackoffWait",
+                3.0,
+                run_id=run_id,
+                seq=3,
+                sensor_id="sensor_orchestrator",
+                attributes={"transaction_id": job_id},
+            )
+        )
 
-    events.append(_make_event(f"{run_id}_retry", "WorkerRetry", 5.0, run_id=run_id, seq=4, sensor_id="sensor_worker", attributes={"transaction_id": job_id}))
+    events.append(
+        _make_event(
+            f"{run_id}_retry",
+            "WorkerRetry",
+            5.0,
+            run_id=run_id,
+            seq=4,
+            sensor_id="sensor_worker",
+            attributes={"transaction_id": job_id},
+        )
+    )
 
     contract = EvidenceContract(
         name="backoff_before_retry",

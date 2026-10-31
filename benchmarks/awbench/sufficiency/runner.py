@@ -69,10 +69,10 @@ def run_sufficiency_benchmark(
             for i in range(cases_per_family):
                 case_idx += 1
                 case_seed = seed + case_idx * 17
-                run_id = f"awbench_{int(drop_rate*100)}_{case_idx}"
+                run_id = f"awbench_{int(drop_rate * 100)}_{case_idx}"
 
                 # Alternate between compliant cases (should hold) and genuine violation cases
-                should_violate = (i % 2 == 1)
+                should_violate = i % 2 == 1
                 workflow: WorkflowCase = gen(run_id, case_seed, should_violate=should_violate)
 
                 # Configure perturbations
@@ -91,7 +91,9 @@ def run_sufficiency_benchmark(
                 )
 
                 # Find required event ID in unperturbed trace
-                req_ev = next((e for e in workflow.events if e.operation == workflow.required_operation), None)
+                req_ev = next(
+                    (e for e in workflow.events if e.operation == workflow.required_operation), None
+                )
                 req_ev_id = req_ev.event_id if req_ev else None
 
                 # Register in isolated oracle
@@ -111,11 +113,13 @@ def run_sufficiency_benchmark(
                     workflow.contract,
                     pert_res.coverage,
                 )
-                agentwatch_results.append((
-                    run_id,
-                    aw_assessment.verdict,
-                    aw_assessment.support_obs_ids + aw_assessment.refute_obs_ids,
-                ))
+                agentwatch_results.append(
+                    (
+                        run_id,
+                        aw_assessment.verdict,
+                        aw_assessment.support_obs_ids + aw_assessment.refute_obs_ids,
+                    )
+                )
 
                 # 2. Evaluate with Naive Closed-World Baseline
                 base_verdict = baseline_evaluator.evaluate(
@@ -123,14 +127,18 @@ def run_sufficiency_benchmark(
                     workflow.target_operation,
                     workflow.required_operation,
                 )
-                baseline_results.append((
-                    run_id,
-                    base_verdict,
-                    (),
-                ))
+                baseline_results.append(
+                    (
+                        run_id,
+                        base_verdict,
+                        (),
+                    )
+                )
 
         # Score both evaluators for this drop rate
-        aw_metrics = compute_metrics("AgentWatch EvidenceLab", drop_rate, agentwatch_results, oracle)
+        aw_metrics = compute_metrics(
+            "AgentWatch EvidenceLab", drop_rate, agentwatch_results, oracle
+        )
         base_metrics = compute_metrics("Closed-World Baseline", drop_rate, baseline_results, oracle)
 
         all_metrics.append(aw_metrics)
@@ -140,7 +148,9 @@ def run_sufficiency_benchmark(
 
     # Check critical acceptance criteria:
     # 1. AgentWatch maintains false certainty rate <= 2% (0.02) across all drop rates
-    aw_all_fcr = [m.false_certainty_rate for m in all_metrics if m.evaluator_name == "AgentWatch EvidenceLab"]
+    aw_all_fcr = [
+        m.false_certainty_rate for m in all_metrics if m.evaluator_name == "AgentWatch EvidenceLab"
+    ]
     aw_maintained = all(fcr <= 0.02 for fcr in aw_all_fcr)
 
     # 2. Baseline exceeds 30% false certainty rate at high drop rates (e.g. >= 20%)

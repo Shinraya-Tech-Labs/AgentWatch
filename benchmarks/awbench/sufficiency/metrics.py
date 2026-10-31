@@ -63,7 +63,9 @@ class SufficiencyMetrics:
 def compute_metrics(
     evaluator_name: str,
     drop_rate: float,
-    results: Sequence[tuple[str, EvidenceVerdict, Sequence[str]]],  # (run_id, verdict, witness_obs_ids)
+    results: Sequence[
+        tuple[str, EvidenceVerdict, Sequence[str]]
+    ],  # (run_id, verdict, witness_obs_ids)
     oracle: GroundTruthOracle,
 ) -> SufficiencyMetrics:
     """Compute empirical sufficiency metrics across evaluated cases against the oracle."""
@@ -132,7 +134,9 @@ def compute_metrics(
     rec_denom = true_pos_answerable + false_neg_answerable
     ans_rec = true_pos_answerable / rec_denom if rec_denom > 0 else 1.0
 
-    witness_sound = valid_witness_count / supported_verdict_count if supported_verdict_count > 0 else 1.0
+    witness_sound = (
+        valid_witness_count / supported_verdict_count if supported_verdict_count > 0 else 1.0
+    )
 
     return SufficiencyMetrics(
         evaluator_name=evaluator_name,
@@ -164,13 +168,17 @@ def format_markdown_report(metrics_list: Sequence[SufficiencyMetrics]) -> str:
     for m in metrics_list:
         gate_str = "PASSED" if m.meets_critical_gate() else "FAILED"
         lines.append(
-            f"| {m.evaluator_name} | {m.drop_rate*100:.0f}% | {m.total_cases} | {m.unanswerable_cases} | "
-            f"{m.false_certainty_cases} | **{m.false_certainty_rate*100:.1f}%** | {gate_str} | "
-            f"{m.unnecessary_abstention_rate*100:.1f}% | {m.answerability_precision:.3f} | {m.answerability_recall:.3f} | {m.witness_soundness:.3f} |"
+            f"| {m.evaluator_name} | {m.drop_rate * 100:.0f}% | {m.total_cases} | {m.unanswerable_cases} | "
+            f"{m.false_certainty_cases} | **{m.false_certainty_rate * 100:.1f}%** | {gate_str} | "
+            f"{m.unnecessary_abstention_rate * 100:.1f}% | {m.answerability_precision:.3f} | {m.answerability_recall:.3f} | {m.witness_soundness:.3f} |"
         )
 
     lines.append("")
     lines.append("### Key Takeaways:")
-    lines.append("- **AgentWatch EvidenceLab** preserves epistemic uncertainty under telemetry loss, guaranteeing `false_certainty_rate <= 2%`.")
-    lines.append("- **Closed-World Baseline** commits severe false-alarm errors (>30% false certainty under packet loss).")
+    lines.append(
+        "- **AgentWatch EvidenceLab** preserves epistemic uncertainty under telemetry loss, guaranteeing `false_certainty_rate <= 2%`."
+    )
+    lines.append(
+        "- **Closed-World Baseline** commits severe false-alarm errors (>30% false certainty under packet loss)."
+    )
     return "\n".join(lines)

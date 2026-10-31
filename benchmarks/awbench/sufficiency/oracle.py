@@ -101,8 +101,10 @@ class ClosedWorldBaselineEvaluator:
         join_val = target.attributes.get(join_key)
 
         required_events = [
-            e for e in events
-            if e.operation == required_operation and (join_val is None or e.attributes.get(join_key) == join_val)
+            e
+            for e in events
+            if e.operation == required_operation
+            and (join_val is None or e.attributes.get(join_key) == join_val)
         ]
 
         if required_events:
