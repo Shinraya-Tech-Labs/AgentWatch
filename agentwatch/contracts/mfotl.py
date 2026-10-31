@@ -31,6 +31,7 @@ from agentwatch.events.model import ComputationalEvent
 # 1. Epistemic 3-Valued Logic Algebra (Strong Kleene)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TriValued(StrEnum):
     """Strong Kleene 3-valued epistemic truth value."""
 
@@ -86,13 +87,16 @@ def kleene_implies(antecedent: TriValued, consequent: TriValued) -> TriValued:
 # 2. Resource Bounding & Errors
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class ResourceExceededError(RuntimeError):
     """Raised when evaluation exceeds configured memory or time cardinality budget."""
+
     pass
 
 
 class MFOTLParseError(ValueError):
     """Raised when an MFOTL formula string cannot be parsed."""
+
     pass
 
 
@@ -109,6 +113,7 @@ class MFOTLBudget:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. Combinatoric Witness Slicing
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @dataclass(frozen=True, slots=True)
 class WitnessSlice:
@@ -148,6 +153,7 @@ class WitnessSlice:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. AST Representation
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class Term(ABC):
     """Base class for first-order terms."""
@@ -351,6 +357,7 @@ class Forall(Formula):
 # ─────────────────────────────────────────────────────────────────────────────
 # Temporal Operators (Metric Modalities)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True, slots=True)
 class MetricInterval:
@@ -558,7 +565,9 @@ class MFOTLParser:
         expr = self._parse_formula()
         if not self.match("EOF"):
             tok = self.current()
-            raise MFOTLParseError(f"Unexpected trailing tokens starting at pos {tok.pos}: '{tok.value}'")
+            raise MFOTLParseError(
+                f"Unexpected trailing tokens starting at pos {tok.pos}: '{tok.value}'"
+            )
         return expr
 
     def _parse_formula(self) -> Formula:
@@ -649,7 +658,11 @@ class MFOTLParser:
         lower = float(lower_tok.value)
         self.consume("COMMA")
         upper_tok = self.consume()
-        upper = float("inf") if upper_tok.value.lower() in ("inf", "infinity") else float(upper_tok.value)
+        upper = (
+            float("inf")
+            if upper_tok.value.lower() in ("inf", "infinity")
+            else float(upper_tok.value)
+        )
         self.consume("RBRACKET")
         return MetricInterval(lower, upper)
 
@@ -731,6 +744,7 @@ def parse_mfotl(formula_str: str) -> Formula:
 # 6. Open-World Evaluation Context & Relation Store
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass(frozen=True)
 class TracePoint:
     """A discrete temporal step in the trace."""
@@ -793,6 +807,7 @@ class TraceDatabase:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 7. Incremental & Trace-Based Relational MFOTL Monitor
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class OpenWorldMFOTLMonitor:
     """Evaluates MFOTL formulas with strong 3-valued logic and open-world quantifiers."""
@@ -1029,7 +1044,11 @@ class OpenWorldMFOTLMonitor:
                     artifact_ids=artifacts,
                     explanation=f"Predicate {pred.name} observed at step {step}",
                 )
-            val = TriValued.FALSE if self.trace_db.is_predicate_complete(pred.name) else TriValued.UNKNOWN
+            val = (
+                TriValued.FALSE
+                if self.trace_db.is_predicate_complete(pred.name)
+                else TriValued.UNKNOWN
+            )
             return WitnessSlice(
                 value=val,
                 explanation=f"Predicate {pred.name} not observed at step {step}",
@@ -1043,7 +1062,9 @@ class OpenWorldMFOTLMonitor:
                 # Variable already bound: verify that bound event matches
                 bound_obj = env[var_name]
                 if isinstance(bound_obj, ComputationalEvent):
-                    if bound_obj.operation == pred.name and bound_obj.event_id in [e.event_id for e in cur_point.events]:
+                    if bound_obj.operation == pred.name and bound_obj.event_id in [
+                        e.event_id for e in cur_point.events
+                    ]:
                         artifacts = self._extract_artifacts(bound_obj)
                         return WitnessSlice(
                             value=TriValued.TRUE,
@@ -1072,7 +1093,9 @@ class OpenWorldMFOTLMonitor:
                 explanation=f"Predicate {pred.name} satisfied by event {ev.event_id}",
             )
 
-        val = TriValued.FALSE if self.trace_db.is_predicate_complete(pred.name) else TriValued.UNKNOWN
+        val = (
+            TriValued.FALSE if self.trace_db.is_predicate_complete(pred.name) else TriValued.UNKNOWN
+        )
         return WitnessSlice(
             value=val,
             explanation=f"No matching event for {pred.name} at step {step}",
@@ -1087,11 +1110,17 @@ class OpenWorldMFOTLMonitor:
                 # Under closed world, absent attributes evaluate according to standard equality
                 if comp.op == "==":
                     res = TriValued.TRUE if left_val == right_val else TriValued.FALSE
-                    return WitnessSlice(value=res, explanation=f"Closed-world comparison {left_val} == {right_val}")
+                    return WitnessSlice(
+                        value=res, explanation=f"Closed-world comparison {left_val} == {right_val}"
+                    )
                 elif comp.op == "!=":
                     res = TriValued.TRUE if left_val != right_val else TriValued.FALSE
-                    return WitnessSlice(value=res, explanation=f"Closed-world comparison {left_val} != {right_val}")
-                return WitnessSlice(value=TriValued.FALSE, explanation="Null in ordering comparison")
+                    return WitnessSlice(
+                        value=res, explanation=f"Closed-world comparison {left_val} != {right_val}"
+                    )
+                return WitnessSlice(
+                    value=TriValued.FALSE, explanation="Null in ordering comparison"
+                )
             # Under open world, missing attribute valuation is UNKNOWN
             return WitnessSlice(
                 value=TriValued.UNKNOWN,
@@ -1113,7 +1142,9 @@ class OpenWorldMFOTLMonitor:
             elif comp.op == ">=":
                 matched = left_val >= right_val
             else:
-                return WitnessSlice(value=TriValued.UNKNOWN, explanation=f"Unknown operator {comp.op}")
+                return WitnessSlice(
+                    value=TriValued.UNKNOWN, explanation=f"Unknown operator {comp.op}"
+                )
 
             res = TriValued.TRUE if matched else TriValued.FALSE
             return WitnessSlice(
@@ -1121,7 +1152,9 @@ class OpenWorldMFOTLMonitor:
                 explanation=f"Comparison {left_val} {comp.op} {right_val} evaluated to {res.value}",
             )
         except Exception as e:
-            return WitnessSlice(value=TriValued.UNKNOWN, explanation=f"Comparison evaluation error: {e}")
+            return WitnessSlice(
+                value=TriValued.UNKNOWN, explanation=f"Comparison evaluation error: {e}"
+            )
 
     # ── Quantifier Domain Expansion (Open-World Bounds) ────────────────────────
 
@@ -1244,10 +1277,18 @@ class OpenWorldMFOTLMonitor:
             elif res.value == TriValued.UNKNOWN:
                 saw_unknown = True
 
-        val = TriValued.UNKNOWN if saw_unknown or not self.trace_db.coverage_complete else TriValued.FALSE
-        return WitnessSlice(value=val, explanation=f"Once{formula.interval} not observed in past window")
+        val = (
+            TriValued.UNKNOWN
+            if saw_unknown or not self.trace_db.coverage_complete
+            else TriValued.FALSE
+        )
+        return WitnessSlice(
+            value=val, explanation=f"Once{formula.interval} not observed in past window"
+        )
 
-    def _eval_historically(self, formula: Historically, step: int, env: dict[str, Any]) -> WitnessSlice:
+    def _eval_historically(
+        self, formula: Historically, step: int, env: dict[str, Any]
+    ) -> WitnessSlice:
         cur_ts = self.trace_db.points[step].timestamp
         saw_unknown = False
         accum_events: set[str] = set()
@@ -1278,7 +1319,11 @@ class OpenWorldMFOTLMonitor:
                 accum_events |= res.event_ids
                 accum_artifacts |= res.artifact_ids
 
-        val = TriValued.UNKNOWN if saw_unknown or not self.trace_db.coverage_complete else TriValued.TRUE
+        val = (
+            TriValued.UNKNOWN
+            if saw_unknown or not self.trace_db.coverage_complete
+            else TriValued.TRUE
+        )
         return WitnessSlice(
             value=val,
             event_ids=frozenset(accum_events),
@@ -1350,8 +1395,14 @@ class OpenWorldMFOTLMonitor:
             elif res.value == TriValued.UNKNOWN:
                 saw_unknown = True
 
-        val = TriValued.UNKNOWN if saw_unknown or not self.trace_db.coverage_complete else TriValued.FALSE
-        return WitnessSlice(value=val, explanation=f"Eventually{formula.interval} not observed in future window")
+        val = (
+            TriValued.UNKNOWN
+            if saw_unknown or not self.trace_db.coverage_complete
+            else TriValued.FALSE
+        )
+        return WitnessSlice(
+            value=val, explanation=f"Eventually{formula.interval} not observed in future window"
+        )
 
     def _eval_always(self, formula: Always, step: int, env: dict[str, Any]) -> WitnessSlice:
         cur_ts = self.trace_db.points[step].timestamp
@@ -1384,7 +1435,11 @@ class OpenWorldMFOTLMonitor:
                 accum_events |= res.event_ids
                 accum_artifacts |= res.artifact_ids
 
-        val = TriValued.UNKNOWN if saw_unknown or not self.trace_db.coverage_complete else TriValued.TRUE
+        val = (
+            TriValued.UNKNOWN
+            if saw_unknown or not self.trace_db.coverage_complete
+            else TriValued.TRUE
+        )
         return WitnessSlice(
             value=val,
             event_ids=frozenset(accum_events),
@@ -1432,6 +1487,7 @@ class OpenWorldMFOTLMonitor:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 8. Differential Reference Monitor (Standard 2-Valued Closed World)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class ReferenceMFOTLMonitor:
     """Standard closed-world reference monitor for differential testing.

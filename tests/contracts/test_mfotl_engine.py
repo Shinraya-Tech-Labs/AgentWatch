@@ -85,6 +85,7 @@ def _make_event(
 # 1. Strong Kleene 3-Valued Truth Tables
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_kleene_logic_truth_tables():
     # Negation
     assert kleene_not(TriValued.TRUE) == TriValued.FALSE
@@ -109,7 +110,9 @@ def test_kleene_logic_truth_tables():
 
     # Implication (A implies B)
     assert kleene_implies(TriValued.FALSE, TriValued.FALSE) == TriValued.TRUE
-    assert kleene_implies(TriValued.FALSE, TriValued.UNKNOWN) == TriValued.TRUE  # Ex falso quodlibet
+    assert (
+        kleene_implies(TriValued.FALSE, TriValued.UNKNOWN) == TriValued.TRUE
+    )  # Ex falso quodlibet
     assert kleene_implies(TriValued.TRUE, TriValued.TRUE) == TriValued.TRUE
     assert kleene_implies(TriValued.TRUE, TriValued.FALSE) == TriValued.FALSE
     assert kleene_implies(TriValued.TRUE, TriValued.UNKNOWN) == TriValued.UNKNOWN
@@ -119,6 +122,7 @@ def test_kleene_logic_truth_tables():
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. Syntax & AST Parser Tests
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def test_parser_basic_predicates_and_terms():
     ast = parse_mfotl("Transfer(x, 500)")
@@ -209,6 +213,7 @@ def test_parser_syntax_errors():
 # 3. Open-World Quantifier Semantics (Preserving UNKNOWN vs Closed World)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_open_world_existential_preservation():
     # Incomplete trace without matching approval
     events = [
@@ -285,6 +290,7 @@ def test_open_world_universal_preservation_and_refutation():
 # 4. Metric Temporal Logic Verification & Witness Slicing
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_metric_temporal_once_and_historically():
     events = [
         _make_event("e1", "Auth", 10.0, {"user": "alice"}),
@@ -333,7 +339,9 @@ def test_witness_slicing_minimal_extraction():
     monitor = OpenWorldMFOTLMonitor(db)
 
     # Implication satisfied: e4 approvals limit >= 500
-    formula = parse_mfotl("forall x. Transfer(x) implies exists y. Approval(y) and y.limit >= x.amount")
+    formula = parse_mfotl(
+        "forall x. Transfer(x) implies exists y. Approval(y) and y.limit >= x.amount"
+    )
     res = monitor.evaluate(formula)
     assert res.value == TriValued.TRUE
     # Slice should contain the relevant events
@@ -343,6 +351,7 @@ def test_witness_slicing_minimal_extraction():
 # ═══════════════════════════════════════════════════════════════════════════════
 # 5. Complexity & Resource Bounding (Fail-Closed RESOURCE_EXCEEDED)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def test_resource_budget_fail_closed():
     # Build trace of 50 events
@@ -378,6 +387,7 @@ def test_resource_budget_raise_exception():
 # 6. Differential Verification Against Reference Monitor
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def test_differential_verification_on_complete_traces():
     events = [
         _make_event("e1", "Auth", 0.0, {"role": "admin"}),
@@ -393,9 +403,9 @@ def test_differential_verification_on_complete_traces():
     test_formulas = [
         "exists x. Auth(x)",
         "forall x. Action(x) implies Once[0, 15] Auth(a)",
-        "exists x. x.role == \"admin\"",
-        "not (exists x. x.role == \"superadmin\")",
-        "Historically[0, 20] not (Action(a) and a.type == \"delete\")",
+        'exists x. x.role == "admin"',
+        'not (exists x. x.role == "superadmin")',
+        'Historically[0, 20] not (Action(a) and a.type == "delete")',
     ]
 
     for f_str in test_formulas:
