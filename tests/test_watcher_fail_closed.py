@@ -244,3 +244,40 @@ def test_watching_twice_does_not_double_wrap_or_double_execute():
     agent.run("echo hi")
     assert agent.calls == 1
     assert checks == ["run"], "a second watch() must not stack another wrapper"
+
+
+def _blocks_seen(bus: EventBus) -> list[Any]:
+    from agentwatch.core.schema import EventType
+
+    seen: list[Any] = []
+    bus.subscribe_fn(seen.append, EventType.SAFETY_BLOCK, handler_id="test.blocks")
+    return seen
+
+
+def test_fail_closed_block_is_published_as_a_safety_block_event():
+    bus = EventBus()
+    seen = _blocks_seen(bus)
+    agent = CountingAgent()
+    GenericAdapter(agent, event_bus=bus, safety_engine=RaisingEngine()).attach()
+    with pytest.raises(AgentWatchBlockedError):
+        agent.run("echo hello")
+    assert len(seen) == 1
+    ev = seen[0]
+    assert ev.metadata["enforcement_failure"] is True
+    assert ev.metadata["blocked_tool"] == "run"
+    assert ev.safety.blocked and ev.safety.reasons == ["safety_check_failed: RuntimeError"]
+
+
+def test_fail_closed_async_block_is_published():
+    bus = EventBus()
+    seen = _blocks_seen(bus)
+    agent = AsyncCountingAgent()
+    GenericAdapter(agent, event_bus=bus, safety_engine=AsyncRaisingEngine()).attach()
+
+    async def go() -> None:
+        with pytest.raises(AgentWatchBlockedError):
+            await agent.arun("echo hello")
+        await asyncio.sleep(0)  # let the scheduled publish run
+
+    asyncio.run(go())
+    assert len(seen) == 1 and seen[0].metadata["enforcement_failure"] is True

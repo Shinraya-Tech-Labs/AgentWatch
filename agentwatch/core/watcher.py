@@ -298,11 +298,41 @@ class GenericAdapter:
             type(exc).__name__,
             exc,
         )
+        reason = f"safety_check_failed: {type(exc).__name__}"
+        # Make the fail-closed block visible (dashboard, evidence), best effort.
+        try:
+            self.bus.publish_sync(
+                AgentEvent(
+                    session_id=self.session_id,
+                    agent_id=self.agent_id,
+                    agent_name=self.framework_label,
+                    framework=self.framework,
+                    event_type=EventType.SAFETY_BLOCK,
+                    step_number=self._step,
+                    status=ExecutionStatus.BLOCKED,
+                    safety=SafetyCheckData(
+                        risk_level=RiskLevel.CRITICAL,
+                        risk_score=1.0,
+                        blocked=True,
+                        reasons=[reason],
+                    ),
+                    metadata={
+                        **self._session_metadata,
+                        "blocked_tool": method_name,
+                        "enforcement_failure": True,
+                        "error": f"{type(exc).__name__}: {exc}"[:500],
+                    },
+                )
+            )
+        except Exception as pub_exc:  # noqa: BLE001
+            logger.warning(
+                "Could not publish the fail-closed block for %s: %s", method_name, pub_exc
+            )
         return AgentWatchBlockedError(
             f"Tool call '{method_name}' blocked: the safety check failed "
             f"({type(exc).__name__}); AgentWatch fails closed",
             tool_name=method_name,
-            reasons=[f"safety_check_failed: {type(exc).__name__}"],
+            reasons=[reason],
         )
 
     def _async_deadline(self) -> float:
