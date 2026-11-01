@@ -188,7 +188,12 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Start the stack
         run: |
-          echo "AGENTWATCH_API_KEY=ci-compose-smoke-key" > .env
+          {
+            echo "AGENTWATCH_API_KEY=ci-compose-smoke-key"
+            echo "POSTGRES_PASSWORD=$(python -c 'import secrets;print(secrets.token_urlsafe(18))')"
+            echo "REDIS_PASSWORD=$(python -c 'import secrets;print(secrets.token_urlsafe(18))')"
+          } > .env
+          python scripts/check_deploy_security.py --env-file .env
           docker compose up -d --build --wait --wait-timeout 420 api frontend
       - name: Check the running API
         run: |
