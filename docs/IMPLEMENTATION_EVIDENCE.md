@@ -42,7 +42,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-007 DB fallback | DONE | [TO-007](#to-007) |
 | TO-008 safety-check endpoint | DONE | [TO-008](#to-008) |
 | TO-009 service exposure | DONE | [TO-009](#to-009) |
-| TO-010 … TO-040 | NOT STARTED unless listed below | — |
+| TO-010 request limits | DONE | [TO-010](#to-010) |
+| TO-011 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -526,3 +527,40 @@ PASS  api and frontend run as uid 10001, CapEff 0000000000000000, no-new-privile
 - It was not modified. Recreate it with the new compose file (`docker compose down`, set the passwords in `.env`, then `docker compose up -d`).
 
 **Commits:** `aa234bd` `85258de` `22376f2` `8468857`, plus this ledger commit.
+
+### TO-010
+
+**Status:** DONE. Limits table: "Request and payload limits" in [`docs/PERSISTENCE.md`](PERSISTENCE.md).
+
+**Changes:**
+
+- `panoptis/api/limits.py` (new): `BodySizeLimitMiddleware`, a pure ASGI middleware mounted outermost.
+  - It answers 413 from `Content-Length` before the body is read, and cuts off a chunked body once it passes the limit (default 10 MiB).
+  - `check_json_limits` is an iterative bound on depth, string size and item count.
+- `panoptis/api/v3.py`: `ObservationBatch` caps the batch size (5000) and the depth and string limits (422).
+- `panoptis/api/server.py`: v1 `metadata` and tool arguments are bounded (413); `ws_max_size` for `python -m panoptis.api.server`.
+- `panoptis/cli/main.py`: `server start` passes `ws_max_size` (1 MiB). `Dockerfile.api` passes `--ws-max-size 1048576`.
+- Related finding, fixed: `server start` defaulted to `--host 0.0.0.0`; it now defaults to `127.0.0.1` (CLI surface snapshot updated).
+- **Test isolation:** the API's rate limiter is module-global, so a test inherited the earlier tests' budget. `test_schema_validation` started failing with 429 depending on test order; an autouse fixture in `tests/conftest.py` now resets it.
+
+**Tests:** `tests/test_request_limits.py` (14):
+
+- **Middleware:**
+  - a declared oversize body gets 413 and the handler never runs;
+  - exactly the limit is accepted;
+  - a chunked overflow gets 413, and a small chunked body passes;
+  - an invalid `Content-Length` is refused.
+- **Structural check:** 4 cases, and 50,000-level nesting raises `PayloadTooLarge`, not `RecursionError`.
+- **Real API:**
+  - an oversized body gets 413 while a small one passes;
+  - batch count, depth and string bounds;
+  - malformed JSON and a 20,000-level nesting bomb get a 4xx (never 500);
+  - v1 metadata is bounded.
+- **CLI:** `server start` passes `ws_max_size` from the environment.
+
+**Commands and results:**
+
+- `pytest tests/test_request_limits.py`: 14 passed
+- `pytest tests/`: **2508 passed**, 9 skipped, 2 failed (the pre-existing `test_cli_animator` failures on `main`)
+
+**Commits:** `822d8d1` `8eaacca` `0a55eda` and the test-isolation commit, plus this ledger commit.

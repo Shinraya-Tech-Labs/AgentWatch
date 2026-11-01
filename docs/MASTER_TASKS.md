@@ -250,18 +250,18 @@ information.
 services are not unintentionally exposed and cannot be accessed with
 default credentials.
 
-## TO-010 --- Add request and payload limits
+## TO-010 --- Add request and payload limits — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-010)
 
--   [ ] Add configurable maximum HTTP request-body size.
--   [ ] Add bounded observation-batch size, item count, string length,
+-   [x] Add configurable maximum HTTP request-body size.
+-   [x] Add bounded observation-batch size, item count, string length,
     and nesting depth where relevant.
--   [ ] Apply limits to upload, API, WebSocket, and batch ingestion
+-   [x] Apply limits to upload, API, WebSocket, and batch ingestion
     paths as appropriate.
--   [ ] Reject oversized requests with predictable error responses
+-   [x] Reject oversized requests with predictable error responses
     before expensive processing.
--   [ ] Add tests for boundary-sized, oversized, deeply nested, and
+-   [x] Add tests for boundary-sized, oversized, deeply nested, and
     malformed requests.
--   [ ] Document defaults and configuration.
+-   [x] Document defaults and configuration.
 
 **Acceptance evidence:** Automated tests prove oversized payloads are
 rejected without unbounded memory/CPU use.
