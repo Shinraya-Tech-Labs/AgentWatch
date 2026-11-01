@@ -16,6 +16,7 @@ from panopti.attest import (
     AttestationEngine,
     PanoptiAttestationSeal,
 )
+from panopti.attest_keys import AttestationKeyError, Keyring, keyring_from_env
 from panopti.contracts import (
     Contract,
     ContractRegistry,
@@ -59,6 +60,12 @@ from panopti.synth import (
 )
 
 try:
+    from panopti.doctor import run_diagnostics
+    from panopti.guard import (
+        GuardDecision,
+        PanoptiGuard,
+        guard,
+    )
     from panoptis.causality import (
         CUMULATIVE_CONFIDENCE_COLLAPSE,
         ConfidenceCollapseWarning,
@@ -79,12 +86,6 @@ try:
         detect_framework,
         detect_framework_label,
         watch,
-    )
-    from panopti.doctor import run_diagnostics
-    from panopti.guard import (
-        GuardDecision,
-        PanoptiGuard,
-        guard,
     )
 
     PanoptiBlockedError = AgentWatchBlockedError
@@ -150,6 +151,9 @@ __all__ = [
     "DropStepPerturbation",
     "MutateResultPerturbation",
     "PanoptiAttestationSeal",
+    "AttestationKeyError",
+    "Keyring",
+    "keyring_from_env",
     "AttestationEngine",
     "PolicySynthesizer",
     "SynthesizedInvariant",
