@@ -227,3 +227,59 @@ def test_v1_session_list_shows_only_the_callers_sessions(client, cloud):
     ids_b = {x["session_id"] for x in client.get("/api/v1/sessions", headers=b).json()["sessions"]}
     assert "sess-list-a" in ids_a and "sess-list-b" not in ids_a
     assert "sess-list-b" in ids_b and "sess-list-a" not in ids_b
+
+
+OPERATOR_GETS = [
+    "/api/v1/system/status",
+    "/api/v1/dashboard/summary",
+    "/api/v1/dashboard/top",
+    "/api/v1/safety/blocked",
+    "/api/v1/safety/policy",
+    "/api/v1/compliance/audit-log",
+    "/api/v1/governance/compliance-report",
+    "/api/v1/ingestion/metrics",
+    "/api/v1/tenants",
+]
+
+
+@pytest.mark.parametrize("path", OPERATOR_GETS)
+def test_cloud_tenant_keys_cannot_reach_operator_routes(client, cloud, path, monkeypatch):
+    monkeypatch.setenv("AGENTWATCH_ADMIN_KEY", "operator-secret-key")
+    assert client.get(path, headers={"X-Api-Key": cloud["raw_a"]}).status_code == 403
+    assert client.get(path, headers={"X-Api-Key": "operator-secret-key"}).status_code not in (
+        401,
+        403,
+    )
+
+
+def test_cloud_operator_writes_need_the_operator_key(client, cloud, monkeypatch):
+    monkeypatch.setenv("AGENTWATCH_ADMIN_KEY", "operator-secret-key")
+    tenant_key = {"X-Api-Key": cloud["raw_a"]}
+    assert (
+        client.post("/api/v1/tenants", json={"name": "rogue"}, headers=tenant_key).status_code
+        == 403
+    )
+    assert (
+        client.delete("/api/v1/sessions/prune?older_than_hours=1", headers=tenant_key).status_code
+        == 403
+    )
+    assert client.post("/api/v1/demo/seed", headers=tenant_key).status_code == 403
+
+
+def test_cloud_operator_routes_are_closed_when_no_operator_key_is_configured(
+    client, cloud, monkeypatch
+):
+    monkeypatch.delenv("AGENTWATCH_ADMIN_KEY", raising=False)
+    for key in (cloud["raw_a"], "", "anything"):
+        assert client.get("/api/v1/tenants", headers={"X-Api-Key": key}).status_code == 403
+
+
+def test_cloud_tenant_can_read_only_its_own_tenant_record(client, cloud, monkeypatch):
+    monkeypatch.setenv("AGENTWATCH_ADMIN_KEY", "operator-secret-key")
+    a = {"X-Api-Key": cloud["raw_a"]}
+    assert client.get(f"/api/v1/tenants/{cloud['a'].tenant_id}", headers=a).status_code == 200
+    assert client.get(f"/api/v1/tenants/{cloud['b'].tenant_id}", headers=a).status_code == 403
+
+
+def test_self_hosted_operator_routes_still_work_with_the_api_key(client):
+    assert client.get("/api/v1/dashboard/summary").status_code == 200

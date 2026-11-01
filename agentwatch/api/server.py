@@ -407,6 +407,30 @@ def _require_api_key(
         )
 
 
+def _require_operator(
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+) -> None:
+    """Operator-only routes (cross-tenant views, global controls).
+
+    Self-hosted: the API key holder is the operator, so this is ``_require_api_key``.
+    Cloud mode: a tenant key is never enough; AGENTWATCH_ADMIN_KEY is required, and when
+    it is not configured these routes are refused for everyone (fail closed).
+    """
+    if not _CLOUD_MODE:
+        _require_api_key(x_api_key)
+        return
+    admin = os.environ.get("AGENTWATCH_ADMIN_KEY")
+    if (
+        not admin
+        or not x_api_key
+        or not hmac.compare_digest(x_api_key.encode("utf-8"), admin.encode("utf-8"))
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operator credential required for this route.",
+        )
+
+
 def _require_tenant_context(
     request: Request,
     x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
@@ -829,7 +853,7 @@ app.add_middleware(
 
 
 @app.get("/api/v1/system/status")
-async def system_status(_auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def system_status(_auth: None = Depends(_require_operator)) -> dict[str, Any]:
     """Returns detailed infrastructure status, including database connectivity."""
     return {
         "database": {
@@ -935,7 +959,7 @@ async def prune_sessions_api(
     request: Request,
     older_than_hours: int = Query(..., ge=1),
     dry_run: bool = Query(False),
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
 ) -> PruneResponse:
     """Delete old sessions, traces, and checkpoints.
 
@@ -1290,7 +1314,7 @@ async def rollback_session(
 
 @app.get("/api/v1/safety/policy")
 async def get_safety_policy(
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
     _perm: object = Depends(require_permission("policy:read")),
 ) -> dict[str, Any]:
     policy = _safety_engine.policy
@@ -1308,7 +1332,7 @@ async def get_safety_policy(
 @app.put("/api/v1/safety/policy")
 async def update_safety_policy(
     update: SafetyPolicyUpdate,
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
     _perm: object = Depends(require_permission("policy:write")),
 ) -> dict[str, Any]:
     policy = SafetyPolicy(
@@ -1335,7 +1359,7 @@ async def update_safety_policy(
 async def get_blocked_events(
     limit: int = Query(default=50, le=200),
     since_hours: int = Query(default=24),
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
 ) -> dict[str, Any]:
     threshold = datetime.now(UTC) - timedelta(hours=since_hours)
     events = [
@@ -1429,7 +1453,7 @@ async def check_safety_command(request: SafetyCheckRequest) -> SafetyCheckRespon
 
 
 @app.get("/api/v1/dashboard/summary")
-async def dashboard_summary(_auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def dashboard_summary(_auth: None = Depends(_require_operator)) -> dict[str, Any]:
     sessions = _collector.list_sessions(limit=200)
     stats = _collector.get_stats()
     return {
@@ -1449,7 +1473,7 @@ async def dashboard_summary(_auth: None = Depends(_require_api_key)) -> dict[str
 
 
 @app.get("/api/v1/dashboard/top")
-async def dashboard_top(_auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def dashboard_top(_auth: None = Depends(_require_operator)) -> dict[str, Any]:
     sessions = _collector.list_sessions(status=ExecutionStatus.RUNNING.value, limit=50)
     top_sessions = []
     now = datetime.now(UTC)
@@ -1474,7 +1498,7 @@ async def dashboard_top(_auth: None = Depends(_require_api_key)) -> dict[str, An
 
 @app.get("/api/v1/governance/compliance-report")
 async def compliance_report(
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
     format: str = Query("json", alias="format"),
     include_allowed: bool = Query(False),
 ):
@@ -1511,7 +1535,7 @@ async def report_entitlement_usage(
 
 @app.get("/api/v1/governance/eu-ai-act-report")
 async def eu_ai_act_report(
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
     _ent: object = Depends(require_entitlement("compliance")),
 ) -> dict[str, Any]:
     """EU AI Act Article 15 conformity export (CMP-004).
@@ -1592,7 +1616,7 @@ async def eu_ai_act_report(
 
 @app.get("/api/v1/compliance/audit-log")
 async def compliance_audit_log_csv(
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
     format: str = Query("csv", alias="format"),
     include_allowed: bool = Query(False),
 ):
@@ -1603,7 +1627,7 @@ async def compliance_audit_log_csv(
 
 
 @app.post("/api/v1/demo/seed")
-async def seed_demo(_auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def seed_demo(_auth: None = Depends(_require_operator)) -> dict[str, Any]:
     _seed_demo_data()
     return {"status": "seeded"}
 
@@ -1707,7 +1731,7 @@ async def websocket_events(websocket: WebSocket) -> None:
 async def create_tenant(
     name: str = Query(...),
     plan: str = Query("free"),
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
 ) -> dict[str, Any]:
     store = get_tenant_store()
     try:
@@ -1719,7 +1743,7 @@ async def create_tenant(
 
 
 @app.get("/api/v1/tenants")
-async def list_tenants(_auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def list_tenants(_auth: None = Depends(_require_operator)) -> dict[str, Any]:
     store = get_tenant_store()
     tenants = store.list_tenants()
     return {"tenants": [t.to_dict() for t in tenants]}
@@ -1729,7 +1753,10 @@ async def list_tenants(_auth: None = Depends(_require_api_key)) -> dict[str, Any
 async def get_tenant(
     tenant_id: str,
     _auth: None = Depends(_require_api_key),
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
 ) -> dict[str, Any]:
+    if _CLOUD_MODE and _cloud_tenant_of(x_api_key) != tenant_id:
+        _require_operator(x_api_key)  # another tenant's record: operators only
     store = get_tenant_store()
     tenant = store.get_tenant(tenant_id)
     if not tenant:
@@ -1794,7 +1821,7 @@ async def get_usage(
 @app.get("/api/v1/ingestion/metrics")
 async def ingestion_metrics(
     tenant_id: str | None = Query(None),
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
 ) -> dict[str, Any]:
     # Ingestion metrics are available when the pipeline is running
     return {"message": "Ingestion metrics endpoint — attach TenantIngestionPipeline for live data"}
