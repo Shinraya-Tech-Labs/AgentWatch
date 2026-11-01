@@ -283,3 +283,28 @@ def test_cloud_tenant_can_read_only_its_own_tenant_record(client, cloud, monkeyp
 
 def test_self_hosted_operator_routes_still_work_with_the_api_key(client):
     assert client.get("/api/v1/dashboard/summary").status_code == 200
+
+
+def test_cloud_websocket_requires_a_tenant_key(client, cloud):
+    from starlette.websockets import WebSocketDisconnect
+
+    for headers in ({}, {"x-api-key": "aw_not_a_real_key_000000"}):
+        with pytest.raises(WebSocketDisconnect) as exc:
+            with client.websocket_connect("/ws/events", headers=headers) as ws:
+                ws.receive_text()
+        assert exc.value.code == 4001
+    with pytest.raises(WebSocketDisconnect) as exc:
+        forged = {"x-api-key": cloud["raw_a"], "x-tenant-id": cloud["b"].tenant_id}
+        with client.websocket_connect("/ws/events", headers=forged) as ws:
+            ws.receive_text()
+    assert exc.value.code == 4003
+
+
+def test_cloud_websocket_delivers_only_the_connections_tenant_events(client, cloud):
+    a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
+    sid_a, sid_b = _sid("ws-a"), _sid("ws-b")
+    with client.websocket_connect("/ws/events", headers={"x-api-key": cloud["raw_a"]}) as ws:
+        assert client.post("/api/v1/events", json=_event(sid_b), headers=b).status_code == 200
+        assert client.post("/api/v1/events", json=_event(sid_a), headers=a).status_code == 200
+        first = ws.receive_json()
+    assert first["session_id"] == sid_a, "tenant A's socket received another tenant's event"

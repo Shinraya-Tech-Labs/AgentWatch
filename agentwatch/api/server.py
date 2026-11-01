@@ -1695,16 +1695,37 @@ async def websocket_events(websocket: WebSocket) -> None:
         await websocket.close(code=4500, reason="Server misconfiguration")
         return
 
-    if _API_KEY and not _key_matches(supplied_key):
+    if _CLOUD_MODE:
+        # tenant keys only; the legacy key is not a tenant credential
+        if _cloud_tenant_of(supplied_key) is None:
+            logger.warning("WebSocket connection rejected: invalid or missing tenant key")
+            await websocket.close(code=4001, reason="Unauthorized")
+            return
+    elif _API_KEY and not _key_matches(supplied_key):
         logger.warning("WebSocket connection rejected: invalid or missing API key")
         await websocket.close(code=4001, reason="Unauthorized")
         return
+    try:
+        ws_tenant = _tenancy.resolve(
+            cloud_mode=_CLOUD_MODE,
+            api_key=supplied_key,
+            tenant_header=websocket.headers.get("x-tenant-id"),
+            tenant_keys=_tenant_keys(),
+            cloud_lookup=_cloud_tenant_of,
+        ).tenant_id
+    except _tenancy.TenancyError as exc:
+        await websocket.close(code=4003 if exc.status == 403 else 4001, reason=exc.detail[:120])
+        return
+    # Tenant-scoped deployments deliver only the connection's tenant's events.
+    scoped = _CLOUD_MODE or bool(_tenant_keys())
 
     await websocket.accept()
     _ws_clients.append(websocket)
     bus = get_event_bus()
 
     async def forward(event: AgentEvent) -> None:
+        if scoped and _owner(event.metadata) != ws_tenant:
+            return
         try:
             await websocket.send_json(_sanitize_event(event.model_dump_for_storage()))
         except Exception:
