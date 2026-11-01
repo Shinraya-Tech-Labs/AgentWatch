@@ -253,6 +253,102 @@ command: panoptis observe
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param system kind=TyperOption type=str required=False default=None flags=--system help='System name recorded on the run.'
 
+command: panoptis protect
+    help: AgentWatch security engine, guardrails, compliance, and evidence.
+    short_help: 
+
+command: panoptis protect check
+    help: [bold]Score[/bold] the risk level of a shell command.
+
+[b]Example Usage:[/b]
+[dim]python -m panoptis.cli.main safety check "rm -rf /var/log"[/dim]
+    short_help: 
+    param command kind=TyperArgument type=str required=True default=None flags=command help='Command to risk-score'
+    param verbose kind=TyperOption type=boolean required=False default=False flags=--verbose,-v help=''
+
+command: panoptis protect compliance
+    help: Compliance audit log export and reporting.
+    short_help: 
+
+command: panoptis protect compliance export-csv
+    help: Export compliance audit log as CSV from the running API server.
+    short_help: 
+    param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
+    param api_url kind=TyperOption type=str required=False default='http://localhost:8000' flags=--api help=''
+    param include_allowed kind=TyperOption type=boolean required=False default=False flags=--include-allowed help='Include allowed actions (denials only by default)'
+    param output kind=TyperOption type=path required=False default='compliance-audit.csv' flags=--output,-o help='Output CSV file path'
+
+command: panoptis protect compliance export-local
+    help: Export compliance audit log from a local JSONL file as CSV.
+    short_help: 
+    param audit_log kind=TyperOption type=path required=False default='data/audit-log.jsonl' flags=--audit-log help='Path to the persisted audit log JSONL file'
+    param include_allowed kind=TyperOption type=boolean required=False default=False flags=--include-allowed help='Include allowed actions (denials only by default)'
+    param output kind=TyperOption type=path required=False default='compliance-audit.csv' flags=--output,-o help='Output CSV file path'
+
+command: panoptis protect config
+    help: Manage the local safety policy file.
+    short_help: 
+
+command: panoptis protect config generate
+    help: [bold]Generate[/bold] a starter .agentwatch-safety.yml policy file.
+    short_help: 
+    param force kind=TyperOption type=boolean required=False default=False flags=--force help='Overwrite an existing file.'
+    param path kind=TyperOption type=path required=False default='.agentwatch-safety.yml' flags=--path help='Where to write the policy file.'
+
+command: panoptis protect evidence
+    help: Verify, seal and manage immutable evidence.
+    short_help: 
+
+command: panoptis protect evidence erase-subject
+    help: Crypto-shred a data subject: destroy its key and purge derived copies (irreversible).
+    short_help: 
+    param reason kind=TyperOption type=str required=True default=None flags=--reason help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
+    param subject kind=TyperArgument type=str required=True default=None flags=subject help='value of the declared subject_id'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+    param yes kind=TyperOption type=boolean required=False default=False flags=--yes help=''
+
+command: panoptis protect evidence purge
+    help: Retention: remove sealed segments older than N days, their payload files and derived copies (chain preserved).
+    short_help: 
+    param older_than_days kind=TyperOption type=int required=True default=None flags=--older-than-days help=''
+    param reason kind=TyperOption type=str required=True default=None flags=--reason help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+    param yes kind=TyperOption type=boolean required=False default=False flags=--yes help=''
+
+command: panoptis protect evidence seal
+    help: Seal pending observations into hash-chained segments.
+    short_help: 
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+
+command: panoptis protect evidence show
+    help: Show a raw observation exactly as stored, with its inclusion proof.
+    short_help: 
+    param obs_id kind=TyperArgument type=str required=True default=None flags=obs_id help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
+
+command: panoptis protect evidence verify
+    help: Verify the hash chain and Merkle roots of all sealed evidence.
+    short_help: 
+    param seal kind=TyperOption type=boolean required=False default=True flags=--seal help='seal pending observations first'
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+
+command: panoptis protect policies
+    help: Inspect the effective safety policy set.
+    short_help: 
+
+command: panoptis protect policies list
+    help: [bold]List[/bold] the effective safety policy set: builtin patterns + local rules.
+    short_help: 
+
+command: panoptis protect redteam
+    help: [bold]Red-team[/bold] the safety engine with simulated attacks and score resilience.
+    short_help: 
+    param json_output kind=TyperOption type=boolean required=False default=False flags=--json help='Emit the report as JSON'
+
 command: panoptis provenance
     help: [bold]Provenance[/bold]: where did this information come from?
     short_help: 

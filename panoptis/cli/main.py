@@ -23,6 +23,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from panoptis.cli.mcp import app as mcp_app
+from panoptis.cli.v3 import evidence_app
 from panoptis.cli.v3 import register as _register_v3
 
 if TYPE_CHECKING:
@@ -44,7 +45,7 @@ app = typer.Typer(
 session_app = typer.Typer(
     name="session", help="Manage and inspect agent sessions", no_args_is_help=True
 )
-app.add_typer(session_app)
+app.add_typer(session_app, hidden=True)
 app.add_typer(mcp_app, name="mcp")
 
 console = Console()
@@ -82,17 +83,27 @@ eval_app = typer.Typer(
     no_args_is_help=True,
 )
 
+protect_app = typer.Typer(
+    name="protect",
+    help="AgentWatch security engine, guardrails, compliance, and evidence.",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
+protect_app.add_typer(policies_app, name="policies")
+protect_app.add_typer(config_app, name="config")
+
 app.add_typer(server_app)
-app.add_typer(safety_app)
-app.add_typer(cost_app)
-app.add_typer(eval_app)
+app.add_typer(protect_app, name="protect")
+app.add_typer(safety_app, hidden=True)
+app.add_typer(cost_app, hidden=True)
+app.add_typer(eval_app, hidden=True)
 
 legacy_app = typer.Typer(
     name="legacy",
     help="v0.2 commands kept for compatibility (superseded by v3 commands).",
     no_args_is_help=True,
 )
-app.add_typer(legacy_app)
+app.add_typer(legacy_app, hidden=True)
 
 
 _IN_REPL = False
@@ -490,7 +501,7 @@ def watch(
 app.command(name="watch")(watch)
 
 
-@app.command(name="help")
+@app.command(name="help", hidden=True)
 def help_command(
     command: str | None = typer.Argument(None, help="The command to show help for."),
 ) -> None:
@@ -824,7 +835,7 @@ def export(
 # ─────────────────────────────────────────────
 
 
-@app.command()
+@app.command(hidden=True)
 def share(
     session_file: Path = typer.Argument(..., help="Path to the trace/session JSON file to share"),
     share_url: str | None = typer.Option(
@@ -1101,6 +1112,9 @@ def safety(
             padding=(1, 2),
         )
     )
+
+
+protect_app.command(name="check")(safety)
 
 
 def _local_policy_verdict(tool: ToolCallData, risk_level: RiskLevel) -> CombinedVerdict | None:
@@ -1979,7 +1993,7 @@ def compare(
 # ---------------------------------------------
 
 
-@app.command(name="check-env")
+@app.command(name="check-env", hidden=True)
 def verify_env() -> None:
     """[bold]Verify[/bold] local developer environment variables and dependencies."""
     from panoptis.cli.verify_env import verify_environment
@@ -2032,6 +2046,9 @@ def redteam(
             f"\n[red]⚠ {len(report.bypassed)} attack(s) bypassed defenses[/red] "
             "— review the safety detectors for these vectors."
         )
+
+
+protect_app.command(name="redteam")(redteam)
 
 
 # ─────────────────────────────────────────────
@@ -2107,7 +2124,7 @@ def _ensure_premium(feature: str):
     raise typer.Exit(1)
 
 
-@app.command()
+@app.command(hidden=True)
 def upgrade(
     activate: str | None = typer.Option(
         None,
@@ -2543,7 +2560,7 @@ compliance_app = typer.Typer(
     help="Compliance audit log export and reporting.",
     no_args_is_help=True,
 )
-app.add_typer(compliance_app)
+app.add_typer(compliance_app, hidden=True)
 
 
 @compliance_app.command(name="export-csv")
@@ -2790,6 +2807,9 @@ def export_csv(
 # v3 commands (observe, inspect, provenance, compare, …) — registered last so they are the
 # canonical names; the v0.2 'compare' lives under 'panoptis legacy compare'.
 _register_v3(app)
+
+protect_app.add_typer(compliance_app, name="compliance")
+protect_app.add_typer(evidence_app, name="evidence")
 
 
 if __name__ == "__main__":

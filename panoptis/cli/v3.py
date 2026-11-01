@@ -1134,10 +1134,12 @@ V3_COMMANDS = [
 
 def register(app: typer.Typer) -> None:
     for fn in V3_COMMANDS:
+        name = fn.__name__.rstrip("_")
+        is_visible = name in ("inspect", "replay")
         settings = (
             {"ignore_unknown_options": True, "allow_interspersed_args": False}
             if fn is observe
             else None
         )
-        app.command(name=fn.__name__.rstrip("_"), context_settings=settings)(fn)
-    app.add_typer(evidence_app)
+        app.command(name=name, context_settings=settings, hidden=not is_visible)(fn)
+    app.add_typer(evidence_app, hidden=True)
