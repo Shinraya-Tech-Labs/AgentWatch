@@ -104,3 +104,61 @@ def test_async_path_matches_the_sync_contract():
     with pytest.raises(ActionBlocked):
         asyncio.run(aenforce_call(ProtectionPipeline(), action(command="rm -rf /"), counted))
     assert calls == []
+
+
+def test_action_identity_reaches_the_evidence_record(ledger):
+    p = ProtectionPipeline(ledger=ledger)
+    a = ToolAction(
+        agent_id="coder",
+        session_id="s1",
+        tool="bash",
+        arguments={"command": "ls"},
+        tenant_id="acme",
+        trace_id="trace-7",
+        parent_call_id="act-parent",
+    )
+    enforce_call(p, a, lambda args: "ok")
+    acme = type(ledger)(ledger.store, tenant_id="acme")
+    rows = acme.query(("protect.decision",))
+    assert len(rows) == 1
+    declared = rows[0]["declared"]
+    assert (
+        declared["call_id"] == a.call_id
+        and declared["trace_id"] == "trace-7"
+        and declared["parent_call_id"] == "act-parent"
+    )
+    assert rows[0]["payload"]["action"]["tenant_id"] == "acme"
+    assert rows[0]["payload"]["policy_version"] is None  # no RBAC policy configured in this test
+    assert ledger.query(("protect.decision",)) == [], "nothing recorded under the default tenant"
+
+
+def test_same_session_id_in_two_tenants_is_two_sessions():
+    p = ProtectionPipeline()
+    a = ToolAction(
+        agent_id="alice-bot",
+        session_id="shared",
+        tool="bash",
+        arguments={"command": "ls"},
+        tenant_id="t1",
+    )
+    b = ToolAction(
+        agent_id="bob-bot",
+        session_id="shared",
+        tool="bash",
+        arguments={"command": "ls"},
+        tenant_id="t2",
+    )
+    assert enforce_call(p, a, lambda args: "a") == "a"
+    assert enforce_call(p, b, lambda args: "b") == "b", (
+        "a session id in another tenant must not be 'owned' by t1's agent"
+    )
+    intruder = ToolAction(
+        agent_id="bob-bot",
+        session_id="shared",
+        tool="bash",
+        arguments={"command": "ls"},
+        tenant_id="t1",
+    )
+    with pytest.raises(ActionBlocked) as exc:
+        enforce_call(p, intruder, lambda args: "x")
+    assert exc.value.decision.findings[0].code == "SESSION_AGENT_MISMATCH"

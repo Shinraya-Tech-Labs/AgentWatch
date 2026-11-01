@@ -110,6 +110,14 @@ class ToolAction:
     source: str = "sdk"  # sdk | mcp-stdio | mcp-http | adapter:<name> | cli
     call_id: str = field(default_factory=lambda: f"act-{uuid.uuid4().hex[:16]}")
     proposed_at: float = field(default_factory=time.time)
+    tenant_id: str = "default"  # from the authenticated principal, never from the agent
+    trace_id: str | None = None  # the caller's trace (OTel trace id, run id, ...)
+    parent_call_id: str | None = None  # the call that triggered this one (nested tools)
+
+    @property
+    def scope(self) -> str:
+        """Key for per-session state: sessions of different tenants never share it."""
+        return f"{self.tenant_id}/{self.session_id}"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -122,6 +130,9 @@ class ToolAction:
             "reasoning": self.reasoning,
             "source": self.source,
             "proposed_at": self.proposed_at,
+            "tenant_id": self.tenant_id,
+            "trace_id": self.trace_id,
+            "parent_call_id": self.parent_call_id,
         }
 
 

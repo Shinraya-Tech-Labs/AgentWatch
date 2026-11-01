@@ -85,6 +85,7 @@ class ProtectionConfig:
 class SessionInfo:
     session_id: str
     agent_id: str
+    tenant_id: str = "default"
     objective: str | None = None
     started_at: float = field(default_factory=time.time)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -92,6 +93,10 @@ class SessionInfo:
     blocked: int = 0
     escalated: int = 0
     loops: int = 0
+
+    @property
+    def scope(self) -> str:
+        return f"{self.tenant_id}/{self.session_id}"
 
 
 class Telemetry:
@@ -187,16 +192,20 @@ class ProtectionPipeline:
         *,
         objective: str | None = None,
         metadata: dict[str, Any] | None = None,
+        tenant_id: str = "default",
     ) -> SessionInfo:
+        scope = f"{tenant_id}/{session_id}"
         with self._lock:
-            existing = self.sessions.get(session_id)
+            existing = self.sessions.get(scope)
             if existing and existing.agent_id != agent_id and self.config.bind_sessions:
                 raise ValueError(f"session {session_id!r} belongs to agent {existing.agent_id!r}")
-            info = existing or SessionInfo(session_id=session_id, agent_id=agent_id)
+            info = existing or SessionInfo(
+                session_id=session_id, agent_id=agent_id, tenant_id=tenant_id
+            )
             if objective:
                 info.objective = objective
             info.metadata.update(metadata or {})
-            self.sessions[session_id] = info
+            self.sessions[scope] = info
         self._record(
             KIND_AGENT,
             {
@@ -210,17 +219,18 @@ class ProtectionPipeline:
         )
         return info
 
-    def set_objective(self, session_id: str, objective: str) -> None:
+    def set_objective(self, session_id: str, objective: str, *, tenant_id: str = "default") -> None:
+        scope = f"{tenant_id}/{session_id}"
         with self._lock:
-            if session_id in self.sessions:
-                self.sessions[session_id].objective = objective
+            if scope in self.sessions:
+                self.sessions[scope].objective = objective
 
-    def breaker(self, session_id: str) -> CircuitBreaker:
+    def breaker(self, scope: str) -> CircuitBreaker:
         with self._lock:
-            b = self._breakers.get(session_id)
+            b = self._breakers.get(scope)
             if b is None:
                 b = CircuitBreaker(
-                    session_id,
+                    scope,
                     CircuitThresholds(
                         max_total_tokens=0,
                         max_consecutive_errors=self.config.breaker_consecutive_errors,
@@ -233,7 +243,7 @@ class ProtectionPipeline:
                         cooldown_seconds=self.config.breaker_cooldown_s,
                     ),
                 )
-                self._breakers[session_id] = b
+                self._breakers[scope] = b
             return b
 
     # ── decision ───────────────────────────────────────────────────────────────────
@@ -293,7 +303,7 @@ class ProtectionPipeline:
                 findings += timed(
                     "loop",
                     lambda: self.loops.check(
-                        action.session_id, action.call_id, action.tool, action.arguments
+                        action.scope, action.call_id, action.tool, action.arguments
                     ),
                 )
                 findings += timed(
@@ -342,7 +352,7 @@ class ProtectionPipeline:
 
     def _session_for(self, action: ToolAction) -> SessionInfo | None:
         with self._lock:
-            return self.sessions.get(action.session_id)
+            return self.sessions.get(action.scope)
 
     def _identity(self, action: ToolAction) -> list[Finding]:
         out: list[Finding] = []
@@ -411,10 +421,11 @@ class ProtectionPipeline:
                         Verdict.BLOCK,
                     )
                 ]
-            s = self.sessions.get(action.session_id)
+            s = self.sessions.get(action.scope)
             if s is None:
-                self.sessions[action.session_id] = SessionInfo(
+                self.sessions[action.scope] = SessionInfo(
                     session_id=action.session_id,
+                    tenant_id=action.tenant_id,
                     agent_id=action.agent_id,
                     objective=action.objective,
                 )
@@ -473,12 +484,12 @@ class ProtectionPipeline:
                     Verdict.BLOCK,
                 )
             ]
-        b = self.breaker(action.session_id)
+        b = self.breaker(action.scope)
         if b.state is CircuitState.OPEN:
             # let an elapsed cooldown move the breaker to HALF_OPEN (this call is the probe)
             b.observe(
                 AgentEvent(
-                    session_id=action.session_id,
+                    session_id=action.scope,
                     agent_id=action.agent_id,
                     framework=AgentFramework.CUSTOM,
                     event_type=EventType.TOOL_CALL,
@@ -590,17 +601,17 @@ class ProtectionPipeline:
             and f.code != "CIRCUIT_OPEN"
         ]
         with self._lock:
-            s = self.sessions.get(a.session_id)
+            s = self.sessions.get(a.scope)
             if s is not None and s.agent_id == a.agent_id:
                 s.decisions += 1
                 s.blocked += decision.verdict is Verdict.BLOCK
                 s.escalated += any(f.recommends is Verdict.ESCALATE_HITL for f in decision.findings)
                 s.loops += bool(loop_findings)
             if loop_findings:
-                n = self._loop_hits.get(a.session_id, 0) + 1
-                self._loop_hits[a.session_id] = n
+                n = self._loop_hits.get(a.scope, 0) + 1
+                self._loop_hits[a.scope] = n
                 if n >= self.config.trip_breaker_after_loops:
-                    self.breaker(a.session_id).trip(f"loop:{loop_findings[0].code}")
+                    self.breaker(a.scope).trip(f"loop:{loop_findings[0].code}")
         if not decision.allowed:
             self.loops.record_result(a.call_id, success=False, output={"blocked": decision.reason})
         if decision.allowed and not self.config.record_allowed:
@@ -617,7 +628,10 @@ class ProtectionPipeline:
                 "session_id": a.session_id,
                 "tool": a.tool,
                 "verdict": decision.verdict.value,
+                "trace_id": a.trace_id,
+                "parent_call_id": a.parent_call_id,
             },
+            tenant_id=a.tenant_id,
         )
         self.telemetry.emit(_summary(decision))
 
@@ -671,7 +685,9 @@ class ProtectionPipeline:
                     "agent_id": action.agent_id,
                     "session_id": action.session_id,
                     "tool": action.tool,
+                    "trace_id": action.trace_id,
                 },
+                tenant_id=action.tenant_id,
             )
         self.telemetry.emit(
             {
@@ -689,10 +705,10 @@ class ProtectionPipeline:
 
     def _finish(self, action: ToolAction, *, success: bool, result: Any) -> None:
         self.loops.record_result(action.call_id, success=success, output=result)
-        b = self.breaker(action.session_id)
+        b = self.breaker(action.scope)
         b.observe(
             AgentEvent(
-                session_id=action.session_id,
+                session_id=action.scope,
                 agent_id=action.agent_id,
                 framework=AgentFramework.CUSTOM,
                 event_type=EventType.TOOL_RESULT if success else EventType.TOOL_ERROR,
@@ -837,11 +853,18 @@ class ProtectionPipeline:
         return decision
 
     # ── evidence ───────────────────────────────────────────────────────────────────
-    def _record(self, kind: str, payload: dict[str, Any], declared: dict[str, Any]) -> None:
+    def _record(
+        self,
+        kind: str,
+        payload: dict[str, Any],
+        declared: dict[str, Any],
+        *,
+        tenant_id: str | None = None,
+    ) -> None:
         if self.ledger is None:
             return
         try:
-            self.ledger.record(kind, payload, declared)
+            self.ledger.record(kind, payload, declared, tenant_id=tenant_id)
         except Exception:  # noqa: BLE001
             # The decision already stands; losing its evidence record is reported, not hidden.
             logger.exception("failed to record %s in the protect ledger", kind)
@@ -852,8 +875,8 @@ class ProtectionPipeline:
             sessions = [
                 vars(s)
                 | {
-                    "breaker": self._breakers[s.session_id].status()["state"]
-                    if s.session_id in self._breakers
+                    "breaker": self._breakers[s.scope].status()["state"]
+                    if s.scope in self._breakers
                     else "closed"
                 }
                 for s in self.sessions.values()

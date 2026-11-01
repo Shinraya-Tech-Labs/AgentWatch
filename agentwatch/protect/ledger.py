@@ -76,7 +76,12 @@ class ProtectLedger:
 
     # ── write ──────────────────────────────────────────────────────────────────────
     def record(
-        self, kind: str, payload: dict[str, Any], declared: dict[str, str | None] | None = None
+        self,
+        kind: str,
+        payload: dict[str, Any],
+        declared: dict[str, str | None] | None = None,
+        *,
+        tenant_id: str | None = None,
     ) -> str | None:
         ids = {k: str(v) for k, v in (declared or {}).items() if v is not None}
         draft = ObservationDraft(
@@ -87,7 +92,7 @@ class ProtectLedger:
             observed_at=datetime.now(UTC),
             clock=ClockInfo(),
             declared_ids=ids,
-            tenant_id=self.tenant_id,
+            tenant_id=tenant_id or self.tenant_id,
         )
         with self._lock:
             res = self.store.append([draft])
