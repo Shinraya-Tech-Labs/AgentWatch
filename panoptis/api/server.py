@@ -9,6 +9,7 @@ import asyncio
 import contextvars
 import functools
 import hmac
+import json
 import logging
 import os
 import re
@@ -35,7 +36,7 @@ from fastapi.exception_handlers import http_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import generate_latest
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
 from panoptis._version import __version__
@@ -442,6 +443,24 @@ def _require_api_key(
         )
 
 
+def _is_operator_key(x_api_key: str | None) -> bool:
+    admin = os.environ.get("AGENTWATCH_ADMIN_KEY")
+    return bool(
+        admin
+        and x_api_key
+        and hmac.compare_digest(x_api_key.encode("utf-8"), admin.encode("utf-8"))
+    )
+
+
+def _require_api_key_or_operator(
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+) -> None:
+    """A tenant key, or (cloud mode) the operator credential."""
+    if _CLOUD_MODE and _is_operator_key(x_api_key):
+        return
+    _require_api_key(x_api_key)
+
+
 def _require_operator(
     x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
 ) -> None:
@@ -588,11 +607,35 @@ class SimulateRequest(BaseModel):
     notes: str = ""
 
 
+SAFETY_CHECK_MAX_COMMAND = int(os.getenv("AGENTWATCH_SAFETY_CHECK_MAX_COMMAND", "8192"))
+SAFETY_CHECK_MAX_ARGS_BYTES = int(os.getenv("AGENTWATCH_SAFETY_CHECK_MAX_ARGS_BYTES", "16384"))
+
+
+def _json_depth(value: Any, depth: int = 0) -> int:
+    if depth > 32:
+        return depth
+    if isinstance(value, dict):
+        return max((_json_depth(v, depth + 1) for v in value.values()), default=depth + 1)
+    if isinstance(value, list):
+        return max((_json_depth(v, depth + 1) for v in value), default=depth + 1)
+    return depth
+
+
 class SafetyCheckRequest(BaseModel):
-    command: str = Field(min_length=1)
-    tool_name: str = "bash"
+    # Bounded: the input is matched against every policy regex (including custom ones),
+    # so its size bounds the work an authenticated caller can make the server do.
+    command: str = Field(min_length=1, max_length=SAFETY_CHECK_MAX_COMMAND)
+    tool_name: str = Field("bash", min_length=1, max_length=128)
     arguments: dict[str, Any] = Field(default_factory=dict)
-    affected_resources: list[str] = Field(default_factory=list)
+    affected_resources: list[str] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def _bounded_arguments(self) -> SafetyCheckRequest:
+        if len(json.dumps(self.arguments, default=str)) > SAFETY_CHECK_MAX_ARGS_BYTES:
+            raise ValueError(f"arguments exceed {SAFETY_CHECK_MAX_ARGS_BYTES} bytes")
+        if _json_depth(self.arguments) > 8:
+            raise ValueError("arguments are nested deeper than 8 levels")
+        return self
 
 
 class EntitlementUsageReport(BaseModel):
@@ -1477,8 +1520,18 @@ async def get_blocked_events(
 @app.post("/api/v1/safety/check", response_model=SafetyCheckResponse)
 async def check_safety_command(
     request: SafetyCheckRequest,
-    _auth: None = Depends(_require_api_key),
+    http_request: Request,
+    _auth: None = Depends(_require_api_key_or_operator),
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
 ) -> SafetyCheckResponse:
+    """Dry-run a command against the safety policy (authenticated, rate limited).
+
+    The rule-by-rule ``threat_path`` and custom-rule names describe the deployment's
+    policy, so they go only to the policy's owner: the self-hosted key holder or the cloud
+    operator. A cloud tenant gets the decision and risk level; custom rules are redacted.
+    """
+    _limiter.check(_rate_limit_key(http_request, "w"), RATE_WRITE, http_request)
+    owner = not _CLOUD_MODE or _is_operator_key(x_api_key)
     cmd = request.command.strip()
     if not cmd:
         raise HTTPException(status_code=400, detail="command must not be empty")
@@ -1535,6 +1588,15 @@ async def check_safety_command(
         )
 
     safety = checked.safety
+    reasons, matched = list(safety.reasons), list(safety.matched_policies)
+    if not owner:
+        custom = {p.policy_id for p in _safety_engine.policy.custom_patterns}
+        custom_reasons = {p.reason for p in _safety_engine.policy.custom_patterns}
+        matched = [m if m not in custom else "custom-policy" for m in matched]
+        reasons = [
+            r if r not in custom_reasons else "matched a custom policy rule" for r in reasons
+        ]
+        threat_path = []
     if safety.blocked:
         decision = "blocked"
     elif safety.requires_approval:
@@ -1549,8 +1611,8 @@ async def check_safety_command(
         decision=decision,
         risk_level=safety.risk_level.value,
         risk_score=safety.risk_score,
-        reasons=safety.reasons,
-        matched_policies=safety.matched_policies,
+        reasons=reasons,
+        matched_policies=matched,
         requires_approval=safety.requires_approval,
         threat_path=threat_path,
     )
