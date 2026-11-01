@@ -370,28 +370,26 @@ class GenericAdapter:
                         tool_call=tool_call,
                         metadata=dict(self._session_metadata),
                     )
+                    # Decide first; any failure to reach a decision blocks (fail closed).
                     try:
                         checked = await self._safety_engine.check_event(safety_event)
-                        # Publish the checked event — it carries the full safety
-                        # metadata (risk_level, blocked status, reasons). Scrub
-                        # PII/PHI only now, after the decision, before persist.
-                        # Await so the HTTP forwarder completes before we proceed.
-                        await self.bus.publish(self._redact_event(checked))
-                        if checked.is_blocked:
-                            reasons = checked.safety.reasons if checked.safety else []
-                            reason_str = "; ".join(reasons) if reasons else "safety policy"
-                            raise AgentWatchBlockedError(
-                                f"Tool call '{method_name}' blocked by safety engine: {reason_str}",
-                                tool_name=method_name,
-                                reasons=reasons,
-                            )
-                    except AgentWatchBlockedError:
-                        raise  # propagate intentional blocks
                     except Exception as exc:  # noqa: BLE001
-                        logger.debug(
-                            "Safety check failed (suppressed) for %s: %s",
-                            method_name,
-                            exc,
+                        raise self._enforcement_failure(method_name, exc) from exc
+                    # Publish the checked event — it carries the full safety
+                    # metadata (risk_level, blocked status, reasons). Scrub
+                    # PII/PHI only now, after the decision, before persist.
+                    # Await so the HTTP forwarder completes before we proceed.
+                    try:
+                        await self.bus.publish(self._redact_event(checked))
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("Could not publish the safety event for %s: %s", method_name, exc)
+                    if checked.is_blocked:
+                        reasons = checked.safety.reasons if checked.safety else []
+                        reason_str = "; ".join(reasons) if reasons else "safety policy"
+                        raise AgentWatchBlockedError(
+                            f"Tool call '{method_name}' blocked by safety engine: {reason_str}",
+                            tool_name=method_name,
+                            reasons=reasons,
                         )
 
                 # Use await so HTTP forwarding completes before the caller returns.

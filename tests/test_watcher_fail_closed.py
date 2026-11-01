@@ -6,6 +6,7 @@ valid decision, the counter must stay at zero; allowed calls must run exactly on
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -57,4 +58,32 @@ def test_sync_telemetry_failure_does_not_block_an_allowed_call():
     agent = CountingAgent()
     GenericAdapter(agent, event_bus=BrokenBus()).attach()
     assert agent.run("echo hello") == "ran echo hello"
+    assert agent.calls == 1
+
+
+class AsyncCountingAgent:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def arun(self, command: str) -> str:
+        self.calls += 1
+        return f"ran {command}"
+
+
+class AsyncRaisingEngine(SafetyEngine):
+    async def check_event(self, event: Any) -> Any:
+        raise RuntimeError("policy backend unavailable")
+
+
+def test_async_safety_check_exception_blocks_and_tool_never_runs():
+    agent = _attach(AsyncCountingAgent(), AsyncRaisingEngine())
+    with pytest.raises(AgentWatchBlockedError) as exc:
+        asyncio.run(agent.arun("echo hello"))
+    assert agent.calls == 0
+    assert exc.value.reasons == ["safety_check_failed: RuntimeError"]
+
+
+def test_async_allowed_call_runs_exactly_once():
+    agent = _attach(AsyncCountingAgent())
+    assert asyncio.run(agent.arun("echo hello")) == "ran echo hello"
     assert agent.calls == 1
