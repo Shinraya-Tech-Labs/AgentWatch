@@ -162,3 +162,22 @@ def test_same_session_id_in_two_tenants_is_two_sessions():
     with pytest.raises(ActionBlocked) as exc:
         enforce_call(p, intruder, lambda args: "x")
     assert exc.value.decision.findings[0].code == "SESSION_AGENT_MISMATCH"
+
+
+def test_execution_is_recorded_once_per_allowed_call_and_never_for_blocked(ledger):
+    p = ProtectionPipeline(ledger=ledger)
+    enforce_call(p, action(command="ls"), lambda a: "ok")
+    with pytest.raises(ActionBlocked):
+        enforce_call(p, action(command="rm -rf /"), lambda a: "never")
+
+    def failing(args: dict[str, Any]) -> str:
+        raise ValueError("bad input")
+
+    with pytest.raises(ValueError):
+        enforce_call(p, action(command="cat missing.txt"), failing)
+    rows = sorted(ledger.query(("protect.execution",)), key=lambda r: r["obs_id"])
+    assert [r["payload"]["outcome"] for r in rows] == ["success", "failure"]
+    assert rows[1]["payload"]["error"] == "ValueError"
+    assert all(r["payload"]["duration_ms"] is not None for r in rows)
+    decisions = ledger.query(("protect.decision",))
+    assert len(decisions) == 3  # every decision, allowed or not, is recorded once

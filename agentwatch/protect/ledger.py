@@ -36,6 +36,7 @@ SENSOR_VERSION = "1"
 
 KIND_DECISION = "protect.decision"
 KIND_OUTPUT = "protect.output"
+KIND_EXECUTION = "protect.execution"  # the tool actually ran: outcome, duration
 KIND_APPROVAL_REQUEST = "protect.approval.request"
 KIND_APPROVAL_DECISION = "protect.approval.decision"
 KIND_CONTROL = "protect.control"  # kill switch, agent/session suspension
@@ -46,6 +47,7 @@ KIND_GATEWAY = "protect.gateway"  # MCP gateway lifecycle and protocol errors
 ALL_KINDS = (
     KIND_DECISION,
     KIND_OUTPUT,
+    KIND_EXECUTION,
     KIND_APPROVAL_REQUEST,
     KIND_APPROVAL_DECISION,
     KIND_CONTROL,

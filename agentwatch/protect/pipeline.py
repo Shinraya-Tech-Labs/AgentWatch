@@ -41,7 +41,13 @@ from agentwatch.core.schema import AgentEvent, AgentFramework, EventType, Execut
 from agentwatch.protect.approvals import ApprovalBroker
 from agentwatch.protect.control import ControlState
 from agentwatch.protect.intent import GroundingConfig, IntentGrounder
-from agentwatch.protect.ledger import KIND_AGENT, KIND_DECISION, KIND_OUTPUT, ProtectLedger
+from agentwatch.protect.ledger import (
+    KIND_AGENT,
+    KIND_DECISION,
+    KIND_EXECUTION,
+    KIND_OUTPUT,
+    ProtectLedger,
+)
 from agentwatch.protect.loops import LoopConfig, LoopDetector
 from agentwatch.protect.model import (
     ActionBlocked,
@@ -703,7 +709,41 @@ class ProtectionPipeline:
         )
         return inspection
 
-    def _finish(self, action: ToolAction, *, success: bool, result: Any) -> None:
+    def _finish(
+        self,
+        action: ToolAction,
+        *,
+        success: bool,
+        result: Any,
+        started: float | None = None,
+        error: BaseException | None = None,
+        mutated: bool = False,
+    ) -> None:
+        duration_ms = (
+            round((time.perf_counter() - started) * 1000, 3) if started is not None else None
+        )
+        error = getattr(error, "original", error)  # the tool's own exception, not a wrapper
+        self._record(
+            KIND_EXECUTION,
+            {
+                "call_id": action.call_id,
+                "tool": action.tool,
+                "agent_id": action.agent_id,
+                "session_id": action.session_id,
+                "outcome": "success" if success else "failure",
+                "error": type(error).__name__ if error is not None else None,
+                "duration_ms": duration_ms,
+                "arguments_mutated": mutated,
+            },
+            {
+                "call_id": action.call_id,
+                "agent_id": action.agent_id,
+                "session_id": action.session_id,
+                "tool": action.tool,
+                "trace_id": action.trace_id,
+            },
+            tenant_id=action.tenant_id,
+        )
         self.loops.record_result(action.call_id, success=success, output=result)
         b = self.breaker(action.scope)
         b.observe(
@@ -738,11 +778,25 @@ class ProtectionPipeline:
             else action.arguments
         )
         try:
+            started = time.perf_counter()
             result = call(args) if call is not None else fn(**args)
         except Exception as exc:
-            self._finish(action, success=False, result=repr(exc))
+            self._finish(
+                action,
+                success=False,
+                result=repr(exc),
+                started=started,
+                error=exc,
+                mutated=decision.mutated_arguments is not None,
+            )
             raise
-        self._finish(action, success=_looks_successful(result), result=result)
+        self._finish(
+            action,
+            success=_looks_successful(result),
+            result=result,
+            started=started,
+            mutated=decision.mutated_arguments is not None,
+        )
         if not self.config.output_inspection:
             return result
         return self.inspect_output(action, result).sanitized_output
@@ -764,11 +818,25 @@ class ProtectionPipeline:
             else action.arguments
         )
         try:
+            started = time.perf_counter()
             result = await (call(args) if call is not None else fn(**args))
         except Exception as exc:
-            self._finish(action, success=False, result=repr(exc))
+            self._finish(
+                action,
+                success=False,
+                result=repr(exc),
+                started=started,
+                error=exc,
+                mutated=decision.mutated_arguments is not None,
+            )
             raise
-        self._finish(action, success=_looks_successful(result), result=result)
+        self._finish(
+            action,
+            success=_looks_successful(result),
+            result=result,
+            started=started,
+            mutated=decision.mutated_arguments is not None,
+        )
         if not self.config.output_inspection:
             return result
         return (await asyncio.to_thread(self.inspect_output, action, result)).sanitized_output
