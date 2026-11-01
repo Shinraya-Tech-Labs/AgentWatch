@@ -430,7 +430,7 @@ command: panoptis server start
     help: [bold]Start[/bold] the AgentWatch API server.
     short_help: 
     param dry_run kind=TyperOption type=boolean required=False default=False flags=--dry-run help='Preview what would happen without starting the server'
-    param host kind=TyperOption type=str required=False default='0.0.0.0' flags=--host help=''
+    param host kind=TyperOption type=str required=False default='127.0.0.1' flags=--host help=''
     param port kind=TyperOption type=int required=False default=8000 flags=--port help=''
     param reload kind=TyperOption type=boolean required=False default=False flags=--reload help=''
 

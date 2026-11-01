@@ -1440,7 +1440,8 @@ def _print_eval_report(report: EvalReport) -> None:
 
 @server_app.command(name="start")
 def serve(
-    host: str = typer.Option("0.0." + "0.0", "--host"),
+    # loopback by default (TO-009): exposing the API on other interfaces is a deliberate --host
+    host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(8000, "--port"),
     reload: bool = typer.Option(False, "--reload"),
     dry_run: bool = typer.Option(
