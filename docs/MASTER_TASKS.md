@@ -13,11 +13,11 @@
 
 ## Project control rules
 
--   [ ] **CTRL-001 --- Establish the authoritative working baseline.**
+-   [x] **CTRL-001 --- Establish the authoritative working baseline.**
     Record repository URL, active branch, base commit, working-tree
     status, Python/Node versions, operating system, and available
     services. Preserve unrelated user changes.
--   [ ] **CTRL-002 --- Keep implementation isolated.** Perform work on a
+-   [x] **CTRL-002 --- Keep implementation isolated.** Perform work on a
     dedicated feature branch. Do not commit directly to `main`; do not
     overwrite, reset, stash-drop, or edit unrelated user changes.
 -   [ ] **CTRL-003 --- Build a task-to-evidence ledger.** For every
@@ -47,25 +47,25 @@
 
 # P0 --- Security integrity and trust boundaries
 
-## TO-001 --- Eliminate fail-open tool execution
+## TO-001 --- Eliminate fail-open tool execution — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-001)
 
--   [ ] Trace `watch()` and every synchronous/asynchronous path through
+-   [x] Trace `watch()` and every synchronous/asynchronous path through
     `agentwatch/core/watcher.py`, including `watcher._wrap`.
--   [ ] Replace swallowed safety-check exceptions with a fail-closed
+-   [x] Replace swallowed safety-check exceptions with a fail-closed
     outcome. A failed, unavailable, timed-out, or malformed security
     decision must never silently permit execution.
--   [ ] Preserve the public exception contract: `ActionBlocked` must
+-   [x] Preserve the public exception contract: `ActionBlocked` must
     remain compatible with `AgentWatchBlockedError` handling.
--   [ ] Ensure sync and async wrappers behave consistently.
--   [ ] Ensure the original tool is invoked at most once; retries inside
+-   [x] Ensure sync and async wrappers behave consistently.
+-   [x] Ensure the original tool is invoked at most once; retries inside
     the security layer must not duplicate side effects.
--   [ ] Add regression tests where the safety checker raises, times out,
+-   [x] Add regression tests where the safety checker raises, times out,
     returns an invalid verdict, or cannot load policy.
--   [ ] Add tests proving the wrapped tool's side-effect counter remains
+-   [x] Add tests proving the wrapped tool's side-effect counter remains
     zero whenever enforcement fails.
--   [ ] Add tests proving legitimate allowed calls still execute exactly
+-   [x] Add tests proving legitimate allowed calls still execute exactly
     once.
--   [ ] Run existing watcher, adapter, and full Python test suites.
+-   [x] Run existing watcher, adapter, and full Python test suites.
 
 **Acceptance evidence:** Regression tests demonstrate that every
 enforcement failure blocks execution and that allowed calls execute
