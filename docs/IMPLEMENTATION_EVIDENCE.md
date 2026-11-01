@@ -41,7 +41,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-006 tenant/key persistence | DONE | [TO-006](#to-006) |
 | TO-007 DB fallback | DONE | [TO-007](#to-007) |
 | TO-008 safety-check endpoint | DONE | [TO-008](#to-008) |
-| TO-009 … TO-040 | NOT STARTED unless listed below | — |
+| TO-009 service exposure | DONE | [TO-009](#to-009) |
+| TO-010 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -463,3 +464,65 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 - `pytest tests/`: 2482 passed, 8 skipped, 2 failed (the pre-existing `test_cli_animator` failures)
 
 **Commits:** `6d6e9ff` `ec21f6b` `d32bd2e`, plus this ledger commit.
+
+### TO-009
+
+**Status:** DONE. Guide: [`docs/DEPLOYMENT_SECURITY.md`](DEPLOYMENT_SECURITY.md).
+
+**Findings:**
+
+- **Compose:** Postgres (fixed password `panoptis`), unauthenticated Redis, the API, the dashboard and Jaeger were all published on `0.0.0.0`.
+- **Helm:**
+  - `values.yaml` held `postgres.password: panoptis`, rendered in plain text into the Deployment spec;
+  - the chart never set `AGENTWATCH_API_KEY`, which production requires, so its pods could not start;
+  - there was no pod security context.
+
+**Changes:**
+
+- `docker-compose.yml`:
+  - `POSTGRES_PASSWORD` and `REDIS_PASSWORD` are required;
+  - Redis runs with `--requirepass`, and its healthcheck uses `REDISCLI_AUTH`;
+  - every published port is on `127.0.0.1`, with `AGENTWATCH_BIND_HOST` for the API and dashboard;
+  - all containers run with `no-new-privileges`; the app containers have `cap_drop: [ALL]`.
+- `scripts/check_deploy_security.py` (new): the Compose exposure and credential checker. CI runs it before the smoke test, which now generates random passwords.
+- `scripts/deploy_smoke_probe.py` (new): probes a running stack.
+- `helm/`:
+  - credentials only through a **required** `secrets.existingSecret` (`envFrom`), with no password in values;
+  - pod security: `runAsNonRoot` (10001), `RuntimeDefault` seccomp, no privilege escalation, all capabilities dropped.
+- `.env.example` and `docs/DEPLOYMENT_SECURITY.md`.
+
+**Tests:** `tests/test_deploy_security.py` (13):
+
+- the old layout is rejected (exposed ports, default and missing passwords); the hardened layout passes;
+- data services are never allowed public, and an app port needs `--allow-public`;
+- weak Postgres passwords (4 cases), a short Redis password, privileged containers;
+- the repository's Compose file passes, and Compose refuses to render without the secrets;
+- config JSON input;
+- the Helm chart requires a Secret, renders with it, carries no password and sets the security context;
+- the Helm values have no default password.
+
+**Deployment smoke test (real stack):** the full stack was built and started with `docker compose -p aw-smoke` (random passwords; an override moved only the host port *numbers*, because the owner's own stack holds the defaults).
+
+```text
+python scripts/deploy_smoke_probe.py smoke.env --project aw-smoke ...   (output, credentials masked)
+PASS  redis rejects unauthenticated PING  -NOAUTH Authentication required.
+PASS  redis accepts the configured password
+PASS  redis rejects a default password  -WRONGPASS
+PASS  postgres rejects default password  FATAL: password authentication failed
+PASS  postgres accepts the configured password
+PASS  port 55433/56379/58000/53000 unreachable on LAN address 192.168.1.5   (4 checks)
+PASS  api healthy / rejects requests without the key / accepts the key; dashboard serves
+PASS  api and frontend run as uid 10001, CapEff 0000000000000000, no-new-privileges   (6 checks)
+19/19 checks passed
+```
+
+- **Validation tools:** `helm lint` passes; `helm template` without the Secret fails with the `required` message.
+- **Environment:** installed Helm 4.2.3 (winget) for these checks.
+
+**⚠ Owner action needed (found during this task):**
+
+- A local Compose stack named `agentwatch`, created from the *old* compose file, is running on this machine. Its Postgres, Redis, API and dashboard are published on `0.0.0.0`.
+- A control probe got `+PONG` from its **Redis with no password on the LAN address 192.168.1.5**: anyone on the local network can reach it.
+- It was not modified. Recreate it with the new compose file (`docker compose down`, set the passwords in `.env`, then `docker compose up -d`).
+
+**Commits:** `aa234bd` `85258de` `22376f2` `8468857`, plus this ledger commit.

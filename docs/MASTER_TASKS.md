@@ -227,23 +227,23 @@ cannot silently create an ephemeral security state.
 enumerate private policy rules or obtain tenant-specific security
 information.
 
-## TO-009 --- Secure container and service exposure
+## TO-009 --- Secure container and service exposure — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-009)
 
--   [ ] Review Compose and deployment manifests for every published port
+-   [x] Review Compose and deployment manifests for every published port
     and bind address.
--   [ ] Remove unnecessary host-wide port exposure.
--   [ ] Bind development-only services to loopback unless remote access
+-   [x] Remove unnecessary host-wide port exposure.
+-   [x] Bind development-only services to loopback unless remote access
     is explicitly required.
--   [ ] Secure Redis with authentication/ACLs and appropriate network
+-   [x] Secure Redis with authentication/ACLs and appropriate network
     isolation; do not expose unauthenticated Redis on all interfaces.
--   [ ] Remove fixed/default credentials from Postgres and other
+-   [x] Remove fixed/default credentials from Postgres and other
     services; use documented secret configuration.
--   [ ] Define production-safe network boundaries, volumes, health
+-   [x] Define production-safe network boundaries, volumes, health
     checks, and least-privilege service users.
--   [ ] Add configuration validation or security checks that detect
+-   [x] Add configuration validation or security checks that detect
     unsafe exposed services.
--   [ ] Document secure local and production deployment profiles.
--   [ ] Validate with Compose configuration inspection and a deployment
+-   [x] Document secure local and production deployment profiles.
+-   [x] Validate with Compose configuration inspection and a deployment
     smoke test.
 
 **Acceptance evidence:** Deployment checks prove Redis and database
