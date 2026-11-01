@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 import agentwatch.api.server as _server_module
+from agentwatch._version import __version__
 from agentwatch.api.server import app, reset_rate_limiter_for_tests
 
 
@@ -59,7 +60,7 @@ def test_health_healthy_db_and_redis(client, mock_db_session, mock_redis_healthy
     assert data["database"]["status"] == "ok"
     assert data["redis"]["status"] == "ok"
     assert data["database_connected"] is True
-    assert data["version"] == "0.2.0"
+    assert data["version"] == __version__
 
 
 def test_health_db_unavailable(client, mock_redis_healthy):
@@ -175,7 +176,7 @@ def test_health_check(client, mock_db_session):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
-    assert response.json()["version"] == "0.2.0"
+    assert response.json()["version"] == __version__
 
 
 def test_get_sessions_empty(client):
