@@ -6,6 +6,7 @@ FastAPI-based REST API for the observability dashboard, CLI, and integrations.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import functools
 import hmac
 import logging
@@ -223,6 +224,38 @@ def _event_to_pg(event: AgentEvent) -> dict:
     return d
 
 
+# Durable persistence state (TO-007). "not_configured": no DATABASE_URL, in-memory by
+# design. "connected": writes go to the database. "fallback": DATABASE_URL is set but
+# could not be reached and AGENTWATCH_ALLOW_MEMORY_FALLBACK=1 allowed starting anyway
+# (never in production); health then reports degraded.
+_persistence: dict[str, Any] = {"state": "not_configured", "error": None}
+
+# Write failures of the current request; handlers append to it, the route checks it.
+_write_failures: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
+    "agentwatch_write_failures", default=None
+)
+
+
+def _note_write_failure(what: str) -> None:
+    failures = _write_failures.get()
+    if failures is not None:
+        failures.append(what)
+
+
+def _require_persisted(failures: list[str]) -> None:
+    """503 when the database is configured but this request's writes did not persist."""
+    if failures:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"not persisted: database write failed ({', '.join(sorted(set(failures)))})",
+        )
+    if _persistence["state"] == "fallback":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="not persisted: the configured database is unavailable (memory fallback)",
+        )
+
+
 async def _pg_write_session(session: AgentSession, tenant_id: str | None = None) -> None:
     if _db_session_factory is None:
         return
@@ -235,7 +268,8 @@ async def _pg_write_session(session: AgentSession, tenant_id: str | None = None)
             await repo.upsert_session(data)
             await db.commit()
     except Exception:
-        logger.warning("PG session write failed", exc_info=True)
+        logger.error("PG session write failed", exc_info=True)
+        _note_write_failure("session")
 
 
 async def _pg_write_event(event: AgentEvent, tenant_id: str | None = None) -> None:
@@ -256,7 +290,8 @@ async def _pg_write_event(event: AgentEvent, tenant_id: str | None = None) -> No
                 await repo.upsert_session(session_data)
             await db.commit()
     except Exception:
-        logger.warning("PG event write failed", exc_info=True)
+        logger.error("PG event write failed", exc_info=True)
+        _note_write_failure("event")
 
 
 _collector = TraceCollector()
@@ -727,9 +762,29 @@ async def lifespan(app: FastAPI):
     if db_url:
         try:
             _db_session_factory = await init_db(db_url)
+            _persistence.update(state="connected", error=None)
             logger.info("PostgreSQL connected and tables ready")
-        except Exception:
-            logger.warning("PostgreSQL unavailable — running in-memory only", exc_info=True)
+        except Exception as exc:
+            allow = os.getenv("AGENTWATCH_ALLOW_MEMORY_FALLBACK", "").lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            if _IS_PROD or not allow:
+                # A configured database that cannot be reached must not become a silent
+                # in-memory deployment whose writes vanish on restart.
+                logger.critical("DATABASE_URL is set but the database is unavailable; not starting")
+                raise RuntimeError(
+                    "DATABASE_URL is set but the database is unavailable; refusing to start "
+                    "in memory (set AGENTWATCH_ALLOW_MEMORY_FALLBACK=1 to allow it outside production)"
+                ) from exc
+            _persistence.update(state="fallback", error=type(exc).__name__)
+            logger.error(
+                "DATABASE_URL unavailable; running in memory (AGENTWATCH_ALLOW_MEMORY_FALLBACK=1)",
+                exc_info=True,
+            )
+    else:
+        _persistence.update(state="not_configured", error=None)
     _init_default_schemas()
     bus = get_event_bus()
     bus.subscribe_fn(_collector.ingest, handler_id="api.collector")
@@ -904,7 +959,15 @@ async def health(request: Request) -> JSONResponse:
     }
     degraded = False
 
-    if _db_session_factory is None:
+    checks["persistence"] = dict(_persistence)
+    if _persistence["state"] == "fallback":
+        degraded = True
+        checks["database"] = {
+            "status": "unavailable",
+            "mode": "memory_fallback",
+            "error": "Database is Unavailable",
+        }
+    elif _db_session_factory is None:
         checks["database"] = {"status": "in_memory"}
     else:
         try:
@@ -1057,7 +1120,14 @@ async def create_session(
         raise HTTPException(status_code=409, detail="session id unavailable")
     session.metadata["tenant_id"] = tenant_id
     _collector.register_session(session)
-    await _pg_write_session(session)
+    failures: list[str] = []
+    token = _write_failures.set(failures)
+    try:
+        await _pg_write_session(session)
+    finally:
+        _write_failures.reset(token)
+    if _db_session_factory is not None or _persistence["state"] == "fallback":
+        _require_persisted(failures)
     return {"status": "registered", "session": session.model_dump(mode="json")}
 
 
@@ -1134,8 +1204,15 @@ async def ingest_event(
             valid, err = _schema_validator.validate_task_parameters(schema_key, params)
             if not valid:
                 raise HTTPException(status_code=422, detail=f"Schema validation failed: {err}")
-    await get_event_bus().publish(event)
+    failures: list[str] = []
+    token = _write_failures.set(failures)
+    try:
+        await get_event_bus().publish(event)
+    finally:
+        _write_failures.reset(token)
     _v3_tee(event, tenant_id)
+    if _db_session_factory is not None or _persistence["state"] == "fallback":
+        _require_persisted(failures)
 
     if event.agent_id and hasattr(event, "status"):
         if getattr(event, "status", None) == ExecutionStatus.FAILURE:
