@@ -15,6 +15,15 @@ See :mod:`agentwatch.protect.pipeline` for the stage order and failure behaviour
 
 from agentwatch.protect.approvals import ApprovalBroker, ApprovalOutcome, ApprovalRequest
 from agentwatch.protect.control import ControlState
+from agentwatch.protect.enforce import (
+    aenforce_call,
+    current_context,
+    enforce_call,
+    get_default_pipeline,
+    protect_tool,
+    protection_context,
+    set_default_pipeline,
+)
 from agentwatch.protect.intent import GroundingConfig, IntentGrounder, openai_compatible_verifier
 from agentwatch.protect.ledger import ProtectLedger
 from agentwatch.protect.loops import LoopConfig, LoopDetector
@@ -58,6 +67,13 @@ __all__ = [
     "ThreatAnalyzer",
     "ToolAction",
     "Verdict",
+    "aenforce_call",
+    "current_context",
+    "enforce_call",
+    "get_default_pipeline",
     "openai_compatible_verifier",
+    "protect_tool",
+    "protection_context",
+    "set_default_pipeline",
     "parse_policy",
 ]
