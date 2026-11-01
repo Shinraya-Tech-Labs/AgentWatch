@@ -6,6 +6,7 @@ for PostgreSQL persistence.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -28,6 +29,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB as _PG_JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, relationship
+
+logger = logging.getLogger(__name__)
 
 # JSONB on PostgreSQL (unchanged), JSON elsewhere: the schema also runs on SQLite
 # (local development, tests).
@@ -415,16 +418,32 @@ class Repository:
         await self._session.flush()
         return deleted
 
-    async def get_session_ids(self, where: dict[str, str]) -> list[str]:
-        """Retrieve session IDs matching a filter (e.g. agent_id=)."""
-        from sqlalchemy import select
+    @staticmethod
+    def _session_filters(where: dict[str, str]) -> list[Any] | None:
+        """SQL filters on sessions for an erasure/count query, or None if a key is unknown.
 
+        ``user_id`` is matched against the session's recorded metadata. Any other key that is
+        not a column makes the whole query match nothing: silently dropping it would widen
+        the match (e.g. to every session of the tenant).
+        """
         filters: list[Any] = []
         for k, v in where.items():
+            if k == "user_id":
+                filters.append(SessionRecord.session_metadata["user_id"].as_string() == v)
+                continue
             col = getattr(SessionRecord, k, None)
-            if col is not None:
-                filters.append(col == v)
-        if not filters:
+            if col is None:
+                logger.warning("unknown session filter %r: matching nothing", k)
+                return None
+            filters.append(col == v)
+        return filters or None
+
+    async def get_session_ids(self, where: dict[str, str]) -> list[str]:
+        """Retrieve session IDs matching a filter (e.g. agent_id=, user_id=, tenant_id=)."""
+        from sqlalchemy import select
+
+        filters = self._session_filters(where)
+        if filters is None:
             return []
         q = select(SessionRecord.session_id).where(*filters)
         result = await self._session.execute(q)
@@ -434,29 +453,38 @@ class Repository:
         """Count sessions matching a filter."""
         from sqlalchemy import func, select
 
-        filters: list[Any] = []
-        for k, v in where.items():
-            col = getattr(SessionRecord, k, None)
-            if col is not None:
-                filters.append(col == v)
-        if not filters:
+        filters = self._session_filters(where)
+        if filters is None:
             return 0
         q = select(func.count()).select_from(SessionRecord).where(*filters)
         result = await self._session.execute(q)
         return result.scalar_one()
 
     async def count_events(self, where: dict[str, str]) -> int:
-        """Count events matching a filter (e.g. agent_id=)."""
+        """Count events matching a filter; ``user_id`` counts the events of that user's sessions."""
         from sqlalchemy import func, select
 
-        filters: list[Any] = []
+        if "user_id" in where:
+            filters = self._session_filters(where)
+            if filters is None:
+                return 0
+            sessions = select(SessionRecord.session_id).where(*filters)
+            q = (
+                select(func.count())
+                .select_from(EventRecord)
+                .where(EventRecord.session_id.in_(sessions))
+            )
+            return (await self._session.execute(q)).scalar_one()
+        efilters: list[Any] = []
         for k, v in where.items():
             col = getattr(EventRecord, k, None)
-            if col is not None:
-                filters.append(col == v)
-        if not filters:
+            if col is None:
+                logger.warning("unknown event filter %r: matching nothing", k)
+                return 0
+            efilters.append(col == v)
+        if not efilters:
             return 0
-        q = select(func.count()).select_from(EventRecord).where(*filters)
+        q = select(func.count()).select_from(EventRecord).where(*efilters)
         result = await self._session.execute(q)
         return result.scalar_one()
 

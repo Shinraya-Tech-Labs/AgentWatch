@@ -169,3 +169,55 @@ async def test_api_erasure_target_is_tenant_scoped_for_every_scope(factory, monk
     assert (await counts(factory, A))["sessions"] == 0, (
         "the agent-scope erase did remove A's own session"
     )
+
+
+async def _seed_user_sessions(factory) -> None:
+    async with factory() as db:
+        for sid, user in (("u-alice-1", "alice"), ("u-alice-2", "alice"), ("u-bob", "bob")):
+            db.add(
+                SessionRecord(
+                    session_id=sid,
+                    tenant_id=A,
+                    agent_id="bot",
+                    framework="custom",
+                    status="running",
+                    session_metadata={"user_id": user},
+                )
+            )
+        db.add(
+            SessionRecord(
+                session_id="u-alice-other-tenant",
+                tenant_id=B,
+                agent_id="bot",
+                framework="custom",
+                status="running",
+                session_metadata={"user_id": "alice"},
+            )
+        )
+        await db.commit()
+
+
+async def _session_ids(factory) -> set[str]:
+    async with factory() as db:
+        return set((await db.execute(select(SessionRecord.session_id))).scalars())
+
+
+async def test_user_scope_erases_only_that_users_sessions_in_the_tenant(factory, monkeypatch):
+    from panoptis.api import server
+    from panoptis.governance.gdpr import ErasureScope
+
+    monkeypatch.setattr(server, "_db_session_factory", factory)
+    monkeypatch.setattr(server, "_CLOUD_MODE", True)
+    await _seed_user_sessions(factory)
+    target = server._SessionErasureTarget(tenant_id=A)
+    assert await target.count_matching("alice", ErasureScope.USER_ID) == 2
+    await target.erase_matching("alice", ErasureScope.USER_ID)
+    assert await _session_ids(factory) == {"u-bob", "u-alice-other-tenant"}
+
+
+async def test_unknown_filter_keys_match_nothing_instead_of_everything(factory):
+    await _seed_user_sessions(factory)
+    async with factory() as db:
+        repo = Repository(db)
+        assert await repo.get_session_ids({"tenant_id": A, "no_such_column": "x"}) == []
+        assert await repo.count_sessions({"tenant_id": A, "no_such_column": "x"}) == 0
