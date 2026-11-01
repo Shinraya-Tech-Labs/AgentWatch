@@ -232,3 +232,85 @@ def test_watch_with_protection_routes_tool_calls_through_the_pipeline(ledger):
     assert {r["payload"]["action"]["agent_id"] for r in ledger.query(("protect.decision",))} == {
         "coder"
     }
+
+
+def _escalating_pipeline(ledger, approver, timeout_s: float = 2.0):
+    from agentwatch.protect import ApprovalBroker
+
+    # git push --force is escalated (HIGH) by the threat analyser
+    return ProtectionPipeline(
+        ledger=ledger,
+        approvals=ApprovalBroker(ledger, approver=approver, timeout_s=timeout_s, poll_s=0.01),
+    )
+
+
+def test_escalated_call_runs_once_only_after_approval(ledger):
+    order: list[str] = []
+
+    def approver(req):
+        order.append("approval")
+        return True
+
+    p = _escalating_pipeline(ledger, approver)
+    assert (
+        enforce_call(
+            p,
+            action(command="git push --force origin main"),
+            lambda a: order.append("execute") or "pushed",
+        )
+        == "pushed"
+    )
+    assert order == ["approval", "execute"]
+    kinds = [
+        r["kind"] for r in ledger.query(("protect.approval.request", "protect.approval.decision"))
+    ]
+    assert sorted(kinds) == ["protect.approval.decision", "protect.approval.request"]
+
+
+def test_rejected_escalation_never_executes(ledger):
+    calls: list[Any] = []
+    p = _escalating_pipeline(ledger, lambda req: False)
+    with pytest.raises(ActionBlocked) as exc:
+        enforce_call(p, action(command="git push --force origin main"), lambda a: calls.append(a))
+    assert calls == []
+    assert any(f.code == "APPROVAL_REJECTED" for f in exc.value.decision.findings)
+
+
+def test_unanswered_escalation_times_out_and_never_executes(ledger):
+    from agentwatch.protect import ApprovalBroker, ProtectionConfig
+
+    calls: list[Any] = []
+    p = ProtectionPipeline(
+        ledger=ledger,
+        approvals=ApprovalBroker(ledger, timeout_s=0.1, poll_s=0.01),
+        config=ProtectionConfig(approval_timeout_s=0.1),
+    )
+    with pytest.raises(ActionBlocked) as exc:
+        enforce_call(p, action(command="git push --force origin main"), lambda a: calls.append(a))
+    assert calls == []
+    assert any(f.code == "APPROVAL_TIMEOUT" for f in exc.value.decision.findings)
+
+
+def test_approver_edits_are_reinspected_and_reach_the_tool(ledger):
+    from agentwatch.protect import ApprovalOutcome
+
+    received: list[dict[str, Any]] = []
+    edited = ApprovalOutcome(
+        approved=True, decided_by="alice", edited_arguments={"command": "git push origin main"}
+    )
+    p = _escalating_pipeline(ledger, lambda req: edited)
+    enforce_call(
+        p, action(command="git push --force origin main"), lambda a: received.append(a) or "ok"
+    )
+    assert received == [{"command": "git push origin main"}]
+
+    # an approver cannot turn the call into something the policy hard-blocks
+    bad = ApprovalOutcome(
+        approved=True, decided_by="mallory", edited_arguments={"command": "rm -rf /"}
+    )
+    p2 = _escalating_pipeline(ledger, lambda req: bad)
+    with pytest.raises(ActionBlocked):
+        enforce_call(
+            p2, action(command="git push --force origin main"), lambda a: received.append(a)
+        )
+    assert len(received) == 1
