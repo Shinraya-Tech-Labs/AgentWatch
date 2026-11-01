@@ -20,15 +20,25 @@ from panoptis.core.models import (  # noqa: E402
     Repository,
     SessionRecord,
     TaskRecord,
-    init_db,
 )
 
 A, B = "tenant-a", "tenant-b"
 
 
 @pytest.fixture
-async def factory(tmp_path):
-    return await init_db(f"sqlite+aiosqlite:///{(tmp_path / 'v1.db').as_posix()}")
+async def factory():
+    """A fresh in-memory database per test (no files: on Windows, freshly created SQLite
+    files in the temp directory intermittently stalled ~19 s on lock waits)."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from panoptis.core.models import Base
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", poolclass=StaticPool)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield async_sessionmaker(engine, expire_on_commit=False)
+    await engine.dispose()
 
 
 async def seed(
@@ -221,3 +231,33 @@ async def test_unknown_filter_keys_match_nothing_instead_of_everything(factory):
         repo = Repository(db)
         assert await repo.get_session_ids({"tenant_id": A, "no_such_column": "x"}) == []
         assert await repo.count_sessions({"tenant_id": A, "no_such_column": "x"}) == 0
+
+
+@pytest.mark.parametrize(
+    "scope_name,identifier,expected_left_in_a",
+    [
+        ("SESSION_ID", "u-alice-1", {"u-alice-2", "u-bob"}),
+        ("AGENT_ID", "bot", set()),
+        ("USER_ID", "bob", {"u-alice-1", "u-alice-2"}),
+        ("TENANT_ID", A, set()),
+    ],
+)
+async def test_every_scope_erases_what_it_counted_and_nothing_of_the_other_tenant(
+    factory, monkeypatch, scope_name, identifier, expected_left_in_a
+):
+    from panoptis.api import server
+    from panoptis.governance.gdpr import ErasureScope
+
+    monkeypatch.setattr(server, "_db_session_factory", factory)
+    monkeypatch.setattr(server, "_CLOUD_MODE", True)
+    await _seed_user_sessions(factory)
+    scope = ErasureScope[scope_name]
+    target = server._SessionErasureTarget(tenant_id=A)
+    before = await _session_ids(factory)
+    counted = await target.count_matching(identifier, scope)
+    await target.erase_matching(identifier, scope)
+    after = await _session_ids(factory)
+    assert "u-alice-other-tenant" in after, f"{scope_name} reached tenant B"
+    assert after - {"u-alice-other-tenant"} == expected_left_in_a
+    removed_sessions = len(before) - len(after)
+    assert removed_sessions == counted, (counted, removed_sessions)  # no events seeded here
