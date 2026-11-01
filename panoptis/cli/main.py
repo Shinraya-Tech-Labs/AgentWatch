@@ -2680,10 +2680,6 @@ def main() -> None:
     app()
 
 
-if __name__ == "__main__":
-    main()
-
-
 @app.command(name="doctor")
 def doctor() -> None:
     """[bold]Doctor[/bold]: Check AgentWatch installation health."""
@@ -2794,3 +2790,7 @@ def export_csv(
 # v3 commands (observe, inspect, provenance, compare, …) — registered last so they are the
 # canonical names; the v0.2 'compare' lives under 'panoptis legacy compare'.
 _register_v3(app)
+
+
+if __name__ == "__main__":
+    main()
