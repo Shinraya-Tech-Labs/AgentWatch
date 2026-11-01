@@ -35,7 +35,11 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-001 fail-open execution | DONE | [TO-001](#to-001) |
 | TO-002 enforcement pipeline | IN PROGRESS | [TO-002](#to-002) |
 | TO-003 tenant identity | DONE | [TO-003](#to-003) |
-| TO-004 … TO-040 | NOT STARTED unless listed below | — |
+| Port onto `panoptis` layout | DONE | merge `4c2025d` (see below) |
+| TO-004 tenant-safe erasure | DONE | [TO-004](#to-004) |
+| TO-005 attestation keys | DONE | [TO-005](#to-005) |
+| TO-006 tenant/key persistence | DONE | [TO-006](#to-006) |
+| TO-007 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -221,3 +225,166 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 - Tenancy on the v1 in-memory collector is held in session/event `metadata`. It is not yet a column in the optional Postgres v1 tables; persistent tenant and key storage is TO-006.
 - The session-scope GDPR delete is TO-004.
 - MCP gateway tenant binding is tested with the gateway (TO-023).
+
+### Port onto the `panoptis` package layout (owner decision, 2026-11-02)
+
+- **What changed on `main`:** commit `db95c31` renamed `agentwatch` → `panoptis`. PR #824, which the owner merged, then left an orphan `agentwatch/protect/` on `main` whose imports broke `main`'s CI at test collection.
+- **Decision:** the owner chose "port the branch onto `panoptis`", fixing `main` only through this branch.
+- **Merge `4c2025d`:** brings `main` into the branch.
+  - Git's rename detection carried the TO-001–003 edits onto the renamed files.
+  - One conflict, the import block of `api/server.py`, was resolved to `main`'s imports.
+  - `protect/` and `api/tenancy.py` moved under `panoptis/`.
+  - Branch code was renamed with `main`'s convention: lowercase identifiers changed; `AgentWatch*` classes and `AGENTWATCH_*` variables kept.
+- **Not caused by this branch:** `tests/test_cli_animator.py` (2 tests) also fails on unmodified `main` (`panoptis.cli.animator` lost `Live`). It is fixed under TO-032.
+
+### TO-004
+
+**Status:** DONE. Documentation: [`docs/ERASURE.md`](ERASURE.md).
+
+**Vulnerabilities found and fixed** (each reproduced on a real database before the fix):
+
+1. Session-scope erasure deleted by session id with no tenant constraint. Reproduced: tenant A's erase removed tenant B's rows.
+2. The other scopes deleted events by session id alone, so another tenant's events reusing the id were removed.
+3. **Over-deletion:** `SessionRecord` has no `user_id` column, and unknown filter keys were silently dropped. A `user_id`-scope erase therefore matched every session of the tenant; the test counted 3 sessions instead of 2.
+4. Erased sessions stayed readable through the v1 API, because they were still in the in-memory trace cache the routes are served from.
+
+**Changes:**
+
+- `panoptis/core/models.py`:
+  - `Repository.erase_session(session_id, tenant_id)`: every `DELETE` (events, tasks, checkpoints, session) is constrained through an owned-session subquery;
+  - `_session_filters`: `user_id` maps to `session_metadata.user_id` (`->>` on PostgreSQL, `json_extract` on SQLite), and an unknown key matches nothing; `count_events` follows the user's sessions;
+  - JSONB columns are `JSON().with_variant(JSONB, "postgresql")`. PostgreSQL DDL is unchanged, and the schema now also runs on SQLite.
+- `panoptis/api/server.py`:
+  - all scopes erase through `erase_session`;
+  - a new `_TraceCacheErasureTarget` covers every scope within the caller's tenant, using the principal's tenant;
+  - `gdpr_erase` passes the principal tenant through.
+
+**Tests:**
+
+- `tests/test_session_erasure_tenancy.py` (11, real in-memory SQLite):
+  - tenant A cannot erase tenant B's session;
+  - the owner erases the session with its events, task and checkpoint;
+  - unknown and foreign ids are indistinguishable;
+  - another tenant's events with the same session id survive;
+  - the API target is tenant-scoped for every scope;
+  - the user scope erases only that user's sessions;
+  - unknown filter keys match nothing;
+  - parametrised over 4 scopes: counted equals erased, and tenant B is never reached.
+- `tests/v3/test_tenant_isolation_api.py` (+3):
+  - the HTTP erase evicts the owner's cached session and spares tenant B;
+  - a foreign erase returns the same receipt as an unknown one;
+  - v3 subject crypto-shredding stays per tenant.
+
+**Commands and results:**
+
+- `pytest tests/test_session_erasure_tenancy.py`: 11 passed (3.1 s)
+- `pytest -k "gdpr or erasure or erase"`: 44 passed
+- `pytest tests/`: 2411 passed, 8 skipped, 2 failed. The 2 failures are the pre-existing `test_cli_animator` failures on `main`, described above.
+
+**Environment note:** with files in the Windows temp directory, SQLite fixtures stalled about 19 s each on lock waits. In-memory SQLite removed that: the file went from 158 s to 3 s.
+
+**Commits:** `c37aa28` `0ebcff1` `762ffe8` `aa4e62a` `1337770` `8cadd74` `8745911`, plus this ledger commit. That is 8: the task had 7 separable changes, and no filler commits were made.
+
+**Limitation:** the memory target's missing function is TO-031.
+
+### TO-005
+
+**Status:** DONE. Operations guide: [`docs/ATTESTATION_KEYS.md`](ATTESTATION_KEYS.md).
+
+**Vulnerability:**
+
+- `AttestationEngine.create_seal` and `verify_seal` defaulted to the HMAC key `panopti-seal-default-key`, which is in the source; `panopti attest verify` fell back to it too. Anyone could forge a seal that verified.
+- The demo and the quickstart notebook also signed with keys published in the repository (`panopti-demo-hmac-key`, `panopti-quickstart-audit-key`).
+
+**Changes:**
+
+- `panopti/attest_keys.py` (new): a `Keyring` with key ids, an active key and revocation.
+  - Configured through `AGENTWATCH_ATTEST_KEYS` (base64 or hex) and `AGENTWATCH_ATTEST_ACTIVE_KID` / `AGENTWATCH_ATTEST_REVOKED`.
+  - Rejects keys under 32 bytes and the known public keys.
+  - `AGENTWATCH_ATTEST_DEV_KEY=1` gives an ephemeral dev key, refused in production and cloud mode.
+  - `check_startup()` is the server gate. Errors never include key material.
+- `panopti/attest.py`:
+  - version-2 seals carry `key_id` and sign every field as canonical JSON;
+  - there is no default key;
+  - verification fails closed on an unknown or revoked key id, a modified field or signature, or a key-id swap;
+  - version-1 seals verify only with `allow_legacy=True` and an explicit key.
+- `panoptis/api/server.py`: the lifespan refuses to start on an unsafe attestation configuration.
+- `panopti/cli.py`: `attest verify` uses `--key` or the keyring, and exits 2 without either.
+- `panopti/demo.py`: signs with a random in-process key.
+- `examples/quickstart_panopti_guardrails.ipynb`: a generated key; all code cells were executed and the seal verifies.
+- `panopti/reports.py`: shows `key_id` and `version`; version-1 seals still render.
+- `scripts/verify_seal.py` (new): a standalone verifier using only the standard library.
+- `panopti/__init__.py`: exports the keyring API.
+- `.env.example`: documents the settings.
+
+**Tests:**
+
+- `tests/test_attest_keys.py` (14):
+  - a missing configuration is an error;
+  - public and weak keys are rejected; malformed entries and duplicate key ids are rejected;
+  - hex and base64 keys; the active key id;
+  - no key material appears in errors or summaries;
+  - the dev key is ephemeral and refused in production;
+  - the startup gate (4 unsafe configurations);
+  - the API server refuses to start with the public key and starts with a strong key.
+- `tests/test_panopti_attest.py` (21):
+  - sign and verify; there is no default key;
+  - public and weak keys can neither sign nor verify;
+  - 7 parametrised field-tamper cases; a modified signature; the wrong key; a key-id swap;
+  - rotation; revocation and unknown key ids; the keyring from the environment;
+  - legacy opt-in; JSON round trip; a dev key from another process does not verify;
+  - the independent verifier agrees with the engine (valid, tampered, wrong key, no key).
+- `tests/test_panopti_cli.py` (+1): no default key; wrong key gives exit 1.
+- `tests/v3/test_seal_reports.py` (+1, and a test keyring for the 21 rendering tests that had relied on the removed default key).
+
+**Commands and results:**
+
+- `pytest tests/test_attest_keys.py tests/test_panopti_attest.py tests/test_panopti_cli.py tests/v3/test_seal_reports.py`: all pass
+- Demo smoke run: seal issued, exit 0
+- `pytest tests/`: 2445 passed, 8 skipped, 2 failed. The 2 failures are the pre-existing `test_cli_animator` failures on `main`.
+
+**Commits:** `45764be` `023b496` `e085f35` `f8bacc9` `620539b` `7ba0e9c` `7a38e11` `cf8838a`, plus this ledger commit.
+
+### TO-006
+
+**Status:** DONE. See the "Tenant and API-key storage" section of [`docs/TENANCY.md`](TENANCY.md).
+
+**Problems found and fixed:**
+
+1. Tenants, keys, revocations and usage lived only in Python dicts: lost on restart and inconsistent across replicas.
+2. `_require_tenant_ownership` declared `path_tenant_id`, which FastAPI treated as a required *query* parameter. Every normal call to `POST/GET /api/v1/tenants/{id}/api-keys` and `/usage` therefore failed with 422.
+3. There was no way to issue a new tenant's first key: only that tenant's own key could create keys.
+4. Every tenant on a plan shared one `PLAN_DEFAULTS` `TenantConfig` object, so changing one tenant's limits changed every tenant's. It was found because a test leaked a limit into another file's tests.
+
+**Changes:**
+
+- `panoptis/api/tenant_store_sql.py` (new, `SqlTenantStore`): a durable store with the same interface.
+  - Tables `aw_tenants`, `aw_api_keys` (unique `key_prefix`; PBKDF2 hash only), `aw_tenant_usage`, `aw_tenant_daily_events`, `aw_tenant_audit` and `aw_tenant_schema`; a newer schema is refused.
+  - Transactional suspend-and-revoke; key creation retries on a prefix collision.
+  - A failed read denies the key; a failed write raises.
+  - `last_used_at` is written at most once a minute.
+- `panoptis/api/tenant_auth.py`: `tenant_store_url()` and `get_tenant_store()` choose the durable store whenever cloud mode is on or `AGENTWATCH_TENANT_STORE` is set; plan configs are copied; `reset_tenant_store_for_tests()`.
+- `panoptis/api/server.py`: the ownership dependency binds `{tenant_id}`, and the operator key may act for any tenant (bootstrap).
+- `.env.example` and `docs/TENANCY.md` updated.
+
+**Tests:**
+
+- `tests/test_tenant_store_sql.py`: 14 tests (×2 back ends for the 9 database tests).
+  - Tenants, keys, scopes and revocations survive a restart; suspension revokes all keys atomically and persists.
+  - Only the hash is stored (the PBKDF2 `salt:hash` shape is checked); expired, unknown and malformed keys are rejected; a tenant must exist before a key.
+  - The audit trail; usage persists and limits apply; concurrent create and revoke with 8 threads.
+  - A database failure denies validation and fails writes; a newer schema is refused.
+  - Store selection: memory when self-hosted, never memory in cloud mode, an explicit URL wins.
+  - End to end over HTTP: the operator bootstraps the first key, the tenant creates its own next key, cross-tenant key creation gets 403, and after a restart a key still authenticates while a revoked one gets 401.
+- `tests/test_tenant_auth_memory.py` (8): the in-memory store, including the plan-config leak test, which fails against the old code.
+
+**Commands and results:**
+
+- `pytest tests/test_tenant_store_sql.py tests/test_tenant_auth_memory.py`: 22 passed (SQLite)
+- `AGENTWATCH_TEST_PG_URL=postgresql+psycopg://…@127.0.0.1:55432/awtest pytest tests/test_tenant_store_sql.py`: **23 passed** against a local `postgres:16-alpine` container (Docker), including all PostgreSQL variants
+- Coverage: `panoptis/api/tenant_auth.py` **99 %** (audit: 19 %); `tenant_store_sql.py` 81 %
+- `pytest tests/`: 2467 passed, 8 skipped, 2 failed (the pre-existing `test_cli_animator` failures on `main`)
+
+**Environment:** installed `psycopg[binary]` 3.3.6 (PostgreSQL driver for these tests).
+
+**Commits:** `df38938` `f9661b9` `4120657` `81415d3`, plus this ledger commit.

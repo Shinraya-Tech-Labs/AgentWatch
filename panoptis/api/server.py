@@ -460,17 +460,28 @@ def _require_tenant_context(
 
 def _require_tenant_ownership(
     request: Request,
-    path_tenant_id: str,
+    tenant_id: str,
     x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
 ) -> str:
     """FastAPI dependency that verifies the caller owns the tenant resource.
 
-    Raises 403 if the API key's tenant doesn't match the path tenant_id.
-    Used for tenant management endpoints (API keys, usage, etc.).
+    ``tenant_id`` binds to the route's ``{tenant_id}`` path parameter (it was named
+    ``path_tenant_id``, which FastAPI treated as a required query parameter, so every
+    normal request was a 422). Raises 403 if the API key's tenant doesn't match. The
+    operator credential (AGENTWATCH_ADMIN_KEY) may act for any tenant: that is how a new
+    tenant's first key is issued.
     """
+    path_tenant_id = tenant_id
     if not _CLOUD_MODE:
         # In legacy mode, require API key in production
         _require_api_key(x_api_key)
+        return path_tenant_id
+    admin = os.environ.get("AGENTWATCH_ADMIN_KEY")
+    if (
+        admin
+        and x_api_key
+        and hmac.compare_digest(x_api_key.encode("utf-8"), admin.encode("utf-8"))
+    ):
         return path_tenant_id
     if not x_api_key:
         raise HTTPException(
@@ -700,6 +711,17 @@ async def lifespan(app: FastAPI):
         )
         logger.critical(error_msg)
         raise RuntimeError(error_msg)
+
+    # Attestation signing keys: an unsafe configuration stops the server (TO-005).
+    from panopti.attest_keys import AttestationKeyError, check_startup
+
+    try:
+        attest = check_startup()
+    except AttestationKeyError as exc:
+        logger.critical("attestation key configuration rejected: %s", exc)
+        raise RuntimeError(f"attestation key configuration rejected: {exc}") from exc
+    if attest:
+        logger.info("attestation keyring: %s", attest)
 
     db_url = os.getenv("DATABASE_URL", "")
     if db_url:
@@ -1954,25 +1976,59 @@ class _SessionErasureTarget:
                     return 0
                 if self._tenant_id is not None:
                     where["tenant_id"] = self._tenant_id
-                event_where = {k: v for k, v in where.items()}
+                # Every scope erases through Repository.erase_session, whose DELETEs carry
+                # the tenant constraint themselves (no fetch-then-delete window).
                 if scope == ErasureScope.SESSION_ID:
-                    erased += await repo.delete_events_by_session(identifier)
-                    erased += await repo.delete_session(identifier)
-                    await db.commit()
-                    return erased
-                session_ids = await repo.get_session_ids(where)
+                    session_ids = [identifier]
+                else:
+                    session_ids = await repo.get_session_ids(where)
                 for sid in session_ids:
-                    event_where_for_sid = dict(event_where)
-                    event_where_for_sid.pop("tenant_id", None)
-                    event_where_for_sid["session_id"] = sid
-                    ignored_events = await repo.get_session(sid)
-                    _ = (event_where_for_sid, ignored_events)
-                    erased += await repo.delete_events_by_session(sid)
-                    erased += await repo.delete_session(sid)
+                    erased += await repo.erase_session(sid, tenant_id=self._tenant_id)
                 await db.commit()
                 return erased
         except Exception as exc:  # noqa: BLE001 — surfaced via ErasureTargetResult
             raise RuntimeError(f"sessions_and_events.erase_matching failed: {exc}") from exc
+
+
+class _TraceCacheErasureTarget:
+    """ErasureTarget for the API's in-memory trace collector (and its persisted trace files).
+
+    Without it an erased session stayed readable through the v1 session routes, which are
+    served from this cache. Only the caller's tenant's sessions are ever considered.
+    """
+
+    name = "trace_cache"
+
+    def __init__(self, tenant_id: str) -> None:
+        self._tenant_id = tenant_id
+
+    def _matching(self, identifier: str, scope: ErasureScope) -> list[str]:
+        if scope == ErasureScope.TENANT_ID and identifier != self._tenant_id:
+            return []
+        out = []
+        for sess in _collector.list_sessions(limit=1_000_000):
+            if _owner(sess.metadata) != self._tenant_id:
+                continue
+            if (
+                (scope == ErasureScope.SESSION_ID and sess.session_id == identifier)
+                or (scope == ErasureScope.AGENT_ID and sess.agent_id == identifier)
+                or (
+                    scope == ErasureScope.USER_ID
+                    and str(sess.metadata.get("user_id")) == identifier
+                )
+                or scope == ErasureScope.TENANT_ID
+            ):
+                out.append(sess.session_id)
+        return out
+
+    async def count_matching(self, identifier: str, scope: ErasureScope) -> int:
+        return len(self._matching(identifier, scope))
+
+    async def erase_matching(self, identifier: str, scope: ErasureScope) -> int:
+        ids = self._matching(identifier, scope)
+        if ids:
+            await _collector.prune(ids)
+        return len(ids)
 
 
 class _MemoryErasureTarget:
@@ -2019,8 +2075,9 @@ class _MemoryErasureTarget:
 
 async def _build_erasure_service(
     tenant_id: str | None = None,
+    cache_tenant: str | None = None,
 ) -> CrossSessionErasureService:
-    targets: list = []
+    targets: list = [_TraceCacheErasureTarget(cache_tenant or tenant_id or _tenancy.DEFAULT_TENANT)]
     if _db_session_factory is not None:
         targets.append(_SessionErasureTarget(tenant_id=tenant_id))
     else:
@@ -2031,6 +2088,8 @@ async def _build_erasure_service(
         targets.append(_MemoryErasureTarget(tenant_id=tenant_id))
     except Exception as exc:  # noqa: BLE001 — surfaced via ErasureTargetResult
         logger.debug("Memory target will register as failure on first call: %s", exc)
+    if len(targets) == 1:
+        logger.warning("Only the in-memory trace cache can be erased: no database is configured")
     if not targets:
         raise RuntimeError(
             "No erasure targets are available; refusing to sign a receipt for a "
@@ -2054,6 +2113,7 @@ async def gdpr_erase(
     request: ErasureRequest,
     response: Response,
     tenant_id: str | None = Depends(_require_tenant_context),
+    principal_tenant: str = Depends(_request_tenant),
 ) -> ErasureReceipt:
     """Execute a right-to-erasure (right-to-be-forgotten) action across all
     session, event, and memory data for the given identifier.
@@ -2064,7 +2124,7 @@ async def gdpr_erase(
     a clean no-op from a partially-failed erasure; the response body in both
     200 and 207 cases is the signed ``ErasureReceipt`` itself.
     """
-    service = await _build_erasure_service(tenant_id=tenant_id)
+    service = await _build_erasure_service(tenant_id=tenant_id, cache_tenant=principal_tenant)
     receipt = await service.erase(request)
     if receipt.failure_count:
         response.status_code = status.HTTP_207_MULTI_STATUS

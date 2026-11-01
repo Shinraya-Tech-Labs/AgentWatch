@@ -16,11 +16,21 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from panopti._banner import PANOPTI_ASCII_BANNER, print_banner
+from panopti._banner import print_banner
 from panopti.attest import AttestationEngine
+from panopti.attest_keys import Keyring
 from panopti.court import WitnessChain
 from panopti.killswitch import EmergencyKillSwitch
 from panopti.themes import ThemeManager
+
+
+def _demo_keyring() -> Keyring:
+    import secrets
+
+    ring = Keyring(ephemeral=True)
+    ring.add("demo-ephemeral", secrets.token_bytes(32))
+    return ring
+
 
 # Retain Colors as default theme instance for backwards compatibility
 Colors = ThemeManager.get_theme("cyberpunk")
@@ -316,7 +326,8 @@ def run_interactive_demo(
         confidence_floor=sentinel.confidence_floor,
         is_compliant=False,
         loop_detected=False,
-        secret_key="panopti-demo-hmac-key",  # noqa: S106
+        # demo only: a random in-process key (never a key published in source)
+        keyring=_demo_keyring(),
     )
 
     p(f"  • Merkle Root Hash   : {_c_theme(proof['root_hash'], palette.CYAN, use_color)}")

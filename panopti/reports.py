@@ -25,7 +25,11 @@ SEAL_FIELDS: tuple[tuple[str, str], ...] = (
     ("timestamp_iso", "Timestamp (UTC)"),
     ("merkle_root", "Merkle Root"),
     ("signature", "Signature"),
+    ("key_id", "Signing Key ID"),
+    ("version", "Seal Version"),
 )
+# Fields version-1 seals do not have; shown as an em dash when absent.
+OPTIONAL_FIELDS = frozenset({"key_id", "version"})
 
 _BADGE_CLASS = {"COMPLIANT": "ok", "VIOLATION": "bad"}
 
@@ -52,7 +56,7 @@ class SealReportError(ValueError):
 def _check(seal_data: Any) -> Mapping[str, Any]:
     if not isinstance(seal_data, Mapping):
         raise SealReportError("seal data must be a JSON object")
-    missing = [key for key, _ in SEAL_FIELDS if key not in seal_data]
+    missing = [key for key, _ in SEAL_FIELDS if key not in seal_data and key not in OPTIONAL_FIELDS]
     if missing:
         raise SealReportError("seal is missing required field(s): " + ", ".join(missing))
     return seal_data
@@ -95,7 +99,7 @@ def export_markdown_report(seal_data: Mapping[str, Any]) -> str:
         "| --- | --- |",
     ]
     for key, label in SEAL_FIELDS:
-        lines.append(f"| {label} | {_md_cell(_text(key, seal[key]))} |")
+        lines.append(f"| {label} | {_md_cell(_text(key, seal.get(key, '—')))} |")
     lines += [
         "",
         "_This report only presents the seal. It does not verify the signature; "
@@ -110,7 +114,7 @@ def export_html_report(seal_data: Mapping[str, Any]) -> str:
     seal = _check(seal_data)
     verdict, css_class = _verdict(seal)
     rows = "\n".join(
-        f"<tr><th>{html.escape(label)}</th><td>{html.escape(_text(key, seal[key]))}</td></tr>"
+        f"<tr><th>{html.escape(label)}</th><td>{html.escape(_text(key, seal.get(key, '—')))}</td></tr>"
         for key, label in SEAL_FIELDS
     )
     return (

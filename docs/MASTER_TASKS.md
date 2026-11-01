@@ -127,63 +127,63 @@ supported execution integrations. Tests prove ordering: inspect → decide
 API/integration tests, including attempts to substitute another tenant's
 header or identifier.
 
-## TO-004 --- Make session erasure tenant-safe
+## TO-004 --- Make session erasure tenant-safe — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-004)
 
--   [ ] Fix session-scope erasure in `agentwatch/api/server.py` (audit
+-   [x] Fix session-scope erasure in `agentwatch/api/server.py` (audit
     finding around line 1801) so the tenant constraint is part of the
     deletion query itself.
--   [ ] Do not fetch by session ID and delete before checking tenant
+-   [x] Do not fetch by session ID and delete before checking tenant
     ownership.
--   [ ] Apply the same ownership rule to related messages, traces,
+-   [x] Apply the same ownership rule to related messages, traces,
     evidence, cached data, and derived records.
--   [ ] Define and test behavior for unknown sessions and sessions owned
+-   [x] Define and test behavior for unknown sessions and sessions owned
     by another tenant without leaking ownership information.
--   [ ] Add two-tenant regression tests proving tenant A cannot erase
+-   [x] Add two-tenant regression tests proving tenant A cannot erase
     tenant B's session or associated records.
--   [ ] Verify deletion behavior for every supported erasure scope.
+-   [x] Verify deletion behavior for every supported erasure scope.
 
 **Acceptance evidence:** A cross-tenant erase test proves zero records
 belonging to the other tenant are modified or deleted.
 
-## TO-005 --- Secure attestation keys and verification
+## TO-005 --- Secure attestation keys and verification — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-005)
 
--   [ ] Remove public/default HMAC secrets from production and
+-   [x] Remove public/default HMAC secrets from production and
     cloud-mode defaults.
--   [ ] Reject startup in production/cloud mode when required signing
+-   [x] Reject startup in production/cloud mode when required signing
     keys are absent, weak, known-default, or invalid.
--   [ ] Define development-only key behavior explicitly and prevent it
+-   [x] Define development-only key behavior explicitly and prevent it
     from being enabled accidentally in production.
--   [ ] Load secrets through supported secret-management/environment
+-   [x] Load secrets through supported secret-management/environment
     configuration without logging them.
--   [ ] Define key identifiers, rotation, versioning, and verification
+-   [x] Define key identifiers, rotation, versioning, and verification
     behavior.
--   [ ] Ensure verification uses the correct key version and fails
+-   [x] Ensure verification uses the correct key version and fails
     closed for unknown or revoked keys.
--   [ ] Add tests for missing keys, default keys, wrong keys, modified
+-   [x] Add tests for missing keys, default keys, wrong keys, modified
     payloads, modified signatures, rotation, and valid verification.
--   [ ] Document key generation, configuration, rotation, backup, and
+-   [x] Document key generation, configuration, rotation, backup, and
     incident response.
 
 **Acceptance evidence:** Independent verification succeeds for valid
 attestations and rejects tampered attestations and unsafe production
 configuration.
 
-## TO-006 --- Secure tenant and API-key persistence
+## TO-006 --- Secure tenant and API-key persistence — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-006)
 
--   [ ] Audit the in-memory tenant/API-key implementation and its
+-   [x] Audit the in-memory tenant/API-key implementation and its
     current persistence contract.
--   [ ] Implement durable storage using the project's supported database
+-   [x] Implement durable storage using the project's supported database
     architecture.
--   [ ] Persist tenant records, API-key metadata, revocation state,
+-   [x] Persist tenant records, API-key metadata, revocation state,
     permissions, and required audit metadata.
--   [ ] Store only securely hashed API-key material where practical;
+-   [x] Store only securely hashed API-key material where practical;
     never persist or log plaintext secrets.
--   [ ] Add migrations, indexes, uniqueness constraints, and transaction
+-   [x] Add migrations, indexes, uniqueness constraints, and transaction
     handling.
--   [ ] Add restart tests proving tenants, keys, permissions, and
+-   [x] Add restart tests proving tenants, keys, permissions, and
     revocations survive process restarts.
--   [ ] Add concurrent create/revoke tests and database-failure tests.
--   [ ] Increase tests for `api/tenant_auth.py`, currently reported at
+-   [x] Add concurrent create/revoke tests and database-failure tests.
+-   [x] Increase tests for `api/tenant_auth.py`, currently reported at
     19% coverage.
 
 **Acceptance evidence:** Integration tests against the configured

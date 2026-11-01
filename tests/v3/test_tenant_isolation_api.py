@@ -308,3 +308,89 @@ def test_cloud_websocket_delivers_only_the_connections_tenant_events(client, clo
         assert client.post("/api/v1/events", json=_event(sid_a), headers=a).status_code == 200
         first = ws.receive_json()
     assert first["session_id"] == sid_a, "tenant A's socket received another tenant's event"
+
+
+def _erase(client, headers, identifier: str, scope: str = "session_id"):
+    return client.post(
+        "/api/v1/gdpr/erase", json={"identifier": identifier, "scope": scope}, headers=headers
+    )
+
+
+def test_gdpr_erase_removes_the_owners_cached_session_and_spares_other_tenants(
+    client, cloud, monkeypatch
+):
+    monkeypatch.setenv("AGENTWATCH_ERASURE_SECRET", "test-erasure-secret")
+    a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
+    sid_a, sid_b = _sid("gdpr-a"), _sid("gdpr-b")
+    client.post("/api/v1/events", json=_event(sid_a), headers=a)
+    client.post("/api/v1/events", json=_event(sid_b), headers=b)
+    r = _erase(client, a, sid_a)
+    assert r.status_code in (200, 207), r.text
+    assert r.json()["items_erased"] >= 1
+    assert client.get(f"/api/v1/sessions/{sid_a}", headers=a).status_code == 404, (
+        "erased session still served"
+    )
+    assert client.get(f"/api/v1/sessions/{sid_b}", headers=b).status_code == 200
+
+
+def test_gdpr_erase_of_a_foreign_session_looks_like_an_unknown_one(client, cloud, monkeypatch):
+    monkeypatch.setenv("AGENTWATCH_ERASURE_SECRET", "test-erasure-secret")
+    a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
+    sid_b = _sid("gdpr-foreign")
+    client.post("/api/v1/events", json=_event(sid_b), headers=b)
+    foreign = _erase(client, a, sid_b).json()
+    unknown = _erase(client, a, _sid("gdpr-never-existed")).json()
+    for key in ("items_erased", "failure_count", "failed_targets", "scope"):
+        assert foreign[key] == unknown[key], key
+    assert foreign["items_erased"] == 0
+    assert client.get(f"/api/v1/sessions/{sid_b}", headers=b).status_code == 200
+
+
+@pytest.fixture
+def enc_client(tmp_path, monkeypatch):
+    from panoptis.api.middleware.rate_limiter import InMemoryBackend
+
+    server.reset_rate_limiter_for_tests()
+    monkeypatch.setattr(server._rate_limiter, "backend", InMemoryBackend())
+    store = Store(f"sqlite:///{(tmp_path / 'enc.db').as_posix()}", encrypt_payloads=True)
+    v3api.set_engine(Engine(store))
+    with TestClient(server.app) as c:
+        yield c, store
+    v3api.set_engine(None)
+    store.close()
+
+
+def _subject_drafts(sink, subject: str) -> list[dict]:
+    sink.drafts.clear()
+    with aw.run("intake", subject_id=subject):
+        with aw.span("TOOL_INVOCATION", "record", actor="agent:a") as s:
+            s.output({"note": f"private note about {subject}"})
+    return [d.to_dict() for d in sink.drafts]
+
+
+def test_v3_subject_erasure_stays_within_the_callers_tenant(enc_client, cloud, sink):
+    client, store = enc_client
+    a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
+    for headers in (a, b):
+        r = client.post(
+            "/api/v3/observations",
+            json={"observations": _subject_drafts(sink, "alice")},
+            headers=headers,
+        )
+        assert r.status_code == 200, r.text
+    r = client.post(
+        "/api/v3/evidence/erase", json={"subject": "alice", "reason": "test"}, headers=a
+    )
+    assert r.status_code == 200, r.text
+    erased = {
+        t: [o.erased for o in store.observations(t)]
+        for t in (cloud["a"].tenant_id, cloud["b"].tenant_id)
+    }
+    assert erased[cloud["a"].tenant_id] and all(erased[cloud["a"].tenant_id])
+    assert erased[cloud["b"].tenant_id] and not any(erased[cloud["b"].tenant_id]), (
+        "tenant B's subject was shredded"
+    )
+    assert any(
+        "private note about alice" in o.payload_json
+        for o in store.observations(cloud["b"].tenant_id)
+    )
