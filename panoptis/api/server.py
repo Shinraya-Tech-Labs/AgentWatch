@@ -382,6 +382,7 @@ def _require_tenant_context(
     so downstream handlers preserve unscoped NULL tenant behavior.
     """
     if not _CLOUD_MODE:
+        _require_api_key(x_api_key)
         return None
     if not x_api_key:
         raise HTTPException(
@@ -409,7 +410,8 @@ def _require_tenant_ownership(
     Used for tenant management endpoints (API keys, usage, etc.).
     """
     if not _CLOUD_MODE:
-        # In legacy mode, allow access without tenant isolation
+        # In legacy mode, require API key in production
+        _require_api_key(x_api_key)
         return path_tenant_id
     if not x_api_key:
         raise HTTPException(
@@ -1245,7 +1247,10 @@ async def get_blocked_events(
 
 
 @app.post("/api/v1/safety/check", response_model=SafetyCheckResponse)
-async def check_safety_command(request: SafetyCheckRequest) -> SafetyCheckResponse:
+async def check_safety_command(
+    request: SafetyCheckRequest,
+    _auth: None = Depends(_require_api_key),
+) -> SafetyCheckResponse:
     cmd = request.command.strip()
     if not cmd:
         raise HTTPException(status_code=400, detail="command must not be empty")
