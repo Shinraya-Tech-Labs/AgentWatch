@@ -212,3 +212,68 @@ def test_a_newer_schema_is_refused(url):
     s.close()
     with pytest.raises(RuntimeError, match="newer"):
         SqlTenantStore(url)
+
+
+@pytest.fixture
+def fresh_singleton(monkeypatch, tmp_path):
+    from panoptis.api import tenant_auth
+
+    for var in ("AGENTWATCH_TENANT_STORE", "AGENTWATCH_STORE", "AGENTWATCH_CLOUD_MODE"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("AGENTWATCH_HOME", str(tmp_path / "home"))
+    tenant_auth.reset_tenant_store_for_tests()
+    yield tenant_auth
+    tenant_auth.reset_tenant_store_for_tests()
+
+
+def test_self_hosted_default_is_in_memory(fresh_singleton):
+    assert type(fresh_singleton.get_tenant_store()).__name__ == "TenantStore"
+
+
+def test_cloud_mode_never_uses_memory(fresh_singleton, tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENTWATCH_CLOUD_MODE", "true")
+    store = fresh_singleton.get_tenant_store()
+    assert isinstance(store, SqlTenantStore)
+    assert store.url.endswith("home/tenants.db")
+    t = store.create_tenant("acme")
+    _, raw = store.create_api_key(t.tenant_id)
+    fresh_singleton.reset_tenant_store_for_tests()  # "restart"
+    assert fresh_singleton.get_tenant_store().validate_api_key(raw) is not None
+
+
+def test_explicit_tenant_store_url_wins(fresh_singleton, tmp_path, monkeypatch):
+    url = f"sqlite:///{(tmp_path / 'explicit.db').as_posix()}"
+    monkeypatch.setenv("AGENTWATCH_TENANT_STORE", url)
+    assert fresh_singleton.get_tenant_store().url == url
+
+
+def test_cloud_api_keys_survive_an_api_restart(fresh_singleton, monkeypatch):
+    """End to end through the API: a key created over HTTP still authenticates after the
+    tenant store is reloaded (process restart), and a revocation made before it holds."""
+    from fastapi.testclient import TestClient
+
+    from panoptis.api import server
+
+    monkeypatch.setenv("AGENTWATCH_CLOUD_MODE", "true")
+    monkeypatch.setattr(server, "_CLOUD_MODE", True)
+    monkeypatch.setenv("AGENTWATCH_ADMIN_KEY", "operator-secret-key")
+    with TestClient(server.app) as c:
+        op = {"X-Api-Key": "operator-secret-key"}
+        tid = c.post("/api/v1/tenants?name=acme", headers=op).json()["tenant_id"]
+        first = c.post(f"/api/v1/tenants/{tid}/api-keys?name=k0", headers=op)
+        assert first.status_code == 200, first.text  # the operator issues the first key
+        own = {"X-Api-Key": first.json()["key"]}
+        second = c.post(f"/api/v1/tenants/{tid}/api-keys?name=k1", headers=own)
+        assert second.status_code == 200, second.text  # the tenant manages its own keys
+        keys = [first.json(), second.json()]
+        other = c.post("/api/v1/tenants?name=globex", headers=op).json()["tenant_id"]
+        assert c.post(f"/api/v1/tenants/{other}/api-keys", headers=own).status_code == 403
+        assert c.get(f"/api/v1/tenants/{tid}/api-keys", headers=own).status_code == 200
+    raws = [k["key"] for k in keys]
+    assert all(raws), keys
+    store = fresh_singleton.get_tenant_store()
+    store.revoke_api_key(store.validate_api_key(raws[1]).key_id)
+    fresh_singleton.reset_tenant_store_for_tests()  # restart
+    with TestClient(server.app) as c:
+        assert c.get("/api/v3/status", headers={"X-Api-Key": raws[0]}).status_code == 200
+        assert c.get("/api/v3/status", headers={"X-Api-Key": raws[1]}).status_code == 401

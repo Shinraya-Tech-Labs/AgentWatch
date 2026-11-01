@@ -460,17 +460,28 @@ def _require_tenant_context(
 
 def _require_tenant_ownership(
     request: Request,
-    path_tenant_id: str,
+    tenant_id: str,
     x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
 ) -> str:
     """FastAPI dependency that verifies the caller owns the tenant resource.
 
-    Raises 403 if the API key's tenant doesn't match the path tenant_id.
-    Used for tenant management endpoints (API keys, usage, etc.).
+    ``tenant_id`` binds to the route's ``{tenant_id}`` path parameter (it was named
+    ``path_tenant_id``, which FastAPI treated as a required query parameter, so every
+    normal request was a 422). Raises 403 if the API key's tenant doesn't match. The
+    operator credential (AGENTWATCH_ADMIN_KEY) may act for any tenant: that is how a new
+    tenant's first key is issued.
     """
+    path_tenant_id = tenant_id
     if not _CLOUD_MODE:
         # In legacy mode, require API key in production
         _require_api_key(x_api_key)
+        return path_tenant_id
+    admin = os.environ.get("AGENTWATCH_ADMIN_KEY")
+    if (
+        admin
+        and x_api_key
+        and hmac.compare_digest(x_api_key.encode("utf-8"), admin.encode("utf-8"))
+    ):
         return path_tenant_id
     if not x_api_key:
         raise HTTPException(

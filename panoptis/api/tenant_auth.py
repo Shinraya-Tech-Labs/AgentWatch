@@ -24,9 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 class TenantStore:
-    """In-memory tenant and API key store.
+    """In-memory tenant and API key store, for self-hosted single-tenant setups and tests.
 
-    In production, replace with database-backed implementation.
+    Cloud mode always uses the durable :class:`panoptis.api.tenant_store_sql.SqlTenantStore`
+    (see :func:`tenant_store_url`).
     """
 
     def __init__(self) -> None:
@@ -215,8 +216,48 @@ class TenantStore:
 _tenant_store: TenantStore | None = None
 
 
+def tenant_store_url() -> str | None:
+    """Where tenants and API keys are stored (None = in memory, single-tenant setups only).
+
+    ``AGENTWATCH_TENANT_STORE`` if set; else, in cloud mode, the v3 database
+    (``AGENTWATCH_STORE``) or ``$AGENTWATCH_HOME/tenants.db``. Cloud mode never uses
+    memory: keys and revocations must survive restarts and be shared by replicas.
+    """
+    import os
+
+    explicit = os.environ.get("AGENTWATCH_TENANT_STORE")
+    if explicit:
+        return explicit
+    from panoptis.core.config import get_cloud_config
+
+    if not get_cloud_config().is_cloud:
+        return None
+    if os.environ.get("AGENTWATCH_STORE"):
+        return os.environ["AGENTWATCH_STORE"]
+    from panoptis.storage.store import panoptis_home
+
+    home = panoptis_home()
+    home.mkdir(parents=True, exist_ok=True)
+    return f"sqlite:///{(home / 'tenants.db').as_posix()}"
+
+
 def get_tenant_store() -> TenantStore:
     global _tenant_store
     if _tenant_store is None:
-        _tenant_store = TenantStore()
-    return _tenant_store
+        url = tenant_store_url()
+        if url:
+            from panoptis.api.tenant_store_sql import SqlTenantStore
+
+            _tenant_store = SqlTenantStore(url)  # type: ignore[assignment]
+            logger.info("tenant store: %s database", url.split(":", 1)[0])
+        else:
+            _tenant_store = TenantStore()
+    return _tenant_store  # type: ignore[return-value]
+
+
+def reset_tenant_store_for_tests() -> None:
+    global _tenant_store
+    close = getattr(_tenant_store, "close", None)
+    if callable(close):
+        close()
+    _tenant_store = None
