@@ -328,6 +328,8 @@ Endpoint: POST /api/v1/safety/check
 
 Description: Validates terminal commands and scripts inside an offline simulation layer to catch threats before real execution occurs.
 
+Requires an API key, is rate limited, and rejects oversized input with 422. The rule-by-rule `threat_path` and custom-rule names are returned only to the policy owner (the self-hosted key holder or the cloud operator); cloud tenants get the decision and risk level. See [TENANCY.md](TENANCY.md#policy-dry-run-endpoint-post-apiv1safetycheck-to-008).
+
 Manage Active Safety Policies
 GET /api/v1/safety/policy — Requires `policy:read`; returns the active policy.
 PUT /api/v1/safety/policy — Requires `policy:write`; updates the active policy.
@@ -343,6 +345,8 @@ How to Authenticate:
 For Browser Clients: Pass your API token directly as a query parameter in the connection URL: ws://<host>/ws/events?api_key=your_api_key_here
 
 For Non-Browser Clients (such as backend consumers): Pass a short-lived token or 'API key' via the standard X-Api-Key header during the initial connection handshake.
+
+In tenant-scoped deployments (cloud mode, or `AGENTWATCH_TENANT_KEYS`) a connection receives only its own tenant's events. A missing or invalid key closes with code 4001, and an `X-Tenant-ID` that does not match the key's tenant closes with 4003.
 
 Cloud and Multi Tenant Administration
 When running AgentWatch in a multi tenant cloud environment, use these endpoints to isolate teams and handle access controls:
