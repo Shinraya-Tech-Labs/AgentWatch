@@ -145,12 +145,16 @@ def test_assess_run_and_witness_stream(api_client, sink):
     assert int(r_wit.headers.get("X-Witness-Count", 0)) > 0
 
 
-def test_multi_tenant_isolation(api_client, sink):
-    """Enforce strict multi-tenant isolation across contracts, assessments, and witnesses."""
+def test_multi_tenant_isolation(api_client, sink, monkeypatch):
+    """Enforce strict multi-tenant isolation across contracts, assessments, and witnesses.
+
+    Tenants come from credentials (a server-side key map), not from a header (TO-003).
+    """
     c, _ = api_client
+    monkeypatch.setenv("AGENTWATCH_TENANT_KEYS", "tenant-1=key-tenant-one,tenant-2=key-tenant-two")
 
     # Tenant 1 registers contract
-    t1_headers = {"X-Tenant-ID": "tenant-1"}
+    t1_headers = {"X-Api-Key": "key-tenant-one"}
     c.post(
         "/api/v3/contracts",
         json={
@@ -165,7 +169,7 @@ def test_multi_tenant_isolation(api_client, sink):
     )
 
     # Tenant 2 cannot see Tenant 1 contracts
-    t2_headers = {"X-Tenant-ID": "tenant-2"}
+    t2_headers = {"X-Api-Key": "key-tenant-two"}
     r2 = c.get("/api/v3/contracts", headers=t2_headers)
     assert len(r2.json()["contracts"]) == 0
 

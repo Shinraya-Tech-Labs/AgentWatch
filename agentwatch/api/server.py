@@ -6,6 +6,7 @@ FastAPI-based REST API for the observability dashboard, CLI, and integrations.
 from __future__ import annotations
 
 import asyncio
+import functools
 import hmac
 import logging
 import os
@@ -38,6 +39,7 @@ from sqlalchemy import text
 
 from agentwatch._version import __version__
 from agentwatch.alerting.engine import AlertingConfig, AlertingEngine
+from agentwatch.api import tenancy as _tenancy
 from agentwatch.api.auth import require_permission
 from agentwatch.api.entitlement import require_entitlement
 from agentwatch.api.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
@@ -327,10 +329,43 @@ _CLOUD_MODE = get_cloud_config().is_cloud
 
 def _key_matches(supplied: str | None) -> bool:
     """Constant-time comparison with AGENTWATCH_API_KEY (a plain != leaks how many leading
-    characters match through its timing)."""
-    if _API_KEY is None or supplied is None:
+    characters match through its timing), or with a key of the AGENTWATCH_TENANT_KEYS map."""
+    if supplied is None:
+        return False
+    if _tenancy.match_key(supplied, _tenant_keys()) is not None:
+        return True
+    if _API_KEY is None:
         return False
     return hmac.compare_digest(supplied.encode("utf-8"), _API_KEY.encode("utf-8"))
+
+
+@functools.lru_cache(maxsize=4)
+def _parse_tenant_keys(raw: str | None) -> dict[str, str]:
+    return _tenancy.parse_tenant_keys(raw)
+
+
+def _tenant_keys() -> dict[str, str]:
+    """The server-side key -> tenant map (AGENTWATCH_TENANT_KEYS), parsed once per value."""
+    return _parse_tenant_keys(os.environ.get("AGENTWATCH_TENANT_KEYS"))
+
+
+def _cloud_tenant_of(raw_key: str | None) -> str | None:
+    key = get_tenant_store().validate_api_key(raw_key) if raw_key else None
+    return key.tenant_id if key else None
+
+
+def _principal(api_key: str | None, tenant_header: str | None) -> _tenancy.Principal:
+    """The authenticated tenant of a request (see docs/TENANCY.md)."""
+    try:
+        return _tenancy.resolve(
+            cloud_mode=_CLOUD_MODE,
+            api_key=api_key,
+            tenant_header=tenant_header,
+            tenant_keys=_tenant_keys(),
+            cloud_lookup=_cloud_tenant_of,
+        )
+    except _tenancy.TenancyError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.detail) from exc
 
 
 def _require_api_key(
@@ -686,14 +721,8 @@ def _v3_tenant(
     x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
 ) -> str:
-    """Tenant for v3 endpoints: bound to the API key in cloud mode, 'default' otherwise."""
-    if _CLOUD_MODE and x_api_key:
-        key = get_tenant_store().validate_api_key(x_api_key)
-        if key is not None:
-            return key.tenant_id
-    if x_tenant_id:
-        return x_tenant_id
-    return "default"
+    """Tenant for v3 endpoints: always from the credential; X-Tenant-ID may only repeat it."""
+    return _principal(x_api_key, x_tenant_id).tenant_id
 
 
 # AgentWatch v3: /api/v3/* and the OTLP receiver at /v1/traces (see docs/v3).
