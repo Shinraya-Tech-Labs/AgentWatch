@@ -308,3 +308,95 @@ def test_autogen_sanitized_output_and_failed_check():
     broken_calls: list[str] = []
     res = _tool_results(_autogen_run("ls", broken_calls, pipeline=Broken()))
     assert res[0].is_error and broken_calls == []
+
+
+# ── watch(agent, protection=...) attaches enforcement to framework agents ────────────
+
+
+def test_watch_protects_a_compiled_langgraph_agent():
+    pytest.importorskip("langgraph")
+    from panoptis.core.event_bus import EventBus
+    from panoptis.core.watcher import watch
+
+    calls: list[str] = []
+    graph, _ = _graph(_lc_tool(calls), False)
+    watched = watch(
+        graph, event_bus=EventBus(), agent_id="g", session_id="w1", protection=ProtectionPipeline()
+    )
+    with pytest.raises(ActionBlocked):
+        watched.invoke(_call("rm -rf /"))
+    assert watched.invoke(_call("ls"))["messages"][-1].content == "ran ls"
+    assert calls == ["ls"]
+
+
+def test_watch_protects_an_already_built_autogen_agent():
+    pytest.importorskip("autogen_agentchat")
+    replay = pytest.importorskip("autogen_ext.models.replay")
+    from autogen_agentchat.agents import AssistantAgent
+    from autogen_core import FunctionCall
+    from autogen_core.models import CreateResult, RequestUsage
+    from autogen_core.tools import FunctionTool
+
+    from panoptis.core.event_bus import EventBus
+    from panoptis.core.watcher import watch
+
+    calls: list[str] = []
+
+    async def bash(command: str) -> str:
+        """Run a shell command."""
+        calls.append(command)
+        return "ran"
+
+    model = replay.ReplayChatCompletionClient(
+        [
+            CreateResult(
+                finish_reason="function_calls",
+                content=[FunctionCall(id="c1", name="bash", arguments='{"command": "rm -rf /"}')],
+                usage=RequestUsage(prompt_tokens=0, completion_tokens=0),
+                cached=False,
+            )
+        ],
+        model_info={
+            "vision": False,
+            "function_calling": True,
+            "json_output": False,
+            "family": "unknown",
+            "structured_output": False,
+        },
+    )
+    agent = AssistantAgent(
+        "assistant",
+        model_client=model,
+        tools=[FunctionTool(bash, description="Run a shell command")],
+    )
+    watch(agent, event_bus=EventBus(), protection=ProtectionPipeline())
+    res = _tool_results(asyncio.run(agent.run(task="do it")))
+    assert res and res[0].is_error and calls == []
+
+
+def test_watch_protects_a_smolagents_agent():
+    smolagents = pytest.importorskip("smolagents")
+    from panoptis.core.event_bus import EventBus
+    from panoptis.core.watcher import watch
+
+    calls: list[str] = []
+    agent = smolagents.ToolCallingAgent(tools=[_smol_tool(calls)], model=_NoModel())
+    watch(agent, event_bus=EventBus(), protection=ProtectionPipeline())
+    with pytest.raises(Exception, match="(?i)block"):
+        agent.execute_tool_call("bash", {"command": "rm -rf /"})
+    assert calls == []
+
+
+def test_watch_with_protection_refuses_an_agent_with_no_tools():
+    pytest.importorskip("langgraph")
+    from langgraph.graph import END, START, MessagesState, StateGraph
+
+    from panoptis.core.event_bus import EventBus
+    from panoptis.core.watcher import watch
+
+    g = StateGraph(MessagesState)
+    g.add_node("noop", lambda s: s)
+    g.add_edge(START, "noop")
+    g.add_edge("noop", END)
+    with pytest.raises(ValueError, match="no tools were found"):
+        watch(g.compile(), event_bus=EventBus(), protection=ProtectionPipeline())

@@ -264,3 +264,48 @@ def protect_tools(tools: Any, *, pipeline: ProtectionPipeline | None = None, **i
     raise TypeError(
         f"unsupported tool type {type(tools).__qualname__}; use protect_tool() for plain callables"
     )
+
+
+# ── whole agents (used by watch(agent, protection=...)) ────────────────────────────────
+
+
+def protect_agent(
+    agent: Any, framework: str, *, pipeline: ProtectionPipeline | None = None, **ident: Any
+) -> int:
+    """Protect every tool an agent of ``framework`` can execute. Returns how many.
+
+    Raises ``ValueError`` when no tool could be found, so a caller that asked for
+    enforcement is never left with observation only.
+    """
+    count = 0
+    if framework == "langchain":
+        for t in getattr(agent, "tools", None) or []:
+            protect_langchain_tool(t, pipeline=pipeline, **ident)
+            count += 1
+    elif framework == "langgraph":
+        for node in (getattr(agent, "nodes", None) or {}).values():
+            bound = getattr(node, "bound", node)
+            if getattr(bound, "tools_by_name", None):
+                protect_langgraph_tool_node(bound, pipeline=pipeline, **ident)
+                count += len(bound.tools_by_name)
+    elif framework == "autogen":
+        seen: set[int] = set()
+        workbenches = getattr(agent, "_workbench", None) or []
+        for holder in [agent, *(workbenches if isinstance(workbenches, list) else [workbenches])]:
+            for t in getattr(holder, "_tools", None) or []:
+                if id(t) not in seen and hasattr(t, "run_json"):
+                    seen.add(id(t))
+                    protect_autogen_tool(t, pipeline=pipeline, **ident)
+                    count += 1
+    elif framework == "smolagents":
+        tools = getattr(agent, "tools", None)
+        items = tools.values() if isinstance(tools, dict) else tools or []
+        count = sum(1 for t in items if getattr(t, "name", "") != "final_answer")
+        protect_smolagents_agent(agent, pipeline=pipeline, **ident)
+    else:
+        raise ValueError(
+            f"no tool-level enforcement for framework {framework!r}; use protect_tool()"
+        )
+    if count == 0:
+        raise ValueError(f"protection requested but no tools were found on this {framework} agent")
+    return count

@@ -915,6 +915,13 @@ def watch(
     register_http_forwarder(bus, api_url=None)
     label = detect_framework_label(agent)
 
+    if protection is not None and label in ("langchain", "langgraph", "autogen", "smolagents"):
+        # Enforcement for a framework agent is attached to its tool-execution entry points.
+        # Errors propagate: asking for protection must never silently yield observation only.
+        from panoptis.protect.integrations import protect_agent
+
+        protect_agent(agent, label, pipeline=protection, agent_id=agent_id, session_id=session_id)
+
     try:
         if label == "langchain":
             attached = _attach_langchain(agent, session_id, bus, metadata)
