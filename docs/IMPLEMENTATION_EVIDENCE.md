@@ -31,7 +31,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | CTRL-003 ledger | IN PROGRESS | this file, kept current per task |
 | CTRL-004 … CTRL-008 | IN PROGRESS | rules applied throughout; CTRL-008 runs at the end |
 | TO-001 fail-open execution | DONE | [TO-001](#to-001) |
-| TO-002 … TO-040 | NOT STARTED unless listed below | — |
+| TO-002 enforcement pipeline | IN PROGRESS | [TO-002](#to-002) |
+| TO-003 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -87,3 +88,76 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 **Commits:** `60de76f` `823ff22` `6ac18fc` `aa76269` `8e992bf` `7340060` `dbbb134` `012f4fb` `30846c9`, plus this ledger commit.
 
 **Limitation:** a sync check that hangs is bounded only when a timeout is configured (`safety_timeout_s` or `AGENTWATCH_SAFETY_TIMEOUT_S`). A thread hand-off per call would otherwise add latency to every sync call. Without a timeout a hung check blocks the caller; it never runs the tool.
+
+### TO-002
+
+**Status:** IN PROGRESS. The boundary is complete and tested. The last open requirement is "all integrations call this shared pipeline"; it is met as each integration adopts it (TO-011–016 framework adapters, TO-023 MCP gateway).
+
+**Changes:**
+
+- **`agentwatch/protect/enforce.py`:**
+  - `enforce_call` / `aenforce_call`: the single boundary. Order: inspect and decide → approval or mutation → execute once → inspect output → return. The tool's own exceptions pass through unchanged. A failure inside enforcement raises `ActionBlocked`, and a failure after execution withholds the result and records `executed: true`.
+  - `protect_tool()`: the public API.
+  - `protection_context()` and `current_context()` carry identity.
+  - Default pipeline: `set_default_pipeline` / `get_default_pipeline`.
+  - `bind_arguments`: maps mutated values back to positional, keyword and variadic parameters.
+- **`agentwatch/protect/model.py`:**
+  - `ToolAction` carries `tenant_id`, `trace_id`, `parent_call_id` and `defaulted_identity`.
+  - `scope` (tenant/session) keys all session state.
+  - Decisions record `mutation.changed_paths`.
+- **`agentwatch/protect/pipeline.py`:**
+  - Per-tenant sessions, loop windows and breakers.
+  - `failure_decision`.
+  - `protect.execution` evidence: outcome, duration, error type, whether arguments were mutated.
+  - Evidence is recorded under the action's tenant, with the trace and parent ids declared.
+  - `require_context` blocks calls that carry no supplied identity.
+- **`agentwatch/protect/ledger.py`:** `record(..., tenant_id=)` and `KIND_EXECUTION`.
+- **`agentwatch/core/watcher.py`:** `watch(agent, protection=pipeline)` and `GenericAdapter(protection=)` send tool-like calls through `enforce_call` / `aenforce_call`.
+- **`agentwatch/core/http_forwarder.py` (performance fix found while testing):**
+  - With the API server down, every event waited out a connection attempt, about 2.3 s on Windows, and a wrapped call emits several events.
+  - The forwarder now backs off for `AGENTWATCH_FORWARD_BACKOFF_S` (default 30 s), and `AGENTWATCH_FORWARD_EVENTS=0` disables it.
+  - Effect: the protected `watch()` test went from 12.4 s to 2.4 s; `test_watcher.py` went from about 100 s to 37 s.
+
+**Tests:** 25 new.
+
+`tests/protect/test_enforce.py` (16):
+
+- ordering: decide → execute → inspect output;
+- a blocked call never executes;
+- tool exceptions pass through;
+- an enforcement failure before execution blocks;
+- a failure after execution withholds the result;
+- async parity;
+- identity fields reach the evidence record;
+- the same session id in two tenants is two sessions;
+- execution is recorded once per allowed call and never for a blocked one;
+- mutated arguments reach the tool, the mutation is recorded, and the secret is never stored;
+- `watch(protection=)` routes through the pipeline;
+- approval: approve-then-execute order, reject, timeout, approver edits re-inspected, and edits that would be hard-blocked are refused.
+
+`tests/protect/test_protect_tool.py` (10):
+
+- decorator forms and metadata;
+- blocked calls;
+- async;
+- mutation mapped back to positional-only and keyword-only parameters;
+- no double wrapping;
+- identity from context;
+- exception passthrough;
+- varargs;
+- `require_context` blocks, and default mode allows.
+
+`tests/test_http_forwarder_backoff.py` (3).
+
+**Commands and results:**
+
+- `pytest tests/protect`: 89 passed
+- `pytest tests/`: 2341 passed, 8 skipped, 0 failed (4 m 32 s)
+- `ruff check` / `ruff format` on the changed files: clean
+
+**Commits:** `3df851e` `7daeabe` `e55d5c4` `c5620d9` `f80a467` `040eefb` `9dc1fd6` `a1a349b`, plus this ledger commit.
+
+**Limitations:**
+
+- Output from streaming methods (generators) is not inspected: the generator object is returned as is. This is tracked in TO-011 and TO-018.
+- The legacy `SafetyEngine` gate is still the default for `watch()` without `protection=`; changing that default is decided in TO-016.

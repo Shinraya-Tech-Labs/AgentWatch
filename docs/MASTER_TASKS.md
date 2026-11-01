@@ -71,32 +71,32 @@
 enforcement failure blocks execution and that allowed calls execute
 exactly once.
 
-## TO-002 --- Establish one authoritative enforcement pipeline
+## TO-002 --- Establish one authoritative enforcement pipeline — **IN PROGRESS** (boundary done; framework adapters and the MCP gateway adopt it in TO-011–016 and TO-023)
 
--   [ ] Implement or complete the shared enforcement module under
+-   [x] Implement or complete the shared enforcement module under
     `agentwatch/protect/` (planned path:
     `agentwatch/protect/enforce.py`).
--   [ ] Define a stable action representation containing agent/session
+-   [x] Define a stable action representation containing agent/session
     identity, tool name, arguments, user objective/context, policy
     identity, and trace/evidence identifiers.
--   [ ] Implement a single decision flow for `ALLOW`, `BLOCK`,
+-   [x] Implement a single decision flow for `ALLOW`, `BLOCK`,
     `ESCALATE_HITL`, and `MUTATE_AND_ALLOW`.
--   [ ] Run argument inspection and policy checks before execution.
--   [ ] Apply approved argument mutation before execution and record the
+-   [x] Run argument inspection and policy checks before execution.
+-   [x] Apply approved argument mutation before execution and record the
     mutation.
--   [ ] Execute the underlying tool exactly once only after an allow
+-   [x] Execute the underlying tool exactly once only after an allow
     decision.
--   [ ] Inspect and sanitize the tool result before returning it to the
+-   [x] Inspect and sanitize the tool result before returning it to the
     agent.
--   [ ] Record decision, execution, approval, mutation, and
+-   [x] Record decision, execution, approval, mutation, and
     output-sanitization events in the evidence system.
--   [ ] Bind the enforcement context to the correct agent and session;
+-   [x] Bind the enforcement context to the correct agent and session;
     reject mismatched or missing context according to policy.
--   [ ] Expose a documented public `protect_tool()` API for protecting
+-   [x] Expose a documented public `protect_tool()` API for protecting
     individual tools.
 -   [ ] Ensure all integrations call this shared pipeline rather than
     reimplementing security decisions.
--   [ ] Add unit, integration, sync, async, exception-path, and
+-   [x] Add unit, integration, sync, async, exception-path, and
     side-effect-count tests.
 
 **Acceptance evidence:** One tested enforcement boundary is used by all
