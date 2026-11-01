@@ -18,6 +18,16 @@ from panopti.reports import (
 )
 
 HOSTILE = '<script>alert("x")</script><img src=x onerror=alert(1)>'
+TEST_KEY = "report-tests-" + "k" * 32  # these tests are about rendering, not key management
+
+
+@pytest.fixture(autouse=True)
+def _attest_key(monkeypatch):
+    import base64
+
+    monkeypatch.setenv(
+        "AGENTWATCH_ATTEST_KEYS", "reports=" + base64.b64encode(TEST_KEY.encode()).decode()
+    )
 
 
 def _seal(**kw: object) -> dict:
@@ -205,3 +215,14 @@ def test_cli_verify_still_works(tmp_path: Path, capsys: pytest.CaptureFixture[st
     seal_file.write_text(seal.to_json(), encoding="utf-8")
     assert main(["attest", "verify", str(seal_file)]) == 0
     assert "VERIFIED ATTESTATION SEAL" in capsys.readouterr().out
+
+
+def test_report_shows_the_signing_key_and_accepts_legacy_seals():
+    seal = _seal()
+    md = export_markdown_report(seal)
+    assert (
+        "| Signing Key ID | `reports` |" in md
+        or "reports" in md.split("Signing Key ID")[1].split("\n")[0]
+    )
+    legacy = {k: v for k, v in seal.items() if k not in ("key_id", "version")}
+    assert "Signing Key ID" in export_html_report(legacy)
