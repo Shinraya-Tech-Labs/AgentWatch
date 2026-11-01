@@ -24,3 +24,16 @@ Other stores:
 1. `/health` shows `database.status: degraded` or `unavailable`.
 2. Restore the database, or fix the network or credentials. A running API resumes writing on its own. An API that refused to start needs a restart once the database is reachable.
 3. Writes answered 503 during the outage were not stored. Clients should retry them: the event ingestion route is safe to retry because events carry their own `event_id`.
+
+## Request and payload limits (TO-010)
+
+| Limit | Default | Setting | Rejection |
+|---|---|---|---|
+| HTTP request body | 10 MiB | `AGENTWATCH_MAX_BODY_BYTES` | **413**, decided from `Content-Length` before the body is read; a chunked body is cut off as soon as it passes the limit |
+| observations per v3 batch | 5000 | `AGENTWATCH_MAX_BATCH_ITEMS` | 422 |
+| JSON nesting depth (v3 payloads; v1 `metadata` and tool arguments) | 64 | `AGENTWATCH_MAX_JSON_DEPTH` | 422 (v3) / 413 (v1) |
+| single string | 4 MiB | `AGENTWATCH_MAX_STRING_BYTES` | 422 (v3) / 413 (v1) |
+| WebSocket message | 1 MiB | `AGENTWATCH_WS_MAX_BYTES` (`agentwatch server start`; `--ws-max-size` in the Docker image) | the connection is closed by uvicorn |
+| policy dry-run input | see [`TENANCY.md`](TENANCY.md) | | 422 |
+
+The structural checks are iterative, so a pathologically deep document is rejected with a 4xx and never exhausts the recursion limit. Payloads larger than 64 KB are stored in the blob store, and only the limits above bound them.
