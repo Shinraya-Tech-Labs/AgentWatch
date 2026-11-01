@@ -145,23 +145,23 @@ header or identifier.
 **Acceptance evidence:** A cross-tenant erase test proves zero records
 belonging to the other tenant are modified or deleted.
 
-## TO-005 --- Secure attestation keys and verification
+## TO-005 --- Secure attestation keys and verification — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-005)
 
--   [ ] Remove public/default HMAC secrets from production and
+-   [x] Remove public/default HMAC secrets from production and
     cloud-mode defaults.
--   [ ] Reject startup in production/cloud mode when required signing
+-   [x] Reject startup in production/cloud mode when required signing
     keys are absent, weak, known-default, or invalid.
--   [ ] Define development-only key behavior explicitly and prevent it
+-   [x] Define development-only key behavior explicitly and prevent it
     from being enabled accidentally in production.
--   [ ] Load secrets through supported secret-management/environment
+-   [x] Load secrets through supported secret-management/environment
     configuration without logging them.
--   [ ] Define key identifiers, rotation, versioning, and verification
+-   [x] Define key identifiers, rotation, versioning, and verification
     behavior.
--   [ ] Ensure verification uses the correct key version and fails
+-   [x] Ensure verification uses the correct key version and fails
     closed for unknown or revoked keys.
--   [ ] Add tests for missing keys, default keys, wrong keys, modified
+-   [x] Add tests for missing keys, default keys, wrong keys, modified
     payloads, modified signatures, rotation, and valid verification.
--   [ ] Document key generation, configuration, rotation, backup, and
+-   [x] Document key generation, configuration, rotation, backup, and
     incident response.
 
 **Acceptance evidence:** Independent verification succeeds for valid

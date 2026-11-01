@@ -37,7 +37,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-003 tenant identity | DONE | [TO-003](#to-003) |
 | Port onto `panoptis` layout | DONE | merge `4c2025d` (see below) |
 | TO-004 tenant-safe erasure | DONE | [TO-004](#to-004) |
-| TO-005 … TO-040 | NOT STARTED unless listed below | — |
+| TO-005 attestation keys | DONE | [TO-005](#to-005) |
+| TO-006 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -284,3 +285,61 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 **Commits:** `c37aa28` `0ebcff1` `762ffe8` `aa4e62a` `1337770` `8cadd74` `8745911`, plus this ledger commit. That is 8: the task had 7 separable changes, and no filler commits were made.
 
 **Limitation:** the memory target's missing function is TO-031.
+
+### TO-005
+
+**Status:** DONE. Operations guide: [`docs/ATTESTATION_KEYS.md`](ATTESTATION_KEYS.md).
+
+**Vulnerability:**
+
+- `AttestationEngine.create_seal` and `verify_seal` defaulted to the HMAC key `panopti-seal-default-key`, which is in the source; `panopti attest verify` fell back to it too. Anyone could forge a seal that verified.
+- The demo and the quickstart notebook also signed with keys published in the repository (`panopti-demo-hmac-key`, `panopti-quickstart-audit-key`).
+
+**Changes:**
+
+- `panopti/attest_keys.py` (new): a `Keyring` with key ids, an active key and revocation.
+  - Configured through `AGENTWATCH_ATTEST_KEYS` (base64 or hex) and `AGENTWATCH_ATTEST_ACTIVE_KID` / `AGENTWATCH_ATTEST_REVOKED`.
+  - Rejects keys under 32 bytes and the known public keys.
+  - `AGENTWATCH_ATTEST_DEV_KEY=1` gives an ephemeral dev key, refused in production and cloud mode.
+  - `check_startup()` is the server gate. Errors never include key material.
+- `panopti/attest.py`:
+  - version-2 seals carry `key_id` and sign every field as canonical JSON;
+  - there is no default key;
+  - verification fails closed on an unknown or revoked key id, a modified field or signature, or a key-id swap;
+  - version-1 seals verify only with `allow_legacy=True` and an explicit key.
+- `panoptis/api/server.py`: the lifespan refuses to start on an unsafe attestation configuration.
+- `panopti/cli.py`: `attest verify` uses `--key` or the keyring, and exits 2 without either.
+- `panopti/demo.py`: signs with a random in-process key.
+- `examples/quickstart_panopti_guardrails.ipynb`: a generated key; all code cells were executed and the seal verifies.
+- `panopti/reports.py`: shows `key_id` and `version`; version-1 seals still render.
+- `scripts/verify_seal.py` (new): a standalone verifier using only the standard library.
+- `panopti/__init__.py`: exports the keyring API.
+- `.env.example`: documents the settings.
+
+**Tests:**
+
+- `tests/test_attest_keys.py` (14):
+  - a missing configuration is an error;
+  - public and weak keys are rejected; malformed entries and duplicate key ids are rejected;
+  - hex and base64 keys; the active key id;
+  - no key material appears in errors or summaries;
+  - the dev key is ephemeral and refused in production;
+  - the startup gate (4 unsafe configurations);
+  - the API server refuses to start with the public key and starts with a strong key.
+- `tests/test_panopti_attest.py` (21):
+  - sign and verify; there is no default key;
+  - public and weak keys can neither sign nor verify;
+  - 7 parametrised field-tamper cases; a modified signature; the wrong key; a key-id swap;
+  - rotation; revocation and unknown key ids; the keyring from the environment;
+  - legacy opt-in; JSON round trip; a dev key from another process does not verify;
+  - the independent verifier agrees with the engine (valid, tampered, wrong key, no key).
+- `tests/test_panopti_cli.py` (+1): no default key; wrong key gives exit 1.
+- `tests/v3/test_seal_reports.py` (+1, and a test keyring for the 21 rendering tests that had relied on the removed default key).
+
+**Commands and results:**
+
+- `pytest tests/test_attest_keys.py tests/test_panopti_attest.py tests/test_panopti_cli.py tests/v3/test_seal_reports.py`: all pass
+- Demo smoke run: seal issued, exit 0
+- `pytest tests/`: 2445 passed, 8 skipped, 2 failed. The 2 failures are the pre-existing `test_cli_animator` failures on `main`.
+
+**Commits:** `45764be` `023b496` `e085f35` `f8bacc9` `620539b` `7ba0e9c` `7a38e11` `cf8838a`, plus this ledger commit.
