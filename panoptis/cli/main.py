@@ -109,6 +109,12 @@ app.add_typer(legacy_app, hidden=True)
 _IN_REPL = False
 
 
+def _ws_max_bytes() -> int:
+    from panoptis.api.limits import ws_max_bytes
+
+    return ws_max_bytes()
+
+
 @app.callback(invoke_without_command=True)
 def main_callback(
     ctx: typer.Context,
@@ -1485,6 +1491,7 @@ def serve(
         port=port,
         reload=reload,
         log_level="info",
+        ws_max_size=_ws_max_bytes(),
     )
 
 

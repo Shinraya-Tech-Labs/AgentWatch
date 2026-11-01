@@ -44,6 +44,7 @@ from panoptis.alerting.engine import AlertingConfig, AlertingEngine
 from panoptis.api import tenancy as _tenancy
 from panoptis.api.auth import require_permission
 from panoptis.api.entitlement import require_entitlement
+from panoptis.api.limits import BodySizeLimitMiddleware, PayloadTooLarge, check_json_limits
 from panoptis.api.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
 from panoptis.api.tenant_auth import get_tenant_store
 from panoptis.api.v3 import build_router as build_v3_router
@@ -972,6 +973,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Outermost: oversized bodies are refused before any other layer reads them (TO-010).
+app.add_middleware(BodySizeLimitMiddleware)
 
 
 @app.get("/api/v1/system/status")
@@ -1232,6 +1235,12 @@ async def ingest_event(
     tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
     _limiter.check(_rate_limit_key(request, "w"), RATE_WRITE, request)
+    try:  # free-form fields are bounded in depth and string size (TO-010)
+        check_json_limits(event.metadata)
+        if event.tool_call is not None:
+            check_json_limits(event.tool_call.arguments)
+    except PayloadTooLarge as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     # tenancy is the server's to record: a client-supplied value is overwritten
     event.metadata["tenant_id"] = tenant_id
     existing = _collector.get_trace(event.session_id)
@@ -2277,4 +2286,6 @@ def create_app() -> FastAPI:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0." + "0.0", port=8000, log_level="info")
+    from panoptis.api.limits import ws_max_bytes
+
+    uvicorn.run(app, host="0.0." + "0.0", port=8000, log_level="info", ws_max_size=ws_max_bytes())
