@@ -31,4 +31,19 @@ A tenant is never chosen by the caller. It comes from a validated credential:
 | Protect pipeline / MCP gateway | yes | `ToolAction.tenant_id` is set by the integration from its configuration, never from the agent; evidence is recorded under it (TO-002). |
 | Celery tasks (`agentwatch/tasks.py`) | n/a | No tenant-sensitive task reads request data. |
 
-The fixes are listed under TO-003 in `docs/IMPLEMENTATION_EVIDENCE.md`.
+## After TO-003
+
+| Path | Now | Test |
+|---|---|---|
+| `/api/v3/*` | tenant from the credential; a forged or mismatched `X-Tenant-ID` gets 403; a missing, revoked, expired or suspended key gets 401 | `tests/v3/test_tenant_isolation_api.py`, `tests/test_tenancy_resolver.py` |
+| v1 ingestion | events and sessions tagged with the authenticated tenant (any client value is overwritten); no appends to, or re-registration of, another tenant's session (re-checked under the collector lock); the tee writes into the caller's tenant | same file |
+| v1 session routes | 404 unless the session is the caller's; the list shows only the caller's sessions | same file (11 route tests, all of which fail on the old code) |
+| Operator routes | cloud mode requires `AGENTWATCH_ADMIN_KEY`, and they are closed when it is unset; a tenant may read only its own tenant record | same file |
+| `WS /ws/events` | tenant key required (4001); a mismatched `X-Tenant-ID` closes with 4003; only the connection tenant's events are streamed | same file |
+| CLI | tenant-taking commands read only that tenant; the others read only `default` | `tests/v3/test_cli_tenant_scope.py` |
+
+**Configuration:**
+
+- `AGENTWATCH_TENANT_KEYS`: the self-hosted key → tenant map.
+- `AGENTWATCH_ADMIN_KEY`: the cloud operator credential.
+- Both are documented in `.env.example`.
