@@ -801,6 +801,41 @@ class ProtectionPipeline:
 
         return deco
 
+    def failure_decision(
+        self, action: ToolAction, exc: BaseException, *, executed: bool = False
+    ) -> Decision:
+        """The BLOCK decision for an action whose enforcement itself failed (recorded).
+
+        ``executed`` says whether the tool had already run: then its result is withheld,
+        and the record says so instead of claiming the action was prevented.
+        """
+        if executed:
+            f = Finding(
+                Stage.OUTPUT,
+                "POST_EXECUTION_ERROR",
+                Severity.CRITICAL,
+                f"The tool ran, but enforcement failed afterwards ({type(exc).__name__}: {exc}); its result is withheld",
+                {"error": type(exc).__name__, "executed": True},
+                None,
+                Verdict.BLOCK,
+            )
+        else:
+            f = Finding(
+                Stage.PIPELINE,
+                "ENFORCEMENT_ERROR",
+                Severity.CRITICAL,
+                f"Enforcement failed ({type(exc).__name__}: {exc}); the tool did not run",
+                {"error": type(exc).__name__, "executed": False},
+                None,
+                Verdict.BLOCK,
+            )
+        decision = Decision(action=action, verdict=Verdict.BLOCK, risk_score=1.0, findings=[f])
+        try:
+            self._after_decision(decision)
+        except Exception:  # noqa: BLE001 - recording must not mask the block
+            logger.exception("could not record the fail-closed decision")
+        return decision
+
     # ── evidence ───────────────────────────────────────────────────────────────────
     def _record(self, kind: str, payload: dict[str, Any], declared: dict[str, Any]) -> None:
         if self.ledger is None:
