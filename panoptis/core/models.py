@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from panoptis.governance.audit_log import AuditRecord
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     DateTime,
@@ -24,9 +25,13 @@ from sqlalchemy import (
     Text,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB as _PG_JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, relationship
+
+# JSONB on PostgreSQL (unchanged), JSON elsewhere: the schema also runs on SQLite
+# (local development, tests).
+JSONB = JSON().with_variant(_PG_JSONB(), "postgresql")
 
 
 class Base(DeclarativeBase):
@@ -458,6 +463,41 @@ class Repository:
     async def delete_session(self, session_id: str) -> int:
         """Delete a single session (and its task dependencies). Returns 1 if deleted."""
         return await self.prune_sessions([session_id])
+
+    async def erase_session(self, session_id: str, *, tenant_id: str | None) -> int:
+        """Erase one session and everything recorded under it, only if ``tenant_id`` owns it.
+
+        The tenant constraint is part of every DELETE (through an owned-session subquery),
+        so there is no fetch-then-delete window and a session id owned by another tenant
+        is not touched. Events are deleted when they belong to the owned session and to the
+        same tenant (or carry no tenant, i.e. were recorded before tenancy). Returns the
+        number of rows removed; 0 for an unknown session and for another tenant's session
+        alike, so the result does not reveal who owns an id.
+        """
+        from sqlalchemy import delete, or_, select
+
+        owned = select(SessionRecord.session_id).where(SessionRecord.session_id == session_id)
+        if tenant_id is not None:
+            owned = owned.where(SessionRecord.tenant_id == tenant_id)
+        owned_ids = owned.scalar_subquery()
+        removed = 0
+        event_filter = [EventRecord.session_id == owned_ids]
+        if tenant_id is not None:
+            event_filter.append(
+                or_(EventRecord.tenant_id == tenant_id, EventRecord.tenant_id.is_(None))
+            )
+        for stmt in (
+            delete(EventRecord).where(*event_filter),
+            delete(TaskRecord).where(TaskRecord.session_id == owned_ids),
+            delete(CheckpointRecord).where(CheckpointRecord.session_id == owned_ids),
+        ):
+            removed += (await self._session.execute(stmt)).rowcount or 0
+        final = delete(SessionRecord).where(SessionRecord.session_id == session_id)
+        if tenant_id is not None:
+            final = final.where(SessionRecord.tenant_id == tenant_id)
+        removed += (await self._session.execute(final)).rowcount or 0
+        await self._session.flush()
+        return removed
 
     async def delete_events_by_session(self, session_id: str) -> int:
         """Delete events tied to a session and return the number removed."""
