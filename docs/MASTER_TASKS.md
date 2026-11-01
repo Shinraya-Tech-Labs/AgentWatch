@@ -1,5 +1,7 @@
 # AgentWatch --- Master Engineering Task List
 
+> **Package rename (2026-11-02):** `main` renamed the package `agentwatch` → `panoptis` (commit `db95c31`). This branch was merged onto that layout in `4c2025d`; File paths below that start with `agentwatch/` now live under `panoptis/`.
+
 > **Objective:** Complete AgentWatch as a real, end-to-end AI Agent
 > Security & Runtime Protection Platform. This is an implementation and
 > verification checklist, not a feature wishlist or presentation

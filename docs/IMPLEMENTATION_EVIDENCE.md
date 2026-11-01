@@ -1,5 +1,7 @@
 # Implementation Evidence Ledger
 
+> **Package rename (2026-11-02):** `main` renamed the package `agentwatch` → `panoptis` (commit `db95c31`). This branch was merged onto that layout in `4c2025d`; file paths below that start with `agentwatch/` now live under `panoptis/`.
+
 Task list: [`docs/MASTER_TASKS.md`](MASTER_TASKS.md). Each task records its changed files, the tests it added, the exact commands run with their results, its commits, and any remaining limitation.
 
 Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A task is `DONE` only when tests exercise the behaviour; code inspection alone does not count (CTRL-004).
@@ -39,7 +41,7 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 
 | Commit | Change | Tests |
 |---|---|---|
-| `3a8897a` … `9cb58bd` | `agentwatch/protect/`: model, argument analysis, threat classifier, output inspector, loop detector, intent grounding, RBAC, ledger, control/approvals, pipeline | `pytest tests/protect`: 55 passed (threat analysis and output inspection only; the other modules have no tests yet) |
+| `3a8897a` … `9cb58bd` | `panoptis/protect/`: model, argument analysis, threat classifier, output inspector, loop detector, intent grounding, RBAC, ledger, control/approvals, pipeline | `pytest tests/protect`: 55 passed (threat analysis and output inspection only; the other modules have no tests yet) |
 | `6d6bb4d` | `docs/REPO_AUDIT.md` | n/a |
 
 ## Task log
@@ -55,7 +57,7 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 - a `SafetyEngine` that failed to construct made `watch()` return the agent unwrapped;
 - a malformed verdict (for example a non-bool `blocked`) was read as "not blocked".
 
-**Changes:** `agentwatch/core/watcher.py`
+**Changes:** `panoptis/core/watcher.py`
 
 - The decision is separated from event publishing. Failing to reach a decision raises `AgentWatchBlockedError` (fail closed). A telemetry failure is logged and does not change the decision.
 - Decision deadline: async = approval timeout + 30 s, or `safety_timeout_s` / `AGENTWATCH_SAFETY_TIMEOUT_S`. The sync path is bounded on a worker thread when a timeout is configured.
@@ -96,25 +98,25 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 
 **Changes:**
 
-- **`agentwatch/protect/enforce.py`:**
+- **`panoptis/protect/enforce.py`:**
   - `enforce_call` / `aenforce_call`: the single boundary. Order: inspect and decide → approval or mutation → execute once → inspect output → return. The tool's own exceptions pass through unchanged. A failure inside enforcement raises `ActionBlocked`, and a failure after execution withholds the result and records `executed: true`.
   - `protect_tool()`: the public API.
   - `protection_context()` and `current_context()` carry identity.
   - Default pipeline: `set_default_pipeline` / `get_default_pipeline`.
   - `bind_arguments`: maps mutated values back to positional, keyword and variadic parameters.
-- **`agentwatch/protect/model.py`:**
+- **`panoptis/protect/model.py`:**
   - `ToolAction` carries `tenant_id`, `trace_id`, `parent_call_id` and `defaulted_identity`.
   - `scope` (tenant/session) keys all session state.
   - Decisions record `mutation.changed_paths`.
-- **`agentwatch/protect/pipeline.py`:**
+- **`panoptis/protect/pipeline.py`:**
   - Per-tenant sessions, loop windows and breakers.
   - `failure_decision`.
   - `protect.execution` evidence: outcome, duration, error type, whether arguments were mutated.
   - Evidence is recorded under the action's tenant, with the trace and parent ids declared.
   - `require_context` blocks calls that carry no supplied identity.
-- **`agentwatch/protect/ledger.py`:** `record(..., tenant_id=)` and `KIND_EXECUTION`.
-- **`agentwatch/core/watcher.py`:** `watch(agent, protection=pipeline)` and `GenericAdapter(protection=)` send tool-like calls through `enforce_call` / `aenforce_call`.
-- **`agentwatch/core/http_forwarder.py` (performance fix found while testing):**
+- **`panoptis/protect/ledger.py`:** `record(..., tenant_id=)` and `KIND_EXECUTION`.
+- **`panoptis/core/watcher.py`:** `watch(agent, protection=pipeline)` and `GenericAdapter(protection=)` send tool-like calls through `enforce_call` / `aenforce_call`.
+- **`panoptis/core/http_forwarder.py` (performance fix found while testing):**
   - With the API server down, every event waited out a connection attempt, about 2.3 s on Windows, and a wrapped call emits several events.
   - The forwarder now backs off for `AGENTWATCH_FORWARD_BACKOFF_S` (default 30 s), and `AGENTWATCH_FORWARD_EVENTS=0` disables it.
   - Effect: the protected `watch()` test went from 12.4 s to 2.4 s; `test_watcher.py` went from about 100 s to 37 s.
@@ -177,12 +179,12 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 
 **Changes:**
 
-- `agentwatch/api/tenancy.py`: a pure resolver.
+- `panoptis/api/tenancy.py`: a pure resolver.
   - Single tenant → `default`.
   - `AGENTWATCH_TENANT_KEYS` key map → the key's tenant.
   - Cloud → the tenant store's key.
   - A header is only a selector: mismatch gets 403; no or invalid key in cloud mode gets 401, never a fallback.
-- `agentwatch/api/server.py`:
+- `panoptis/api/server.py`:
   - `_principal`, `_request_tenant`, `_owner`, `_require_session_owner`, `_require_operator`;
   - v1 ingestion tagging and session guards;
   - 10 session routes scoped, and the session list filtered;
@@ -190,7 +192,7 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
   - WebSocket authentication and per-tenant filtering;
   - the tee is tenant-aware;
   - `_key_matches` accepts mapped keys, compared in constant time.
-- `agentwatch/tracing/collector.py`: a cross-tenant append to an existing session is dropped under the lock (race-safe).
+- `panoptis/tracing/collector.py`: a cross-tenant append to an existing session is dropped under the lock (race-safe).
 - `tests/v3/test_contracts_api.py`: the multi-tenant isolation test uses real per-tenant keys instead of forged headers.
 - `.env.example` and `docs/TENANCY.md`: configuration documented.
 

@@ -1,5 +1,7 @@
 # Tenancy and Trust Boundaries
 
+> **Package rename (2026-11-02):** `main` renamed the package `agentwatch` → `panoptis` (commit `db95c31`). This branch was merged onto that layout in `4c2025d`; file paths below that start with `agentwatch/` now live under `panoptis/`.
+
 How AgentWatch decides which tenant a request acts for, and which paths enforce it. Written for TO-003 and kept current as routes change.
 
 ## Rule
@@ -29,7 +31,7 @@ A tenant is never chosen by the caller. It comes from a validated credential:
 | `WS /ws/events` | **no** | Checked only the legacy key, then forwarded every event on the bus to every client, whatever the tenant. |
 | CLI (`agentwatch …`) | n/a | Runs against a local store with the OS user's permissions; `--tenant` selects within a store the user can already read. This is a local trust boundary, not a network one. |
 | Protect pipeline / MCP gateway | yes | `ToolAction.tenant_id` is set by the integration from its configuration, never from the agent; evidence is recorded under it (TO-002). |
-| Celery tasks (`agentwatch/tasks.py`) | n/a | No tenant-sensitive task reads request data. |
+| Celery tasks (`panoptis/tasks.py`) | n/a | No tenant-sensitive task reads request data. |
 
 ## After TO-003
 

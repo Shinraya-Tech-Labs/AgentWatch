@@ -1,5 +1,7 @@
 # AgentWatch Repository Audit
 
+> **Package rename (2026-11-02):** `main` renamed the package `agentwatch` → `panoptis` (commit `db95c31`). This branch was merged onto that layout in `4c2025d`; This audit is a snapshot of `8d5cf12` and is kept as written. File paths below that start with `agentwatch/` now live under `panoptis/`.
+
 **Date:** 2026-11-01 · **Commit audited:** `main` @ `8d5cf12` · **Auditor:** Claude (automated checks + targeted manual review)
 
 Not audited: the untracked work in progress on `feat/protect-runtime-security` (`agentwatch/protect/`, `tests/protect/`) and the uncommitted edit to `PROJECT_TASKS_TO_BE_DONE.md`.
