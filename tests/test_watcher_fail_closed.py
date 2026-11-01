@@ -281,3 +281,31 @@ def test_fail_closed_async_block_is_published():
 
     asyncio.run(go())
     assert len(seen) == 1 and seen[0].metadata["enforcement_failure"] is True
+
+
+def test_action_blocked_is_compatible_with_agentwatch_blocked_error():
+    import agentwatch
+    from agentwatch.protect import ActionBlocked, ProtectionPipeline, ToolAction
+
+    assert issubclass(ActionBlocked, AgentWatchBlockedError)
+    assert agentwatch.AgentWatchBlockedError is AgentWatchBlockedError
+    ran: list[str] = []
+
+    def shell(command: str) -> str:
+        ran.append(command)
+        return "ok"
+
+    pipeline = ProtectionPipeline()
+    action = ToolAction(
+        agent_id="a1", session_id="s1", tool="bash", arguments={"command": "rm -rf /"}
+    )
+    try:
+        pipeline.execute(action, shell)
+    except AgentWatchBlockedError as exc:  # the handler existing callers already have
+        assert isinstance(exc, ActionBlocked)
+        assert exc.tool_name == "bash"
+        assert exc.reasons and exc.reason
+        assert exc.decision.verdict.value == "block"
+    else:
+        pytest.fail("the destructive call was not blocked")
+    assert ran == []
