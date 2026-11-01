@@ -181,3 +181,24 @@ def test_execution_is_recorded_once_per_allowed_call_and_never_for_blocked(ledge
     assert all(r["payload"]["duration_ms"] is not None for r in rows)
     decisions = ledger.query(("protect.decision",))
     assert len(decisions) == 3  # every decision, allowed or not, is recorded once
+
+
+def test_mutated_arguments_reach_the_tool_and_the_mutation_is_recorded(ledger):
+    key = "ghp_" + "a1b2c3d4e5" * 4
+    received: list[dict[str, Any]] = []
+    p = ProtectionPipeline(ledger=ledger)
+    a = ToolAction(
+        agent_id="coder",
+        session_id="s1",
+        tool="write_file",
+        arguments={"path": "notes.txt", "content": f"token {key}"},
+    )
+    enforce_call(p, a, lambda args: received.append(args) or "written")
+    assert len(received) == 1
+    assert key not in received[0]["content"] and received[0]["path"] == "notes.txt"
+    row = ledger.query(("protect.decision",))[0]
+    assert row["payload"]["verdict"] == "mutate_and_allow"
+    assert row["payload"]["mutation"] == {"changed_paths": ["$.content"]}
+    import json
+
+    assert key not in json.dumps(row), "the original secret must not be stored in evidence"

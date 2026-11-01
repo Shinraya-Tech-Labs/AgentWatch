@@ -136,6 +136,25 @@ class ToolAction:
         }
 
 
+def changed_paths(before: Any, after: Any, path: str = "$") -> list[str]:
+    """JSON paths whose value differs between ``before`` and ``after`` (for mutation records)."""
+    if isinstance(before, dict) and isinstance(after, dict):
+        out: list[str] = []
+        for k in sorted(set(before) | set(after), key=str):
+            if k not in before or k not in after:
+                out.append(f"{path}.{k}")
+            else:
+                out.extend(changed_paths(before[k], after[k], f"{path}.{k}"))
+        return out
+    if isinstance(before, list) and isinstance(after, list) and len(before) == len(after):
+        return [
+            p
+            for i, (x, y) in enumerate(zip(before, after, strict=True))
+            for p in changed_paths(x, y, f"{path}[{i}]")
+        ]
+    return [] if before == after else [path]
+
+
 def combine_risk(findings: list[Finding]) -> float:
     """Noisy-OR of finding severities: independent signals compound, one critical is 1.0."""
     p = 1.0
@@ -186,6 +205,11 @@ class Decision:
             "reason": self.reason,
             "findings": [f.to_dict() for f in self.findings],
             "mutated_arguments": self.mutated_arguments,
+            "mutation": (
+                {"changed_paths": changed_paths(self.action.arguments, self.mutated_arguments)}
+                if self.mutated_arguments is not None
+                else None
+            ),
             "approval": self.approval,
             "timings_ms": self.timings_ms,
             "decided_at": self.decided_at,
