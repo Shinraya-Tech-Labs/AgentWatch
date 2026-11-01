@@ -193,3 +193,29 @@ async def test_mcp_server_build_fastmcp():
     assert "list_active_sessions" in tool_names
     assert "get_safety_events" in tool_names
     assert "get_cost_report" in tool_names
+    assert "store_memory" in tool_names
+
+
+def test_mcp_server_dispatches_store_and_query_memory():
+    srv = AgentWatchMCPServer()
+    memories = []
+
+    def mock_store(key: str, val: str):
+        memories.append({"key": key, "value": val})
+        return {"status": "stored", "key": key}
+
+    def mock_query(q: str):
+        return [m for m in memories if q.lower() in m["value"].lower()]
+
+    srv.store_memory_provider = mock_store
+    srv.memory_provider = mock_query
+
+    res1 = srv.dispatch("panoptis_store_memory", {"key": "k1", "value": "pgvector enabled"})
+    assert res1.ok
+    assert res1.result["key"] == "k1"
+
+    res2 = srv.dispatch("panoptis_memory_query", {"question": "pgvector"})
+    assert res2.ok
+    assert len(res2.result) == 1
+    assert res2.result[0]["key"] == "k1"
+

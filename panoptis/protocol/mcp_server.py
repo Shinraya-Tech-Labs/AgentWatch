@@ -147,12 +147,32 @@ class AgentWatchMCPServer:
                 handler=self._cost_report,
             )
         )
+        # store_memory
+        self.register(
+            MCPTool(
+                name="panoptis_store_memory",
+                description="Store a key fact or decision in AgentWatch's persistent memory.",
+                input_schema={
+                    "type": "object",
+                    "required": ["key", "value"],
+                    "properties": {
+                        "key": {"type": "string", "description": "Short identifier or topic"},
+                        "value": {
+                            "type": "string",
+                            "description": "Factual content or decision to remember",
+                        },
+                    },
+                },
+                handler=self._store_memory,
+            )
+        )
 
     # ── default handlers (overridable) ─────────────────────────────────
     # These are stubs operating against in-memory state. Wire them to the
     # real EventBus / DB / store at the API layer.
     confidence_provider: Callable[[str], list[float]] | None = None
     memory_provider: Callable[[str], list[dict[str, Any]]] | None = None
+    store_memory_provider: Callable[[str, str], dict[str, Any]] | None = None
     replay_provider: Callable[[str, int | None], dict[str, Any]] | None = None
     safety_provider: Callable[[], dict[str, Any]] | None = None
     sessions_provider: Callable[[], list[dict[str, Any]]] | None = None
@@ -169,6 +189,13 @@ class AgentWatchMCPServer:
         if self.memory_provider:
             return self.memory_provider(q)
         return []
+
+    def _store_memory(self, args: dict[str, Any]) -> dict[str, Any]:
+        k = args["key"]
+        v = args["value"]
+        if self.store_memory_provider:
+            return self.store_memory_provider(k, v)
+        return {"status": "stored", "key": k, "value": v}
 
     def _session_replay(self, args: dict[str, Any]) -> dict[str, Any]:
         sid = args["session_id"]
@@ -196,7 +223,10 @@ class AgentWatchMCPServer:
     # ── fastmcp integration ────────────────────────────────────────────
     def build_fastmcp(self) -> Any:
         """Create a FastMCP server that wraps the existing tool registry."""
-        from mcp.server.fastmcp import FastMCP
+        try:
+            from mcp.server.fastmcp import FastMCP
+        except (ImportError, ModuleNotFoundError):
+            from mcp.server.mcpserver import MCPServer as FastMCP
 
         mcp = FastMCP("AgentWatch")
 
@@ -247,6 +277,14 @@ class AgentWatchMCPServer:
         def get_cost_report(session_id: str) -> dict[str, Any]:
             """Retrieves token usage and estimated cost for a session."""
             res = self.dispatch("panoptis_cost_report", {"session_id": session_id})
+            if not res.ok:
+                raise ValueError(res.error)
+            return res.result
+
+        @mcp.tool()
+        def store_memory(key: str, value: str) -> dict[str, Any]:
+            """Store a key fact or decision in AgentWatch's persistent memory."""
+            res = self.dispatch("panoptis_store_memory", {"key": key, "value": value})
             if not res.ok:
                 raise ValueError(res.error)
             return res.result
