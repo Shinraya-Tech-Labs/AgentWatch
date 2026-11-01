@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from panopti._banner import PANOPTI_ASCII_BANNER, print_banner
+from panopti._banner import print_banner
 
 
 def _int_flag(argv: list[str], flag: str, *, default: int, minimum: int) -> int:
@@ -169,8 +169,8 @@ def main(args: list[str] | None = None) -> Any:
         return 0
 
     if argv and argv[0] in ("top", "live"):
-        from panoptis.circuit_breaker import CircuitBreaker, CircuitThresholds
         from panopti.presets.profiles import get_profile
+        from panoptis.circuit_breaker import CircuitBreaker, CircuitThresholds
 
         profile_name = "devops"
         if "--profile" in argv:
@@ -237,16 +237,21 @@ def main(args: list[str] | None = None) -> Any:
             return _attest_report(argv[2:])
         if len(argv) >= 3 and argv[1] == "verify":
             filepath = argv[2]
-            key = (
-                argv[4]
-                if len(argv) >= 5 and argv[3] in ("-k", "--key")
-                else "panopti-seal-default-key"
-            )
+            # --key: an explicit key; otherwise the configured keyring (AGENTWATCH_ATTEST_KEYS).
+            # There is no default key.
+            key = argv[4] if len(argv) >= 5 and argv[3] in ("-k", "--key") else None
             try:
                 from panopti.attest import AttestationEngine, PanoptiAttestationSeal
+                from panopti.attest_keys import AttestationKeyError, keyring_from_env
 
                 with open(filepath, encoding="utf-8") as f:
                     seal = PanoptiAttestationSeal.from_json(f.read())
+                if key is None:
+                    try:
+                        keyring_from_env()
+                    except AttestationKeyError as exc:
+                        print(f"Cannot verify: {exc}", file=sys.stderr)
+                        return 2
                 if AttestationEngine.verify_seal(seal, secret_key=key):
                     print(f"✅ VERIFIED ATTESTATION SEAL: '{seal.seal_id}'")
                     print(f"   Policy Verdict:   {seal.policy_verdict}")

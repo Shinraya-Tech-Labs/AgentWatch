@@ -47,19 +47,32 @@ def test_cli_court_verify_valid(tmp_path: Path, capsys: pytest.CaptureFixture[st
 
 def test_cli_attest_verify(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """panopti attest verify confirms signed attestation seal."""
+    key = "cli-test-key-" + "x" * 32  # at least 32 bytes; not a published key
     seal = AttestationEngine.create_seal(
         merkle_root="abc123merkle",
         tool_count=3,
         confidence_floor=0.95,
-        secret_key="my-key",
+        secret_key=key,
     )
     seal_file = tmp_path / "seal.json"
     seal_file.write_text(seal.to_json(), encoding="utf-8")
 
-    ret = main(["attest", "verify", str(seal_file), "--key", "my-key"])
+    ret = main(["attest", "verify", str(seal_file), "--key", key])
     assert ret == 0
     captured = capsys.readouterr().out
     assert "VERIFIED ATTESTATION SEAL" in captured
+
+
+def test_cli_attest_verify_has_no_default_key(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Without --key or AGENTWATCH_ATTEST_KEYS, verify refuses instead of using a public key."""
+    for var in ("AGENTWATCH_ATTEST_KEYS", "AGENTWATCH_ATTEST_DEV_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    seal = AttestationEngine.create_seal(merkle_root="m", tool_count=1, secret_key="k" * 40)
+    seal_file = tmp_path / "seal.json"
+    seal_file.write_text(seal.to_json(), encoding="utf-8")
+    assert main(["attest", "verify", str(seal_file)]) == 2
+    assert "no attestation signing key" in capsys.readouterr().err
+    assert main(["attest", "verify", str(seal_file), "--key", "wrong" * 10]) == 1
 
 
 def test_cli_replay(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
