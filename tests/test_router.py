@@ -3,6 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
+pytest.importorskip("litellm")
+
 from panoptis.cost.tracker import CostTracker
 from panoptis.infrastructure.config import RouterConfig
 from panoptis.infrastructure.router import ModelRouter

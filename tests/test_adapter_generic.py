@@ -6,7 +6,13 @@ import pytest
 
 from panoptis.adapters.generic import GenericCLIAdapter
 from panoptis.core.event_bus import EventBus
-from panoptis.core.schema import EventType, ExecutionStatus
+from panoptis.core.schema import (
+    AgentEvent,
+    AgentFramework,
+    EventType,
+    ExecutionStatus,
+    ToolResultData,
+)
 
 
 class _FakeProcess:
@@ -72,3 +78,28 @@ async def test_failed_run_is_marked_failed_and_ansi_stripped(monkeypatch) -> Non
 
     assert session.status is ExecutionStatus.FAILURE
     assert events[1].tool_result.error == "Error: insufficient credits"
+
+
+def test_live_event_prints_the_tool_output(monkeypatch) -> None:
+    """The watch loop must surface what the agent printed — including errors."""
+    import sys
+
+    from rich.console import Console
+
+    import panoptis.cli.main  # noqa: F401
+
+    cli_module = sys.modules["panoptis.cli.main"]
+
+    console = Console(record=True, width=200)
+    monkeypatch.setattr(cli_module, "console", console)
+
+    event = AgentEvent(
+        session_id="s",
+        agent_id="a",
+        framework=AgentFramework.CUSTOM,
+        event_type=EventType.TOOL_RESULT,
+        tool_result=ToolResultData(tool_name="cli_exec", error="Error: insufficient credits"),
+    )
+    cli_module._print_live_event(event)
+
+    assert "Error: insufficient credits" in console.export_text()
