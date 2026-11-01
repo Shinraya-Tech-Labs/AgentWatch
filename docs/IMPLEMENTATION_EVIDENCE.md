@@ -40,7 +40,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-005 attestation keys | DONE | [TO-005](#to-005) |
 | TO-006 tenant/key persistence | DONE | [TO-006](#to-006) |
 | TO-007 DB fallback | DONE | [TO-007](#to-007) |
-| TO-008 … TO-040 | NOT STARTED unless listed below | — |
+| TO-008 safety-check endpoint | DONE | [TO-008](#to-008) |
+| TO-009 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -428,3 +429,37 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 - `pytest tests/`: 2473 passed, 8 skipped, 2 failed (the pre-existing `test_cli_animator` failures)
 
 **Commits:** `53a271b` `9a0d999` `1408747`, plus this ledger commit.
+
+### TO-008
+
+**Status:** DONE. Trust model: the "Policy dry-run endpoint" section of [`docs/TENANCY.md`](TENANCY.md).
+
+**Finding:**
+
+- Authentication was already in place on current `main`: the endpoint depends on `_require_api_key`, a change that arrived with `main`'s later commits.
+- The response still listed **every** rule of the policy in `threat_path`, matched or not and including custom rules' ids and reasons, to any authenticated caller, including any cloud tenant.
+- The input was unbounded, and the endpoint was not rate limited.
+
+**Changes:** `panoptis/api/server.py`:
+
+- `SafetyCheckRequest` bounds the command (8192), the tool name (128), the arguments (16 KB of JSON, 8 levels deep) and the resources (100), each configurable.
+- Auth is `_require_api_key_or_operator`, and the route uses the write-tier rate limit.
+- `threat_path` and custom-rule names go only to the policy owner (self-hosted key holder, cloud operator); tenants get the decision with custom rules redacted.
+- Docs: `docs/TENANCY.md` and `docs/API-reference.md`.
+
+**Tests:** `tests/test_api_safety_check.py` (+9):
+
+- a credential is required when a key is configured;
+- a cloud tenant does not see the rules (custom id and reason absent; empty threat path);
+- the owner (operator, and self-hosted) gets the full threat path;
+- 5 oversized or deep inputs are rejected before any rule is evaluated (the scorer is never called);
+- the rate limit.
+
+8 of these fail against the previous handler.
+
+**Commands and results:**
+
+- `pytest tests/test_api_safety_check.py`: 12 passed
+- `pytest tests/`: 2482 passed, 8 skipped, 2 failed (the pre-existing `test_cli_animator` failures)
+
+**Commits:** `6d6e9ff` `ec21f6b` `d32bd2e`, plus this ledger commit.

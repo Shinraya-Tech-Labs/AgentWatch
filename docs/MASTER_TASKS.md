@@ -208,20 +208,20 @@ across restarts.
 **Acceptance evidence:** Production-mode tests prove database failure
 cannot silently create an ephemeral security state.
 
-## TO-008 --- Protect the unauthenticated safety-check endpoint
+## TO-008 --- Protect the unauthenticated safety-check endpoint — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-008)
 
--   [ ] Review `/api/v1/safety/check` and determine whether it must be
+-   [x] Review `/api/v1/safety/check` and determine whether it must be
     public.
--   [ ] Require authentication/authorization if it exposes custom policy
+-   [x] Require authentication/authorization if it exposes custom policy
     matches or tenant-specific rule information.
--   [ ] If a public check endpoint is intentionally retained, return
+-   [x] If a public check endpoint is intentionally retained, return
     only a deliberately limited response that does not reveal internal
     rule names, regexes, custom policy details, or sensitive
     diagnostics.
--   [ ] Apply rate limits and bounded input size/complexity.
--   [ ] Add tests for unauthenticated access, tenant isolation,
+-   [x] Apply rate limits and bounded input size/complexity.
+-   [x] Add tests for unauthenticated access, tenant isolation,
     information disclosure, abuse limits, and valid authorized use.
--   [ ] Document the endpoint's intended trust model.
+-   [x] Document the endpoint's intended trust model.
 
 **Acceptance evidence:** Tests prove unauthorized callers cannot
 enumerate private policy rules or obtain tenant-specific security
