@@ -701,6 +701,17 @@ async def lifespan(app: FastAPI):
         logger.critical(error_msg)
         raise RuntimeError(error_msg)
 
+    # Attestation signing keys: an unsafe configuration stops the server (TO-005).
+    from panopti.attest_keys import AttestationKeyError, check_startup
+
+    try:
+        attest = check_startup()
+    except AttestationKeyError as exc:
+        logger.critical("attestation key configuration rejected: %s", exc)
+        raise RuntimeError(f"attestation key configuration rejected: {exc}") from exc
+    if attest:
+        logger.info("attestation keyring: %s", attest)
+
     db_url = os.getenv("DATABASE_URL", "")
     if db_url:
         try:

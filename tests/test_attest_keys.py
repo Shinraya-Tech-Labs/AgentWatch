@@ -79,3 +79,46 @@ def test_dev_key_is_ephemeral_and_refused_in_production():
     for prod in ({"AGENTWATCH_ENV": "production"}, {"AGENTWATCH_CLOUD_MODE": "1"}):
         with pytest.raises(AttestationKeyError, match="development-only"):
             keyring_from_env({"AGENTWATCH_ATTEST_DEV_KEY": "1", **prod})
+
+
+def test_startup_gate(monkeypatch):
+    from panopti.attest_keys import check_startup
+
+    good = base64.b64encode(secrets.token_bytes(32)).decode()
+    assert check_startup({}) is None
+    assert (
+        check_startup({"AGENTWATCH_ENV": "production", "AGENTWATCH_ATTEST_KEYS": f"k1={good}"})[
+            "active_kid"
+        ]
+        == "k1"
+    )
+    bad_cases = [
+        {
+            "AGENTWATCH_ENV": "production",
+            "AGENTWATCH_ATTEST_KEYS": f"k1={base64.b64encode(b'panopti-seal-default-key').decode()}",
+        },
+        {"AGENTWATCH_ENV": "production", "AGENTWATCH_ATTEST_KEYS": "k1=short"},
+        {"AGENTWATCH_CLOUD_MODE": "1", "AGENTWATCH_ATTEST_DEV_KEY": "1"},
+        {"AGENTWATCH_ENV": "production", "AGENTWATCH_REQUIRE_ATTESTATION": "1"},
+    ]
+    for env in bad_cases:
+        with pytest.raises(AttestationKeyError):
+            check_startup(env)
+
+
+def test_api_server_refuses_to_start_with_an_unsafe_attestation_key(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from panoptis.api import server
+
+    monkeypatch.setenv(
+        "AGENTWATCH_ATTEST_KEYS", "k1=" + base64.b64encode(b"panopti-seal-default-key").decode()
+    )
+    with pytest.raises(RuntimeError, match="attestation key configuration rejected"):
+        with TestClient(server.app):
+            pass
+    monkeypatch.setenv(
+        "AGENTWATCH_ATTEST_KEYS", "k1=" + base64.b64encode(secrets.token_bytes(32)).decode()
+    )
+    with TestClient(server.app) as c:
+        assert c.get("/health").status_code == 200

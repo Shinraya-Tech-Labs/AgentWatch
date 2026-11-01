@@ -169,3 +169,34 @@ def keyring_from_env(environ: dict[str, str] | None = None) -> Keyring:
         "no attestation signing key configured: set AGENTWATCH_ATTEST_KEYS (see docs/ATTESTATION_KEYS.md); "
         "for local development only, AGENTWATCH_ATTEST_DEV_KEY=1"
     )
+
+
+def check_startup(environ: dict[str, str] | None = None) -> dict[str, object] | None:
+    """Startup gate for servers: in production/cloud mode, refuse unsafe attestation config.
+
+    Returns a key-free summary of the keyring when one is configured, None when
+    attestation is neither configured nor required. Raises :class:`AttestationKeyError`
+    (the server must not start) when, in production/cloud mode, keys are configured but
+    weak/public/malformed, the development key is requested, or
+    AGENTWATCH_REQUIRE_ATTESTATION=1 and no key is configured. Outside production, a
+    broken configuration is still an error; an absent one is not.
+    """
+    env = os.environ if environ is None else environ
+    prod = (env.get("AGENTWATCH_ENV") or "").strip().lower() in ("production", "prod") or (
+        env.get("AGENTWATCH_CLOUD_MODE") or ""
+    ).strip().lower() in ("1", "true", "yes", "on")
+    configured = bool((env.get("AGENTWATCH_ATTEST_KEYS") or "").strip())
+    dev = (env.get("AGENTWATCH_ATTEST_DEV_KEY") or "").strip().lower() in ("1", "true", "yes", "on")
+    required = (env.get("AGENTWATCH_REQUIRE_ATTESTATION") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    if not (configured or dev or required):
+        return None
+    if prod and required and not configured:
+        raise AttestationKeyError(
+            "AGENTWATCH_REQUIRE_ATTESTATION=1 but AGENTWATCH_ATTEST_KEYS is not set"
+        )
+    return keyring_from_env(env).describe()
