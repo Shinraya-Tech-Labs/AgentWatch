@@ -39,8 +39,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
-from agentwatch.protect.model import Finding, Severity, Stage, Verdict
-from agentwatch.security.owasp import OwaspVector
+from panoptis.protect.model import Finding, Severity, Stage, Verdict
+from panoptis.security.owasp import OwaspVector
 
 MUTATING_TOOL = re.compile(
     r"(?i)(write|edit|create|update|delete|remove|move|rename|put|patch|post|send|insert|commit|push|apply|install|deploy|set_|save)"

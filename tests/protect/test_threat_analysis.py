@@ -6,9 +6,9 @@ import base64
 
 import pytest
 
-from agentwatch.protect.arguments import split_command_line
-from agentwatch.protect.model import Verdict
-from agentwatch.protect.threats import ThreatAnalyzer
+from panoptis.protect.arguments import split_command_line
+from panoptis.protect.model import Verdict
+from panoptis.protect.threats import ThreatAnalyzer
 
 T = ThreatAnalyzer()
 
@@ -123,7 +123,7 @@ def test_command_line_parsing_unwraps_wrappers_and_substitutions():
 
 
 def test_existing_risk_pattern_library_still_applies():
-    from agentwatch.core.safety import RiskLevel, RiskPattern
+    from panoptis.core.safety import RiskLevel, RiskPattern
 
     custom = ThreatAnalyzer(
         extra_patterns=[

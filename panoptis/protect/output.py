@@ -23,11 +23,11 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from agentwatch.core.injection import _INJECTION_PATTERNS, _normalize
-from agentwatch.protect.arguments import _decoded_variants
-from agentwatch.protect.model import Finding, OutputInspection, Severity, Stage, Verdict
-from agentwatch.protect.threats import find_secrets, mask_secrets
-from agentwatch.security.owasp import OwaspVector
+from panoptis.core.injection import _INJECTION_PATTERNS, _normalize
+from panoptis.protect.arguments import _decoded_variants
+from panoptis.protect.model import Finding, OutputInspection, Severity, Stage, Verdict
+from panoptis.protect.threats import find_secrets, mask_secrets
+from panoptis.security.owasp import OwaspVector
 
 
 @dataclass(frozen=True)

@@ -12,7 +12,7 @@ import base64
 
 import pytest
 
-from agentwatch.protect.output import OutputInspector
+from panoptis.protect.output import OutputInspector
 
 INSPECT = OutputInspector()
 

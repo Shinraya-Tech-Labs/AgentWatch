@@ -27,15 +27,16 @@ from typing import Any
 
 from sqlalchemy import select
 
-from agentwatch.evidence.model import ClockInfo, ObservationDraft, SensorRef
-from agentwatch.storage import schema as s
-from agentwatch.storage.store import Store
+from panoptis.evidence.model import ClockInfo, ObservationDraft, SensorRef
+from panoptis.storage import schema as s
+from panoptis.storage.store import Store
 
-SENSOR_TYPE = "agentwatch.protect"
+SENSOR_TYPE = "panoptis.protect"
 SENSOR_VERSION = "1"
 
 KIND_DECISION = "protect.decision"
 KIND_OUTPUT = "protect.output"
+KIND_EXECUTION = "protect.execution"  # the tool actually ran: outcome, duration
 KIND_APPROVAL_REQUEST = "protect.approval.request"
 KIND_APPROVAL_DECISION = "protect.approval.decision"
 KIND_CONTROL = "protect.control"  # kill switch, agent/session suspension
@@ -46,6 +47,7 @@ KIND_GATEWAY = "protect.gateway"  # MCP gateway lifecycle and protocol errors
 ALL_KINDS = (
     KIND_DECISION,
     KIND_OUTPUT,
+    KIND_EXECUTION,
     KIND_APPROVAL_REQUEST,
     KIND_APPROVAL_DECISION,
     KIND_CONTROL,
@@ -76,7 +78,12 @@ class ProtectLedger:
 
     # ── write ──────────────────────────────────────────────────────────────────────
     def record(
-        self, kind: str, payload: dict[str, Any], declared: dict[str, str | None] | None = None
+        self,
+        kind: str,
+        payload: dict[str, Any],
+        declared: dict[str, str | None] | None = None,
+        *,
+        tenant_id: str | None = None,
     ) -> str | None:
         ids = {k: str(v) for k, v in (declared or {}).items() if v is not None}
         draft = ObservationDraft(
@@ -87,7 +94,7 @@ class ProtectLedger:
             observed_at=datetime.now(UTC),
             clock=ClockInfo(),
             declared_ids=ids,
-            tenant_id=self.tenant_id,
+            tenant_id=tenant_id or self.tenant_id,
         )
         with self._lock:
             res = self.store.append([draft])

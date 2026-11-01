@@ -6,6 +6,7 @@ FastAPI-based REST API for the observability dashboard, CLI, and integrations.
 from __future__ import annotations
 
 import asyncio
+import functools
 import hmac
 import logging
 import os
@@ -38,6 +39,7 @@ from sqlalchemy import text
 
 from panoptis._version import __version__
 from panoptis.alerting.engine import AlertingConfig, AlertingEngine
+from panoptis.api import tenancy as _tenancy
 from panoptis.api.auth import require_permission
 from panoptis.api.entitlement import require_entitlement
 from panoptis.api.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
@@ -327,10 +329,43 @@ _CLOUD_MODE = get_cloud_config().is_cloud
 
 def _key_matches(supplied: str | None) -> bool:
     """Constant-time comparison with AGENTWATCH_API_KEY (a plain != leaks how many leading
-    characters match through its timing)."""
-    if _API_KEY is None or supplied is None:
+    characters match through its timing), or with a key of the AGENTWATCH_TENANT_KEYS map."""
+    if supplied is None:
+        return False
+    if _tenancy.match_key(supplied, _tenant_keys()) is not None:
+        return True
+    if _API_KEY is None:
         return False
     return hmac.compare_digest(supplied.encode("utf-8"), _API_KEY.encode("utf-8"))
+
+
+@functools.lru_cache(maxsize=4)
+def _parse_tenant_keys(raw: str | None) -> dict[str, str]:
+    return _tenancy.parse_tenant_keys(raw)
+
+
+def _tenant_keys() -> dict[str, str]:
+    """The server-side key -> tenant map (AGENTWATCH_TENANT_KEYS), parsed once per value."""
+    return _parse_tenant_keys(os.environ.get("AGENTWATCH_TENANT_KEYS"))
+
+
+def _cloud_tenant_of(raw_key: str | None) -> str | None:
+    key = get_tenant_store().validate_api_key(raw_key) if raw_key else None
+    return key.tenant_id if key else None
+
+
+def _principal(api_key: str | None, tenant_header: str | None) -> _tenancy.Principal:
+    """The authenticated tenant of a request (see docs/TENANCY.md)."""
+    try:
+        return _tenancy.resolve(
+            cloud_mode=_CLOUD_MODE,
+            api_key=api_key,
+            tenant_header=tenant_header,
+            tenant_keys=_tenant_keys(),
+            cloud_lookup=_cloud_tenant_of,
+        )
+    except _tenancy.TenancyError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.detail) from exc
 
 
 def _require_api_key(
@@ -369,6 +404,30 @@ def _require_api_key(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid API key. Supply the key in the X-Api-Key header.",
+        )
+
+
+def _require_operator(
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+) -> None:
+    """Operator-only routes (cross-tenant views, global controls).
+
+    Self-hosted: the API key holder is the operator, so this is ``_require_api_key``.
+    Cloud mode: a tenant key is never enough; AGENTWATCH_ADMIN_KEY is required, and when
+    it is not configured these routes are refused for everyone (fail closed).
+    """
+    if not _CLOUD_MODE:
+        _require_api_key(x_api_key)
+        return
+    admin = os.environ.get("AGENTWATCH_ADMIN_KEY")
+    if (
+        not admin
+        or not x_api_key
+        or not hmac.compare_digest(x_api_key.encode("utf-8"), admin.encode("utf-8"))
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operator credential required for this route.",
         )
 
 
@@ -684,18 +743,32 @@ _rate_limiter = RateLimiter(
 app.add_middleware(RateLimitMiddleware, limiter=_rate_limiter)
 
 
+def _request_tenant(
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
+) -> str:
+    """The authenticated tenant of a v1 request (``default`` for single-tenant setups)."""
+    return _principal(x_api_key, x_tenant_id).tenant_id
+
+
+def _owner(metadata: dict[str, Any] | None) -> str:
+    """The tenant a stored session/event belongs to; untagged legacy data is ``default``."""
+    return str((metadata or {}).get("tenant_id") or _tenancy.DEFAULT_TENANT)
+
+
+def _require_session_owner(session_id: str, tenant_id: str) -> None:
+    """404 unless the session exists in the caller's tenant (existence is not leaked)."""
+    trace = _collector.get_trace(session_id)
+    if trace is not None and _owner(trace.session.metadata) != tenant_id:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+
 def _v3_tenant(
     x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
 ) -> str:
-    """Tenant for v3 endpoints: bound to the API key in cloud mode, 'default' otherwise."""
-    if _CLOUD_MODE and x_api_key:
-        key = get_tenant_store().validate_api_key(x_api_key)
-        if key is not None:
-            return key.tenant_id
-    if x_tenant_id:
-        return x_tenant_id
-    return "default"
+    """Tenant for v3 endpoints: always from the credential; X-Tenant-ID may only repeat it."""
+    return _principal(x_api_key, x_tenant_id).tenant_id
 
 
 # AgentWatch v3: /api/v3/* and the OTLP receiver at /v1/traces (see docs/v3).
@@ -782,7 +855,7 @@ app.add_middleware(
 
 
 @app.get("/api/v1/system/status")
-async def system_status(_auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def system_status(_auth: None = Depends(_require_operator)) -> dict[str, Any]:
     """Returns detailed infrastructure status, including database connectivity."""
     return {
         "database": {
@@ -862,14 +935,22 @@ async def list_sessions(
     status: str | None = Query(default=None),
     since_hours: int | None = Query(default=None),
     _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> SessionListResponse:
     _limiter.check(_rate_limit_key(request, "r"), RATE_READ, request)
     since = None
     if since_hours is not None:
         since = datetime.now(UTC) - timedelta(hours=since_hours)
-    sessions = _collector.list_sessions(
-        limit=limit, framework=framework, status=status, since=since
-    )
+    sessions = [
+        sess
+        for sess in _collector.list_sessions(
+            limit=10_000 if _CLOUD_MODE or _tenant_keys() else limit,
+            framework=framework,
+            status=status,
+            since=since,
+        )
+        if _owner(sess.metadata) == tenant_id
+    ][:limit]
     return SessionListResponse(
         sessions=[session.model_dump(mode="json") for session in sessions], total=len(sessions)
     )
@@ -880,7 +961,7 @@ async def prune_sessions_api(
     request: Request,
     older_than_hours: int = Query(..., ge=1),
     dry_run: bool = Query(False),
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
 ) -> PruneResponse:
     """Delete old sessions, traces, and checkpoints.
 
@@ -945,8 +1026,14 @@ async def create_session(
     request: Request,
     session: AgentSession,
     _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
     _limiter.check(_rate_limit_key(request, "w"), RATE_WRITE, request)
+    existing = _collector.get_trace(session.session_id)
+    if existing is not None and _owner(existing.session.metadata) != tenant_id:
+        # never let one tenant overwrite (or learn about) another tenant's session
+        raise HTTPException(status_code=409, detail="session id unavailable")
+    session.metadata["tenant_id"] = tenant_id
     _collector.register_session(session)
     await _pg_write_session(session)
     return {"status": "registered", "session": session.model_dump(mode="json")}
@@ -957,7 +1044,9 @@ async def get_session(
     request: Request,
     session_id: str,
     _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     _limiter.check(_rate_limit_key(request, "r"), RATE_READ, request)
     trace = _collector.get_trace(session_id)
     if not trace:
@@ -972,7 +1061,9 @@ async def get_events(
     event_type: str | None = Query(default=None),
     limit: int = Query(default=500, le=2000),
     _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> TraceResponse:
+    _require_session_owner(session_id, tenant_id)
     _limiter.check(_rate_limit_key(request, "r"), RATE_READ, request)
     events = _collector.get_events(session_id, event_type=event_type, limit=limit)
     return TraceResponse(
@@ -982,15 +1073,17 @@ async def get_events(
     )
 
 
-def _v3_tee(event: AgentEvent) -> None:
-    """Also record legacy events as v3 evidence (via LegacyTranslator). Never fails the request."""
+def _v3_tee(event: AgentEvent, tenant_id: str = _tenancy.DEFAULT_TENANT) -> None:
+    """Also record legacy events as v3 evidence (via LegacyTranslator), under the request's
+    tenant. Never fails the request."""
     if os.getenv("AGENTWATCH_V3_TEE", "1").lower() in ("0", "false", "no"):
         return
     try:
         from panoptis.sensors.legacy.translator import LegacyTranslator
 
-        result = LegacyTranslator().translate(event)
+        result = LegacyTranslator(tenant_id=tenant_id).translate(event, tenant_id=tenant_id)
         if result.draft is not None:
+            result.draft.tenant_id = tenant_id
             get_v3_engine().ingest([result.draft])
     except Exception:
         logger.warning("v3 tee of legacy event failed", exc_info=True)
@@ -1001,8 +1094,14 @@ async def ingest_event(
     request: Request,
     event: AgentEvent,
     _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
     _limiter.check(_rate_limit_key(request, "w"), RATE_WRITE, request)
+    # tenancy is the server's to record: a client-supplied value is overwritten
+    event.metadata["tenant_id"] = tenant_id
+    existing = _collector.get_trace(event.session_id)
+    if existing is not None and _owner(existing.session.metadata) != tenant_id:
+        raise HTTPException(status_code=404, detail=f"Session {event.session_id} not found")
     if event.event_type == EventType.TOOL_CALL and event.tool_call is not None:
         schema_key = event.framework.value.replace("_", "-")
         if _schema_validator.get_schema(schema_key) is not None:
@@ -1014,7 +1113,7 @@ async def ingest_event(
             if not valid:
                 raise HTTPException(status_code=422, detail=f"Schema validation failed: {err}")
     await get_event_bus().publish(event)
-    _v3_tee(event)
+    _v3_tee(event, tenant_id)
 
     if event.agent_id and hasattr(event, "status"):
         if getattr(event, "status", None) == ExecutionStatus.FAILURE:
@@ -1024,7 +1123,12 @@ async def ingest_event(
 
 
 @app.get("/api/v1/sessions/{session_id}/trace")
-async def get_trace(session_id: str, _auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def get_trace(
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
+) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     trace = _collector.get_trace(session_id)
     if not trace:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
@@ -1033,8 +1137,11 @@ async def get_trace(session_id: str, _auth: None = Depends(_require_api_key)) ->
 
 @app.get("/api/v1/sessions/{session_id}/confidence", response_model=ConfidenceResponse)
 async def get_confidence(
-    session_id: str, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> ConfidenceResponse:
+    _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=2000)
     if not events:
         raise HTTPException(status_code=404, detail=f"No events for session {session_id}")
@@ -1053,8 +1160,11 @@ async def get_confidence(
 
 @app.get("/api/v1/sessions/{session_id}/reasoning")
 async def get_reasoning_audit(
-    session_id: str, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=5000)
     if not events:
         raise HTTPException(status_code=404, detail=f"No events for session {session_id}")
@@ -1063,8 +1173,11 @@ async def get_reasoning_audit(
 
 @app.get("/api/v1/sessions/{session_id}/cost")
 async def get_cost_budget(
-    session_id: str, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     budget = _cost_tracker.get_session(session_id)
     if not budget:
         events = _collector.get_events(session_id, limit=5000)
@@ -1077,7 +1190,12 @@ async def get_cost_budget(
 
 
 @app.get("/api/v1/sessions/{session_id}/replay")
-async def get_replay(session_id: str, _auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def get_replay(
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
+) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=5000)
     trace = _collector.get_trace(session_id)
     if not events or not trace:
@@ -1109,8 +1227,12 @@ async def get_replay(session_id: str, _auth: None = Depends(_require_api_key)) -
 
 @app.post("/api/v1/sessions/{session_id}/simulate")
 async def simulate_session(
-    session_id: str, request: SimulateRequest, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    request: SimulateRequest,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=5000)
     trace = _collector.get_trace(session_id)
     if not events or not trace:
@@ -1144,8 +1266,11 @@ async def simulate_session(
 
 @app.get("/api/v1/sessions/{session_id}/checkpoints")
 async def list_checkpoints(
-    session_id: str, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     checkpoints = _rollback_engine.list_checkpoints(session_id)
     return {
         "session_id": session_id,
@@ -1155,8 +1280,12 @@ async def list_checkpoints(
 
 @app.post("/api/v1/sessions/{session_id}/rollback")
 async def rollback_session(
-    session_id: str, request: RollbackRequest, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    request: RollbackRequest,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     if request.checkpoint_id:
         result = await _rollback_engine.rollback(
             request.checkpoint_id,
@@ -1187,7 +1316,7 @@ async def rollback_session(
 
 @app.get("/api/v1/safety/policy")
 async def get_safety_policy(
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
     _perm: object = Depends(require_permission("policy:read")),
 ) -> dict[str, Any]:
     policy = _safety_engine.policy
@@ -1205,7 +1334,7 @@ async def get_safety_policy(
 @app.put("/api/v1/safety/policy")
 async def update_safety_policy(
     update: SafetyPolicyUpdate,
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
     _perm: object = Depends(require_permission("policy:write")),
 ) -> dict[str, Any]:
     policy = SafetyPolicy(
@@ -1232,7 +1361,7 @@ async def update_safety_policy(
 async def get_blocked_events(
     limit: int = Query(default=50, le=200),
     since_hours: int = Query(default=24),
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
 ) -> dict[str, Any]:
     threshold = datetime.now(UTC) - timedelta(hours=since_hours)
     events = [
@@ -1329,7 +1458,7 @@ async def check_safety_command(
 
 
 @app.get("/api/v1/dashboard/summary")
-async def dashboard_summary(_auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def dashboard_summary(_auth: None = Depends(_require_operator)) -> dict[str, Any]:
     sessions = _collector.list_sessions(limit=200)
     stats = _collector.get_stats()
     return {
@@ -1349,7 +1478,7 @@ async def dashboard_summary(_auth: None = Depends(_require_api_key)) -> dict[str
 
 
 @app.get("/api/v1/dashboard/top")
-async def dashboard_top(_auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def dashboard_top(_auth: None = Depends(_require_operator)) -> dict[str, Any]:
     sessions = _collector.list_sessions(status=ExecutionStatus.RUNNING.value, limit=50)
     top_sessions = []
     now = datetime.now(UTC)
@@ -1374,7 +1503,7 @@ async def dashboard_top(_auth: None = Depends(_require_api_key)) -> dict[str, An
 
 @app.get("/api/v1/governance/compliance-report")
 async def compliance_report(
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
     format: str = Query("json", alias="format"),
     include_allowed: bool = Query(False),
 ):
@@ -1411,7 +1540,7 @@ async def report_entitlement_usage(
 
 @app.get("/api/v1/governance/eu-ai-act-report")
 async def eu_ai_act_report(
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
     _ent: object = Depends(require_entitlement("compliance")),
 ) -> dict[str, Any]:
     """EU AI Act Article 15 conformity export (CMP-004).
@@ -1492,7 +1621,7 @@ async def eu_ai_act_report(
 
 @app.get("/api/v1/compliance/audit-log")
 async def compliance_audit_log_csv(
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
     format: str = Query("csv", alias="format"),
     include_allowed: bool = Query(False),
 ):
@@ -1503,7 +1632,7 @@ async def compliance_audit_log_csv(
 
 
 @app.post("/api/v1/demo/seed")
-async def seed_demo(_auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def seed_demo(_auth: None = Depends(_require_operator)) -> dict[str, Any]:
     _seed_demo_data()
     return {"status": "seeded"}
 
@@ -1571,16 +1700,37 @@ async def websocket_events(websocket: WebSocket) -> None:
         await websocket.close(code=4500, reason="Server misconfiguration")
         return
 
-    if _API_KEY and not _key_matches(supplied_key):
+    if _CLOUD_MODE:
+        # tenant keys only; the legacy key is not a tenant credential
+        if _cloud_tenant_of(supplied_key) is None:
+            logger.warning("WebSocket connection rejected: invalid or missing tenant key")
+            await websocket.close(code=4001, reason="Unauthorized")
+            return
+    elif _API_KEY and not _key_matches(supplied_key):
         logger.warning("WebSocket connection rejected: invalid or missing API key")
         await websocket.close(code=4001, reason="Unauthorized")
         return
+    try:
+        ws_tenant = _tenancy.resolve(
+            cloud_mode=_CLOUD_MODE,
+            api_key=supplied_key,
+            tenant_header=websocket.headers.get("x-tenant-id"),
+            tenant_keys=_tenant_keys(),
+            cloud_lookup=_cloud_tenant_of,
+        ).tenant_id
+    except _tenancy.TenancyError as exc:
+        await websocket.close(code=4003 if exc.status == 403 else 4001, reason=exc.detail[:120])
+        return
+    # Tenant-scoped deployments deliver only the connection's tenant's events.
+    scoped = _CLOUD_MODE or bool(_tenant_keys())
 
     await websocket.accept()
     _ws_clients.append(websocket)
     bus = get_event_bus()
 
     async def forward(event: AgentEvent) -> None:
+        if scoped and _owner(event.metadata) != ws_tenant:
+            return
         try:
             await websocket.send_json(_sanitize_event(event.model_dump_for_storage()))
         except Exception:
@@ -1607,7 +1757,7 @@ async def websocket_events(websocket: WebSocket) -> None:
 async def create_tenant(
     name: str = Query(...),
     plan: str = Query("free"),
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
 ) -> dict[str, Any]:
     store = get_tenant_store()
     try:
@@ -1619,7 +1769,7 @@ async def create_tenant(
 
 
 @app.get("/api/v1/tenants")
-async def list_tenants(_auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def list_tenants(_auth: None = Depends(_require_operator)) -> dict[str, Any]:
     store = get_tenant_store()
     tenants = store.list_tenants()
     return {"tenants": [t.to_dict() for t in tenants]}
@@ -1629,7 +1779,10 @@ async def list_tenants(_auth: None = Depends(_require_api_key)) -> dict[str, Any
 async def get_tenant(
     tenant_id: str,
     _auth: None = Depends(_require_api_key),
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
 ) -> dict[str, Any]:
+    if _CLOUD_MODE and _cloud_tenant_of(x_api_key) != tenant_id:
+        _require_operator(x_api_key)  # another tenant's record: operators only
     store = get_tenant_store()
     tenant = store.get_tenant(tenant_id)
     if not tenant:
@@ -1694,7 +1847,7 @@ async def get_usage(
 @app.get("/api/v1/ingestion/metrics")
 async def ingestion_metrics(
     tenant_id: str | None = Query(None),
-    _auth: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_operator),
 ) -> dict[str, Any]:
     # Ingestion metrics are available when the pipeline is running
     return {"message": "Ingestion metrics endpoint — attach TenantIngestionPipeline for live data"}

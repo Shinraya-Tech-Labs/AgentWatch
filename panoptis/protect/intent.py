@@ -40,9 +40,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from agentwatch.protect.arguments import ArgumentProfile, extract_strings
-from agentwatch.protect.model import Finding, Severity, Stage, Verdict
-from agentwatch.security.owasp import OwaspVector
+from panoptis.protect.arguments import ArgumentProfile, extract_strings
+from panoptis.protect.model import Finding, Severity, Stage, Verdict
+from panoptis.security.owasp import OwaspVector
 
 logger = logging.getLogger(__name__)
 

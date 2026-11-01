@@ -32,9 +32,9 @@ import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any
 
-from agentwatch.core.injection import _normalize
-from agentwatch.protect.model import Finding, Severity, Stage, Verdict
-from agentwatch.security.owasp import OwaspVector
+from panoptis.core.injection import _normalize
+from panoptis.protect.model import Finding, Severity, Stage, Verdict
+from panoptis.security.owasp import OwaspVector
 
 # ── what a string is ───────────────────────────────────────────────────────────────
 

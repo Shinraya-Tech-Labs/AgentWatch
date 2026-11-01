@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.protect import ApprovalBroker, PolicyStore, ProtectionPipeline, ProtectLedger
+from panoptis.protect import ApprovalBroker, PolicyStore, ProtectionPipeline, ProtectLedger
 
 
 @pytest.fixture(autouse=True)

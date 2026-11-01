@@ -1,6 +1,6 @@
 """Shared data model of the protection pipeline: actions, findings, verdicts, decisions.
 
-Every stage of :class:`agentwatch.protect.pipeline.ProtectionPipeline` produces
+Every stage of :class:`panoptis.protect.pipeline.ProtectionPipeline` produces
 :class:`Finding` objects. A finding is explainable by construction: it names the stage and
 rule that produced it, a human-readable message and the evidence (the argument path, the
 matched text, the policy entry) that triggered it. The pipeline folds findings into one
@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from agentwatch.core.watcher import AgentWatchBlockedError
+from panoptis.core.watcher import AgentWatchBlockedError
 
 
 class Verdict(str, Enum):
@@ -81,7 +81,7 @@ class Finding:
     severity: Severity
     message: str
     evidence: dict[str, Any] = field(default_factory=dict)
-    threat: str | None = None  # OWASP agentic vector (agentwatch.security.owasp.OwaspVector)
+    threat: str | None = None  # OWASP agentic vector (panoptis.security.owasp.OwaspVector)
     # what this finding alone asks for; the pipeline combines them
     recommends: Verdict = Verdict.ALLOW
 
@@ -110,6 +110,16 @@ class ToolAction:
     source: str = "sdk"  # sdk | mcp-stdio | mcp-http | adapter:<name> | cli
     call_id: str = field(default_factory=lambda: f"act-{uuid.uuid4().hex[:16]}")
     proposed_at: float = field(default_factory=time.time)
+    tenant_id: str = "default"  # from the authenticated principal, never from the agent
+    trace_id: str | None = None  # the caller's trace (OTel trace id, run id, ...)
+    parent_call_id: str | None = None  # the call that triggered this one (nested tools)
+    # True when agent or session id were defaults, not supplied by the caller or context
+    defaulted_identity: bool = False
+
+    @property
+    def scope(self) -> str:
+        """Key for per-session state: sessions of different tenants never share it."""
+        return f"{self.tenant_id}/{self.session_id}"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -122,7 +132,29 @@ class ToolAction:
             "reasoning": self.reasoning,
             "source": self.source,
             "proposed_at": self.proposed_at,
+            "tenant_id": self.tenant_id,
+            "trace_id": self.trace_id,
+            "parent_call_id": self.parent_call_id,
         }
+
+
+def changed_paths(before: Any, after: Any, path: str = "$") -> list[str]:
+    """JSON paths whose value differs between ``before`` and ``after`` (for mutation records)."""
+    if isinstance(before, dict) and isinstance(after, dict):
+        out: list[str] = []
+        for k in sorted(set(before) | set(after), key=str):
+            if k not in before or k not in after:
+                out.append(f"{path}.{k}")
+            else:
+                out.extend(changed_paths(before[k], after[k], f"{path}.{k}"))
+        return out
+    if isinstance(before, list) and isinstance(after, list) and len(before) == len(after):
+        return [
+            p
+            for i, (x, y) in enumerate(zip(before, after, strict=True))
+            for p in changed_paths(x, y, f"{path}[{i}]")
+        ]
+    return [] if before == after else [path]
 
 
 def combine_risk(findings: list[Finding]) -> float:
@@ -175,6 +207,11 @@ class Decision:
             "reason": self.reason,
             "findings": [f.to_dict() for f in self.findings],
             "mutated_arguments": self.mutated_arguments,
+            "mutation": (
+                {"changed_paths": changed_paths(self.action.arguments, self.mutated_arguments)}
+                if self.mutated_arguments is not None
+                else None
+            ),
             "approval": self.approval,
             "timings_ms": self.timings_ms,
             "decided_at": self.decided_at,
@@ -218,7 +255,7 @@ class OutputInspection:
 class ActionBlocked(AgentWatchBlockedError):  # noqa: N818 - public API name
     """Raised by guarded calls when the pipeline does not allow the action.
 
-    A subclass of :class:`agentwatch.core.watcher.AgentWatchBlockedError`, so code that
+    A subclass of :class:`panoptis.core.watcher.AgentWatchBlockedError`, so code that
     already handles AgentWatch blocks keeps working.
     """
 

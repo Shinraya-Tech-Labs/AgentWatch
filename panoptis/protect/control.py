@@ -21,13 +21,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from agentwatch.protect.ledger import KIND_CONTROL, ProtectLedger
-from agentwatch.storage.store import agentwatch_home
 from panopti.killswitch import EmergencyKillSwitch
+from panoptis.protect.ledger import KIND_CONTROL, ProtectLedger
+from panoptis.storage.store import panoptis_home
 
 
 def default_kill_file() -> Path:
-    return Path(os.environ.get("AGENTWATCH_KILL_FILE") or agentwatch_home() / "protect.kill")
+    return Path(os.environ.get("AGENTWATCH_KILL_FILE") or panoptis_home() / "protect.kill")
 
 
 @dataclass

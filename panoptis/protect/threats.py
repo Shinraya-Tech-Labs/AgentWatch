@@ -2,8 +2,8 @@
 
 Combines three sources, each producing explainable findings:
 
-1. structured argument analysis (:mod:`agentwatch.protect.arguments`);
-2. the existing AgentWatch risk-pattern library (:class:`agentwatch.core.safety.RiskScorer`),
+1. structured argument analysis (:mod:`panoptis.protect.arguments`);
+2. the existing AgentWatch risk-pattern library (:class:`panoptis.core.safety.RiskScorer`),
    so rules users already wrote keep working;
 3. content checks on the arguments themselves: secrets about to leave the process, and
    injection-shaped text an agent is forwarding (to a sub-agent, an email, a ticket).
@@ -20,13 +20,13 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from agentwatch.core.injection import scan_text
-from agentwatch.core.safety import RiskPattern, RiskScorer
-from agentwatch.core.schema import RiskLevel, ToolCallData
-from agentwatch.evidence.redaction import SECRET_PATTERNS, SENSITIVE_KEYS
-from agentwatch.protect.arguments import READ_ONLY_CMDS, ArgumentAnalyzer, ArgumentProfile
-from agentwatch.protect.model import Finding, Severity, Stage, Verdict
-from agentwatch.security.owasp import OwaspVector
+from panoptis.core.injection import scan_text
+from panoptis.core.safety import RiskPattern, RiskScorer
+from panoptis.core.schema import RiskLevel, ToolCallData
+from panoptis.evidence.redaction import SECRET_PATTERNS, SENSITIVE_KEYS
+from panoptis.protect.arguments import READ_ONLY_CMDS, ArgumentAnalyzer, ArgumentProfile
+from panoptis.protect.model import Finding, Severity, Stage, Verdict
+from panoptis.security.owasp import OwaspVector
 
 _LEVEL = {
     RiskLevel.SAFE: Severity.INFO,
@@ -122,7 +122,7 @@ class ThreatAnalyzer:
                 f"PATTERN_{policy_ids[0] if policy_ids else 'CUSTOM'}",
                 sev,
                 "; ".join(dict.fromkeys(reasons)),
-                {"policy_ids": policy_ids, "library": "agentwatch.core.safety"},
+                {"policy_ids": policy_ids, "library": "panoptis.core.safety"},
                 OwaspVector.TOOL_ABUSE.value,
                 rec,
             )

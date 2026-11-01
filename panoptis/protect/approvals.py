@@ -22,8 +22,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from agentwatch.protect.ledger import KIND_APPROVAL_DECISION, KIND_APPROVAL_REQUEST, ProtectLedger
-from agentwatch.protect.model import Decision
+from panoptis.protect.ledger import KIND_APPROVAL_DECISION, KIND_APPROVAL_REQUEST, ProtectLedger
+from panoptis.protect.model import Decision
 
 
 @dataclass

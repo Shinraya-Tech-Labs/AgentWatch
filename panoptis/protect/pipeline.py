@@ -35,15 +35,21 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
-from agentwatch.circuit_breaker.breaker import CircuitBreaker, CircuitState
-from agentwatch.circuit_breaker.thresholds import CircuitThresholds
-from agentwatch.core.schema import AgentEvent, AgentFramework, EventType, ExecutionStatus
-from agentwatch.protect.approvals import ApprovalBroker
-from agentwatch.protect.control import ControlState
-from agentwatch.protect.intent import GroundingConfig, IntentGrounder
-from agentwatch.protect.ledger import KIND_AGENT, KIND_DECISION, KIND_OUTPUT, ProtectLedger
-from agentwatch.protect.loops import LoopConfig, LoopDetector
-from agentwatch.protect.model import (
+from panoptis.circuit_breaker.breaker import CircuitBreaker, CircuitState
+from panoptis.circuit_breaker.thresholds import CircuitThresholds
+from panoptis.core.schema import AgentEvent, AgentFramework, EventType, ExecutionStatus
+from panoptis.protect.approvals import ApprovalBroker
+from panoptis.protect.control import ControlState
+from panoptis.protect.intent import GroundingConfig, IntentGrounder
+from panoptis.protect.ledger import (
+    KIND_AGENT,
+    KIND_DECISION,
+    KIND_EXECUTION,
+    KIND_OUTPUT,
+    ProtectLedger,
+)
+from panoptis.protect.loops import LoopConfig, LoopDetector
+from panoptis.protect.model import (
     ActionBlocked,
     Decision,
     Finding,
@@ -55,9 +61,9 @@ from agentwatch.protect.model import (
     combine_risk,
     strongest,
 )
-from agentwatch.protect.output import OutputInspector
-from agentwatch.protect.rbac import PolicyStore, RBACEngine
-from agentwatch.protect.threats import ThreatAnalyzer
+from panoptis.protect.output import OutputInspector
+from panoptis.protect.rbac import PolicyStore, RBACEngine
+from panoptis.protect.threats import ThreatAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +79,8 @@ class ProtectionConfig:
     approval_timeout_s: float = 120.0
     require_registered_agents: bool = False
     bind_sessions: bool = True  # a session id belongs to the first agent that uses it
+    # block calls whose agent/session identity was not supplied (no default identities)
+    require_context: bool = False
     output_inspection: bool = True
     on_injection: str = "quarantine"  # quarantine | withhold | flag
     record_allowed: bool = True  # also record ALLOW decisions (full audit trail)
@@ -85,6 +93,7 @@ class ProtectionConfig:
 class SessionInfo:
     session_id: str
     agent_id: str
+    tenant_id: str = "default"
     objective: str | None = None
     started_at: float = field(default_factory=time.time)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -92,6 +101,10 @@ class SessionInfo:
     blocked: int = 0
     escalated: int = 0
     loops: int = 0
+
+    @property
+    def scope(self) -> str:
+        return f"{self.tenant_id}/{self.session_id}"
 
 
 class Telemetry:
@@ -187,16 +200,20 @@ class ProtectionPipeline:
         *,
         objective: str | None = None,
         metadata: dict[str, Any] | None = None,
+        tenant_id: str = "default",
     ) -> SessionInfo:
+        scope = f"{tenant_id}/{session_id}"
         with self._lock:
-            existing = self.sessions.get(session_id)
+            existing = self.sessions.get(scope)
             if existing and existing.agent_id != agent_id and self.config.bind_sessions:
                 raise ValueError(f"session {session_id!r} belongs to agent {existing.agent_id!r}")
-            info = existing or SessionInfo(session_id=session_id, agent_id=agent_id)
+            info = existing or SessionInfo(
+                session_id=session_id, agent_id=agent_id, tenant_id=tenant_id
+            )
             if objective:
                 info.objective = objective
             info.metadata.update(metadata or {})
-            self.sessions[session_id] = info
+            self.sessions[scope] = info
         self._record(
             KIND_AGENT,
             {
@@ -210,17 +227,18 @@ class ProtectionPipeline:
         )
         return info
 
-    def set_objective(self, session_id: str, objective: str) -> None:
+    def set_objective(self, session_id: str, objective: str, *, tenant_id: str = "default") -> None:
+        scope = f"{tenant_id}/{session_id}"
         with self._lock:
-            if session_id in self.sessions:
-                self.sessions[session_id].objective = objective
+            if scope in self.sessions:
+                self.sessions[scope].objective = objective
 
-    def breaker(self, session_id: str) -> CircuitBreaker:
+    def breaker(self, scope: str) -> CircuitBreaker:
         with self._lock:
-            b = self._breakers.get(session_id)
+            b = self._breakers.get(scope)
             if b is None:
                 b = CircuitBreaker(
-                    session_id,
+                    scope,
                     CircuitThresholds(
                         max_total_tokens=0,
                         max_consecutive_errors=self.config.breaker_consecutive_errors,
@@ -233,7 +251,7 @@ class ProtectionPipeline:
                         cooldown_seconds=self.config.breaker_cooldown_s,
                     ),
                 )
-                self._breakers[session_id] = b
+                self._breakers[scope] = b
             return b
 
     # ── decision ───────────────────────────────────────────────────────────────────
@@ -293,7 +311,7 @@ class ProtectionPipeline:
                 findings += timed(
                     "loop",
                     lambda: self.loops.check(
-                        action.session_id, action.call_id, action.tool, action.arguments
+                        action.scope, action.call_id, action.tool, action.arguments
                     ),
                 )
                 findings += timed(
@@ -342,7 +360,7 @@ class ProtectionPipeline:
 
     def _session_for(self, action: ToolAction) -> SessionInfo | None:
         with self._lock:
-            return self.sessions.get(action.session_id)
+            return self.sessions.get(action.scope)
 
     def _identity(self, action: ToolAction) -> list[Finding]:
         out: list[Finding] = []
@@ -395,6 +413,18 @@ class ProtectionPipeline:
                     Verdict.BLOCK,
                 )
             ]
+        if self.config.require_context and action.defaulted_identity:
+            return [
+                Finding(
+                    Stage.IDENTITY,
+                    "MISSING_CONTEXT",
+                    Severity.CRITICAL,
+                    "No agent/session identity was supplied for this call and the policy requires one",
+                    ev,
+                    None,
+                    Verdict.BLOCK,
+                )
+            ]
         with self._lock:
             if (
                 self.config.require_registered_agents
@@ -411,10 +441,11 @@ class ProtectionPipeline:
                         Verdict.BLOCK,
                     )
                 ]
-            s = self.sessions.get(action.session_id)
+            s = self.sessions.get(action.scope)
             if s is None:
-                self.sessions[action.session_id] = SessionInfo(
+                self.sessions[action.scope] = SessionInfo(
                     session_id=action.session_id,
+                    tenant_id=action.tenant_id,
                     agent_id=action.agent_id,
                     objective=action.objective,
                 )
@@ -473,12 +504,12 @@ class ProtectionPipeline:
                     Verdict.BLOCK,
                 )
             ]
-        b = self.breaker(action.session_id)
+        b = self.breaker(action.scope)
         if b.state is CircuitState.OPEN:
             # let an elapsed cooldown move the breaker to HALF_OPEN (this call is the probe)
             b.observe(
                 AgentEvent(
-                    session_id=action.session_id,
+                    session_id=action.scope,
                     agent_id=action.agent_id,
                     framework=AgentFramework.CUSTOM,
                     event_type=EventType.TOOL_CALL,
@@ -590,17 +621,17 @@ class ProtectionPipeline:
             and f.code != "CIRCUIT_OPEN"
         ]
         with self._lock:
-            s = self.sessions.get(a.session_id)
+            s = self.sessions.get(a.scope)
             if s is not None and s.agent_id == a.agent_id:
                 s.decisions += 1
                 s.blocked += decision.verdict is Verdict.BLOCK
                 s.escalated += any(f.recommends is Verdict.ESCALATE_HITL for f in decision.findings)
                 s.loops += bool(loop_findings)
             if loop_findings:
-                n = self._loop_hits.get(a.session_id, 0) + 1
-                self._loop_hits[a.session_id] = n
+                n = self._loop_hits.get(a.scope, 0) + 1
+                self._loop_hits[a.scope] = n
                 if n >= self.config.trip_breaker_after_loops:
-                    self.breaker(a.session_id).trip(f"loop:{loop_findings[0].code}")
+                    self.breaker(a.scope).trip(f"loop:{loop_findings[0].code}")
         if not decision.allowed:
             self.loops.record_result(a.call_id, success=False, output={"blocked": decision.reason})
         if decision.allowed and not self.config.record_allowed:
@@ -617,7 +648,10 @@ class ProtectionPipeline:
                 "session_id": a.session_id,
                 "tool": a.tool,
                 "verdict": decision.verdict.value,
+                "trace_id": a.trace_id,
+                "parent_call_id": a.parent_call_id,
             },
+            tenant_id=a.tenant_id,
         )
         self.telemetry.emit(_summary(decision))
 
@@ -671,7 +705,9 @@ class ProtectionPipeline:
                     "agent_id": action.agent_id,
                     "session_id": action.session_id,
                     "tool": action.tool,
+                    "trace_id": action.trace_id,
                 },
+                tenant_id=action.tenant_id,
             )
         self.telemetry.emit(
             {
@@ -687,12 +723,46 @@ class ProtectionPipeline:
         )
         return inspection
 
-    def _finish(self, action: ToolAction, *, success: bool, result: Any) -> None:
+    def _finish(
+        self,
+        action: ToolAction,
+        *,
+        success: bool,
+        result: Any,
+        started: float | None = None,
+        error: BaseException | None = None,
+        mutated: bool = False,
+    ) -> None:
+        duration_ms = (
+            round((time.perf_counter() - started) * 1000, 3) if started is not None else None
+        )
+        error = getattr(error, "original", error)  # the tool's own exception, not a wrapper
+        self._record(
+            KIND_EXECUTION,
+            {
+                "call_id": action.call_id,
+                "tool": action.tool,
+                "agent_id": action.agent_id,
+                "session_id": action.session_id,
+                "outcome": "success" if success else "failure",
+                "error": type(error).__name__ if error is not None else None,
+                "duration_ms": duration_ms,
+                "arguments_mutated": mutated,
+            },
+            {
+                "call_id": action.call_id,
+                "agent_id": action.agent_id,
+                "session_id": action.session_id,
+                "tool": action.tool,
+                "trace_id": action.trace_id,
+            },
+            tenant_id=action.tenant_id,
+        )
         self.loops.record_result(action.call_id, success=success, output=result)
-        b = self.breaker(action.session_id)
+        b = self.breaker(action.scope)
         b.observe(
             AgentEvent(
-                session_id=action.session_id,
+                session_id=action.scope,
                 agent_id=action.agent_id,
                 framework=AgentFramework.CUSTOM,
                 event_type=EventType.TOOL_RESULT if success else EventType.TOOL_ERROR,
@@ -722,11 +792,25 @@ class ProtectionPipeline:
             else action.arguments
         )
         try:
+            started = time.perf_counter()
             result = call(args) if call is not None else fn(**args)
         except Exception as exc:
-            self._finish(action, success=False, result=repr(exc))
+            self._finish(
+                action,
+                success=False,
+                result=repr(exc),
+                started=started,
+                error=exc,
+                mutated=decision.mutated_arguments is not None,
+            )
             raise
-        self._finish(action, success=_looks_successful(result), result=result)
+        self._finish(
+            action,
+            success=_looks_successful(result),
+            result=result,
+            started=started,
+            mutated=decision.mutated_arguments is not None,
+        )
         if not self.config.output_inspection:
             return result
         return self.inspect_output(action, result).sanitized_output
@@ -748,11 +832,25 @@ class ProtectionPipeline:
             else action.arguments
         )
         try:
+            started = time.perf_counter()
             result = await (call(args) if call is not None else fn(**args))
         except Exception as exc:
-            self._finish(action, success=False, result=repr(exc))
+            self._finish(
+                action,
+                success=False,
+                result=repr(exc),
+                started=started,
+                error=exc,
+                mutated=decision.mutated_arguments is not None,
+            )
             raise
-        self._finish(action, success=_looks_successful(result), result=result)
+        self._finish(
+            action,
+            success=_looks_successful(result),
+            result=result,
+            started=started,
+            mutated=decision.mutated_arguments is not None,
+        )
         if not self.config.output_inspection:
             return result
         return (await asyncio.to_thread(self.inspect_output, action, result)).sanitized_output
@@ -801,12 +899,54 @@ class ProtectionPipeline:
 
         return deco
 
+    def failure_decision(
+        self, action: ToolAction, exc: BaseException, *, executed: bool = False
+    ) -> Decision:
+        """The BLOCK decision for an action whose enforcement itself failed (recorded).
+
+        ``executed`` says whether the tool had already run: then its result is withheld,
+        and the record says so instead of claiming the action was prevented.
+        """
+        if executed:
+            f = Finding(
+                Stage.OUTPUT,
+                "POST_EXECUTION_ERROR",
+                Severity.CRITICAL,
+                f"The tool ran, but enforcement failed afterwards ({type(exc).__name__}: {exc}); its result is withheld",
+                {"error": type(exc).__name__, "executed": True},
+                None,
+                Verdict.BLOCK,
+            )
+        else:
+            f = Finding(
+                Stage.PIPELINE,
+                "ENFORCEMENT_ERROR",
+                Severity.CRITICAL,
+                f"Enforcement failed ({type(exc).__name__}: {exc}); the tool did not run",
+                {"error": type(exc).__name__, "executed": False},
+                None,
+                Verdict.BLOCK,
+            )
+        decision = Decision(action=action, verdict=Verdict.BLOCK, risk_score=1.0, findings=[f])
+        try:
+            self._after_decision(decision)
+        except Exception:  # noqa: BLE001 - recording must not mask the block
+            logger.exception("could not record the fail-closed decision")
+        return decision
+
     # ── evidence ───────────────────────────────────────────────────────────────────
-    def _record(self, kind: str, payload: dict[str, Any], declared: dict[str, Any]) -> None:
+    def _record(
+        self,
+        kind: str,
+        payload: dict[str, Any],
+        declared: dict[str, Any],
+        *,
+        tenant_id: str | None = None,
+    ) -> None:
         if self.ledger is None:
             return
         try:
-            self.ledger.record(kind, payload, declared)
+            self.ledger.record(kind, payload, declared, tenant_id=tenant_id)
         except Exception:  # noqa: BLE001
             # The decision already stands; losing its evidence record is reported, not hidden.
             logger.exception("failed to record %s in the protect ledger", kind)
@@ -817,8 +957,8 @@ class ProtectionPipeline:
             sessions = [
                 vars(s)
                 | {
-                    "breaker": self._breakers[s.session_id].status()["state"]
-                    if s.session_id in self._breakers
+                    "breaker": self._breakers[s.scope].status()["state"]
+                    if s.scope in self._breakers
                     else "closed"
                 }
                 for s in self.sessions.values()

@@ -50,9 +50,9 @@ from typing import Any
 
 import yaml
 
-from agentwatch.protect.arguments import ArgumentProfile, split_command_line
-from agentwatch.protect.model import Finding, Severity, Stage, Verdict
-from agentwatch.security.owasp import OwaspVector
+from panoptis.protect.arguments import ArgumentProfile, split_command_line
+from panoptis.protect.model import Finding, Severity, Stage, Verdict
+from panoptis.security.owasp import OwaspVector
 
 
 class PolicyError(ValueError):

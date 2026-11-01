@@ -26,7 +26,10 @@ of any object with `.run`, `.invoke`, `.__call__`, or `astream`).
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import logging
+import os
 import uuid
 from typing import Any
 
@@ -200,6 +203,24 @@ def detect_framework_label(agent: Any) -> str:
 # ─────────────────────────────────────────────
 
 
+class _UnavailableSafetyEngine:
+    """Stands in for a SafetyEngine whose policy failed to load: every check raises."""
+
+    def __init__(self, error: BaseException) -> None:
+        self.error = error
+
+    def _fail(self) -> Any:
+        raise RuntimeError(
+            f"safety policy could not be loaded: {type(self.error).__name__}: {self.error}"
+        )
+
+    def check_tool_call_sync(self, tool_call: ToolCallData) -> tuple[bool, list[str]]:
+        return self._fail()
+
+    async def check_event(self, event: AgentEvent) -> AgentEvent:
+        return self._fail()
+
+
 class GenericAdapter:
     """
     Best-effort wrapper that intercepts the agent's primary entry points
@@ -232,6 +253,8 @@ class GenericAdapter:
         safety_engine: SafetyEngine | None = None,
         metadata: dict[str, Any] | None = None,
         redact: bool = False,
+        safety_timeout_s: float | None = None,
+        protection: Any | None = None,
     ):
         self.agent = agent
         self.framework = framework
@@ -241,7 +264,13 @@ class GenericAdapter:
         self.agent_id = agent_id or f"{framework_label}-{uuid.uuid4().hex[:8]}"
         self._step = 0
         self._wrapped_methods: dict[str, Any] = {}
-        self._safety_engine = safety_engine or SafetyEngine()
+        try:
+            self._safety_engine: Any = safety_engine or SafetyEngine()
+        except Exception as exc:  # noqa: BLE001
+            # The policy could not be loaded. Wrap anyway and block every tool-like
+            # call, rather than leaving the agent unwrapped (fail closed).
+            logger.error("Safety policy could not be loaded (%s); tool calls will be blocked", exc)
+            self._safety_engine = _UnavailableSafetyEngine(exc)
         self._session_metadata: dict[str, Any] = dict(metadata) if metadata else {}
         self._exec_logger = ExecutionLogger(
             agent_id=self.agent_id,
@@ -251,6 +280,185 @@ class GenericAdapter:
         # CMP-003/004: scrub PII/PHI from tool-call payloads before they are
         # published and persisted. Opt-in to avoid the cost when not required.
         self._redact = redact
+        # When set (an panoptis.protect.ProtectionPipeline), tool-like calls go through
+        # the shared enforcement boundary instead of this adapter's SafetyEngine gate.
+        self._protection = protection
+        # Deadline for reaching a safety decision; a decision that does not arrive in
+        # time blocks the call. Default: the policy's approval timeout plus margin (the
+        # async check may legitimately wait that long for a human). Env override:
+        # AGENTWATCH_SAFETY_TIMEOUT_S. The sync path enforces it only when set.
+        env_timeout = os.environ.get("AGENTWATCH_SAFETY_TIMEOUT_S")
+        self._safety_timeout_s = (
+            safety_timeout_s
+            if safety_timeout_s is not None
+            else (float(env_timeout) if env_timeout else None)
+        )
+
+    def _enforcement_failure(self, method_name: str, exc: BaseException) -> AgentWatchBlockedError:
+        """The error raised when no valid safety decision could be reached (fail closed)."""
+        logger.error(
+            "Safety check for %s failed (%s: %s); blocking the call (fail closed)",
+            method_name,
+            type(exc).__name__,
+            exc,
+        )
+        reason = f"safety_check_failed: {type(exc).__name__}"
+        # Make the fail-closed block visible (dashboard, evidence), best effort.
+        try:
+            self.bus.publish_sync(
+                AgentEvent(
+                    session_id=self.session_id,
+                    agent_id=self.agent_id,
+                    agent_name=self.framework_label,
+                    framework=self.framework,
+                    event_type=EventType.SAFETY_BLOCK,
+                    step_number=self._step,
+                    status=ExecutionStatus.BLOCKED,
+                    safety=SafetyCheckData(
+                        risk_level=RiskLevel.CRITICAL,
+                        risk_score=1.0,
+                        blocked=True,
+                        reasons=[reason],
+                    ),
+                    metadata={
+                        **self._session_metadata,
+                        "blocked_tool": method_name,
+                        "enforcement_failure": True,
+                        "error": f"{type(exc).__name__}: {exc}"[:500],
+                    },
+                )
+            )
+        except Exception as pub_exc:  # noqa: BLE001
+            logger.warning(
+                "Could not publish the fail-closed block for %s: %s", method_name, pub_exc
+            )
+        return AgentWatchBlockedError(
+            f"Tool call '{method_name}' blocked: the safety check failed "
+            f"({type(exc).__name__}); AgentWatch fails closed",
+            tool_name=method_name,
+            reasons=[reason],
+        )
+
+    def _async_deadline(self) -> float:
+        if self._safety_timeout_s is not None:
+            return self._safety_timeout_s
+        approval = getattr(
+            getattr(self._safety_engine, "policy", None), "approval_timeout_seconds", 120
+        )
+        return float(approval) + 30.0
+
+    @staticmethod
+    def _valid_sync_verdict(result: Any) -> tuple[bool, list[str]]:
+        """A malformed verdict is not a decision: it raises, and the caller blocks."""
+        if not isinstance(result, (tuple, list)) or len(result) != 2:
+            raise ValueError(f"invalid safety verdict {result!r}: expected (blocked, reasons)")
+        blocked, reasons = result
+        if not isinstance(blocked, bool):
+            raise ValueError(f"invalid safety verdict: blocked={blocked!r} is not a bool")
+        if reasons is None:
+            reasons = []
+        if not isinstance(reasons, list) or not all(isinstance(r, str) for r in reasons):
+            raise ValueError("invalid safety verdict: reasons must be a list of strings")
+        return blocked, reasons
+
+    @staticmethod
+    def _valid_checked_event(checked: Any) -> AgentEvent:
+        if not isinstance(checked, AgentEvent):
+            raise ValueError(
+                f"invalid safety verdict: expected an AgentEvent, got {type(checked).__name__}"
+            )
+        if checked.safety is None or not isinstance(checked.safety.blocked, bool):
+            raise ValueError("invalid safety verdict: the checked event carries no safety decision")
+        return checked
+
+    def _sync_decision(self, tool_call: ToolCallData) -> tuple[bool, list[str]]:
+        return self._valid_sync_verdict(self._sync_check(tool_call))
+
+    def _sync_check(self, tool_call: ToolCallData) -> Any:
+        if self._safety_timeout_s is None:
+            return self._safety_engine.check_tool_call_sync(tool_call)
+        # Run the check on a worker so a hung check cannot hold the call open; on
+        # timeout the call is blocked (the worker is abandoned, the tool never runs).
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="aw-safety")
+        try:
+            future = pool.submit(self._safety_engine.check_tool_call_sync, tool_call)
+            try:
+                return future.result(timeout=self._safety_timeout_s)
+            except concurrent.futures.TimeoutError as exc:
+                raise TimeoutError(f"no safety decision within {self._safety_timeout_s}s") from exc
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
+
+    # ── shared-pipeline enforcement (protection=...) ─────────────────────────────
+    def _action(
+        self, method_name: str, original: Any, args: tuple, kwargs: dict
+    ) -> tuple[Any, Any]:
+        import inspect
+
+        from panoptis.protect.enforce import bind_arguments, current_context
+        from panoptis.protect.model import ToolAction
+
+        try:
+            sig = inspect.signature(original)
+        except (TypeError, ValueError):
+            sig = None
+        named, rebuild = bind_arguments(sig, args, kwargs)
+        ctx = current_context()
+        action = ToolAction(
+            agent_id=ctx.get("agent_id") or self.agent_id,
+            session_id=ctx.get("session_id") or self.session_id,
+            tool=method_name,
+            arguments=named,
+            objective=ctx.get("objective") or self._session_metadata.get("objective"),
+            tenant_id=ctx.get("tenant_id") or "default",
+            trace_id=ctx.get("trace_id"),
+            source=f"adapter:{self.framework_label}",
+        )
+        return action, rebuild
+
+    def _protected_sync(self, method_name: str, original: Any, args: tuple, kwargs: dict) -> Any:
+        from panoptis.protect.enforce import enforce_call
+
+        self._step += 1
+        action, rebuild = self._action(method_name, original, args, kwargs)
+
+        def invoke(arguments: dict[str, Any]) -> Any:
+            a, k = rebuild(arguments)
+            self._emit_safely(
+                EventType.AGENT_START, metadata={"method": method_name, "step": self._step}
+            )
+            result = original(*a, **k)
+            self._emit_safely(
+                EventType.AGENT_END,
+                status=ExecutionStatus.SUCCESS,
+                metadata={"method": method_name},
+            )
+            return result
+
+        return enforce_call(self._protection, action, invoke)
+
+    async def _protected_async(
+        self, method_name: str, original: Any, args: tuple, kwargs: dict
+    ) -> Any:
+        from panoptis.protect.enforce import aenforce_call
+
+        self._step += 1
+        action, rebuild = self._action(method_name, original, args, kwargs)
+
+        async def invoke(arguments: dict[str, Any]) -> Any:
+            a, k = rebuild(arguments)
+            await self._async_emit(
+                EventType.AGENT_START, metadata={"method": method_name, "step": self._step}
+            )
+            result = await original(*a, **k)
+            await self._async_emit(
+                EventType.AGENT_END,
+                status=ExecutionStatus.SUCCESS,
+                metadata={"method": method_name},
+            )
+            return result
+
+        return await aenforce_call(self._protection, action, invoke)
 
     def _maybe_redact(self, tool_call: ToolCallData) -> ToolCallData:
         """Redact PII/PHI from a tool call when redaction is enabled.
@@ -330,6 +538,8 @@ class GenericAdapter:
             @functools.wraps(original)
             async def async_wrapped(*args: Any, **kwargs: Any) -> Any:
                 """Async wrapper that logs execution and applies the safety gate."""
+                if is_tool_like and self._protection is not None:
+                    return await self._protected_async(method_name, original, args, kwargs)
                 self._step += 1
 
                 import time as _time
@@ -355,28 +565,33 @@ class GenericAdapter:
                         tool_call=tool_call,
                         metadata=dict(self._session_metadata),
                     )
+                    # Decide first; any failure to reach a decision blocks (fail closed).
                     try:
-                        checked = await self._safety_engine.check_event(safety_event)
-                        # Publish the checked event — it carries the full safety
-                        # metadata (risk_level, blocked status, reasons). Scrub
-                        # PII/PHI only now, after the decision, before persist.
-                        # Await so the HTTP forwarder completes before we proceed.
-                        await self.bus.publish(self._redact_event(checked))
-                        if checked.is_blocked:
-                            reasons = checked.safety.reasons if checked.safety else []
-                            reason_str = "; ".join(reasons) if reasons else "safety policy"
-                            raise AgentWatchBlockedError(
-                                f"Tool call '{method_name}' blocked by safety engine: {reason_str}",
-                                tool_name=method_name,
-                                reasons=reasons,
+                        checked = self._valid_checked_event(
+                            await asyncio.wait_for(
+                                self._safety_engine.check_event(safety_event),
+                                timeout=self._async_deadline(),
                             )
-                    except AgentWatchBlockedError:
-                        raise  # propagate intentional blocks
+                        )
+                    except Exception as exc:  # noqa: BLE001 - includes TimeoutError
+                        raise self._enforcement_failure(method_name, exc) from exc
+                    # Publish the checked event — it carries the full safety
+                    # metadata (risk_level, blocked status, reasons). Scrub
+                    # PII/PHI only now, after the decision, before persist.
+                    # Await so the HTTP forwarder completes before we proceed.
+                    try:
+                        await self.bus.publish(self._redact_event(checked))
                     except Exception as exc:  # noqa: BLE001
-                        logger.debug(
-                            "Safety check failed (suppressed) for %s: %s",
-                            method_name,
-                            exc,
+                        logger.warning(
+                            "Could not publish the safety event for %s: %s", method_name, exc
+                        )
+                    if checked.is_blocked:
+                        reasons = checked.safety.reasons if checked.safety else []
+                        reason_str = "; ".join(reasons) if reasons else "safety policy"
+                        raise AgentWatchBlockedError(
+                            f"Tool call '{method_name}' blocked by safety engine: {reason_str}",
+                            tool_name=method_name,
+                            reasons=reasons,
                         )
 
                 # Use await so HTTP forwarding completes before the caller returns.
@@ -419,6 +634,8 @@ class GenericAdapter:
         @functools.wraps(original)
         def sync_wrapped(*args: Any, **kwargs: Any) -> Any:
             """Sync wrapper that logs execution and applies the pattern-match safety gate."""
+            if is_tool_like and self._protection is not None:
+                return self._protected_sync(method_name, original, args, kwargs)
             self._step += 1
 
             import time as _time
@@ -433,10 +650,14 @@ class GenericAdapter:
             if is_tool_like:
                 # Check the raw payload; redact only the event we publish below.
                 tool_call = _build_tool_call_data(method_name, args, kwargs)
+                # Decide first. Any failure to reach a decision blocks the call
+                # (fail closed); it never falls through to running the tool.
                 try:
-                    blocked, reasons = self._safety_engine.check_tool_call_sync(tool_call)
-                    # Build and publish a TOOL_CALL event with safety data so the
-                    # dashboard shows the correct blocked/safe state.
+                    blocked, reasons = self._sync_decision(tool_call)
+                except Exception as exc:  # noqa: BLE001 - includes TimeoutError
+                    raise self._enforcement_failure(method_name, exc) from exc
+                # Then publish: telemetry failure must not change the decision.
+                try:
                     tc_event = AgentEvent(
                         session_id=self.session_id,
                         agent_id=self.agent_id,
@@ -455,20 +676,16 @@ class GenericAdapter:
                         metadata=dict(self._session_metadata),
                     )
                     self.bus.publish_sync(tc_event)
-                    if blocked:
-                        reason_str = "; ".join(reasons) if reasons else "safety policy"
-                        raise AgentWatchBlockedError(
-                            f"Tool call '{method_name}' blocked by safety engine: {reason_str}",
-                            tool_name=method_name,
-                            reasons=reasons,
-                        )
-                except AgentWatchBlockedError:
-                    raise  # propagate intentional blocks
                 except Exception as exc:  # noqa: BLE001
-                    logger.debug(
-                        "Safety check failed (suppressed) for %s: %s",
-                        method_name,
-                        exc,
+                    logger.warning(
+                        "Could not publish the safety event for %s: %s", method_name, exc
+                    )
+                if blocked:
+                    reason_str = "; ".join(reasons) if reasons else "safety policy"
+                    raise AgentWatchBlockedError(
+                        f"Tool call '{method_name}' blocked by safety engine: {reason_str}",
+                        tool_name=method_name,
+                        reasons=reasons,
                     )
 
             self._emit_safely(
@@ -669,6 +886,7 @@ def watch(
     event_bus: EventBus | None = None,
     metadata: dict[str, Any] | None = None,
     redact: bool = False,
+    protection: Any | None = None,
 ) -> Any:
     """
     Instrument an agent for AgentWatch observability.
@@ -685,6 +903,9 @@ def watch(
         metadata:    optional custom metadata attached to all session events
         redact:      scrub PII/PHI from tool-call payloads before they are
                      published/persisted (generic-adapter path only)
+        protection:  an ``panoptis.protect.ProtectionPipeline``: tool-like calls are
+                     decided by the shared enforcement pipeline (RBAC, threats, loops,
+                     intent, approvals, output sanitization) instead of the legacy gate
     """
     if agent is None:
         logger.warning("watch() called with None — returning None")
@@ -723,6 +944,7 @@ def watch(
             agent_id=agent_id,
             metadata=metadata,
             redact=redact,
+            protection=protection,
         )
         return adapter.attach()
 

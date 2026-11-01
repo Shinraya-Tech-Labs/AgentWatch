@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 
 import httpx
 
@@ -25,10 +26,20 @@ _HANDLER_ID = "panoptis.http_forwarder"
 class HttpEventForwarder:
     """Async event handler that POSTs events to the AgentWatch API server."""
 
-    def __init__(self, api_url: str = _DEFAULT_API_URL) -> None:
+    def __init__(self, api_url: str = _DEFAULT_API_URL, *, backoff_s: float | None = None) -> None:
         self.api_url = api_url.rstrip("/")
+        # After a connection failure, stop trying for ``backoff_s`` seconds. Without this,
+        # every event (several per tool call) waited out a connection attempt to a server
+        # that is not running, adding seconds to each protected call.
+        env = os.getenv("AGENTWATCH_FORWARD_BACKOFF_S")
+        self.backoff_s = backoff_s if backoff_s is not None else (float(env) if env else 30.0)
+        self._down_until = 0.0
+        self.skipped = 0
 
     async def forward(self, event: AgentEvent) -> None:
+        if time.monotonic() < self._down_until:
+            self.skipped += 1
+            return
         try:
             async with httpx.AsyncClient(timeout=2.0) as client:
                 resp = await client.post(
@@ -38,6 +49,14 @@ class HttpEventForwarder:
                 )
                 if resp.status_code >= 400:
                     logger.debug("Event forwarder: server returned HTTP %d", resp.status_code)
+        except httpx.TransportError as exc:
+            self._down_until = time.monotonic() + self.backoff_s
+            logger.debug(
+                "Event forward to %s failed (%s); pausing for %ss",
+                self.api_url,
+                exc,
+                self.backoff_s,
+            )
         except Exception as exc:
             logger.debug("Event forward to %s failed: %s", self.api_url, exc)
 
@@ -54,6 +73,8 @@ def register_http_forwarder(bus: object, api_url: str | None = None) -> None:
         api_url: Override the target URL.  Falls back to the
                  AGENTWATCH_API_URL env var, then http://localhost:8000.
     """
+    if os.getenv("AGENTWATCH_FORWARD_EVENTS", "1").strip().lower() in ("0", "false", "no", "off"):
+        return
     handlers = getattr(bus, "_handlers", {})
     if "api.collector" in handlers:
         return
