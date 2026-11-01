@@ -15,7 +15,7 @@ def test_server_start_dry_run():
 
     assert result.exit_code == 0
     assert "DRY-RUN MODE" in result.stdout
-    assert "http://0.0.0.0:8000" in result.stdout
+    assert "http://127.0.0.1:8000" in result.stdout  # loopback by default (TO-009)
     assert "Dashboard" in result.stdout
     assert "disabled" in result.stdout
     assert "Server was not started." in result.stdout
