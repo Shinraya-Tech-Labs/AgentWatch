@@ -289,7 +289,34 @@ class GenericAdapter:
         )
         return float(approval) + 30.0
 
+    @staticmethod
+    def _valid_sync_verdict(result: Any) -> tuple[bool, list[str]]:
+        """A malformed verdict is not a decision: it raises, and the caller blocks."""
+        if not isinstance(result, (tuple, list)) or len(result) != 2:
+            raise ValueError(f"invalid safety verdict {result!r}: expected (blocked, reasons)")
+        blocked, reasons = result
+        if not isinstance(blocked, bool):
+            raise ValueError(f"invalid safety verdict: blocked={blocked!r} is not a bool")
+        if reasons is None:
+            reasons = []
+        if not isinstance(reasons, list) or not all(isinstance(r, str) for r in reasons):
+            raise ValueError("invalid safety verdict: reasons must be a list of strings")
+        return blocked, reasons
+
+    @staticmethod
+    def _valid_checked_event(checked: Any) -> AgentEvent:
+        if not isinstance(checked, AgentEvent):
+            raise ValueError(
+                f"invalid safety verdict: expected an AgentEvent, got {type(checked).__name__}"
+            )
+        if checked.safety is None or not isinstance(checked.safety.blocked, bool):
+            raise ValueError("invalid safety verdict: the checked event carries no safety decision")
+        return checked
+
     def _sync_decision(self, tool_call: ToolCallData) -> tuple[bool, list[str]]:
+        return self._valid_sync_verdict(self._sync_check(tool_call))
+
+    def _sync_check(self, tool_call: ToolCallData) -> Any:
         if self._safety_timeout_s is None:
             return self._safety_engine.check_tool_call_sync(tool_call)
         # Run the check on a worker so a hung check cannot hold the call open; on
@@ -409,9 +436,11 @@ class GenericAdapter:
                     )
                     # Decide first; any failure to reach a decision blocks (fail closed).
                     try:
-                        checked = await asyncio.wait_for(
-                            self._safety_engine.check_event(safety_event),
-                            timeout=self._async_deadline(),
+                        checked = self._valid_checked_event(
+                            await asyncio.wait_for(
+                                self._safety_engine.check_event(safety_event),
+                                timeout=self._async_deadline(),
+                            )
                         )
                     except Exception as exc:  # noqa: BLE001 - includes TimeoutError
                         raise self._enforcement_failure(method_name, exc) from exc

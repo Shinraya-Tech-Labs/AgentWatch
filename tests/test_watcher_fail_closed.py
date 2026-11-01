@@ -130,3 +130,42 @@ def test_sync_safety_check_timeout_blocks():
 def test_default_async_deadline_exceeds_the_approval_wait():
     adapter = GenericAdapter(AsyncCountingAgent(), event_bus=EventBus())
     assert adapter._async_deadline() > adapter._safety_engine.policy.approval_timeout_seconds
+
+
+@pytest.mark.parametrize(
+    "verdict",
+    [None, "allow", (None, []), ("false", []), (0, []), (False, "reason"), (False, [1]), (False,)],
+)
+def test_sync_invalid_verdict_blocks(verdict):
+    class BadEngine(SafetyEngine):
+        def check_tool_call_sync(self, tool_call: Any) -> Any:
+            return verdict
+
+    agent = _attach(CountingAgent(), BadEngine())
+    with pytest.raises(AgentWatchBlockedError) as exc:
+        agent.run("echo hello")
+    assert agent.calls == 0
+    assert exc.value.reasons == ["safety_check_failed: ValueError"]
+
+
+@pytest.mark.parametrize("verdict", [None, "allow", {"blocked": False}])
+def test_async_invalid_verdict_blocks(verdict):
+    class BadEngine(SafetyEngine):
+        async def check_event(self, event: Any) -> Any:
+            return verdict
+
+    agent = _attach(AsyncCountingAgent(), BadEngine())
+    with pytest.raises(AgentWatchBlockedError):
+        asyncio.run(agent.arun("echo hello"))
+    assert agent.calls == 0
+
+
+def test_async_event_without_safety_data_blocks():
+    class NoDecisionEngine(SafetyEngine):
+        async def check_event(self, event: Any) -> Any:
+            return event  # returned unchanged: no safety decision attached
+
+    agent = _attach(AsyncCountingAgent(), NoDecisionEngine())
+    with pytest.raises(AgentWatchBlockedError):
+        asyncio.run(agent.arun("echo hello"))
+    assert agent.calls == 0
