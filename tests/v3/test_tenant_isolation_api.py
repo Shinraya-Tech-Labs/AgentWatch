@@ -25,7 +25,8 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(server._rate_limiter, "backend", InMemoryBackend())
     store = Store(f"sqlite:///{(tmp_path / 'aw.db').as_posix()}")
     v3api.set_engine(Engine(store))
-    yield TestClient(server.app)
+    with TestClient(server.app) as c:  # runs the lifespan: the collector subscribes to the bus
+        yield c
     v3api.set_engine(None)
     store.close()
 
@@ -115,3 +116,66 @@ def test_self_hosted_header_cannot_select_a_tenant(client):
     assert client.get("/api/v3/status").status_code == 200
     assert client.get("/api/v3/status", headers={"X-Tenant-ID": "default"}).status_code == 200
     assert client.get("/api/v3/status", headers={"X-Tenant-ID": "victim-tenant"}).status_code == 403
+
+
+def _event(session_id: str, **meta) -> dict:
+    return {
+        "session_id": session_id,
+        "agent_id": "bot",
+        "event_type": "tool.call",
+        "metadata": meta,
+    }
+
+
+def test_v1_events_are_tagged_with_the_authenticated_tenant(client, cloud):
+    a = {"X-Api-Key": cloud["raw_a"]}
+    r = client.post("/api/v1/events", json=_event("sess-a1", tenant_id="spoofed"), headers=a)
+    assert r.status_code == 200, r.text
+    trace = server._collector.get_trace("sess-a1")
+    assert trace is not None
+    assert trace.session.metadata["tenant_id"] == cloud["a"].tenant_id
+    events = server._collector.get_events("sess-a1")
+    assert events and all(e.metadata["tenant_id"] == cloud["a"].tenant_id for e in events)
+
+
+def test_v1_tenant_cannot_append_to_or_claim_another_tenants_session(client, cloud):
+    a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
+    client.post("/api/v1/events", json=_event("sess-owned-by-a"), headers=a)
+    before = server._collector.get_trace("sess-owned-by-a").event_count
+    assert (
+        client.post("/api/v1/events", json=_event("sess-owned-by-a"), headers=b).status_code == 404
+    )
+    session = {"session_id": "sess-owned-by-a", "agent_id": "bot", "framework": "custom"}
+    assert client.post("/api/v1/sessions", json=session, headers=b).status_code == 409
+    assert server._collector.get_trace("sess-owned-by-a").event_count == before
+
+
+async def test_collector_drops_a_racing_event_from_another_tenant():
+    from agentwatch.core.schema import AgentEvent, EventType
+    from agentwatch.tracing.collector import TraceCollector
+
+    c = TraceCollector()
+    await c.ingest(
+        AgentEvent(
+            session_id="s",
+            agent_id="a",
+            event_type=EventType.TOOL_CALL,
+            metadata={"tenant_id": "t1"},
+        )
+    )
+    await c.ingest(
+        AgentEvent(
+            session_id="s",
+            agent_id="b",
+            event_type=EventType.TOOL_CALL,
+            metadata={"tenant_id": "t2"},
+        )
+    )
+    assert c.get_trace("s").event_count == 1
+
+
+def test_v1_events_are_teed_into_the_tenants_v3_store(client, cloud):
+    a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
+    client.post("/api/v1/events", json=_event("sess-tee"), headers=a)
+    assert client.get("/api/v3/status", headers=a).json()["observations"] >= 1
+    assert client.get("/api/v3/status", headers=b).json()["observations"] == 0

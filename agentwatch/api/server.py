@@ -717,6 +717,19 @@ _rate_limiter = RateLimiter(
 app.add_middleware(RateLimitMiddleware, limiter=_rate_limiter)
 
 
+def _request_tenant(
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
+) -> str:
+    """The authenticated tenant of a v1 request (``default`` for single-tenant setups)."""
+    return _principal(x_api_key, x_tenant_id).tenant_id
+
+
+def _owner(metadata: dict[str, Any] | None) -> str:
+    """The tenant a stored session/event belongs to; untagged legacy data is ``default``."""
+    return str((metadata or {}).get("tenant_id") or _tenancy.DEFAULT_TENANT)
+
+
 def _v3_tenant(
     x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
@@ -972,8 +985,14 @@ async def create_session(
     request: Request,
     session: AgentSession,
     _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
     _limiter.check(_rate_limit_key(request, "w"), RATE_WRITE, request)
+    existing = _collector.get_trace(session.session_id)
+    if existing is not None and _owner(existing.session.metadata) != tenant_id:
+        # never let one tenant overwrite (or learn about) another tenant's session
+        raise HTTPException(status_code=409, detail="session id unavailable")
+    session.metadata["tenant_id"] = tenant_id
     _collector.register_session(session)
     await _pg_write_session(session)
     return {"status": "registered", "session": session.model_dump(mode="json")}
@@ -1009,15 +1028,17 @@ async def get_events(
     )
 
 
-def _v3_tee(event: AgentEvent) -> None:
-    """Also record legacy events as v3 evidence (via LegacyTranslator). Never fails the request."""
+def _v3_tee(event: AgentEvent, tenant_id: str = _tenancy.DEFAULT_TENANT) -> None:
+    """Also record legacy events as v3 evidence (via LegacyTranslator), under the request's
+    tenant. Never fails the request."""
     if os.getenv("AGENTWATCH_V3_TEE", "1").lower() in ("0", "false", "no"):
         return
     try:
         from agentwatch.sensors.legacy.translator import LegacyTranslator
 
-        result = LegacyTranslator().translate(event)
+        result = LegacyTranslator(tenant_id=tenant_id).translate(event, tenant_id=tenant_id)
         if result.draft is not None:
+            result.draft.tenant_id = tenant_id
             get_v3_engine().ingest([result.draft])
     except Exception:
         logger.warning("v3 tee of legacy event failed", exc_info=True)
@@ -1028,8 +1049,14 @@ async def ingest_event(
     request: Request,
     event: AgentEvent,
     _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
     _limiter.check(_rate_limit_key(request, "w"), RATE_WRITE, request)
+    # tenancy is the server's to record: a client-supplied value is overwritten
+    event.metadata["tenant_id"] = tenant_id
+    existing = _collector.get_trace(event.session_id)
+    if existing is not None and _owner(existing.session.metadata) != tenant_id:
+        raise HTTPException(status_code=404, detail=f"Session {event.session_id} not found")
     if event.event_type == EventType.TOOL_CALL and event.tool_call is not None:
         schema_key = event.framework.value.replace("_", "-")
         if _schema_validator.get_schema(schema_key) is not None:
@@ -1041,7 +1068,7 @@ async def ingest_event(
             if not valid:
                 raise HTTPException(status_code=422, detail=f"Schema validation failed: {err}")
     await get_event_bus().publish(event)
-    _v3_tee(event)
+    _v3_tee(event, tenant_id)
 
     if event.agent_id and hasattr(event, "status"):
         if getattr(event, "status", None) == ExecutionStatus.FAILURE:

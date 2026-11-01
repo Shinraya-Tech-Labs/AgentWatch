@@ -173,6 +173,18 @@ class TraceCollector:
                     oldest_key = next(iter(self._traces))
                     del self._traces[oldest_key]
 
+            event_tenant = (event.metadata or {}).get("tenant_id")
+            session_tenant = trace.session.metadata.get("tenant_id") or "default"
+            if event_tenant is not None and event_tenant != session_tenant:
+                # Decided under the lock, so two tenants racing to the same new session id
+                # cannot interleave: the session belongs to whoever created it.
+                self._stats["rejected_cross_tenant"] = (
+                    self._stats.get("rejected_cross_tenant", 0) + 1
+                )
+                logger.warning(
+                    "dropped an event for session %s from another tenant", event.session_id
+                )
+                return
             trace.add_event(event)
             trace.session.total_events = trace.event_count
 
