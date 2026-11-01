@@ -131,13 +131,20 @@ def main_callback(
 
     from panoptis.cli.animator import (
         cinematic_logo_reveal,
-        matrix_type_print,
         print_systematic_menu,
     )
 
     if ctx.invoked_subcommand is None:
+        import sys
+
+        if not sys.stdin.isatty():
+            try:
+                app(["--help"])
+            except SystemExit:
+                pass
+            return
+
         cinematic_logo_reveal(ascii_art)
-        matrix_type_print("Initializing runtime components...", color="90;3m", delay=0.01)
         print_systematic_menu()
         _IN_REPL = True
         try:
@@ -153,7 +160,7 @@ def _start_repl_session():
     from rich.panel import Panel
     from rich.prompt import Prompt
 
-    from panoptis.cli.animator import matrix_type_print
+    from panoptis.cli.animator import print_systematic_menu
 
     console.print()
     console.print(
@@ -168,24 +175,49 @@ def _start_repl_session():
 
     while True:
         try:
-            # High-end cinematic prompt
             cmd_line = Prompt.ask(
-                "\n[bold cyan]AW[/bold cyan][dim]:[/dim][bold green]CORE[/bold green] [bold white]>[/bold white]"
+                "\n[bold cyan]PANOPTIS[/bold cyan][dim]:[/dim][bold green]CORE[/bold green] [bold white]>[/bold white]"
             )
             cmd_line = cmd_line.strip()
             if not cmd_line:
                 continue
 
             cmd_lower = cmd_line.lower()
-            if cmd_lower in ("exit", "quit"):
-                matrix_type_print("Terminating AgentWatch session...", color="dim")
+            if cmd_lower in ("exit", "quit", "0", "q"):
+                console.print("[dim]Terminating Panoptis session. Goodbye![/dim]")
                 break
 
             if cmd_lower in ("clear", "cls"):
                 console.clear()
+                print_systematic_menu()
                 continue
 
-            args = shlex.split(cmd_line)
+            if cmd_lower in ("help", "menu", "?"):
+                print_systematic_menu()
+                continue
+
+            # Numbered shortcuts for fast navigation
+            shortcuts = {
+                "1": ["watch"],
+                "2": ["runs"],
+                "3": ["events"],
+                "4": ["doctor"],
+                "5": ["check-env"],
+                "6": ["mcp"],
+                "7": ["status"],
+                "8": ["safety", "check"],
+            }
+            if cmd_lower in shortcuts:
+                args = shortcuts[cmd_lower]
+                if cmd_lower == "8":
+                    cmd_to_test = Prompt.ask("[bold cyan]Enter shell command to check[/bold cyan]")
+                    if cmd_to_test.strip():
+                        args.append(cmd_to_test)
+                    else:
+                        continue
+            else:
+                args = shlex.split(cmd_line)
+
             try:
                 app(args, standalone_mode=False)
             except SystemExit:
@@ -193,7 +225,7 @@ def _start_repl_session():
             except Exception as e:
                 console.print(f"[red]Error executing command:[/red] {e}")
         except (KeyboardInterrupt, EOFError):
-            matrix_type_print("\nTerminating AgentWatch session...", color="dim")
+            console.print("[dim]\nTerminating Panoptis session. Goodbye![/dim]")
             break
 
 
@@ -284,42 +316,9 @@ def _dry_run_print(action: str, detail: str = "") -> None:
 # ---------------------------------------------
 
 
-def _print_live_event(event: Any) -> None:
-    """Print a live event from the event bus in a high-end cinematic style."""
-    from panoptis.core.schema import EventType
-
-    etype = getattr(event, "event_type", None)
-    if etype == EventType.SESSION_START:
-        console.print(f"\n[bold cyan]🚀 Session Started:[/bold cyan] [dim]{event.session_id}[/dim]")
-    elif etype == EventType.AGENT_MESSAGE:
-        console.print(f"[bold blue]💭 Message:[/bold blue] {escape(event.agent_message.content)}")
-    elif etype == EventType.TOOL_CALL:
-        tool = event.tool_call
-        console.print(
-            f"[bold yellow]🛠️  Tool Call:[/bold yellow] [bold white]{tool.tool_name}[/bold white] [dim]({tool.raw_command})[/dim]"
-        )
-    elif etype == EventType.TOOL_RESULT:
-        res = event.tool_result
-        color = "green" if not res.error else "red"
-        icon = "✅" if not res.error else "❌"
-        content = res.output if not res.error else res.error
-        console.print(
-            f"[{color}]{icon} Result:[/{color}] [dim]{escape(content)[:200]}{'...' if len(content) > 200 else ''}[/dim]"
-        )
-    elif etype == EventType.SESSION_END:
-        console.print("\n[bold green]🏁 Session Completed.[/bold green]")
-    else:
-        console.print(f"[dim]Event: {etype}[/dim]")
-
-
-# ---------------------------------------------
-# watch command — wrap an agent run
-# ---------------------------------------------
-
-
 @session_app.command(name="watch")
 def watch(
-    prompt: str = typer.Argument(..., help="Prompt to run with the agent"),
+    prompt: str | None = typer.Argument(None, help="Prompt to run with the agent"),
     model: str = typer.Option("claude-opus-4-5", "--model", "-m"),
     agent: str = typer.Option(
         "claude", "--agent", "-a", help="Agent to use: claude|ollama|opencode|antigravity"
@@ -337,6 +336,16 @@ def watch(
     ),
 ) -> None:
     """[bold]Watch[/bold] an agent execution (Claude Code, ollama, antigravity) with full observability and safety."""
+    if not prompt:
+        import sys
+
+        if sys.stdin.isatty():
+            from rich.prompt import Prompt
+
+            prompt = Prompt.ask("[bold cyan]Enter prompt for the agent[/bold cyan]")
+        if not prompt or not prompt.strip():
+            console.print("[yellow]No prompt provided. Usage: panoptis watch '<prompt>'[/yellow]")
+            return
 
     if dry_run:
         console.print(
@@ -475,6 +484,36 @@ def watch(
             console.print(f"\n[green]Session saved to {saved_path}[/green]")
 
     asyncio.run(_run())
+
+
+# Register watch directly on the root app
+app.command(name="watch")(watch)
+
+
+@app.command(name="help")
+def help_command(
+    command: str | None = typer.Argument(None, help="The command to show help for."),
+) -> None:
+    """Show help for AgentWatch / Panoptis or a specific command."""
+    if command:
+        try:
+            app([command, "--help"])
+        except SystemExit:
+            pass
+    else:
+        try:
+            app(["--help"])
+        except SystemExit:
+            pass
+
+
+@app.command(name="tui")
+def tui_command() -> None:
+    """Launch the interactive terminal command center."""
+    from panoptis.cli.animator import print_systematic_menu
+
+    print_systematic_menu()
+    _start_repl_session()
 
 
 # ---------------------------------------------
@@ -2208,6 +2247,17 @@ def _print_live_event(event) -> None:
         if event.safety and event.safety.reasons:
             for r in event.safety.reasons[:2]:
                 console.print(f"         [red]→ {r}[/red]")
+
+    elif event.event_type in (EventType.TOOL_RESULT, EventType.TOOL_ERROR):
+        res = event.tool_result
+        if res:
+            text = (res.error or res.output or "").strip()
+            colour = "red" if res.error else "green"
+            shown = text.splitlines()[:8]
+            if shown:
+                console.print(f"[dim]{ts}[/dim] {icon} [{colour}]{escape(shown[0])}[/{colour}]")
+                for line in shown[1:]:
+                    console.print(f"         [{colour}]{escape(line)}[/{colour}]")
 
     elif event.event_type in (
         EventType.SESSION_START,

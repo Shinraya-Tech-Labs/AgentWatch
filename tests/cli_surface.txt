@@ -203,6 +203,11 @@ command: panoptis graph
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param view kind=TyperOption type=str required=False default='execution' flags=--view help='execution | information | causal | all'
 
+command: panoptis help
+    help: Show help for AgentWatch / Panoptis or a specific command.
+    short_help: 
+    param command kind=TyperArgument type=str required=False default=None flags=command help='The command to show help for.'
+
 command: panoptis ingest
     help: [bold]Ingest[/bold] observations from a file into the evidence store.
     short_help: 
@@ -417,7 +422,7 @@ command: panoptis session watch
     param no_safety kind=TyperOption type=boolean required=False default=False flags=--no-safety help='Disable safety checks (dangerous)'
     param output kind=TyperOption type=path required=False default=None flags=--output,-o help='Save session to file'
     param policy kind=TyperOption type=str required=False default='default' flags=--policy help='Safety policy: default|strict|permissive'
-    param prompt kind=TyperArgument type=str required=True default=None flags=prompt help='Prompt to run with the agent'
+    param prompt kind=TyperArgument type=str required=False default=None flags=prompt help='Prompt to run with the agent'
 
 command: panoptis share
     help: [bold]Share[/bold] a trace via a temporary public link (PII/secrets redacted).
@@ -448,6 +453,10 @@ command: panoptis status
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Machine-readable JSON output.'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
+command: panoptis tui
+    help: Launch the interactive terminal command center.
+    short_help: 
+
 command: panoptis upgrade
     help: [bold]Upgrade[/bold] to AgentWatch Premium via the secure web checkout.
     short_help: 
@@ -460,4 +469,16 @@ command: panoptis upgrade
 command: panoptis version
     help: Show AgentWatch version and diagnostics.
     short_help: 
+
+command: panoptis watch
+    help: [bold]Watch[/bold] an agent execution (Claude Code, ollama, antigravity) with full observability and safety.
+    short_help: 
+    param agent kind=TyperOption type=str required=False default='claude' flags=--agent,-a help='Agent to use: claude|ollama|opencode|antigravity'
+    param dry_run kind=TyperOption type=boolean required=False default=False flags=--dry-run help='Preview what would happen without executing or writing to disk'
+    param max_turns kind=TyperOption type=int required=False default=50 flags=--max-turns help=''
+    param model kind=TyperOption type=str required=False default='claude-opus-4-5' flags=--model,-m help=''
+    param no_safety kind=TyperOption type=boolean required=False default=False flags=--no-safety help='Disable safety checks (dangerous)'
+    param output kind=TyperOption type=path required=False default=None flags=--output,-o help='Save session to file'
+    param policy kind=TyperOption type=str required=False default='default' flags=--policy help='Safety policy: default|strict|permissive'
+    param prompt kind=TyperArgument type=str required=False default=None flags=prompt help='Prompt to run with the agent'
 

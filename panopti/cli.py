@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from panopti._banner import PANOPTI_ASCII_BANNER
+from panopti._banner import PANOPTI_ASCII_BANNER, print_banner
 
 
 def _int_flag(argv: list[str], flag: str, *, default: int, minimum: int) -> int:
@@ -88,7 +88,7 @@ def main(args: list[str] | None = None) -> Any:
         # Check if user specifically called 'panopti --help'
         prog = Path(sys.argv[0]).stem
         if "panopti" in prog.lower() and not argv:
-            print(PANOPTI_ASCII_BANNER)
+            print_banner()
             print("Usage: panopti [COMMAND] [ARGS]...\n")
             print("Panopti Commands:")
             print(
@@ -141,7 +141,7 @@ def main(args: list[str] | None = None) -> Any:
         from panopti.doctor import format_doctor_report, run_diagnostics
 
         diag = run_diagnostics()
-        print(PANOPTI_ASCII_BANNER)
+        print_banner()
         print(format_doctor_report(diag))
         return 0
 
@@ -192,7 +192,7 @@ def main(args: list[str] | None = None) -> Any:
             ),
         )
 
-        print(PANOPTI_ASCII_BANNER)
+        print_banner()
         print(f"👁️  PANOPTI SENTINEL [LIVE MONITOR - PROFILE: {prof.name.upper()}]")
         print("--------------------------------------------------")
         print(f"Description:        {prof.description}")
