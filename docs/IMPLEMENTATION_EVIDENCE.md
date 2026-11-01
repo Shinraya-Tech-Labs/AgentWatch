@@ -38,7 +38,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | Port onto `panoptis` layout | DONE | merge `4c2025d` (see below) |
 | TO-004 tenant-safe erasure | DONE | [TO-004](#to-004) |
 | TO-005 attestation keys | DONE | [TO-005](#to-005) |
-| TO-006 … TO-040 | NOT STARTED unless listed below | — |
+| TO-006 tenant/key persistence | DONE | [TO-006](#to-006) |
+| TO-007 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -343,3 +344,47 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 - `pytest tests/`: 2445 passed, 8 skipped, 2 failed. The 2 failures are the pre-existing `test_cli_animator` failures on `main`.
 
 **Commits:** `45764be` `023b496` `e085f35` `f8bacc9` `620539b` `7ba0e9c` `7a38e11` `cf8838a`, plus this ledger commit.
+
+### TO-006
+
+**Status:** DONE. See the "Tenant and API-key storage" section of [`docs/TENANCY.md`](TENANCY.md).
+
+**Problems found and fixed:**
+
+1. Tenants, keys, revocations and usage lived only in Python dicts: lost on restart and inconsistent across replicas.
+2. `_require_tenant_ownership` declared `path_tenant_id`, which FastAPI treated as a required *query* parameter. Every normal call to `POST/GET /api/v1/tenants/{id}/api-keys` and `/usage` therefore failed with 422.
+3. There was no way to issue a new tenant's first key: only that tenant's own key could create keys.
+4. Every tenant on a plan shared one `PLAN_DEFAULTS` `TenantConfig` object, so changing one tenant's limits changed every tenant's. It was found because a test leaked a limit into another file's tests.
+
+**Changes:**
+
+- `panoptis/api/tenant_store_sql.py` (new, `SqlTenantStore`): a durable store with the same interface.
+  - Tables `aw_tenants`, `aw_api_keys` (unique `key_prefix`; PBKDF2 hash only), `aw_tenant_usage`, `aw_tenant_daily_events`, `aw_tenant_audit` and `aw_tenant_schema`; a newer schema is refused.
+  - Transactional suspend-and-revoke; key creation retries on a prefix collision.
+  - A failed read denies the key; a failed write raises.
+  - `last_used_at` is written at most once a minute.
+- `panoptis/api/tenant_auth.py`: `tenant_store_url()` and `get_tenant_store()` choose the durable store whenever cloud mode is on or `AGENTWATCH_TENANT_STORE` is set; plan configs are copied; `reset_tenant_store_for_tests()`.
+- `panoptis/api/server.py`: the ownership dependency binds `{tenant_id}`, and the operator key may act for any tenant (bootstrap).
+- `.env.example` and `docs/TENANCY.md` updated.
+
+**Tests:**
+
+- `tests/test_tenant_store_sql.py`: 14 tests (×2 back ends for the 9 database tests).
+  - Tenants, keys, scopes and revocations survive a restart; suspension revokes all keys atomically and persists.
+  - Only the hash is stored (the PBKDF2 `salt:hash` shape is checked); expired, unknown and malformed keys are rejected; a tenant must exist before a key.
+  - The audit trail; usage persists and limits apply; concurrent create and revoke with 8 threads.
+  - A database failure denies validation and fails writes; a newer schema is refused.
+  - Store selection: memory when self-hosted, never memory in cloud mode, an explicit URL wins.
+  - End to end over HTTP: the operator bootstraps the first key, the tenant creates its own next key, cross-tenant key creation gets 403, and after a restart a key still authenticates while a revoked one gets 401.
+- `tests/test_tenant_auth_memory.py` (8): the in-memory store, including the plan-config leak test, which fails against the old code.
+
+**Commands and results:**
+
+- `pytest tests/test_tenant_store_sql.py tests/test_tenant_auth_memory.py`: 22 passed (SQLite)
+- `AGENTWATCH_TEST_PG_URL=postgresql+psycopg://…@127.0.0.1:55432/awtest pytest tests/test_tenant_store_sql.py`: **23 passed** against a local `postgres:16-alpine` container (Docker), including all PostgreSQL variants
+- Coverage: `panoptis/api/tenant_auth.py` **99 %** (audit: 19 %); `tenant_store_sql.py` 81 %
+- `pytest tests/`: 2467 passed, 8 skipped, 2 failed (the pre-existing `test_cli_animator` failures on `main`)
+
+**Environment:** installed `psycopg[binary]` 3.3.6 (PostgreSQL driver for these tests).
+
+**Commits:** `df38938` `f9661b9` `4120657` `81415d3`, plus this ledger commit.

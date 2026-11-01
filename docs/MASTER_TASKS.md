@@ -168,22 +168,22 @@ belonging to the other tenant are modified or deleted.
 attestations and rejects tampered attestations and unsafe production
 configuration.
 
-## TO-006 --- Secure tenant and API-key persistence
+## TO-006 --- Secure tenant and API-key persistence — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-006)
 
--   [ ] Audit the in-memory tenant/API-key implementation and its
+-   [x] Audit the in-memory tenant/API-key implementation and its
     current persistence contract.
--   [ ] Implement durable storage using the project's supported database
+-   [x] Implement durable storage using the project's supported database
     architecture.
--   [ ] Persist tenant records, API-key metadata, revocation state,
+-   [x] Persist tenant records, API-key metadata, revocation state,
     permissions, and required audit metadata.
--   [ ] Store only securely hashed API-key material where practical;
+-   [x] Store only securely hashed API-key material where practical;
     never persist or log plaintext secrets.
--   [ ] Add migrations, indexes, uniqueness constraints, and transaction
+-   [x] Add migrations, indexes, uniqueness constraints, and transaction
     handling.
--   [ ] Add restart tests proving tenants, keys, permissions, and
+-   [x] Add restart tests proving tenants, keys, permissions, and
     revocations survive process restarts.
--   [ ] Add concurrent create/revoke tests and database-failure tests.
--   [ ] Increase tests for `api/tenant_auth.py`, currently reported at
+-   [x] Add concurrent create/revoke tests and database-failure tests.
+-   [x] Increase tests for `api/tenant_auth.py`, currently reported at
     19% coverage.
 
 **Acceptance evidence:** Integration tests against the configured
