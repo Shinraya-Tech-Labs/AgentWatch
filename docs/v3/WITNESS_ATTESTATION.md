@@ -1,6 +1,6 @@
 # Witness attestation: Merkle proofs, audit tokens, hash commitments, crypto-shredding
 
-This describes four pieces in `agentwatch/evidence/` that let a third party check a witness
+This describes four pieces in `panoptis/evidence/` that let a third party check a witness
 without access to the evidence store, and let a subject's data be erased without breaking those
 checks.
 
@@ -14,7 +14,7 @@ checks.
 The core (everything except AES-GCM and the optional Ed25519 signer) uses only `hashlib`, `hmac`,
 `json` and `secrets`. `cryptography` is imported lazily. If it is missing, `ShreddingVault()` and
 `Ed25519Signer` raise `CryptoImportError`, which is an `ImportError` and a `CryptoUnavailableError`,
-with the message `pip install 'agentwatch-ai[crypto]'`. No cipher is implemented in this repo.
+with the message `pip install 'panoptis[crypto]'`. No cipher is implemented in this repo.
 
 ## 1. Merkle tree and inclusion proofs
 
@@ -45,7 +45,7 @@ position of each sibling is derived from `leaf_index` and `tree_size` while walk
 (RFC 9162), so reordering the path, moving the index, or truncating the path changes the result.
 
 ```python
-from agentwatch.evidence.merkle import MerkleProof, MerkleTree, verify_inclusion
+from panoptis.evidence.merkle import MerkleProof, MerkleTree, verify_inclusion
 
 tree = MerkleTree(leaf_hashes)                  # sealed segment
 proof = tree.prove(4)
@@ -64,7 +64,7 @@ signed by the issuer.
 
 ```json
 {
-  "version": "agentwatch-audit-token/1",
+  "version": "panoptis-audit-token/1",
   "segment_id": "seg-0007",
   "segment_root": "<hex>",
   "leaf_hash": "<hex>",
@@ -78,7 +78,7 @@ signed by the issuer.
 ```
 
 `fields` is optional (section 3). The signed bytes are the version line, a newline, and the
-canonical JSON (`agentwatch.evidence.canonical.canonical_json`: sorted keys, no spaces) of every
+canonical JSON (`panoptis.evidence.canonical.canonical_json`: sorted keys, no spaces) of every
 field except `signature`. So the signature covers the root, leaf, proof (including `tree_size`),
 timestamp, algorithm, key id and field commitments.
 
@@ -99,7 +99,7 @@ reason otherwise.
 
 ## 3. Hash commitments and rule checks
 
-A commitment to a value is `SHA-256( "agentwatch/commitment/v1\0" || nonce || canonical_json(value) )`
+A commitment to a value is `SHA-256( "panoptis/commitment/v1\0" || nonce || canonical_json(value) )`
 with a random 32-byte nonce.
 
 - **Hiding:** without the nonce the digest does not reveal the value, even for guessable values such
@@ -146,7 +146,7 @@ leaf_hash = SHA-256( envelope )          # over the ciphertext
   methods of the `KeyStore` protocol.
 
 This is the same envelope format and the same idea as ADR-0011 and `Store(encrypt_payloads=True)`
-(`agentwatch/storage`). This module is the store-independent building block: it works on plain
+(`panoptis/storage`). This module is the store-independent building block: it works on plain
 payloads and a Merkle tree, without a database.
 
 ## 5. Threat model
@@ -167,7 +167,7 @@ compromised, and the auditor got the verification key or pinned root over a trus
   token with any time. Anchoring roots in an external log is a possible follow-up.
 - **No completeness.** A token proves that a leaf is in a signed segment. It does not prove the segment
   holds every observation, or that the issuer sealed all segments. Chaining segments is done by
-  `agentwatch/evidence/segments.py` and is separate from this module.
+  `panoptis/evidence/segments.py` and is separate from this module.
 - **The root does not authenticate the exact tree size.** As in RFC 6962, sizes with the same path
   shape give the same root. The size in a token is protected by the signature, not by the root.
   A bare proof with a root from elsewhere pins the leaf position, not the segment size.

@@ -15,13 +15,15 @@ class TamperAttemptBlocked(PermissionError):  # noqa: N818
 class AntiTamperShield:
     """Intersects and blocks destructive commands targeting guardians and audit trails."""
 
+    # `agentwatch` stays in both pattern sets: it is the legacy name, and an upgrade
+    # must not leave old audit files and guardian processes unprotected.
     PROCESS_PATTERNS = (
-        r"\b(?:pkill|killall|taskkill)\b.*?\b(?:panopti|agentwatch)\b",
-        r"\bkill\b.*?\bpgrep\b.*?\b(?:panopti|agentwatch)\b",
+        r"\b(?:pkill|killall|taskkill)\b.*?\b(?:panopti|panoptis|agentwatch)\b",
+        r"\bkill\b.*?\bpgrep\b.*?\b(?:panopti|panoptis|agentwatch)\b",
     )
     FILE_PATTERNS = (
-        r"\b(?:rm|unlink|shred|truncate|del|erase)\b.*?\b(?:panopti\.db|agentwatch(?:\.jsonl|\.db)|panopti\.log)\b",
-        r">\s*.*?\b(?:panopti\.db|agentwatch(?:\.jsonl|\.db)|panopti\.log)\b",
+        r"\b(?:rm|unlink|shred|truncate|del|erase)\b.*?\b(?:(?:panopti|panoptis|agentwatch)\.(?:db|jsonl|log))\b",
+        r">\s*.*?\b(?:(?:panopti|panoptis|agentwatch)\.(?:db|jsonl|log))\b",
     )
 
     def __init__(self, target_pids: set[int] | None = None) -> None:

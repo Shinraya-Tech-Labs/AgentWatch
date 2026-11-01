@@ -37,19 +37,19 @@ Each WP lands as one or more PRs into `architecture/v3`. Every PR must pass:
 
 **Tasks:**
 
-1. Create the empty v3 package skeletons with `__init__.py`: `agentwatch/{evidence,events,entities,runs,sensors,storage,runtime,analysis}` and `agentwatch/api/routers/`.
+1. Create the empty v3 package skeletons with `__init__.py`: `panoptis/{evidence,events,entities,runs,sensors,storage,runtime,analysis}` and `panoptis/api/routers/`.
 2. Add an `import-linter` config in `pyproject.toml` with these contracts:
-   - `agentwatch.evidence` is independent;
+   - `panoptis.evidence` is independent;
    - layers: `sensors → evidence`; `events, entities, runs → evidence`; `runtime → events, entities, runs, storage`; `api → runtime, storage`;
-   - forbidden: v3 packages importing `agentwatch.core.safety`, `agentwatch.governance.engine` or any module listed as DEPRECATE in MIGRATION_MAP.
-3. Set up Alembic (`agentwatch/storage/migrations/`) with a baseline revision covering existing tables, so that `create_all` is no longer needed for v3 tables.
+   - forbidden: v3 packages importing `panoptis.core.safety`, `panoptis.governance.engine` or any module listed as DEPRECATE in MIGRATION_MAP.
+3. Set up Alembic (`panoptis/storage/migrations/`) with a baseline revision covering existing tables, so that `create_all` is no longer needed for v3 tables.
 4. Enable `mypy --strict` for the new packages only (per-module override).
 5. Add `tests/v3/` with shared fixtures: an in-memory SQLite store, a temporary blob directory, and a frozen clock.
 6. Add the `hypothesis` dev dependency for property tests.
 
 **Acceptance:** CI green; the contract fails when a deliberately bad import is added in a test branch.
 
-### WP1: Evidence plane (`agentwatch/evidence`, `agentwatch/storage`)
+### WP1: Evidence plane (`panoptis/evidence`, `panoptis/storage`)
 
 **Files:**
 
@@ -73,7 +73,7 @@ Each WP lands as one or more PRs into `architecture/v3`. Every PR must pass:
 
 **Acceptance:** a 1M-observation synthetic append plus seal plus verify completes. Throughput is **measured and recorded** in `benchmarks/overhead/results/` for SQLite and PG. No target is claimed before measurement. The initial *goal* is ≥ 5k obs/s batched on the dev laptop for SQLite.
 
-### WP2: Event algebra and normalizers (`agentwatch/events`)
+### WP2: Event algebra and normalizers (`panoptis/events`)
 
 **Files:**
 
@@ -104,14 +104,14 @@ Each WP lands as one or more PRs into `architecture/v3`. Every PR must pass:
 
 **Acceptance:** H1 kind-coverage measured on the golden corpora plus AWBench S1/S2 output, reported in a results file.
 
-### WP3: Sensors (`agentwatch/sensors`)
+### WP3: Sensors (`panoptis/sensors`)
 
 **Files:**
 
 - `sensors/base.py`: the `Sensor` protocol and `SensorContext` (instance id, `source_seq` counter, clock info).
 - `sensors/buffer.py`: bounded ring buffer, background flusher thread (**not** asyncio, so it works in sync hosts), drop counter, periodic `sensor.health` observation, and a sampling policy hook (adapted from `tracing/sampling.py`, with the decision recorded).
 - `sensors/exporters.py`: `HttpExporter` (batched NDJSON POST, gzip, retry with jitter, adapted from `core/http_forwarder.py`), `FileExporter` (NDJSON, rotating), `DirectStoreExporter` (embedded mode).
-- `sensors/registry.py`: entry-point discovery (`agentwatch.sensors`); `auto_attach(obj)` reusing the MRO detection in `core/watcher.detect_framework_label`. Passive only.
+- `sensors/registry.py`: entry-point discovery (`panoptis.sensors`); `auto_attach(obj)` reusing the MRO detection in `core/watcher.detect_framework_label`. Passive only.
 - `sensors/otel/`:
   - `receiver.py`: decodes OTLP/HTTP protobuf and JSON into observations, one per span, carrying resource and scope attributes;
   - `span_processor.py`: an OTel SDK `SpanProcessor` for in-process capture without a collector;
@@ -130,7 +130,7 @@ Each WP lands as one or more PRs into `architecture/v3`. Every PR must pass:
 
 **Overhead benchmark** (adapting `benchmarks/bench_overhead.py`): added p50/p99 latency per callback, and RSS delta, for the langchain and otel sensors. Results are recorded, and the budgets for later gating are proposed from them.
 
-### WP4: Entities, artifacts, runs (`agentwatch/entities`, `agentwatch/runs`)
+### WP4: Entities, artifacts, runs (`panoptis/entities`, `panoptis/runs`)
 
 **Files:**
 
@@ -156,14 +156,14 @@ Each WP lands as one or more PRs into `architecture/v3`. Every PR must pass:
 - run segmentation on interleaved multi-run fixtures;
 - fingerprint stability (same config → same version id).
 
-### WP5: Runtime pipeline (`agentwatch/runtime`)
+### WP5: Runtime pipeline (`panoptis/runtime`)
 
 **Files:**
 
 - `runtime/cursor.py`: a durable per-tenant, per-stage cursor over `obs_id` (a ULID, so it is ordered).
 - `runtime/pipeline.py`: stages `normalize → resolve → segment_runs → persist`. Each stage is idempotent; windowing supports pairing; late-arriving observations are handled up to a configurable lateness, and later arrivals produce events via a re-normalization of the affected window under the *same* interpretation (deterministic ids make this an upsert of identical rows plus new ones).
 - `runtime/embedded.py`: a synchronous engine for SQLite (used by the CLI, tests and AWBench).
-- `runtime/worker.py`: a Celery task wrapper for server mode (reuses `agentwatch/tasks.py`).
+- `runtime/worker.py`: a Celery task wrapper for server mode (reuses `panoptis/tasks.py`).
 - `runtime/reprocess.py`: re-derives a tenant or time range under a new normalizer or resolver version. Creates a new `interp_id`, marks the old one superseded, and emits a diff summary (counts by kind, changed, added, removed).
 
 **Tests:**
@@ -195,14 +195,14 @@ Every response that includes derived data carries `derived_by` and `maturity`. P
 **CLI** (new modules under `cli/commands/`, registered into the existing Typer app with no removals):
 
 ```text
-agentwatch ingest <path> [--format otlp-json|ndjson|claude-code|legacy-jsonl] [--store sqlite:///aw.db]
-agentwatch runs [--since …] [--store …]
-agentwatch events <run_id> [--interp …] [--format table|json]
-agentwatch show <event_id>              # event + raw evidence chain
-agentwatch evidence verify [--from-segment …]
-agentwatch evidence import-legacy       # agent_events → observations (source_kind legacy.agent_event.pg)
-agentwatch reprocess --normalizer <name>@<version> [--since …]
-agentwatch sensors list
+panoptis ingest <path> [--format otlp-json|ndjson|claude-code|legacy-jsonl] [--store sqlite:///aw.db]
+panoptis runs [--since …] [--store …]
+panoptis events <run_id> [--interp …] [--format table|json]
+panoptis show <event_id>              # event + raw evidence chain
+panoptis evidence verify [--from-segment …]
+panoptis evidence import-legacy       # agent_events → observations (source_kind legacy.agent_event.pg)
+panoptis reprocess --normalizer <name>@<version> [--since …]
+panoptis sensors list
 ```
 
 ### WP7: AWBench skeleton (`benchmarks/awbench`)
@@ -258,9 +258,9 @@ agentwatch sensors list
 
 All of the following must hold, each with a linked artefact:
 
-1. **Heterogeneous → common stream:** AWBench S1 (OTel), S2 (LangChain), a recorded Claude Code transcript, and a legacy `AgentEvent` JSONL all ingest into one store and are queryable through `/v3/runs/{id}/events` and `agentwatch events`.
-2. **Immutability:** `agentwatch evidence verify` passes on the full corpus. The mutation property tests pass. The PG trigger test passes.
-3. **Re-interpretation:** a normalizer version bump plus `agentwatch reprocess` produces a new interpretation with a diff summary. Raw evidence is byte-identical before and after (hash comparison).
+1. **Heterogeneous → common stream:** AWBench S1 (OTel), S2 (LangChain), a recorded Claude Code transcript, and a legacy `AgentEvent` JSONL all ingest into one store and are queryable through `/v3/runs/{id}/events` and `panoptis events`.
+2. **Immutability:** `panoptis evidence verify` passes on the full corpus. The mutation property tests pass. The PG trigger test passes.
+3. **Re-interpretation:** a normalizer version bump plus `panoptis reprocess` produces a new interpretation with a diff summary. Raw evidence is byte-identical before and after (hash comparison).
 4. **Linkage captured:** for sources that declare parents (OTel, LangChain, Claude Code), ≥ 99% of declared parent ids are present in `declared_parents` (this is capture, not resolution). This proves D1 is fixed at the source.
 5. **H1 measured:** results file committed with kind coverage and cross-source equivalence. The numbers are reported whatever they turn out to be. If the threshold is missed, the event algebra is revised before Phase 2.
 6. **Overhead measured:** sensor p50/p99 overhead results committed. Budgets are proposed from them.

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.alerting.channels import (
+from panoptis.alerting.channels import (
     ChannelConfigError,
     validate_channels,
     validate_pagerduty_key,

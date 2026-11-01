@@ -90,7 +90,7 @@ Version 1.0 enforced strict latency budgets to prevent telemetry instrumentation
 
 ---
 
-## 3. The Canonical Event Schema (`agentwatch.core.schema`)
+## 3. The Canonical Event Schema (`panoptis.core.schema`)
 
 At the center of Version 1.0 is the formal specification of an agent's discrete operational states.
 
@@ -194,7 +194,7 @@ class AgentEvent:
 
 ---
 
-## 4. Asynchronous EventBus & Pub/Sub Engine (`agentwatch.core.event_bus`)
+## 4. Asynchronous EventBus & Pub/Sub Engine (`panoptis.core.event_bus`)
 
 The EventBus serves as the decoupled communication hub. Telemetry producers never invoke storage backends or CLI formatters directly; they emit to the bus, which routes events to registered consumers.
 
@@ -320,7 +320,7 @@ Version 1.0 established a dual-tier storage strategy: an ultra-fast ephemeral in
    └───────────────────────────┘     └───────────────────────────┘
 ```
 
-### 5.1 In-Memory Ring Buffer (`agentwatch.storage.memory`)
+### 5.1 In-Memory Ring Buffer (`panoptis.storage.memory`)
 * **Underlying Structure**: Python standard library `collections.deque(maxlen=10000)` protected by a mutual exclusion lock.
 * **Bounded Consumption**: Fixed memory ceiling; once 10,000 events are accumulated, the oldest events drop silently from RAM, leaving the disk archive intact.
 * **Query API**: Provides $O(N)$ fast filtering over recent operations by session, tool name, or error presence without disk round-trips.
@@ -346,7 +346,7 @@ class MemoryStorage:
         return events[-limit:]
 ```
 
-### 5.2 SQLite Storage Engine (`agentwatch.storage.sqlite`)
+### 5.2 SQLite Storage Engine (`panoptis.storage.sqlite`)
 * **ACID Reliability**: Stores events across process restarts and system crashes.
 * **Schema Definition**:
   ```sql
@@ -441,20 +441,20 @@ def watch(tool_callable=None, *, tool_name: str | None = None, session_id: str =
     return decorator
 ```
 
-### 6.2 LangChain Callback Adapter (`agentwatch.adapters.langchain`)
+### 6.2 LangChain Callback Adapter (`panoptis.adapters.langchain`)
 * Subclasses LangChain's `BaseCallbackHandler`.
 * Intercepts `on_chain_start`, `on_tool_start`, `on_tool_end`, and `on_tool_error`.
 * Extracts LLM prompt token counts and normalizes model generations into `REASONING_STEP` events.
 
 ---
 
-## 7. Command-Line Interface (`agentwatch` CLI Surface)
+## 7. Command-Line Interface (`panoptis` CLI Surface)
 
 Version 1.0 established the foundational CLI surface:
-* `agentwatch live`: Renders an ANSI-colored real-time terminal display streaming events from the memory buffer.
-* `agentwatch list`: Lists historical agent sessions stored in the SQLite database.
-* `agentwatch inspect <session_id>`: Dumps the full causal sequence of events for a specific execution trace.
-* `agentwatch export <session_id> --format jsonl`: Exports traces for external analysis in standard JSON Lines format.
+* `panoptis live`: Renders an ANSI-colored real-time terminal display streaming events from the memory buffer.
+* `panoptis list`: Lists historical agent sessions stored in the SQLite database.
+* `panoptis inspect <session_id>`: Dumps the full causal sequence of events for a specific execution trace.
+* `panoptis export <session_id> --format jsonl`: Exports traces for external analysis in standard JSON Lines format.
 
 ---
 

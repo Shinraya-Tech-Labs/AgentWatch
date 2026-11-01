@@ -17,7 +17,7 @@ If you are on Windows, make sure Docker Desktop is running before you start the 
 Install the Python package first:
 
 ```bash
-python -m pip install agentwatch-ai
+python -m pip install panoptis
 ```
 
 Start the local stack:
@@ -51,7 +51,7 @@ That adds Jaeger on:
 For a local Docker setup, the compose file already injects the core backend values. If you need to run the API or frontend outside Docker, use these defaults:
 
 ```bash
-DATABASE_URL=postgresql+asyncpg://agentwatch:agentwatch@localhost:5432/agentwatch
+DATABASE_URL=postgresql+asyncpg://panoptis:panoptis@localhost:5432/panoptis
 REDIS_URL=redis://localhost:6379/0
 CELERY_BROKER_URL=redis://localhost:6379/1
 AGENTWATCH_ENV=development
@@ -160,7 +160,7 @@ The demo also confirms the dashboard can receive events through the WebSocket st
 If you don't want to use a specific adapter, or if you're using a custom agent, use the `watch()` wrapper. It auto-detects the framework and attaches the correct instrumentation:
 
 ```python
-from agentwatch import watch
+from panoptis import watch
 
 # Wrap your existing agent object
 agent = watch(your_agent)
@@ -174,13 +174,13 @@ result = agent.run("your task")
 The smallest working setup is to install AgentWatch and wrap your Claude Code command with the AgentWatch CLI:
 
 ```bash
-agentwatch session watch "Build me a REST API"
+panoptis session watch "Build me a REST API"
 ```
 
 If you want to pin a model or change the safety policy, add options:
 
 ```bash
-agentwatch session watch "Build me a REST API" --model claude-opus-4-5 --policy default
+panoptis session watch "Build me a REST API" --model claude-opus-4-5 --policy default
 ```
 
 What happens:
@@ -195,13 +195,13 @@ What happens:
 If you are using LangChain, install the LangChain extra first:
 
 ```bash
-python -m pip install "agentwatch-ai[langchain]"
+python -m pip install "panoptis[langchain]"
 ```
 
 Then add the callback handler to your existing agent:
 
 ```python
-from agentwatch.adapters.langchain import AgentWatchCallbackHandler
+from panoptis.adapters.langchain import AgentWatchCallbackHandler
 from langchain.agents import AgentExecutor
 
 handler = AgentWatchCallbackHandler(session_id="my-first-session")
@@ -287,7 +287,7 @@ cp .env.example .env
 The template includes standard defaults:
 
 ```bash
-DATABASE_URL=postgresql+asyncpg://postgres:your_password_here@localhost:5432/agentwatch
+DATABASE_URL=postgresql+asyncpg://postgres:your_password_here@localhost:5432/panoptis
 REDIS_URL=redis://localhost:6379/0
 CELERY_BROKER_URL=redis://localhost:6379/1
 AGENTWATCH_ENV=development
@@ -308,7 +308,7 @@ AgentWatch sends Slack alerts for any configured webhook and pages to PagerDuty 
 
 When everything is working, you should be able to complete this flow in order:
 
-1. Install `agentwatch-ai`
+1. Install `panoptis`
 2. Start the stack with `docker compose up -d`
 3. Run `python demo.py`
 4. Open http://localhost:3000

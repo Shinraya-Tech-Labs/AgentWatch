@@ -2,10 +2,10 @@
 
 > **Specification Anchor:** [`docs/v3/adr/0005-three-views-one-relation-store.md`](file:///data/data/com.termux/files/home/AgentWatch/docs/v3/adr/0005-three-views-one-relation-store.md)  
 > **Implementation Modules:**  
-> - [`agentwatch/graph/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/graph/) (Graph storage, relations, and traversals)  
-> - [`agentwatch/provenance/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/provenance/) (Lineage, DAG acyclicity, and taint propagation)  
-> - [`agentwatch/causality/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/causality/) (Causal graph construction and blast radius)  
-> - [`agentwatch/state/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/state/) (Latent state clustering and clustering invariants)  
+> - [`panoptis/graph/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/graph/) (Graph storage, relations, and traversals)  
+> - [`panoptis/provenance/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/provenance/) (Lineage, DAG acyclicity, and taint propagation)  
+> - [`panoptis/causality/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/causality/) (Causal graph construction and blast radius)  
+> - [`panoptis/state/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/state/) (Latent state clustering and clustering invariants)  
 
 ---
 
@@ -41,7 +41,7 @@ Traditional observability splits graph data across incompatible stores (e.g., Ne
 
 ---
 
-## 🧬 Information Lineage & Taint Certifier (`agentwatch/provenance/`)
+## 🧬 Information Lineage & Taint Certifier (`panoptis/provenance/`)
 
 The provenance engine evaluates DAG acyclicity and data dependency chains:
 - **Derivation Depth**: Measures how many transformation steps separate an output from original source documents.
@@ -50,7 +50,7 @@ The provenance engine evaluates DAG acyclicity and data dependency chains:
 
 ---
 
-## 🧠 Latent State Clustering & Motifs (`agentwatch/state/`)
+## 🧠 Latent State Clustering & Motifs (`panoptis/state/`)
 
 AgentWatch clusters high-dimensional agent execution traces into recognizable **cognitive states**:
 - **State Discovery**: Groups sequences of `ComputationalEvent`s into discrete macro-states:

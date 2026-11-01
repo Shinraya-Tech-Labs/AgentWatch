@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from agentwatch.protect import ActionBlocked, ProtectionPipeline
-from agentwatch.protect.enforce import protect_tool, protection_context
+from panoptis.protect import ActionBlocked, ProtectionPipeline
+from panoptis.protect.enforce import protect_tool, protection_context
 
 
 @pytest.fixture
@@ -121,7 +121,7 @@ def test_varargs_are_preserved(pipeline):
 
 
 def test_require_context_blocks_calls_without_identity():
-    from agentwatch.protect import ProtectionConfig
+    from panoptis.protect import ProtectionConfig
 
     strict = ProtectionPipeline(config=ProtectionConfig(require_context=True))
     calls: list[str] = []

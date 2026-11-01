@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def client(monkeypatch):
-    import agentwatch.api.server as server
+    import panoptis.api.server as server
 
     monkeypatch.setattr(server, "_API_KEY", None)
     server._usage_tracker.reset()

@@ -47,7 +47,7 @@ export default function Live() {
         >
           {events.length === 0 ? (
             <Empty>
-              No observations yet. Run <code>agentwatch observe python your_app.py</code>, point an
+              No observations yet. Run <code>panoptis observe python your_app.py</code>, point an
               OTLP exporter at <code>/v1/traces</code>, or POST to <code>/api/v3/observations</code>
               .
             </Empty>

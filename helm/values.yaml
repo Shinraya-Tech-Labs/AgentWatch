@@ -1,8 +1,8 @@
-# Default values for agentwatch chart.
+# Default values for panoptis chart.
 replicaCount: 2
 
 image:
-  repository: ghcr.io/sreerevanth/agentwatch
+  repository: ghcr.io/sreerevanth/panoptis
   tag: "0.2.0"
   pullPolicy: IfNotPresent
 
@@ -14,16 +14,16 @@ ingress:
   enabled: false
   className: nginx
   hosts:
-    - host: agentwatch.local
+    - host: panoptis.local
       paths:
         - path: /
           pathType: Prefix
 
 postgres:
   enabled: true
-  database: agentwatch
-  username: agentwatch
-  password: agentwatch
+  database: panoptis
+  username: panoptis
+  password: panoptis
   size: 10Gi
 
 redis:

@@ -1,6 +1,6 @@
 site_name: AgentWatch
 site_description: Reliability, Safety, and Observability Layer for AI Agents
-repo_url: https://github.com/sreerevanth/AgentWatch
+repo_url: https://github.com/Shinraya-Tech-Labs/AgentWatch
 docs_dir: docs
 
 theme:

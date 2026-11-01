@@ -9,10 +9,10 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from agentwatch import instrument as aw
-from agentwatch.runtime.engine import Engine
-from agentwatch.storage import schema
-from agentwatch.storage.store import Store
+from panoptis import instrument as aw
+from panoptis.runtime.engine import Engine
+from panoptis.storage import schema
+from panoptis.storage.store import Store
 
 
 def _version(store: Store) -> str:
@@ -54,7 +54,7 @@ def test_v1_store_is_upgraded_in_place_and_keeps_its_evidence(tmp_path, sink):
     upgraded.close()
 
 
-def test_store_from_a_newer_agentwatch_is_refused(tmp_path):
+def test_store_from_a_newer_panoptis_is_refused(tmp_path):
     url = f"sqlite:///{(tmp_path / 'new.db').as_posix()}"
     store = Store(url)
     with store.engine.begin() as conn:

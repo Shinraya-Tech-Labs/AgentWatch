@@ -2,7 +2,7 @@
 
 Branch `architecture/v3` · assessed 2026-09-26 · proposed release: **0.3.0 (pre-1.0)**, per MIGRATION_MAP stage M4.
 
-**Status (2026-09-27):** merged into `main` with `--no-ff` (merge commit `17d667d`), keeping every v3 commit. Development continues directly on `main`. Still open: the packaging split (ADR-0008) — the default `pip install agentwatch-ai` is deliberately unchanged until the owner approves it — and a release tag (tags publish to PyPI; none has been created).
+**Status (2026-09-27):** merged into `main` with `--no-ff` (merge commit `17d667d`), keeping every v3 commit. Development continues directly on `main`. Still open: the packaging split (ADR-0008) — the default `pip install panoptis` is deliberately unchanged until the owner approves it — and a release tag (tags publish to PyPI; none has been created).
 
 **Final pre-release state (2026-09-27, `main`).** After the merge, pre-release gaps were fixed one commit at a time on `main`, each with a regression test and green CI (section 4a). No engineering work outside the owner's decisions (section 9) and external credentials remains open. No maturity label was changed.
 
@@ -29,7 +29,7 @@ Branch `architecture/v3` · assessed 2026-09-26 · proposed release: **0.3.0 (pr
 | Limitations documented | ✓ | section 6, IMPLEMENTATION_STATE, RESEARCH_HYPOTHESES §6 |
 | Tests and CI green | ✓ | section 2 |
 
-Some systems are EXPERIMENTAL by design and are labelled so in the capability registry (`agentwatch status`), without claims of completeness:
+Some systems are EXPERIMENTAL by design and are labelled so in the capability registry (`panoptis status`), without claims of completeness:
 
 - behavioural genome and drift;
 - latent states;
@@ -44,7 +44,7 @@ Some systems are EXPERIMENTAL by design and are labelled so in the capability re
 | Backend `pytest tests/` (local, Python 3.14, 2026-09-27) | **1234 passed, 7 skipped**, 0 failed, 263 s |
 | — of which v3 | 124 tests (incl. 15 adversarial lineage, 10 graph invariants, 5 API parity, full CLI surface) |
 | — skipped | 3 PostgreSQL store tests and 2 connectivity tests (need DATABASE_URL/REDIS_URL/PG URL; they run in CI), 2 real-model tests `SKIPPED_EXTERNAL_CREDENTIAL` |
-| `ruff check` / `ruff format --check` (agentwatch, tests/v3, benchmarks) | clean |
+| `ruff check` / `ruff format --check` (panoptis, tests/v3, benchmarks) | clean |
 | mypy (`make typecheck`, v3 modules) | clean; enforced in CI |
 | Frontend: ESLint, Prettier check, `tsc --noEmit`, Jest | clean; 16 passed |
 | Frontend `next build` | succeeds |
@@ -85,7 +85,7 @@ The failed recall metrics are the deliberate trade-off of ADR-0017. Content that
 ## 4. Implemented features (v3)
 
 - **Evidence layer:** immutable observations; edge redaction; content-addressed blobs; Merkle-sealed segments; crypto-shredding.
-- **Sensors:** native SDK (runtime object identity, explicit `source=`), OpenTelemetry (plus the `agentwatch.*` extension), LangChain, Claude Code, OpenAI/Anthropic, MCP, legacy v0.2 translator.
+- **Sensors:** native SDK (runtime object identity, explicit `source=`), OpenTelemetry (plus the `panoptis.*` extension), LangChain, Claude Code, OpenAI/Anthropic, MCP, legacy v0.2 translator.
 - **Events:** canonical computational events with explicit missing facts; deterministic, versioned interpretations; incremental processing.
 - **Graphs:**
   - EXECUTION;
@@ -93,7 +93,7 @@ The failed recall metrics are the deliberate trade-off of ADR-0017. Content that
   - CAUSAL, only from hypotheses and interventions with evidence classes.
 - **Analysis:** provenance and dependents; run comparison; motifs; profiles, genome and drift; causes and effects; hypotheses.
 - **Lab:** observe; replay L0–L3; branches; counterfactuals; experiments.
-- **Surfaces:** query engine; API `/api/v3`; CLI; frontend (LIVE, MAP, TIMELINE, LAB, GENOME, COMPARE, QUERY); `agentwatch doctor`.
+- **Surfaces:** query engine; API `/api/v3`; CLI; frontend (LIVE, MAP, TIMELINE, LAB, GENOME, COMPARE, QUERY); `panoptis doctor`.
 - **AWBench:** development and held-out architectures, pre-registration, computed evidence status, opt-in real-model mode. The performance benchmark compares each run with the previous one.
 
 ## 4a. Pre-release fixes after the merge
@@ -126,10 +126,10 @@ Each is its own commit on `main` with a regression test; CI was green after each
   - `artifact:` references and labels are still accepted by provenance, dependents, API and CLI; they resolve to the most recent instance of that content.
   - Consumers of raw graph JSON must read `inst:` nodes and the new relation attributes (`evidence_type`, `strength`, `mode`, `resolution`).
   - New relation type: `CANDIDATE_SOURCE` (not a flow).
-- **Interpretations are rebuilt.** Changed component versions (graph.information@6, native normalizer 2, OTel normalizer 2, motifs 3) produce a new interpretation id, rebuilt automatically on the next `process` or `agentwatch reprocess`. Stored observations are untouched. The storage schema is unchanged (v2).
-- **CLI.** The v0.2 `compare` command lives under `agentwatch legacy compare`; the v3 `compare` compares runs.
+- **Interpretations are rebuilt.** Changed component versions (graph.information@6, native normalizer 2, OTel normalizer 2, motifs 3) produce a new interpretation id, rebuilt automatically on the next `process` or `panoptis reprocess`. Stored observations are untouched. The storage schema is unchanged (v2).
+- **CLI.** The v0.2 `compare` command lives under `panoptis legacy compare`; the v3 `compare` compares runs.
 - **API.** `/api/v1` is still served, and events posted to it are teed into v3. `/simulate` and `/replay` (v0.2) are relabelled as not deterministic.
-- **Packaging (ADR-0008) is not done.** `pip install agentwatch-ai` still installs the server stack. The light base install with `[server]`/`[analysis]` extras is scheduled with M4 and needs the owner's sign-off, because it changes what the default install provides.
+- **Packaging (ADR-0008) is not done.** `pip install panoptis` still installs the server stack. The light base install with `[server]`/`[analysis]` extras is scheduled with M4 and needs the owner's sign-off, because it changes what the default install provides.
 - **Python** is pinned to `>=3.12,<3.13` (CI 3.12).
 
 ## 6. Known limitations
@@ -148,16 +148,16 @@ Each is its own commit on `main` with a regression test; CI was green after each
 
 ## 7. Migration steps
 
-1. **Upgrade and check.** Install the release (`pip install -e .` from source, or the 0.3.0 wheel), then run `agentwatch doctor` to check the v3 store, schema, interpretation status, evidence chain and crypto availability.
+1. **Upgrade and check.** Install the release (`pip install -e .` from source, or the 0.3.0 wheel), then run `panoptis doctor` to check the v3 store, schema, interpretation status, evidence chain and crypto availability.
 2. **Configure.**
    - `AGENTWATCH_STORE` (SQLite path or PostgreSQL URL);
    - optionally `AGENTWATCH_ENCRYPT_PAYLOADS=1`;
    - `AGENTWATCH_API_KEY` in production;
    - for the frontend, `AGENTWATCH_API_URL`.
-3. **Rebuild interpretations.** Run `agentwatch reprocess`; `doctor` reports STALE until then.
-4. **Existing v0.2 integrations** keep working. `/api/v1/events` is teed into v3, and `agentwatch ingest events.jsonl` imports history with translation-loss accounting.
-5. **Improve lineage in instrumented code.** Pass produced objects directly, or use `source=`. For OTel, set the `agentwatch.information.*` attributes.
-6. **Deploy.** Set `AGENTWATCH_API_KEY` in `.env` (compose refuses to start without it), then `docker compose up -d` (images built in CI). The v3 store is on the PostgreSQL service and large payloads are on the `agentwatch_blobs` volume. Optional profiles: `workers`, `tracing`.
+3. **Rebuild interpretations.** Run `panoptis reprocess`; `doctor` reports STALE until then.
+4. **Existing v0.2 integrations** keep working. `/api/v1/events` is teed into v3, and `panoptis ingest events.jsonl` imports history with translation-loss accounting.
+5. **Improve lineage in instrumented code.** Pass produced objects directly, or use `source=`. For OTel, set the `panoptis.information.*` attributes.
+6. **Deploy.** Set `AGENTWATCH_API_KEY` in `.env` (compose refuses to start without it), then `docker compose up -d` (images built in CI). The v3 store is on the PostgreSQL service and large payloads are on the `panoptis_blobs` volume. Optional profiles: `workers`, `tracing`.
 
 ## 8. Rollback plan
 

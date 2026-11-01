@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2] / "agentwatch"
+ROOT = Path(__file__).resolve().parents[2] / "panoptis"
 
 V3_PACKAGES = [
     "evidence",
@@ -30,32 +30,32 @@ V3_PACKAGES = [
 ]
 # v0.2 modules classified DEPRECATE/REMOVE in docs/v3/MIGRATION_MAP.md
 DEPRECATED = (
-    "agentwatch.core.safety",
-    "agentwatch.core.policy_dsl",
-    "agentwatch.core.policy_loader",
-    "agentwatch.core.blast_radius",
-    "agentwatch.governance.engine",
-    "agentwatch.governance.causal",
-    "agentwatch.memory",
-    "agentwatch.orchestration",
-    "agentwatch.reasoning",
-    "agentwatch.scoring",
-    "agentwatch.lattice",
-    "agentwatch.circuit_breaker",
-    "agentwatch.hitl",
-    "agentwatch.rollback",
-    "agentwatch.replay",
-    "agentwatch.platform",
-    "agentwatch.tracing",
-    "agentwatch.cost",
+    "panoptis.core.safety",
+    "panoptis.core.policy_dsl",
+    "panoptis.core.policy_loader",
+    "panoptis.core.blast_radius",
+    "panoptis.governance.engine",
+    "panoptis.governance.causal",
+    "panoptis.memory",
+    "panoptis.orchestration",
+    "panoptis.reasoning",
+    "panoptis.scoring",
+    "panoptis.lattice",
+    "panoptis.circuit_breaker",
+    "panoptis.hitl",
+    "panoptis.rollback",
+    "panoptis.replay",
+    "panoptis.platform",
+    "panoptis.tracing",
+    "panoptis.cost",
 )
 # modules allowed in the observed process: sensors must stay light (no server stack)
 SENSOR_FORBIDDEN = (
     "fastapi",
     "sqlalchemy",
-    "agentwatch.storage",
-    "agentwatch.runtime",
-    "agentwatch.api",
+    "panoptis.storage",
+    "panoptis.runtime",
+    "panoptis.api",
     "celery",
     "redis",
 )
@@ -95,7 +95,7 @@ def test_sensors_do_not_import_the_server_stack():
     assert not offenders, "\n".join(offenders)
 
 
-def test_no_agentwatch_module_reads_benchmark_ground_truth_ids():
+def test_no_panoptis_module_reads_benchmark_ground_truth_ids():
     """AWBench matches events to ground truth via an opaque 'awbench_id' attribute; the
     pipeline under test must never use it (ADR-0013)."""
     offenders = [
@@ -117,16 +117,16 @@ def test_v3_core_has_no_control_path_into_observed_programs():
 
 def test_maturity_evidence_is_checked_only_in_a_source_checkout(tmp_path, monkeypatch):
     """Regression: installed in site-packages next to an unrelated top-level tests/ package,
-    the evidence check raised for every VALIDATED capability (agentwatch status failed)."""
-    from agentwatch.analysis import maturity
+    the evidence check raised for every VALIDATED capability (panoptis status failed)."""
+    from panoptis.analysis import maturity
 
-    (tmp_path / "agentwatch").mkdir()
+    (tmp_path / "panoptis").mkdir()
     (tmp_path / "tests").mkdir()
     monkeypatch.setattr(maturity, "REPO_ROOT", tmp_path)
     cap = maturity.Capability(
         "x.test", "1", maturity.Maturity.VALIDATED, "d", ("tests/missing.py",)
     )
     maturity.register(cap)  # site-packages-like layout: not checked, no error
-    (tmp_path / "pyproject.toml").write_text('[project]\nname = "agentwatch-ai"\n')
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "panoptis"\n')
     with pytest.raises(maturity.MaturityError):
         maturity.register(cap)  # a real checkout: the missing evidence is caught

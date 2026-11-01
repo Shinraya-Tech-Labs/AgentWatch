@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from agentwatch.api.server import app, reset_rate_limiter_for_tests
+from panoptis.api.server import app, reset_rate_limiter_for_tests
 
 
 @pytest.fixture

@@ -35,7 +35,7 @@ Services fail to connect or startup errors occur.
 Verify the values in `.env`:
 
 ```env
-DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/agentwatch
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/panoptis
 REDIS_URL=redis://localhost:6379/0
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
@@ -68,7 +68,7 @@ Check connection details:
 ```env
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=agentwatch
+DB_NAME=panoptis
 DB_USER=postgres
 ```
 
@@ -85,7 +85,7 @@ Application cannot connect to the database.
 Verify the connection string:
 
 ```env
-DATABASE_URL=postgresql+asyncpg://postgres:your_password@localhost:5432/agentwatch
+DATABASE_URL=postgresql+asyncpg://postgres:your_password@localhost:5432/panoptis
 ```
 
 Ensure:

@@ -102,9 +102,9 @@ systems:
 
 # Evidence status of each architecture. The runner COMPUTES the effective status:
 #   DEVELOPMENT      used while building AgentWatch
-#   HELD_OUT         declared held-out and AgentWatch (agentwatch/) is unchanged since its first
+#   HELD_OUT         declared held-out and AgentWatch (panoptis/) is unchanged since its first
 #                    scored run, or it has not been scored yet
-#   FORMER_HELD_OUT  declared held-out, but agentwatch/ changed after its first scored run: its
+#   FORMER_HELD_OUT  declared held-out, but panoptis/ changed after its first scored run: its
 #                    later numbers can have been shaped by it and are development evidence
 # first_scored_run records the commit and results file of the first scored run.
 architecture_status:

@@ -14,7 +14,7 @@ Beyond being out of scope, any of these makes AgentWatch part of the system it m
 - v3 core packages have **no API that alters the observed system's execution**.
 - Sensors capture and forward. On failure or backpressure they drop, counted and reported. They never block, raise into or retry within the host.
 - Interventions exist only in the **Experiment plane**, on *replays and branches*, or in AWBench-controlled systems. They never act on production executions.
-- Control features (guard, HITL, circuit breaker, rollback, cost routing and caching) move to `agentwatch/legacy/`.
+- Control features (guard, HITL, circuit breaker, rollback, cost routing and caching) move to `panoptis/legacy/`.
 
 ## Consequences
 

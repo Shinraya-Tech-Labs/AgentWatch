@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from agentwatch.protect import ActionBlocked, ProtectionPipeline, ToolAction
-from agentwatch.protect.enforce import aenforce_call, enforce_call
+from panoptis.protect import ActionBlocked, ProtectionPipeline, ToolAction
+from panoptis.protect.enforce import aenforce_call, enforce_call
 
 
 def action(tool: str = "bash", **arguments: Any) -> ToolAction:
@@ -205,8 +205,8 @@ def test_mutated_arguments_reach_the_tool_and_the_mutation_is_recorded(ledger):
 
 
 def test_watch_with_protection_routes_tool_calls_through_the_pipeline(ledger):
-    from agentwatch.core.event_bus import EventBus
-    from agentwatch.core.watcher import watch
+    from panoptis.core.event_bus import EventBus
+    from panoptis.core.watcher import watch
 
     class Agent:
         def __init__(self) -> None:
@@ -235,7 +235,7 @@ def test_watch_with_protection_routes_tool_calls_through_the_pipeline(ledger):
 
 
 def _escalating_pipeline(ledger, approver, timeout_s: float = 2.0):
-    from agentwatch.protect import ApprovalBroker
+    from panoptis.protect import ApprovalBroker
 
     # git push --force is escalated (HIGH) by the threat analyser
     return ProtectionPipeline(
@@ -277,7 +277,7 @@ def test_rejected_escalation_never_executes(ledger):
 
 
 def test_unanswered_escalation_times_out_and_never_executes(ledger):
-    from agentwatch.protect import ApprovalBroker, ProtectionConfig
+    from panoptis.protect import ApprovalBroker, ProtectionConfig
 
     calls: list[Any] = []
     p = ProtectionPipeline(
@@ -292,7 +292,7 @@ def test_unanswered_escalation_times_out_and_never_executes(ledger):
 
 
 def test_approver_edits_are_reinspected_and_reach_the_tool(ledger):
-    from agentwatch.protect import ApprovalOutcome
+    from panoptis.protect import ApprovalOutcome
 
     received: list[dict[str, Any]] = []
     edited = ApprovalOutcome(

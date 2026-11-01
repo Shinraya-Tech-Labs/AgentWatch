@@ -15,7 +15,7 @@ Google's [2026 mentoring-organization announcement](https://opensource.googleblo
 |---|---|---|---|
 | Public/open-source repository | [Repo](https://github.com/Shinraya-Tech-Labs/AgentWatch) is accessible as a public GitHub repo | **Verified** | Keep code accessible |
 | OSI-approved license | Root [LICENSE](https://github.com/Shinraya-Tech-Labs/AgentWatch/blob/main/LICENSE) begins with Apache License, Version 2.0; [pyproject.toml](https://github.com/Shinraya-Tech-Labs/AgentWatch/blob/main/pyproject.toml) declares Apache-2.0 | **Verified for declared repository license** | Check distributed wheels/sdists include licensing and required notices |
-| Released software | `pyproject.toml` declares `agentwatch-ai` version `0.2.0`; README links PyPI | **Distribution configuration verified; public published release history not independently verified in this audit** | Archive direct PyPI version/upload dates and GitHub release/tag URLs |
+| Released software | `pyproject.toml` declares `panoptis` version `0.2.0`; README links PyPI | **Distribution configuration verified; public published release history not independently verified in this audit** | Archive direct PyPI version/upload dates and GitHub release/tag URLs |
 | Recent activity | GitHub commit history includes [21 Oct roadmap commit](https://github.com/Shinraya-Tech-Labs/AgentWatch/commit/ce4925dd30b06d5ae614d22b50d794e9ab8af593); public PRs exist | **Verified active recently** | Quantify human activity over rolling 90 days |
 | ≥18 months established history (2026 guidance) | Old [PR #7](https://github.com/Shinraya-Tech-Labs/AgentWatch/pull/7) mentions earlier `sreerevanth/AgentWatch` path, supporting naming/ownership continuity; earliest public creation/release dates not established | **At risk / unverified** | Extract repository `created_at`, earliest non-imported Git history, earliest public tag/release and archived predecessor URL; establish project continuity |
 | ≥5 active humans (mentor guide) | PR history exists, but unique human participation and continuing reviewer capacity have not been counted | **Unverified** | Count active humans in the preceding 90 days, distinguish bots, core maintainers and outsiders |
@@ -34,7 +34,7 @@ The old `sreerevanth/AgentWatch` path shown by [PR #7](https://github.com/Shinra
 ## Required follow-up verification (owner: OSS & GSoC lead)
 
 1. Obtain REST GitHub `created_at` and earliest reachable genuine Git commits for **this repo ID**, then inspect transfer history where available. Save both dates and explain any difference.
-2. Check the first GitHub releases/tags and independent PyPI `agentwatch-ai` published versions/upload dates; capture durable links.
+2. Check the first GitHub releases/tags and independent PyPI `panoptis` published versions/upload dates; capture durable links.
 3. Export issues/PRs and reviews for the last 90 days. Count distinct **human** contributors and actual reviews; report how many are non-maintainers and how many returned for a second contribution. PR count and fork count are not human-count substitutes.
 4. Request explicit commitments from administrators and project mentors (GitHub identity, qualified subsystem, hours/week, backup, time-zone, absences); don't publish private contact details without permission.
 5. Confirm which public project name is final; migrate README/docs/distribution branding through a separate reviewed change, without breaking existing users.

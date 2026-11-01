@@ -53,6 +53,6 @@ In multi-agent architectures (e.g., orchestrator spawning worker subagents acros
    - If $I(a)$ and $I(b)$ overlap and $a \parallel b$, wall-clock ordering cannot establish precedence. The obligation verdict evaluates to `EvidenceVerdict.CONFLICTING_EVIDENCE` or `INCONCLUSIVE` (with `MissingReason.CLOCK_AMBIGUITY`).
 
 ### Planned Code Structure
-- **Module**: `agentwatch/contracts/order.py` (Lamport graph builder and interval overlap arithmetic).
-- **Integration**: Enhance [`agentwatch/contracts/evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/evaluator.py) to check causal graph precedence before falling back to wall-clock timestamps.
+- **Module**: `panoptis/contracts/order.py` (Lamport graph builder and interval overlap arithmetic).
+- **Integration**: Enhance [`panoptis/contracts/evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/evaluator.py) to check causal graph precedence before falling back to wall-clock timestamps.
 - **Tests**: `tests/contracts/test_happens_before_order.py` with 100+ simulated out-of-order event streams.

@@ -1,8 +1,8 @@
 import pytest
 
-from agentwatch.adapters.openai_agents import AgentWatchOpenAIAgentsAdapter
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.schema import EventType, ExecutionStatus
+from panoptis.adapters.openai_agents import AgentWatchOpenAIAgentsAdapter
+from panoptis.core.event_bus import EventBus
+from panoptis.core.schema import EventType, ExecutionStatus
 
 
 def _make_bus():
@@ -105,8 +105,8 @@ def test_tool_call_populates_tool_call_data():
 
 @pytest.mark.asyncio
 async def test_openai_agents_safety_bypass_regression():
-    from agentwatch.core.event_bus import EventBus
-    from agentwatch.core.safety import SafetyEngine
+    from panoptis.core.event_bus import EventBus
+    from panoptis.core.safety import SafetyEngine
 
     bus = EventBus()
     safety = SafetyEngine()

@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 
-from agentwatch.cli._utils import run_cmd
+from panoptis.cli._utils import run_cmd
 
 
 def test_run_cmd_valid_execution():

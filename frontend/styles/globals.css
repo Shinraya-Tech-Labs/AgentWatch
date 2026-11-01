@@ -26,7 +26,7 @@ body {
   box-sizing: border-box;
 }
 
-.bg-agentwatch {
+.bg-panoptis {
   background:
     radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 24%),
     radial-gradient(circle at bottom right, rgba(251, 146, 60, 0.12), transparent 22%),

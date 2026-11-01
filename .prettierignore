@@ -1,5 +1,5 @@
-agentwatch/
-agentwatch.egg-info/
+panoptis/
+panoptis.egg-info/
 .pytest_cache/
 .ruff_cache/
 .pytest-tmp/

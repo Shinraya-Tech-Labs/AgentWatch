@@ -10,9 +10,9 @@ import uuid
 
 import pytest
 
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.safety import SafetyEngine
-from agentwatch.core.schema import (
+from panoptis.core.event_bus import EventBus
+from panoptis.core.safety import SafetyEngine
+from panoptis.core.schema import (
     AgentEvent,
     AgentFramework,
     AgentSession,
@@ -21,17 +21,17 @@ from agentwatch.core.schema import (
     ToolCallData,
     ToolResultData,
 )
-from agentwatch.memory.engine import ImportanceLevel, MemoryEngine, MemoryType
-from agentwatch.orchestration.engine import (
+from panoptis.memory.engine import ImportanceLevel, MemoryEngine, MemoryType
+from panoptis.orchestration.engine import (
     AgentRole,
     MessageType,
     OrchestrationEngine,
     SubAgent,
     TaskGraph,
 )
-from agentwatch.replay.engine import FailureCause, ReplayEngine, ReplaySpeed
-from agentwatch.scoring.confidence import ConfidenceScorer
-from agentwatch.tracing.collector import TraceCollector
+from panoptis.replay.engine import FailureCause, ReplayEngine, ReplaySpeed
+from panoptis.scoring.confidence import ConfidenceScorer
+from panoptis.tracing.collector import TraceCollector
 
 # ─────────────────────────────────────────────
 # Fixtures

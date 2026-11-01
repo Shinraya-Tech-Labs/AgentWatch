@@ -14,14 +14,14 @@ This document describes what exists, not what the README or `VISION.md` says exi
 
 | Area | Size | Notes |
 |---|---|---|
-| `agentwatch/` Python package | ~31k LOC, 30 subpackages, ~200 modules | Largest files: `cli/main.py` (2,616), `api/server.py` (1,872), `core/safety.py` (923), `core/models.py` (763), `core/watcher.py` (738) |
+| `panoptis/` Python package | ~31k LOC, 30 subpackages, ~200 modules | Largest files: `cli/main.py` (2,616), `api/server.py` (1,872), `core/safety.py` (923), `core/models.py` (763), `core/watcher.py` (738) |
 | `tests/` | 89 files, ~940 test functions | Unit tests only for most modules; 1 integration test; locust load test |
 | `frontend/` | Next.js 14, 13 pages | react-query hooks per feature area, WebSocket live feed |
 | `benchmarks/` | Reasoning-auditor benchmark + overhead benchmark | The heuristic auditor scores **0% F1** (documented in `benchmarks/README.md`) |
 | Deploy | Dockerfile.api/worker, docker-compose (pgvector PG16, Redis, Jaeger), Helm chart, Fly/Railway/Render configs, Grafana dashboards | |
 | `agentwatch-landing/` | Separate embedded repository | Out of scope for v3 |
 
-Modules are commonly tagged with feature IDs from `agentwatch_masterlist.md` (`SAF-004`, `MEM-002`, `MAG-006`, `RSN-008`...). Most are 50–200 lines. That points to checklist-driven growth: many independent features, each with its own small model of the world, and no shared model.
+Modules are commonly tagged with feature IDs from `panoptis_masterlist.md` (`SAF-004`, `MEM-002`, `MAG-006`, `RSN-008`...). Most are 50–200 lines. That points to checklist-driven growth: many independent features, each with its own small model of the world, and no shared model.
 
 ### 1.2 Runtime data flow (as built)
 
@@ -49,13 +49,13 @@ Modules are commonly tagged with feature IDs from `agentwatch_masterlist.md` (`S
 
 | Abstraction | Location | What it is |
 |---|---|---|
-| `AgentEvent` | `agentwatch/core/schema.py:320` | One flat Pydantic model with seven optional payload slots (`tool_call`, `tool_result`, `safety`, `memory`, `confidence`, `agent_message`, `checkpoint`). Requires `session_id` and `agent_id`. |
-| `EventType` | `agentwatch/core/schema.py:20` | Closed enum of ~35 types. It mixes things that were observed (`tool.call`, `memory.read`) with things AgentWatch concluded (`safety.block`, `confidence.score`, `goal.drift`, `reasoning.style_swap`, `anomaly.detected`). |
-| `AgentFramework` | `agentwatch/core/schema.py:87` | Closed enum. LangGraph, AutoGen and Smolagents are all mapped to `CUSTOM` (`core/watcher.py:160-171`). |
-| `EventBus` | `agentwatch/core/event_bus.py` | Process-local pub/sub. Handlers are dispatched concurrently with `asyncio.gather`. `publish_sync` falls back to `asyncio.run` for each event when no loop is running. |
-| `TraceCollector` | `agentwatch/tracing/collector.py` (a near-copy exists at `telemetry/collector.py`) | The primary store behind the read APIs. Bounded, in-memory, with a periodic JSON flush. |
-| ORM + `Repository` | `agentwatch/core/models.py` | Tables `agent_sessions`, `agent_events`, `checkpoints`, `memory_entries`, `plugins`, `task_nodes`, `audit_log`. Schema is created with `create_all`; there is no migration tool. |
-| Hash-chained audit log | `agentwatch/governance/audit_log.py`, `SqlAlchemyAuditStore` | A genuinely append-only, tamper-evident record. It covers governance actions, not observations. |
+| `AgentEvent` | `panoptis/core/schema.py:320` | One flat Pydantic model with seven optional payload slots (`tool_call`, `tool_result`, `safety`, `memory`, `confidence`, `agent_message`, `checkpoint`). Requires `session_id` and `agent_id`. |
+| `EventType` | `panoptis/core/schema.py:20` | Closed enum of ~35 types. It mixes things that were observed (`tool.call`, `memory.read`) with things AgentWatch concluded (`safety.block`, `confidence.score`, `goal.drift`, `reasoning.style_swap`, `anomaly.detected`). |
+| `AgentFramework` | `panoptis/core/schema.py:87` | Closed enum. LangGraph, AutoGen and Smolagents are all mapped to `CUSTOM` (`core/watcher.py:160-171`). |
+| `EventBus` | `panoptis/core/event_bus.py` | Process-local pub/sub. Handlers are dispatched concurrently with `asyncio.gather`. `publish_sync` falls back to `asyncio.run` for each event when no loop is running. |
+| `TraceCollector` | `panoptis/tracing/collector.py` (a near-copy exists at `telemetry/collector.py`) | The primary store behind the read APIs. Bounded, in-memory, with a periodic JSON flush. |
+| ORM + `Repository` | `panoptis/core/models.py` | Tables `agent_sessions`, `agent_events`, `checkpoints`, `memory_entries`, `plugins`, `task_nodes`, `audit_log`. Schema is created with `create_all`; there is no migration tool. |
+| Hash-chained audit log | `panoptis/governance/audit_log.py`, `SqlAlchemyAuditStore` | A genuinely append-only, tamper-evident record. It covers governance actions, not observations. |
 
 ### 1.4 Capability inventory by package
 
@@ -103,8 +103,8 @@ These are assumptions built into v0.2 that block the v3 architecture. They are o
 `AgentEvent.parent_event_id` exists (`core/schema.py:332`), but **no code in the repository ever sets it**:
 
 ```text
-$ grep -rn "parent_event_id\s*=" agentwatch
-agentwatch/core/models.py:88:    parent_event_id = Column(String(36))
+$ grep -rn "parent_event_id\s*=" panoptis
+panoptis/core/models.py:88:    parent_event_id = Column(String(36))
 ```
 
 The LangChain adapter receives `run_id` and `parent_run_id` on every callback and throws the parent away. It records `run_id → event_id` into `_run_map` (`adapters/langchain.py:50,65`) but never reads that map back. Start and end callbacks become two unrelated events, and `on_llm_end` does not even pass its `run_id` (`adapters/langchain.py:102`).
@@ -190,7 +190,7 @@ Base dependencies are `fastapi`, `uvicorn`, `sqlalchemy`, `asyncpg`, `redis`, `c
 - Two `otel.py` files.
 - Three routers: `cost/router.py`, `cost/complexity_router.py` and `infrastructure/router.py`.
 - `adapters/langchain.py` builds `_run_map` and never reads it.
-- Repository root contains `how HEAD:__main__.py`, which looks like the accidental output of a `git show` redirect, plus `demo.py`, `real_agent.py`, `issues.md`, `agentwatch_masterlist.md`, `MASTERLIST_STATUS.md` and `PROGRESS.md`.
+- Repository root contains `how HEAD:__main__.py`, which looks like the accidental output of a `git show` redirect, plus `demo.py`, `real_agent.py`, `issues.md`, `panoptis_masterlist.md`, `MASTERLIST_STATUS.md` and `PROGRESS.md`.
 
 ### D12. Scope sprawl defines the identity
 
@@ -210,7 +210,7 @@ Tables are created with `Base.metadata.create_all`, and pgvector DDL is issued a
 
 ### D14. Repository state at audit time
 
-`main` is mid-merge: `.dockerignore` and `agentwatch/cli/demo.py` are conflicted, and the local branch has diverged from `origin/main` (1 local commit, 37 remote). Resolve this before creating the v3 branch. See `MIGRATION_MAP.md` §3.
+`main` is mid-merge: `.dockerignore` and `panoptis/cli/demo.py` are conflicted, and the local branch has diverged from `origin/main` (1 local commit, 37 remote). Resolve this before creating the v3 branch. See `MIGRATION_MAP.md` §3.
 
 ---
 

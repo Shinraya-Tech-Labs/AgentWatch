@@ -8,7 +8,7 @@ The commit path must re-validate the same caps request() enforces.
 
 from __future__ import annotations
 
-from agentwatch.cost.governance import BudgetAction, BudgetGovernance
+from panoptis.cost.governance import BudgetAction, BudgetGovernance
 
 
 def test_commit_human_approval_within_caps_still_commits():

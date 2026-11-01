@@ -13,7 +13,7 @@ import threading
 import webbrowser
 from pathlib import Path
 
-from panopti._banner import PANOPTI_ASCII_BANNER
+from panopti._banner import PANOPTI_ASCII_BANNER, print_banner
 
 
 def launch_local_playground(port: int = 8080) -> int:
@@ -37,7 +37,7 @@ def launch_local_playground(port: int = 8080) -> int:
             # Suppress normal request logging for clean terminal
             pass
 
-    print(PANOPTI_ASCII_BANNER)
+    print_banner()
     print("================================================================================")
     print("  👁️  PANOPTI SENTINEL: 1-CLICK INTERACTIVE WEB PLAYGROUND")
     print("================================================================================")

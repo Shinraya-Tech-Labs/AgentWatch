@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from agentwatch.monitoring.metrics import (
+from panoptis.monitoring.metrics import (
     calculate_health_score,
     record_api_latency,
     record_db_query,

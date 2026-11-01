@@ -5,15 +5,24 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agentwatch.security.redteam import (
+import pytest
+
+from panoptis.security.redteam import (
     AttackCategory,
     AttackScenario,
     default_corpus,
     load_corpus,
 )
-from agentwatch.tasks import run_redteam
 
-_PAYLOADS = Path("agentwatch/security/payloads.json")
+try:
+    from panoptis.tasks import run_redteam
+
+    has_celery = True
+except (ImportError, ModuleNotFoundError):
+    has_celery = False
+    run_redteam = None  # type: ignore
+
+_PAYLOADS = Path("panoptis/security/payloads.json")
 
 
 def test_payloads_json_is_valid_and_complete():
@@ -57,6 +66,7 @@ def test_load_corpus_accepts_custom_path(tmp_path):
     assert corpus[0].category is AttackCategory.TOOL_MISUSE
 
 
+@pytest.mark.skipif(not has_celery, reason="celery not installed")
 def test_run_redteam_task_returns_vulnerability_report():
     """The Celery task runs the corpus and reports defended/bypassed guardrails."""
     report = run_redteam()
@@ -67,6 +77,7 @@ def test_run_redteam_task_returns_vulnerability_report():
     assert all(not r["defended"] for r in report["bypassed"])
 
 
+@pytest.mark.skipif(not has_celery, reason="celery not installed")
 def test_run_redteam_task_honors_custom_payloads(tmp_path):
     """Passing a custom payload path scopes the scheduled run to that corpus."""
     custom = tmp_path / "p.json"

@@ -8,9 +8,9 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-import agentwatch.api.server as _server_module
-from agentwatch._version import __version__
-from agentwatch.api.server import app, reset_rate_limiter_for_tests
+import panoptis.api.server as _server_module
+from panoptis._version import __version__
+from panoptis.api.server import app, reset_rate_limiter_for_tests
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def client():
 
 @pytest.fixture
 def mock_db_session():
-    with patch("agentwatch.api.server._db_session_factory") as mock_factory:
+    with patch("panoptis.api.server._db_session_factory") as mock_factory:
         mock_session_context = AsyncMock()
 
         mock_db = AsyncMock()
@@ -36,8 +36,8 @@ def mock_db_session():
 @pytest.fixture
 def mock_redis_healthy():
     with (
-        patch("agentwatch.api.server.os.getenv") as mock_getenv,
-        patch("agentwatch.api.server.aioredis.from_url") as mock_redis,
+        patch("panoptis.api.server.os.getenv") as mock_getenv,
+        patch("panoptis.api.server.aioredis.from_url") as mock_redis,
     ):
         mock_getenv.return_value = "redis://localhost:6379"
 
@@ -65,7 +65,7 @@ def test_health_healthy_db_and_redis(client, mock_db_session, mock_redis_healthy
 
 def test_health_db_unavailable(client, mock_redis_healthy):
     with patch(
-        "agentwatch.api.server._db_session_factory",
+        "panoptis.api.server._db_session_factory",
         side_effect=Exception("Database is Unavailable"),
     ):
         response = client.get("/health")
@@ -79,8 +79,8 @@ def test_health_db_unavailable(client, mock_redis_healthy):
 
 def test_health_redis_unavailable(client, mock_db_session):
     with (
-        patch("agentwatch.api.server.os.getenv") as mock_getenv,
-        patch("agentwatch.api.server.aioredis.from_url") as mock_redis,
+        patch("panoptis.api.server.os.getenv") as mock_getenv,
+        patch("panoptis.api.server.aioredis.from_url") as mock_redis,
     ):
         mock_getenv.return_value = "redis://localhost:6379"
         mock_client = AsyncMock()
@@ -98,7 +98,7 @@ def test_health_redis_unavailable(client, mock_db_session):
 
 
 def test_health_redis_not_configured(client, mock_db_session):
-    with patch("agentwatch.api.server.os.getenv") as mock_getenv:
+    with patch("panoptis.api.server.os.getenv") as mock_getenv:
         mock_getenv.return_value = None
 
         response = client.get("/health")
@@ -113,9 +113,9 @@ def test_health_redis_not_configured(client, mock_db_session):
 
 def test_health_both_degraded(client):
     with (
-        patch("agentwatch.api.server._db_session_factory") as mock_factory,
-        patch("agentwatch.api.server.os.getenv") as mock_getenv,
-        patch("agentwatch.api.server.aioredis.from_url") as mock_redis,
+        patch("panoptis.api.server._db_session_factory") as mock_factory,
+        patch("panoptis.api.server.os.getenv") as mock_getenv,
+        patch("panoptis.api.server.aioredis.from_url") as mock_redis,
     ):
         mock_factory.return_value.__aenter__ = AsyncMock(
             side_effect=Exception("DB connection failed")
@@ -281,8 +281,8 @@ class TestWebSocketAuth:
 
 
 def test_websocket_payload_sanitization(client):
-    from agentwatch.core.event_bus import get_event_bus
-    from agentwatch.core.schema import AgentEvent, AgentFramework, EventType
+    from panoptis.core.event_bus import get_event_bus
+    from panoptis.core.schema import AgentEvent, AgentFramework, EventType
 
     # Connect to websocket
     with client.websocket_connect("/ws/events") as ws:

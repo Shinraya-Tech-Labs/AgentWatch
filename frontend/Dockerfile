@@ -22,14 +22,14 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0
 
-RUN addgroup -g 10001 -S agentwatch \
-    && adduser -S -u 10001 -G agentwatch agentwatch
+RUN addgroup -g 10001 -S panoptis \
+    && adduser -S -u 10001 -G panoptis panoptis
 
-COPY --from=builder --chown=agentwatch:agentwatch /app/public ./public
-COPY --from=builder --chown=agentwatch:agentwatch /app/.next/standalone ./
-COPY --from=builder --chown=agentwatch:agentwatch /app/.next/static ./.next/static
+COPY --from=builder --chown=panoptis:panoptis /app/public ./public
+COPY --from=builder --chown=panoptis:panoptis /app/.next/standalone ./
+COPY --from=builder --chown=panoptis:panoptis /app/.next/static ./.next/static
 
-USER agentwatch
+USER panoptis
 EXPOSE 3000
 
 # 127.0.0.1, not localhost: busybox wget resolves localhost to ::1, while the server listens

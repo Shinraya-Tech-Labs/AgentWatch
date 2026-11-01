@@ -9,13 +9,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any, TypeVar
 
-from agentwatch.causality.decay import (
+from panoptis.causality.decay import (
     ConfidenceDecayTracker,
 )
-from agentwatch.circuit_breaker.loop_detector import AgentLoopError, LoopDetector
-from agentwatch.core.safety import DEFAULT_POLICY, RiskPattern, SafetyEngine
-from agentwatch.core.schema import ToolCallData
-from agentwatch.core.watcher import AgentWatchBlockedError, watch
+from panoptis.circuit_breaker.loop_detector import AgentLoopError, LoopDetector
+from panoptis.core.safety import DEFAULT_POLICY, RiskPattern, SafetyEngine
+from panoptis.core.schema import ToolCallData
+from panoptis.core.watcher import AgentWatchBlockedError, watch
 from panopti.contracts import (
     Contract,
     ContractRegistry,
@@ -26,7 +26,7 @@ from panopti.contracts import (
 from panopti.killswitch import EmergencyKillSwitch, EmergencyStopTriggered
 
 try:
-    from agentwatch.contracts.streaming import StreamingContractEvaluator
+    from panoptis.contracts.streaming import StreamingContractEvaluator
 except (ImportError, ModuleNotFoundError):
     StreamingContractEvaluator = Any  # type: ignore[misc,assignment]
 

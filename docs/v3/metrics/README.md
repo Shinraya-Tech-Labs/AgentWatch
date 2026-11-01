@@ -1,8 +1,8 @@
 # Metric definitions
 
-Every number AgentWatch exposes beyond raw counts is defined here. All are **EXPERIMENTAL** unless `agentwatch status` says otherwise.
+Every number AgentWatch exposes beyond raw counts is defined here. All are **EXPERIMENTAL** unless `panoptis status` says otherwise.
 
-## Provenance (`agentwatch/provenance/lineage.py`)
+## Provenance (`panoptis/provenance/lineage.py`)
 
 | Metric | Definition |
 |---|---|
@@ -15,7 +15,7 @@ Every number AgentWatch exposes beyond raw counts is defined here. All are **EXP
 
 **Content containment** (DERIVES_FROM, basis CONTENT_MATCH): for artifacts *y* (earlier) and *x* (later) in the same run, compute word 5-gram shingle sets *S(y)* and *S(x)*. Require |S(y)| ≥ 3. Emit a relation when |S(x) ∩ S(y)| / |S(y)| ≥ 0.6. The confidence equals that ratio. The computation is exact, using a prefix-filtered similarity join.
 
-## Comparison (`agentwatch/compare/runs.py`)
+## Comparison (`panoptis/compare/runs.py`)
 
 | Metric | Definition |
 |---|---|
@@ -24,7 +24,7 @@ Every number AgentWatch exposes beyond raw counts is defined here. All are **EXP
 | earliest divergence | The earlier (by position in run B) of (a) the first non-equal alignment opcode and (b) the first aligned pair with a different status, output artifact set or input artifact set |
 | cone share | Share of run B's events, leaf latency and tokens that lie in the divergence event's EXECUTION + INFORMATION descendant cone. This is a **dependency** share, not a causal attribution. |
 
-## Behaviour profile, features v2 (`agentwatch/behaviour/profile.py`)
+## Behaviour profile, features v2 (`panoptis/behaviour/profile.py`)
 
 Definitions are in the `FEATURES` dict. The code is the single source.
 
@@ -37,7 +37,7 @@ Examples:
 
 **Genome:** feature means with 1,000-sample bootstrap 95% CIs (seed 7), plus motif frequency (share of runs with ≥1 instance).
 
-## Distances and drift (`agentwatch/behaviour/drift.py`)
+## Distances and drift (`panoptis/behaviour/drift.py`)
 
 | Name | Definition |
 |---|---|

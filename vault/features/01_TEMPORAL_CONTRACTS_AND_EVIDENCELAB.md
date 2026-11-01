@@ -1,7 +1,7 @@
 # Feature 01: EvidenceLab & Open-World Temporal Contract Verification
 
-> **Submodule:** [`agentwatch/contracts/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/)  
-> **Source Files:** [`schema.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/schema.py), [`evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/evaluator.py), [`remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/remedies.py)  
+> **Submodule:** [`panoptis/contracts/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/)  
+> **Source Files:** [`schema.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/schema.py), [`evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/evaluator.py), [`remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/remedies.py)  
 > **Test Suite:** [`tests/contracts/test_evidence_sufficiency.py`](file:///data/data/com.termux/files/home/AgentWatch/tests/contracts/test_evidence_sufficiency.py)  
 > **ADR Anchor:** [ADR-0007: Evidence Classes & Epistemic Uncertainty](file:///data/data/com.termux/files/home/AgentWatch/docs/v3/adr/0007-evidence-classes-and-uncertainty.md)  
 > **Obsidian Backlinks:** [[README]], [[01_ARCHITECTURE_AND_PLANES]], [[02_EVIDENCELAB_AND_TEMPORAL_CONTRACTS]], [[02_COMPUTATIONAL_EVENT_ALGEBRA]], [[04_HYPEREDGE_GRAPH_AND_PROVENANCE]], [[06_ROADMAP_AND_ISSUES_729_738]]  
@@ -43,7 +43,7 @@ When telemetry is incomplete, AgentWatch does not sound false alarms. Instead, i
 
 AgentWatch models trace verification as a four-valued epistemic logic, drawing on the algebraic foundations of **Belnap-Dunn 4-valued logic** and **Kripke semantics for modal verification**.
 
-Defined in [`agentwatch/contracts/schema.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/schema.py#L14-L24):
+Defined in [`panoptis/contracts/schema.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/schema.py#L14-L24):
 
 ```python
 class EvidenceVerdict(StrEnum):
@@ -78,7 +78,7 @@ The two partial orders represent:
 
 ### 2.2 Mathematical Definition of the Verdicts
 
-Let $\sigma = \langle e_1, e_2, \dots, e_n \rangle$ be an execution trace of [`ComputationalEvent`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/model.py#L32-L46) records. Let $\Gamma = \{ c_1, c_2, \dots, c_m \}$ be the set of active `CoverageSnapshot` records proving active telemetry capture. Let $\phi$ be an `EvidenceContract` defining an invariant over target predicate $Q$ and required predicate $P$ within temporal window $W$.
+Let $\sigma = \langle e_1, e_2, \dots, e_n \rangle$ be an execution trace of [`ComputationalEvent`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/model.py#L32-L46) records. Let $\Gamma = \{ c_1, c_2, \dots, c_m \}$ be the set of active `CoverageSnapshot` records proving active telemetry capture. Let $\phi$ be an `EvidenceContract` defining an invariant over target predicate $Q$ and required predicate $P$ within temporal window $W$.
 
 1. **$\text{eval}(\sigma, \phi, \Gamma) = \text{SUPPORTED}$** iff:
    $$\exists e_q \in \sigma, \exists e_p \in \sigma \text{ s.t. } Q(e_q) \land P(e_p) \land \text{join}(e_q, e_p) \land \text{temp\_valid}(e_p, e_q, W)$$
@@ -104,7 +104,7 @@ AgentWatch implements first-order Metric Temporal Logic operators over discrete 
 
 ### 3.1 Supported Operators (`ContractOperator`)
 
-Defined in [`agentwatch/contracts/schema.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/schema.py#L26-L31):
+Defined in [`panoptis/contracts/schema.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/schema.py#L26-L31):
 
 ```python
 class ContractOperator(StrEnum):
@@ -150,7 +150,7 @@ Let $\sigma$ be a trace of events, and $\phi$ an invariant. A subset of events $
 2. $\forall e \in \mathcal{W}, \quad \text{eval}(\mathcal{W} \setminus \{e\}, \phi) \neq v$ (Minimality)
 
 ### 4.2 Extraction Implementation in `evaluator.py`
-In [`agentwatch/contracts/evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/evaluator.py#L90-L150), witness extraction is performed during predicate matching:
+In [`panoptis/contracts/evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/evaluator.py#L90-L150), witness extraction is performed during predicate matching:
 
 ```python
 # Minimal Witness Construction for SUPPORTED verdict:
@@ -172,7 +172,7 @@ By constraining the witness to the absolute minimal event set, downstream UI vis
 
 ## 5. Missingness Taxonomy & Epistemic Diagnostics
 
-When an invariant cannot be proven, [`schema.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/schema.py#L33-L41) classifies the exact observational failure mechanism using a 5-part taxonomy:
+When an invariant cannot be proven, [`schema.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/schema.py#L33-L41) classifies the exact observational failure mechanism using a 5-part taxonomy:
 
 ```python
 class MissingReason(StrEnum):
@@ -220,7 +220,7 @@ class MissingReason(StrEnum):
 #### 2. `FIELD_ABSENT`
 - **Root Cause**: The fulfilling event arrived in the trace, but the specific attributes declared in `join_on` (e.g., `transaction_id`, `session_key`, `user_id`) were absent from `attributes_json`.
 - **Epistemic Consequence**: The normalizer failed to project the wire payload into the computational event schema.
-- **Telemetry Action**: Update normalizer parsing rules in `agentwatch/events/normalize.py`.
+- **Telemetry Action**: Update normalizer parsing rules in `panoptis/events/normalize.py`.
 
 #### 3. `SPAN_ORPHAN`
 - **Root Cause**: Distributed context propagation (W3C `traceparent` headers) was broken when invoking an external microservice or sub-process, causing the fulfilling span to be recorded under a disjoint trace ID.
@@ -230,7 +230,7 @@ class MissingReason(StrEnum):
 #### 4. `SEQUENCE_GAP`
 - **Root Cause**: Monotonic event sequence counters on the agent node jumped (e.g., received event #42 immediately following #39), indicating that in-memory ring buffers or network sockets dropped packets under high load.
 - **Epistemic Consequence**: The missing event might have been inside the dropped packet batch.
-- **Telemetry Action**: Increase buffer sizing in `agentwatch/sensors/buffer.py` or switch to reliable transport.
+- **Telemetry Action**: Increase buffer sizing in `panoptis/sensors/buffer.py` or switch to reliable transport.
 
 #### 5. `CLOCK_AMBIGUITY`
 - **Root Cause**: Wall-clock timestamps indicate event $P$ occurred at $t=10.002s \pm 5\text{ms}$ and event $Q$ occurred at $t=10.004s \pm 5\text{ms}$. Because uncertainty intervals $[9.997, 10.007]$ and $[9.999, 10.009]$ overlap, wall-clock time cannot prove $P \prec Q$.
@@ -241,7 +241,7 @@ class MissingReason(StrEnum):
 
 ## 6. The Automated Telemetry Remediation Engine
 
-Defined in [`agentwatch/contracts/remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/remedies.py):
+Defined in [`panoptis/contracts/remedies.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/remedies.py):
 
 ```python
 @dataclass(frozen=True)
@@ -289,7 +289,7 @@ def get_remedy_for_missing_fact(missing_fact: MissingFact) -> RemediationRecomme
 
 ## 7. Deep Code Walkthrough: The Evaluator Implementation
 
-In [`agentwatch/contracts/evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/evaluator.py), contract verification is implemented as an immutable, side-effect-free evaluation function:
+In [`panoptis/contracts/evaluator.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/evaluator.py), contract verification is implemented as an immutable, side-effect-free evaluation function:
 
 ```python
 def evaluate_contract(
@@ -398,7 +398,7 @@ In accordance with [`SECURITY-BASELINE.md`](file:///data/data/com.termux/files/h
      assert target.time.start is not None  # nosec B101 — invariant: normalized events must carry start time
      ```
 2. **Deterministic Time Anchors**:
-   - The contract evaluator is 100% deterministic and pure. It never calls `datetime.now()` inside verification loops, relying solely on event-time timestamps from [`ComputationalEvent.time`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/events/model.py#L42).
+   - The contract evaluator is 100% deterministic and pure. It never calls `datetime.now()` inside verification loops, relying solely on event-time timestamps from [`ComputationalEvent.time`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/events/model.py#L42).
 
 ---
 
@@ -407,7 +407,7 @@ In accordance with [`SECURITY-BASELINE.md`](file:///data/data/com.termux/files/h
 *Researched and verified via `agent-reach` across formal methods literature:*
 
 1. **Belnap, N. D. (1977)**: *"A Useful Four-Valued Logic"*. Modern Uses of Multiple-Valued Logic, Reidel Publishing.
-   - *Influence*: Provides the four-valued truth lattice ($\mathcal{L}_4$) utilized in [`schema.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/contracts/schema.py).
+   - *Influence*: Provides the four-valued truth lattice ($\mathcal{L}_4$) utilized in [`schema.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/contracts/schema.py).
 2. **Basin, D., Klaedtke, F., & Müller, S. (2015)**: *"Monitoring Metric First-Order Temporal Logic"*. Journal of the ACM (JACM), 62(2).
    - *Influence*: Mathematical formulation of bounded past/future operators over streaming computational traces.
 3. **Lamport, L. (1978)**: *"Time, Clocks, and the Ordering of Events in a Distributed System"*. Communications of the ACM, 21(7), 558–565.

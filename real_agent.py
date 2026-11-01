@@ -3,7 +3,7 @@ Demo agent for AgentWatch — exercises the full watch() → dashboard pipeline.
 
 Usage:
     # Terminal 1: start the API server
-    agentwatch serve
+    panoptis serve
 
     # Terminal 2: run this script
     python real_agent.py
@@ -14,7 +14,7 @@ and watch the session appear in real time.
 
 import asyncio
 
-from agentwatch import watch
+from panoptis import watch
 
 
 class DemoAgent:

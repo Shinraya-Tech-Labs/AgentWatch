@@ -11,7 +11,7 @@ REDIS_URL=redis://localhost:6379/0
 ## First Instrumented Execution
 Verify setup by wrapping a dummy model agent:
 ```python
-from agentwatch import watch
+from panoptis import watch
 
 class TestAgent:
     def run(self, query: str) -> str:

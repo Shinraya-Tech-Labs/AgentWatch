@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import asyncio
 
-from agentwatch.core.schema import (
+from panoptis.core.schema import (
     AgentEvent,
     AgentFramework,
     EventType,
     ExecutionStatus,
     ToolCallData,
 )
-from agentwatch.reasoning.auditor import ReasoningAuditor, StepAudit
+from panoptis.reasoning.auditor import ReasoningAuditor, StepAudit
 
 
 def _tool_call(tool: str, args: dict, raw: str | None = None) -> AgentEvent:

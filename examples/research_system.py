@@ -3,9 +3,9 @@
 It runs offline and deterministically (the "model" is a local extractive stub), so its
 behaviour can be reconstructed, compared and replayed exactly.
 
-    agentwatch observe python examples/research_system.py
-    agentwatch observe python examples/research_system.py --variant flaky_tool
-    agentwatch inspect latest
+    panoptis observe python examples/research_system.py
+    panoptis observe python examples/research_system.py --variant flaky_tool
+    panoptis inspect latest
 
 Variants change behaviour in controlled ways:
     normal        default pipeline
@@ -20,7 +20,7 @@ from __future__ import annotations
 import argparse
 import re
 
-from agentwatch import instrument as aw
+from panoptis import instrument as aw
 
 CORPUS = {
     "D1": "Photosynthesis converts light energy into chemical energy stored in glucose molecules inside plant chloroplasts.",

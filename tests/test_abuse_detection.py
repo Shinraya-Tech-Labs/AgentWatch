@@ -8,8 +8,8 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 
-from agentwatch.alerting.engine import AlertingConfig, AlertingEngine
-from agentwatch.security.abuse_detection import AbuseEvent, EntitlementUsageTracker
+from panoptis.alerting.engine import AlertingConfig, AlertingEngine
+from panoptis.security.abuse_detection import AbuseEvent, EntitlementUsageTracker
 
 _T0 = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 

@@ -13,22 +13,22 @@ import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
-from agentwatch.api import v3 as v3api
-from agentwatch.cli.main import app as cli_app
-from agentwatch.lab.branch import branch_history
-from agentwatch.lab.observe import observe
-from agentwatch.provenance.lineage import dependents, lineage
-from agentwatch.query.workspace import Workspace
-from agentwatch.runtime.engine import Engine
+from panoptis.api import v3 as v3api
+from panoptis.cli.main import app as cli_app
+from panoptis.lab.branch import branch_history
+from panoptis.lab.observe import observe
+from panoptis.provenance.lineage import dependents, lineage
+from panoptis.query.workspace import Workspace
+from panoptis.runtime.engine import Engine
 
 EXAMPLE = str(Path(__file__).resolve().parents[2] / "examples" / "research_system.py")
 
 
 @pytest.fixture
 def setup(store, monkeypatch):
-    from agentwatch.api import server
-    from agentwatch.api.middleware.rate_limiter import InMemoryBackend
-    from agentwatch.api.server import app
+    from panoptis.api import server
+    from panoptis.api.middleware.rate_limiter import InMemoryBackend
+    from panoptis.api.server import app
 
     server.reset_rate_limiter_for_tests()
     monkeypatch.setattr(server._rate_limiter, "backend", InMemoryBackend())
@@ -108,13 +108,13 @@ def test_motifs_compare_causal_match(setup):
     assert canon(c.get(f"/api/v3/runs/{flaky}/motifs").json()) == canon(
         ws.derived("motif_instance", flaky)
     )
-    from agentwatch.compare.runs import compare
+    from panoptis.compare.runs import compare
 
     api_cmp = c.get(f"/api/v3/compare?a={normal}&b={flaky}").json()
     direct = compare(ws, normal, flaky)
     assert canon(api_cmp["earliest_divergence"]) == canon(direct["earliest_divergence"])
     tool = ws.events(flaky, kind="TOOL_INVOCATION")[0]
-    from agentwatch.causality.cones import causes, effects
+    from panoptis.causality.cones import causes, effects
 
     api_causes = c.get(f"/api/v3/causes/{tool['event_id']}").json()
     assert canon(api_causes["dependencies"]) == canon(causes(ws, tool["event_id"])["dependencies"])

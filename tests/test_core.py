@@ -9,13 +9,13 @@ import asyncio
 
 import pytest
 
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.safety import (
+from panoptis.core.event_bus import EventBus
+from panoptis.core.safety import (
     RiskPattern,
     RiskScorer,
     SafetyEngine,
 )
-from agentwatch.core.schema import (
+from panoptis.core.schema import (
     AgentEvent,
     AgentFramework,
     AgentSession,
@@ -28,12 +28,12 @@ from agentwatch.core.schema import (
     ToolCallData,
     ToolResultData,
 )
-from agentwatch.replay.engine import (
+from panoptis.replay.engine import (
     FailureCause,
     ReplayEngine,
     ReplaySpeed,
 )
-from agentwatch.scoring.confidence import (
+from panoptis.scoring.confidence import (
     ANOMALY_GOAL_DRIFT,
     ANOMALY_HALLUCINATED_SUCCESS,
     ANOMALY_REPEATED_FAILURES,

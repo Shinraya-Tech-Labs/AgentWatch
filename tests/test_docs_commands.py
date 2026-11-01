@@ -1,7 +1,7 @@
-"""Every `agentwatch ...` command shown in the user-facing docs must exist, with its options.
+"""Every `panoptis ...` command shown in the user-facing docs must exist, with its options.
 
 Guards against docs that tell users to run commands that were renamed or moved (for example
-`agentwatch watch`, which lives at `agentwatch session watch`).
+`panoptis watch`, which lives at `panoptis session watch`).
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 import typer.main
 
-from agentwatch.cli.main import app
+from panoptis.cli.main import app
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = [
@@ -27,8 +27,8 @@ DOCS = [
     *sorted(str(p.relative_to(ROOT)) for p in (ROOT / "docs/cli").glob("*.md")),
 ]
 # prose that names something that is deliberately NOT a command
-ALLOWED = {"agentwatch cli", "agentwatch import"}
-COMMAND = re.compile(r"(?:^|`|\s)(agentwatch\s+[a-z][^`#|\n]*)")
+ALLOWED = {"panoptis cli", "panoptis import"}
+COMMAND = re.compile(r"(?:^|`|\s)(panoptis\s+[a-z][^`#|\n]*)")
 
 
 def _commands(path: str) -> list[tuple[int, str]]:
@@ -47,7 +47,7 @@ def _problems(text: str) -> list[str]:
     except ValueError:
         return []
     cmd = typer.main.get_command(app)
-    args, path = parts[1:], ["agentwatch"]
+    args, path = parts[1:], ["panoptis"]
     while args and hasattr(cmd, "commands") and args[0] in cmd.commands:
         cmd = cmd.commands[args[0]]
         path.append(args[0])

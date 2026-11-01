@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from agentwatch.core.schema import AgentEvent, EventType, ExecutionStatus, ToolCallData
+from panoptis.core.schema import AgentEvent, EventType, ExecutionStatus, ToolCallData
 
 
 def create_event(

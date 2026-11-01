@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.cost.comparator import DEFAULT_PRICING
-from agentwatch.cost.complexity_router import (
+from panoptis.cost.comparator import DEFAULT_PRICING
+from panoptis.cost.complexity_router import (
     CostAwareRouter,
     TaskComplexity,
     TaskSignals,

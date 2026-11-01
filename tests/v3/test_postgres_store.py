@@ -11,11 +11,11 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from agentwatch.evidence.model import ObservationDraft, SensorRef
-from agentwatch.runtime.engine import Engine
-from agentwatch.sensors.base import ListSink
-from agentwatch.sensors.native.recorder import Recorder
-from agentwatch.storage.store import Store
+from panoptis.evidence.model import ObservationDraft, SensorRef
+from panoptis.runtime.engine import Engine
+from panoptis.sensors.base import ListSink
+from panoptis.sensors.native.recorder import Recorder
+from panoptis.storage.store import Store
 
 PG_URL = os.environ.get("AGENTWATCH_TEST_PG_URL")
 pytestmark = pytest.mark.skipif(not PG_URL, reason="AGENTWATCH_TEST_PG_URL not set")

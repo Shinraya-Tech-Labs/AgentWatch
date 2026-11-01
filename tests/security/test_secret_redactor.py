@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 import uuid
 
-from agentwatch.security.redaction import (
+from panoptis.security.redaction import (
     SECRET_MASK,
     redact_secrets,
 )

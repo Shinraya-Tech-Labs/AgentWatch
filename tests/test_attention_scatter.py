@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from agentwatch.core.schema import AgentEvent, EventType, ToolCallData
-from agentwatch.lattice.attention_scatter import (
+from panoptis.core.schema import AgentEvent, EventType, ToolCallData
+from panoptis.lattice.attention_scatter import (
     AttentionScatterDetector,
     _domain_from_url,
     _extract_parent_dir,

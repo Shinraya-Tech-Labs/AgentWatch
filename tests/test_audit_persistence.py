@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from agentwatch.governance.audit_log import (
+from panoptis.governance.audit_log import (
     GENESIS_HASH,
     AuditLog,
     AuditStore,
@@ -96,7 +96,7 @@ async def test_records_are_detached_copies():
 
 async def test_persistent_and_in_memory_produce_identical_chains(monkeypatch):
     # Freeze the timestamp so both logs hash identical inputs.
-    import agentwatch.governance.audit_log as audit_mod
+    import panoptis.governance.audit_log as audit_mod
 
     class _FixedDatetime:
         @staticmethod
@@ -123,13 +123,13 @@ def test_in_memory_store_satisfies_protocol():
 
 
 def test_sql_store_satisfies_protocol():
-    from agentwatch.core.models import SqlAlchemyAuditStore
+    from panoptis.core.models import SqlAlchemyAuditStore
 
     assert isinstance(SqlAlchemyAuditStore(session=None), AuditStore)  # type: ignore[arg-type]
 
 
 def test_audit_log_record_model_instantiation():
-    from agentwatch.core.models import AuditLogRecord
+    from panoptis.core.models import AuditLogRecord
 
     row = AuditLogRecord(
         seq=0,

@@ -18,10 +18,10 @@ The options were:
 Option (c):
 
 - New v3 packages are added alongside the existing code on a long-lived `architecture/v3` branch.
-- v0.2 modules classified DEPRECATE move to `agentwatch/legacy/`, with warning shims at their old paths.
+- v0.2 modules classified DEPRECATE move to `panoptis/legacy/`, with warning shims at their old paths.
 - One FastAPI app serves `/api/v1` (legacy) and `/v3` during migration.
 - The legacy ingest path tees into a translation sensor, so existing integrations feed v3 from day one.
-- v3 packages may not import `agentwatch.legacy`. This is enforced by an import-linter contract in CI.
+- v3 packages may not import `panoptis.legacy`. This is enforced by an import-linter contract in CI.
 
 ## Consequences
 

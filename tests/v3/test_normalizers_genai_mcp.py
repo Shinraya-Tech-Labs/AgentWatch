@@ -7,11 +7,11 @@ JSON-RPC errors, tool execution errors, and DeclaredLink provenance.
 
 from __future__ import annotations
 
-from agentwatch.contracts.order import HappensBeforeGraph
-from agentwatch.events.model import EventKind, EventStatus
-from agentwatch.sensors.base import ListSink
-from agentwatch.sensors.mcp import MCPTap
-from agentwatch.sensors.otel import drafts_from_spans, spans_from_otlp_json
+from panoptis.contracts.order import HappensBeforeGraph
+from panoptis.events.model import EventKind, EventStatus
+from panoptis.sensors.base import ListSink
+from panoptis.sensors.mcp import MCPTap
+from panoptis.sensors.otel import drafts_from_spans, spans_from_otlp_json
 
 
 def events_of(engine, drafts):

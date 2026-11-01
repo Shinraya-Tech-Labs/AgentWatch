@@ -10,8 +10,8 @@ Each is asserted detected here, alongside the controls that must remain
 detected and the localhost case that must remain ignored.
 """
 
-from agentwatch.core.schema import AgentEvent, EventType, ToolCallData
-from agentwatch.security.exfiltration import detect
+from panoptis.core.schema import AgentEvent, EventType, ToolCallData
+from panoptis.security.exfiltration import detect
 
 
 def _detect(cmd: str) -> list:

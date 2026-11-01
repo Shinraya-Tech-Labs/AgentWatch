@@ -9,12 +9,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from agentwatch.contracts import (
+from panoptis.contracts import (
     SAFETY_INVARIANT_BREACH,
     EvidenceVerdict,
     IrreversibleInvariantMonitor,
 )
-from agentwatch.events.model import (
+from panoptis.events.model import (
     ComputationalEvent,
     EventKind,
     EventStatus,

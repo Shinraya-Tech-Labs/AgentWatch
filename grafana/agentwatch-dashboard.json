@@ -976,7 +976,7 @@
   "refresh": "30s",
   "schemaVersion": 38,
   "tags": [
-    "agentwatch",
+    "panoptis",
     "ai-agents",
     "observability",
     "safety"
@@ -1038,7 +1038,7 @@
   "timepicker": {},
   "timezone": "browser",
   "title": "AgentWatch",
-  "uid": "agentwatch-main-v1",
+  "uid": "panoptis-main-v1",
   "version": 1,
   "weekStart": ""
 }

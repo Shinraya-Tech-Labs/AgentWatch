@@ -13,15 +13,15 @@ This Knowledge Vault contains a complete, verified architectural scan, systems a
 
 | File | Topic & Scope | Key Codebase Anchors |
 | :--- | :--- | :--- |
-| **[01_ARCHITECTURE_AND_PLANES.md](./01_ARCHITECTURE_AND_PLANES.md)** | The 6 Architectural Planes (A–F), unidirectional data flow, immutability invariants | `agentwatch/evidence/`, `agentwatch/events/`, `docs/v3/` |
-| **[02_EVIDENCELAB_AND_TEMPORAL_CONTRACTS.md](./02_EVIDENCELAB_AND_TEMPORAL_CONTRACTS.md)** | 4-valued epistemic logic, open-world assumptions, minimal witnesses, PR #728 state | `agentwatch/contracts/` (`schema.py`, `evaluator.py`, `remedies.py`) |
-| **[03_EVENT_ALGEBRA_AND_NORMALIZERS.md](./03_EVENT_ALGEBRA_AND_NORMALIZERS.md)** | `ComputationalEvent` model, temporal intervals $\pm \delta$, multi-framework normalizers | `agentwatch/events/`, `agentwatch/adapters/`, `agentwatch/evidence/` |
-| **[04_STORAGE_CAUSALITY_AND_GRAPH.md](./04_STORAGE_CAUSALITY_AND_GRAPH.md)** | Hyperedge relation store, 3 views (Execution, Information, Causal), provenance DAG | `agentwatch/causality/`, `agentwatch/graph/`, `agentwatch/storage/` |
-| **[05_PLATFORM_API_AND_FRONTEND.md](./05_PLATFORM_API_AND_FRONTEND.md)** | FastAPI backend, Typer CLI, Next.js 14 frontend, Next.js 16 landing page | `agentwatch/api/`, `agentwatch/cli/`, `frontend/`, `agentwatch-landing/` |
-| **[06_ROADMAP_AND_ISSUES_729_738.md](./06_ROADMAP_AND_ISSUES_729_738.md)** | Deep breakdown of 10 roadmap issues (#729–#738) & implementation blueprint for #729 | `agentwatch/contracts/`, GitHub Issues #729–#738 |
+| **[01_ARCHITECTURE_AND_PLANES.md](./01_ARCHITECTURE_AND_PLANES.md)** | The 6 Architectural Planes (A–F), unidirectional data flow, immutability invariants | `panoptis/evidence/`, `panoptis/events/`, `docs/v3/` |
+| **[02_EVIDENCELAB_AND_TEMPORAL_CONTRACTS.md](./02_EVIDENCELAB_AND_TEMPORAL_CONTRACTS.md)** | 4-valued epistemic logic, open-world assumptions, minimal witnesses, PR #728 state | `panoptis/contracts/` (`schema.py`, `evaluator.py`, `remedies.py`) |
+| **[03_EVENT_ALGEBRA_AND_NORMALIZERS.md](./03_EVENT_ALGEBRA_AND_NORMALIZERS.md)** | `ComputationalEvent` model, temporal intervals $\pm \delta$, multi-framework normalizers | `panoptis/events/`, `panoptis/adapters/`, `panoptis/evidence/` |
+| **[04_STORAGE_CAUSALITY_AND_GRAPH.md](./04_STORAGE_CAUSALITY_AND_GRAPH.md)** | Hyperedge relation store, 3 views (Execution, Information, Causal), provenance DAG | `panoptis/causality/`, `panoptis/graph/`, `panoptis/storage/` |
+| **[05_PLATFORM_API_AND_FRONTEND.md](./05_PLATFORM_API_AND_FRONTEND.md)** | FastAPI backend, Typer CLI, Next.js 14 frontend, Next.js 16 landing page | `panoptis/api/`, `panoptis/cli/`, `frontend/`, `agentwatch-landing/` |
+| **[06_ROADMAP_AND_ISSUES_729_738.md](./06_ROADMAP_AND_ISSUES_729_738.md)** | Deep breakdown of 10 roadmap issues (#729–#738) & implementation blueprint for #729 | `panoptis/contracts/`, GitHub Issues #729–#738 |
 | **[07_SECURITY_BASELINE_AND_DEVSECOPS.md](./07_SECURITY_BASELINE_AND_DEVSECOPS.md)** | Zero-baseline security philosophy, Bandit scoped inline suppressions, CI matrix | `SECURITY-BASELINE.md`, `.github/workflows/` |
 | **[08_MOBILE_TERMUX_WORKFLOW.md](./08_MOBILE_TERMUX_WORKFLOW.md)** | Mobile Termux environment, Antigravity workflow, tmux, memory hygiene, active skills | `~/.agents/skills/`, `~/.agents/rules/` |
-| **[09_COMPREHENSIVE_FEATURE_MATRIX.md](./09_COMPREHENSIVE_FEATURE_MATRIX.md)** | Exhaustive 400+ line technical architecture dossier, mathematical models, sources & backlinks | Entire Engine & Platform (`agentwatch/`) |
+| **[09_COMPREHENSIVE_FEATURE_MATRIX.md](./09_COMPREHENSIVE_FEATURE_MATRIX.md)** | Exhaustive 400+ line technical architecture dossier, mathematical models, sources & backlinks | Entire Engine & Platform (`panoptis/`) |
 
 ---
 
@@ -31,18 +31,18 @@ Every core capability of AgentWatch is fully documented in an independent, exhau
 
 | # | Feature Dossier | Module Anchors | Scope & Architectural Focus | Lines |
 | :-: | :--- | :--- | :--- | :-: |
-| **01** | **[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB.md](./features/01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB.md)** | `agentwatch/contracts/` | 4-valued epistemic logic, OWA, minimal witnesses, remedies | 432 |
-| **02** | **[02_COMPUTATIONAL_EVENT_ALGEBRA.md](./features/02_COMPUTATIONAL_EVENT_ALGEBRA.md)** | `agentwatch/events/` | RFC 8785 canonical hashes, $\pm \delta$ temporal intervals, lifecycle states | 411 |
-| **03** | **[03_INGEST_SENSORS_AND_ADAPTERS.md](./features/03_INGEST_SENSORS_AND_ADAPTERS.md)** | `agentwatch/sensors/`, `adapters/` | OTel GenAI, LangChain, CrewAI, Claude Code hook adapters | 410 |
-| **04** | **[04_HYPEREDGE_GRAPH_AND_PROVENANCE.md](./features/04_HYPEREDGE_GRAPH_AND_PROVENANCE.md)** | `agentwatch/graph/`, `provenance/` | 3-view hyperedge store, backward lineage DAGs, cycle breakers | 473 |
-| **05** | **[05_CAUSAL_INFERENCE_AND_BLAST_RADIUS.md](./features/05_CAUSAL_INFERENCE_AND_BLAST_RADIUS.md)** | `agentwatch/causality/`, `core/` | Pearl's Ladder, causal cones, SAF-004 predictive blast radius | 446 |
-| **06** | **[06_LATENT_STATE_AND_MOTIFS.md](./features/06_LATENT_STATE_AND_MOTIFS.md)** | `agentwatch/state/`, `behaviour/` | 8-D windowing, emergent polar vocabularies, motifs M001–M007 | 551 |
-| **07** | **[07_BEHAVIORAL_GENOME_AND_DRIFT.md](./features/07_BEHAVIORAL_GENOME_AND_DRIFT.md)** | `agentwatch/behaviour/` | 25-trait genome, bootstrap 95% CIs, permutation tests, BH FDR | 442 |
-| **08** | **[08_REPLAY_AND_COUNTERFACTUALS.md](./features/08_REPLAY_AND_COUNTERFACTUALS.md)** | `agentwatch/replay/`, `rollback/` | Time travel, counterfactual $do(x)$, anti-Zip-Slip state rollback | 440 |
-| **09** | **[09_CIRCUIT_BREAKERS_AND_HITL.md](./features/09_CIRCUIT_BREAKERS_AND_HITL.md)** | `agentwatch/circuit_breaker/`, `hitl/` | 4-state active tripwires, EU AI Act Art. 12/14 ambient HITL | 491 |
-| **10** | **[10_COST_GOVERNANCE_AND_CACHE.md](./features/10_COST_GOVERNANCE_AND_CACHE.md)** | `agentwatch/cost/` | CST-009 complexity router, semantic caching, budget quotas | 409 |
-| **11** | **[11_DEVELOPER_APIS_CLI_AND_UI.md](./features/11_DEVELOPER_APIS_CLI_AND_UI.md)** | `agentwatch/api/`, `cli/`, `frontend/`| FastAPI, Typer CLI, stdio MCP server, Next.js 14/16 apps | 488 |
-| **12** | **[12_ENTERPRISE_SECURITY_AND_PRIVACY.md](./features/12_ENTERPRISE_SECURITY_AND_PRIVACY.md)** | `agentwatch/security/` | Zero-baseline Bandit, OWASP Agentic Top 10, PII/PHI redaction | 443 |
+| **01** | **[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB.md](./features/01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB.md)** | `panoptis/contracts/` | 4-valued epistemic logic, OWA, minimal witnesses, remedies | 432 |
+| **02** | **[02_COMPUTATIONAL_EVENT_ALGEBRA.md](./features/02_COMPUTATIONAL_EVENT_ALGEBRA.md)** | `panoptis/events/` | RFC 8785 canonical hashes, $\pm \delta$ temporal intervals, lifecycle states | 411 |
+| **03** | **[03_INGEST_SENSORS_AND_ADAPTERS.md](./features/03_INGEST_SENSORS_AND_ADAPTERS.md)** | `panoptis/sensors/`, `adapters/` | OTel GenAI, LangChain, CrewAI, Claude Code hook adapters | 410 |
+| **04** | **[04_HYPEREDGE_GRAPH_AND_PROVENANCE.md](./features/04_HYPEREDGE_GRAPH_AND_PROVENANCE.md)** | `panoptis/graph/`, `provenance/` | 3-view hyperedge store, backward lineage DAGs, cycle breakers | 473 |
+| **05** | **[05_CAUSAL_INFERENCE_AND_BLAST_RADIUS.md](./features/05_CAUSAL_INFERENCE_AND_BLAST_RADIUS.md)** | `panoptis/causality/`, `core/` | Pearl's Ladder, causal cones, SAF-004 predictive blast radius | 446 |
+| **06** | **[06_LATENT_STATE_AND_MOTIFS.md](./features/06_LATENT_STATE_AND_MOTIFS.md)** | `panoptis/state/`, `behaviour/` | 8-D windowing, emergent polar vocabularies, motifs M001–M007 | 551 |
+| **07** | **[07_BEHAVIORAL_GENOME_AND_DRIFT.md](./features/07_BEHAVIORAL_GENOME_AND_DRIFT.md)** | `panoptis/behaviour/` | 25-trait genome, bootstrap 95% CIs, permutation tests, BH FDR | 442 |
+| **08** | **[08_REPLAY_AND_COUNTERFACTUALS.md](./features/08_REPLAY_AND_COUNTERFACTUALS.md)** | `panoptis/replay/`, `rollback/` | Time travel, counterfactual $do(x)$, anti-Zip-Slip state rollback | 440 |
+| **09** | **[09_CIRCUIT_BREAKERS_AND_HITL.md](./features/09_CIRCUIT_BREAKERS_AND_HITL.md)** | `panoptis/circuit_breaker/`, `hitl/` | 4-state active tripwires, EU AI Act Art. 12/14 ambient HITL | 491 |
+| **10** | **[10_COST_GOVERNANCE_AND_CACHE.md](./features/10_COST_GOVERNANCE_AND_CACHE.md)** | `panoptis/cost/` | CST-009 complexity router, semantic caching, budget quotas | 409 |
+| **11** | **[11_DEVELOPER_APIS_CLI_AND_UI.md](./features/11_DEVELOPER_APIS_CLI_AND_UI.md)** | `panoptis/api/`, `cli/`, `frontend/`| FastAPI, Typer CLI, stdio MCP server, Next.js 14/16 apps | 488 |
+| **12** | **[12_ENTERPRISE_SECURITY_AND_PRIVACY.md](./features/12_ENTERPRISE_SECURITY_AND_PRIVACY.md)** | `panoptis/security/` | Zero-baseline Bandit, OWASP Agentic Top 10, PII/PHI redaction | 443 |
 
 ---
 
@@ -52,7 +52,7 @@ A complete physical scan of the repository reveals **~131,000+ lines of code** a
 
 | Directory | Files | Total Lines | Primary Languages & Breakdown |
 | :--- | :--- | :--- | :--- |
-| **`agentwatch/`** | 268 | 47,471 | Python (47,399 lines across 44 specialized modules) |
+| **`panoptis/`** | 268 | 47,471 | Python (47,399 lines across 44 specialized modules) |
 | **`tests/`** | 115 | 19,178 | Python (18,691 lines of unit, integration, and contract tests) |
 | **`benchmarks/`** | 37 | 29,697 | JSON test cases (26,233 lines), AWBench harness (3,006 lines Python) |
 | **`frontend/`** | 39 | 13,914 | Next.js 14, React 18, TypeScript/TSX (3,096 lines), JSON config |

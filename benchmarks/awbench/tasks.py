@@ -10,13 +10,13 @@ import re
 from collections import defaultdict
 from typing import Any
 
-from agentwatch.behaviour.drift import drift
-from agentwatch.compare.runs import compare, signature
-from agentwatch.lab.branch import counterfactual
-from agentwatch.lab.replay import replay
-from agentwatch.query.engine import ask
-from agentwatch.query.workspace import Workspace
-from agentwatch.runtime.engine import Engine
+from panoptis.behaviour.drift import drift
+from panoptis.compare.runs import compare, signature
+from panoptis.lab.branch import counterfactual
+from panoptis.lab.replay import replay
+from panoptis.query.engine import ask
+from panoptis.query.workspace import Workspace
+from panoptis.runtime.engine import Engine
 
 # information-flow relations (MATCHES_CONTENT is similarity, not flow; CANDIDATE_SOURCE is an
 # ambiguous candidate, not flow — both excluded, as in AgentWatch's own default traversal)
@@ -259,7 +259,7 @@ def h2(ws: Workspace, records: list[Any]) -> dict[str, Any]:
 
 
 def h3(ws: Workspace, records: list[Any]) -> dict[str, Any]:
-    from agentwatch.provenance.lineage import lineage
+    from panoptis.provenance.lineage import lineage
 
     tp = fp = fn = 0
     for r in records:
@@ -534,7 +534,7 @@ def counterfactual_quality(engine: Engine, records: list[Any]) -> dict[str, Any]
 
 def causal_hypotheses(engine: Engine, records: list[Any]) -> dict[str, Any]:
     primary = _primary(records)
-    from agentwatch.causality.hypotheses import add_evidence, get, propose
+    from panoptis.causality.hypotheses import add_evidence, get, propose
 
     true_ok = ctrl_ok = n = 0
     for r in records:

@@ -6,8 +6,8 @@ import re
 
 import pytest
 
-from agentwatch.core.safety import BUILTIN_RISK_PATTERNS, RiskScorer, SafetyEngine, SafetyPolicy
-from agentwatch.core.schema import RiskLevel, ToolCallData
+from panoptis.core.safety import BUILTIN_RISK_PATTERNS, RiskScorer, SafetyEngine, SafetyPolicy
+from panoptis.core.schema import RiskLevel, ToolCallData
 from panopti.guard import PanoptiGuard
 from panopti.presets import (
     CLOUD_DESTRUCTIVE,

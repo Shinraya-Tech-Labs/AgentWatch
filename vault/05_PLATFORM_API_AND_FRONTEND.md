@@ -1,15 +1,15 @@
 # 05 — Platform API, CLI & Frontend Interfaces
 
 > **Implementation Directories:**  
-> - [`agentwatch/api/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/api/) (FastAPI REST, WebSocket & Stream APIs)  
-> - [`agentwatch/cli/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/cli/) (Typer CLI commands)  
+> - [`panoptis/api/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/api/) (FastAPI REST, WebSocket & Stream APIs)  
+> - [`panoptis/cli/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/cli/) (Typer CLI commands)  
 > - [`frontend/`](file:///data/data/com.termux/files/home/AgentWatch/frontend/) (Next.js 14 / React 18 Application)  
 > - [`agentwatch-landing/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch-landing/) (Next.js 16 / React 19 Marketing Site)  
 > - [`grafana/`](file:///data/data/com.termux/files/home/AgentWatch/grafana/) (Prometheus Metrics & Dashboards)  
 
 ---
 
-## ⚡ The API Plane (`agentwatch/api/`)
+## ⚡ The API Plane (`panoptis/api/`)
 
 AgentWatch exposes a high-throughput, async REST and WebSocket API built on **FastAPI** and **SQLAlchemy async**:
 
@@ -29,22 +29,22 @@ AgentWatch exposes a high-throughput, async REST and WebSocket API built on **Fa
 
 ---
 
-## 💻 Developer CLI (`agentwatch/cli/`)
+## 💻 Developer CLI (`panoptis/cli/`)
 
 The CLI provides terminal access to all core verification and debugging facilities:
 
 ```bash
 # Ingest and verify an agent trace file against a contract
-agentwatch contract verify ./traces/run_102.json --contract ./contracts/approval.json
+panoptis contract verify ./traces/run_102.json --contract ./contracts/approval.json
 
 # Launch the offline EvidenceLab local comparison harness
-agentwatch lab compare ./traces/run_a.json ./traces/run_b.json
+panoptis lab compare ./traces/run_a.json ./traces/run_b.json
 
 # Deterministically replay an agent session up to step N
-agentwatch replay --run-id 8a4c-1290 --level L2 --until-step 14
+panoptis replay --run-id 8a4c-1290 --level L2 --until-step 14
 
 # Scan environment and check active sensors
-agentwatch doctor
+panoptis doctor
 ```
 
 ---

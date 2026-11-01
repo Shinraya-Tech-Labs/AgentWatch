@@ -1,6 +1,6 @@
 # Feature Dossier 11: Developer APIs, CLI, MCP Server & Web Frontend
 
-**Module Path**: [`agentwatch/api/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/api/) (`server.py`, `v3.py`), [`agentwatch/cli/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/cli/) (`main.py`, `mcp.py`), [`frontend/`](file:///data/data/com.termux/files/home/AgentWatch/frontend/) & [`agentwatch-landing/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch-landing/)  
+**Module Path**: [`panoptis/api/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/api/) (`server.py`, `v3.py`), [`panoptis/cli/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/cli/) (`main.py`, `mcp.py`), [`frontend/`](file:///data/data/com.termux/files/home/AgentWatch/frontend/) & [`agentwatch-landing/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch-landing/)  
 **System Plane**: Plane 5 (Platform & Storage Plane) & Plane 6 (Presentation & UI Plane)  
 **Primary Maintainer**: Platform Developer Experience & Full-Stack Infrastructure Group  
 **Obsidian Backlinks**: [[01_ARCHITECTURE_AND_PLANES]], [[02_COMPUTATIONAL_EVENT_ALGEBRA]], [[04_HYPEREDGE_GRAPH_AND_PROVENANCE]], [[05_CAUSAL_INFERENCE_AND_BLAST_RADIUS]], [[08_REPLAY_AND_COUNTERFACTUALS]], [[09_CIRCUIT_BREAKERS_AND_HITL]]
@@ -12,9 +12,9 @@
 An observability and safety platform for autonomous AI agents is only as powerful as its accessibility to human developers, SREs, and IDE agents. If telemetry data is trapped in esoteric database formats, or if inspecting a failing run requires manual SQL scripts, the platform fails its primary mission: accelerating safe agent iteration.
 
 AgentWatch delivers a comprehensive, unified developer surface across four distinct operational interfaces:
-1. **High-Throughput REST & Streaming API (`agentwatch/api/`)**: A production-grade FastAPI service providing sub-millisecond event ingestion (`/api/v3/observations`), OpenTelemetry OTLP trace receivers, natural language querying (`/api/v3/query/ask`), and WebSocket/SSE streaming.
-2. **Terminal Operations CLI (`agentwatch/cli/`)**: A rich Typer-powered command-line interface featuring real-time ANSI dashboard animation (`animator.py`), automated environment verification, and time-travel replay commands.
-3. **Model Context Protocol (MCP) Server (`agentwatch/cli/mcp.py`)**: A native JSON-RPC stdio server implementing Anthropic's MCP specification, allowing external coding assistants (Claude Desktop, Cursor, Windsurf) to query AgentWatch knowledge graphs and inspect live traces directly within the developer's editor.
+1. **High-Throughput REST & Streaming API (`panoptis/api/`)**: A production-grade FastAPI service providing sub-millisecond event ingestion (`/api/v3/observations`), OpenTelemetry OTLP trace receivers, natural language querying (`/api/v3/query/ask`), and WebSocket/SSE streaming.
+2. **Terminal Operations CLI (`panoptis/cli/`)**: A rich Typer-powered command-line interface featuring real-time ANSI dashboard animation (`animator.py`), automated environment verification, and time-travel replay commands.
+3. **Model Context Protocol (MCP) Server (`panoptis/cli/mcp.py`)**: A native JSON-RPC stdio server implementing Anthropic's MCP specification, allowing external coding assistants (Claude Desktop, Cursor, Windsurf) to query AgentWatch knowledge graphs and inspect live traces directly within the developer's editor.
 4. **Enterprise Web Dashboard & Public Landing (`frontend/` & `agentwatch-landing/`)**: Modern Next.js applications delivering reactive graph visualizations (hyperedge lineages, causal cones, articulation bottlenecks), trace flame graphs, and WCAG 2.2 AA accessible interfaces.
 
 ```
@@ -48,7 +48,7 @@ AgentWatch delivers a comprehensive, unified developer surface across four disti
 
 ---
 
-## 2. High-Performance REST & Streaming API (`agentwatch/api/`)
+## 2. High-Performance REST & Streaming API (`panoptis/api/`)
 
 The API layer is built on FastAPI and ASGI, optimized for high-concurrency ingestion and low-latency graph traversals.
 
@@ -84,7 +84,7 @@ The `v3.py` API module encapsulates the next-generation multi-plane architecture
 To ensure high-throughput ingest without double-counting (crucial during distributed network retries), `/api/v3/observations` enforces content-addressable idempotency:
 
 ```python
-# API Ingestion Endpoint in agentwatch/api/v3.py
+# API Ingestion Endpoint in panoptis/api/v3.py
 @router.post("/observations")
 async def ingest_observations(body: IngestRequest, engine: Engine = Depends(get_engine)):
     raw = [ComputationalEvent.from_dict(d) for d in body.observations]
@@ -149,13 +149,13 @@ async def receive_otlp_traces(request: Request, engine: Engine = Depends(get_eng
 
 ---
 
-## 3. The Terminal Operations Surface: CLI (`agentwatch/cli/`)
+## 3. The Terminal Operations Surface: CLI (`panoptis/cli/`)
 
 The Command Line Interface is powered by Typer and Rich, designed for terminal ergonomics and rapid developer workflows.
 
 ### 3.1 Subcommand Hierarchy
 ```text
-agentwatch
+panoptis
 ├── run             # Instrument and run Python scripts under observation
 ├── session         # Inspect, replay, and rollback execution sessions
 │   ├── list        # Table of recent agent runs
@@ -173,7 +173,7 @@ agentwatch
 ```
 
 ### 3.2 Real-Time Live Watcher (`animator.py`)
-Running `agentwatch watch` renders a live, interactive 60fps terminal dashboard utilizing ANSI escape sequences and Braille spinner glyphs:
+Running `panoptis watch` renders a live, interactive 60fps terminal dashboard utilizing ANSI escape sequences and Braille spinner glyphs:
 
 ```text
 ⚡ AgentWatch Live Watcher [Session: sess_89f02a | Model: claude-3-7-sonnet]
@@ -190,7 +190,7 @@ Active Breaker: CLOSED | Total Spend: $0.0014 | Risk Score: 12 (LOW)
 
 ---
 
-## 4. Model Context Protocol (MCP) Server (`agentwatch/cli/mcp.py`)
+## 4. Model Context Protocol (MCP) Server (`panoptis/cli/mcp.py`)
 
 AgentWatch natively implements Anthropic’s **Model Context Protocol (MCP)** specification over JSON-RPC stdio. This equips modern AI coding assistants (like Claude Code, Cursor, and Windsurf) with direct access to AgentWatch's provenance graph and safety engine.
 
@@ -204,11 +204,11 @@ AgentWatch natively implements Anthropic’s **Model Context Protocol (MCP)** sp
   │              AGENTWATCH MCP SERVER (mcp.py)                 │
   │                                                             │
   │  Exposed Tools:                                             │
-  │  • agentwatch_get_run_trace(run_id)                         │
-  │  • agentwatch_query_provenance(artifact_id)                 │
-  │  • agentwatch_get_causal_cone(event_id, direction)          │
-  │  • agentwatch_check_blast_radius(tool_command)              │
-  │  • agentwatch_get_circuit_breaker_status(session_id)       │
+  │  • panoptis_get_run_trace(run_id)                         │
+  │  • panoptis_query_provenance(artifact_id)                 │
+  │  • panoptis_get_causal_cone(event_id, direction)          │
+  │  • panoptis_check_blast_radius(tool_command)              │
+  │  • panoptis_get_circuit_breaker_status(session_id)       │
   └──────────────────────────────┬──────────────────────────────┘
                                  │
                                  ▼
@@ -217,10 +217,10 @@ AgentWatch natively implements Anthropic’s **Model Context Protocol (MCP)** sp
 
 ### 4.1 Exposed MCP Tools Schema
 ```python
-# MCP Tool definitions in agentwatch/cli/mcp.py
+# MCP Tool definitions in panoptis/cli/mcp.py
 TOOLS = [
     {
-        "name": "agentwatch_check_blast_radius",
+        "name": "panoptis_check_blast_radius",
         "description": "Estimates the worst-case blast radius, reversibility, and critical resource impacts of a proposed command before execution.",
         "inputSchema": {
             "type": "object",
@@ -231,7 +231,7 @@ TOOLS = [
         }
     },
     {
-        "name": "agentwatch_get_causal_cone",
+        "name": "panoptis_get_causal_cone",
         "description": "Calculates the upstream cause or downstream blast radius cone for a specific event in the provenance graph.",
         "inputSchema": {
             "type": "object",
@@ -245,7 +245,7 @@ TOOLS = [
 ]
 ```
 
-### 4.2 MCP JSON-RPC Server Dispatcher (`agentwatch/cli/mcp.py`)
+### 4.2 MCP JSON-RPC Server Dispatcher (`panoptis/cli/mcp.py`)
 
 ```python
 async def run_mcp_stdio_server(workspace: Workspace):
@@ -380,7 +380,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({ runId, activeView, onN
 Located in [`agentwatch-landing/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch-landing/), this modern Next.js 16 App Router application serves as the external face of the AgentWatch project:
 - **Interactive Sandbox Simulator**: Allows prospective developers to run simulated agent prompts in the browser and watch the circuit breaker, blast radius estimator, and semantic cache respond in real time.
 - **Live Community Telemetry**: Automatically fetches and displays real-time GitHub stars, contributor counts, and release notes via `fetch_stats.mjs`.
-- **Documentation & Getting Started Guides**: Fast, SEO-optimized guides explaining the installation of `agentwatch` across macOS, Linux, and Termux.
+- **Documentation & Getting Started Guides**: Fast, SEO-optimized guides explaining the installation of `panoptis` across macOS, Linux, and Termux.
 
 ---
 
@@ -391,9 +391,9 @@ Located in [`agentwatch-landing/`](file:///data/data/com.termux/files/home/Agent
 import uvicorn
 import httpx
 from fastapi.testclient import TestClient
-from agentwatch.api.server import app
+from panoptis.api.server import app
 
-def query_agentwatch_api():
+def query_panoptis_api():
     client = TestClient(app)
     
     # Ingest a test observation
@@ -417,7 +417,7 @@ def query_agentwatch_api():
     print("Causal Cone:", causes_resp.json())
 
 if __name__ == "__main__":
-    query_agentwatch_api()
+    query_panoptis_api()
 ```
 
 ---
@@ -465,9 +465,9 @@ tests/
 
 1. **Anthropic (2024)**: *"Model Context Protocol (MCP) Specification"*.
    - *URL*: [https://modelcontextprotocol.io/](https://modelcontextprotocol.io/)
-   - *Influence*: Governs JSON-RPC stdio tool definitions and server lifecycle in `agentwatch/cli/mcp.py`.
+   - *Influence*: Governs JSON-RPC stdio tool definitions and server lifecycle in `panoptis/cli/mcp.py`.
 2. **OpenTelemetry Project (2024)**: *"OpenTelemetry Protocol Specification (OTLP/HTTP & OTLP/gRPC v1.3.0)"*. Cloud Native Computing Foundation (CNCF).
-   - *Influence*: Direct schema mapping for `/v1/traces` receiver in `agentwatch/api/server.py`.
+   - *Influence*: Direct schema mapping for `/v1/traces` receiver in `panoptis/api/server.py`.
 3. **World Wide Web Consortium (W3C) (2023)**: *"Web Content Accessibility Guidelines (WCAG) 2.2"*. W3C Recommendation.
    - *Influence*: Mandates contrast, keyboard navigation, and ARIA live regions in `frontend/`.
 4. **Fielding, R. T. (2000)**: *"Architectural Styles and the Design of Network-based Software Architectures"*. Doctoral dissertation, University of California, Irvine.
@@ -483,6 +483,6 @@ tests/
 | **EvidenceLab Contracts** | Evaluated via API endpoints and shown in UI | [[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB]] |
 | **Event Algebra** | The foundational payload accepted by `/observations` | [[02_COMPUTATIONAL_EVENT_ALGEBRA]] |
 | **Hyperedge Graph Store** | Graph data fetched by Next.js canvas components | [[04_HYPEREDGE_GRAPH_AND_PROVENANCE]] |
-| **Replay & Rollback** | Triggered via CLI (`agentwatch session rollback`) | [[08_REPLAY_AND_COUNTERFACTUALS]] |
+| **Replay & Rollback** | Triggered via CLI (`panoptis session rollback`) | [[08_REPLAY_AND_COUNTERFACTUALS]] |
 | **Circuit Breakers & HITL** | Review queue rendered in dashboard and CLI | [[09_CIRCUIT_BREAKERS_AND_HITL]] |
 | **Enterprise Security** | API authentication and rate-limiting middleware | [[12_ENTERPRISE_SECURITY_AND_PRIVACY]] |

@@ -23,9 +23,9 @@ jobs:
       - name: Install deps
         run: pip install ruff mypy pydantic && pip install -e .
       - name: Ruff lint
-        run: ruff check agentwatch/
+        run: ruff check panoptis/
       - name: Ruff format check
-        run: ruff format --check agentwatch/
+        run: ruff format --check panoptis/
       - name: Type check (v3 modules)
         run: make typecheck
 
@@ -37,9 +37,9 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_DB: agentwatch_test
-          POSTGRES_USER: agentwatch
-          POSTGRES_PASSWORD: agentwatch
+          POSTGRES_DB: panoptis_test
+          POSTGRES_USER: panoptis
+          POSTGRES_PASSWORD: panoptis
         ports:
           - 5432:5432
         options: >-
@@ -66,10 +66,10 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Run unit tests
         env:
-          DATABASE_URL: postgresql+asyncpg://agentwatch:agentwatch@localhost:5432/agentwatch_test
+          DATABASE_URL: postgresql+asyncpg://panoptis:panoptis@localhost:5432/panoptis_test
           REDIS_URL: redis://localhost:6379/0
-          AGENTWATCH_TEST_PG_URL: postgresql+psycopg://agentwatch:agentwatch@localhost:5432/agentwatch_test
-        run: pytest tests/ -v --cov=agentwatch --cov-report=xml --cov-report=html --cov-report=term-missing --cov-fail-under=70
+          AGENTWATCH_TEST_PG_URL: postgresql+psycopg://panoptis:panoptis@localhost:5432/panoptis_test
+        run: pytest tests/ -v --cov=panoptis --cov-report=xml --cov-report=html --cov-report=term-missing --cov-fail-under=70
       - name: Upload HTML coverage report
         uses: actions/upload-artifact@v4
         with:
@@ -90,9 +90,9 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_DB: agentwatch_test
-          POSTGRES_USER: agentwatch
-          POSTGRES_PASSWORD: agentwatch
+          POSTGRES_DB: panoptis_test
+          POSTGRES_USER: panoptis
+          POSTGRES_PASSWORD: panoptis
         ports:
           - 5432:5432
         options: >-
@@ -114,7 +114,7 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Run integration tests
         env:
-          DATABASE_URL: postgresql+asyncpg://agentwatch:agentwatch@localhost:5432/agentwatch_test
+          DATABASE_URL: postgresql+asyncpg://panoptis:panoptis@localhost:5432/panoptis_test
           REDIS_URL: redis://localhost:6379/0
         run: pytest tests/integration/ -v
 
@@ -158,7 +158,7 @@ jobs:
           context: .
           file: Dockerfile.api
           push: false
-          tags: agentwatch/api:${{ github.sha }}
+          tags: panoptis/api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Build frontend image
@@ -167,7 +167,7 @@ jobs:
           context: ./frontend
           file: frontend/Dockerfile
           push: false
-          tags: agentwatch/frontend:${{ github.sha }}
+          tags: panoptis/frontend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -195,8 +195,8 @@ jobs:
           pip install -q -e .
           python - <<'EOF'
           import httpx
-          from agentwatch import instrument as aw
-          from agentwatch.sensors.base import ListSink
+          from panoptis import instrument as aw
+          from panoptis.sensors.base import ListSink
 
           base, key = "http://localhost:8000", {"X-Api-Key": "ci-compose-smoke-key"}
           assert httpx.get(f"{base}/health", timeout=10).status_code == 200

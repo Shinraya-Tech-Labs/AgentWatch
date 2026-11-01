@@ -4,26 +4,26 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from agentwatch.memory.causal_graph import (
+from panoptis.memory.causal_graph import (
     CausalGraph,
     CausalNode,
     EdgeKind,
 )
-from agentwatch.memory.decay import ForgettingEngine, Importance
-from agentwatch.memory.governance import (
+from panoptis.memory.decay import ForgettingEngine, Importance
+from panoptis.memory.governance import (
     ErasureRequest,
     MemoryGovernance,
     RetentionPolicy,
 )
-from agentwatch.memory.health import MemoryHealthMonitor
-from agentwatch.memory.identity import IdentityStore
-from agentwatch.memory.nlquery import parse, query
-from agentwatch.memory.resolver import (
+from panoptis.memory.health import MemoryHealthMonitor
+from panoptis.memory.identity import IdentityStore
+from panoptis.memory.nlquery import parse, query
+from panoptis.memory.resolver import (
     MemoryConflictResolver,
     MemoryEntry,
     resolve,
 )
-from agentwatch.memory.visualization import build_payload
+from panoptis.memory.visualization import build_payload
 
 # ─────────────────────────────────────────────
 # MEM-002 — Causal graph
@@ -129,8 +129,8 @@ def test_low_importance_prune_after_long_idle():
 
 
 def _episodic_entry(importance, *, age_days=0.0):
-    from agentwatch.memory.engine import MemoryEntry as EngineEntry
-    from agentwatch.memory.engine import MemoryType
+    from panoptis.memory.engine import MemoryEntry as EngineEntry
+    from panoptis.memory.engine import MemoryType
 
     accessed = datetime.now(UTC) - timedelta(days=age_days)
     return EngineEntry(
@@ -144,8 +144,8 @@ def _episodic_entry(importance, *, age_days=0.0):
 
 
 def test_decay_manager_strength_decreases_with_age():
-    from agentwatch.memory.engine import ImportanceLevel
-    from agentwatch.memory.temporal_decay import TemporalDecayManager
+    from panoptis.memory.engine import ImportanceLevel
+    from panoptis.memory.temporal_decay import TemporalDecayManager
 
     mgr = TemporalDecayManager()
     fresh = _episodic_entry(ImportanceLevel.MEDIUM, age_days=0)
@@ -155,8 +155,8 @@ def test_decay_manager_strength_decreases_with_age():
 
 
 def test_decay_manager_keeps_critical_persistent():
-    from agentwatch.memory.engine import ImportanceLevel
-    from agentwatch.memory.temporal_decay import TemporalDecayManager
+    from panoptis.memory.engine import ImportanceLevel
+    from panoptis.memory.temporal_decay import TemporalDecayManager
 
     mgr = TemporalDecayManager()
     critical = _episodic_entry(ImportanceLevel.CRITICAL, age_days=3650)
@@ -165,9 +165,9 @@ def test_decay_manager_keeps_critical_persistent():
 
 
 def test_decay_manager_does_not_decay_semantic_by_default():
-    from agentwatch.memory.engine import ImportanceLevel, MemoryType
-    from agentwatch.memory.engine import MemoryEntry as EngineEntry
-    from agentwatch.memory.temporal_decay import TemporalDecayManager
+    from panoptis.memory.engine import ImportanceLevel, MemoryType
+    from panoptis.memory.engine import MemoryEntry as EngineEntry
+    from panoptis.memory.temporal_decay import TemporalDecayManager
 
     mgr = TemporalDecayManager()
     semantic = EngineEntry(
@@ -183,8 +183,8 @@ def test_decay_manager_does_not_decay_semantic_by_default():
 
 
 def test_refresh_populates_decay_factor():
-    from agentwatch.memory.engine import ImportanceLevel
-    from agentwatch.memory.temporal_decay import TemporalDecayManager
+    from panoptis.memory.engine import ImportanceLevel
+    from panoptis.memory.temporal_decay import TemporalDecayManager
 
     mgr = TemporalDecayManager()
     entry = _episodic_entry(ImportanceLevel.LOW, age_days=21)
@@ -196,7 +196,7 @@ def test_refresh_populates_decay_factor():
 def test_engine_prune_decayed_evicts_decayed_keeps_critical():
     import asyncio
 
-    from agentwatch.memory.engine import ImportanceLevel, MemoryEngine
+    from panoptis.memory.engine import ImportanceLevel, MemoryEngine
 
     engine = MemoryEngine()
 
@@ -227,7 +227,7 @@ def test_engine_prune_decayed_evicts_decayed_keeps_critical():
 def test_engine_retrieval_deprioritizes_stale_episodic():
     import asyncio
 
-    from agentwatch.memory.engine import ImportanceLevel, MemoryEngine
+    from panoptis.memory.engine import ImportanceLevel, MemoryEngine
 
     engine = MemoryEngine()
 
@@ -327,7 +327,7 @@ def test_erasure_removes_user_data_and_returns_receipt():
 
 
 def test_visualization_payload_marks_corrupted():
-    from agentwatch.memory.health import HealthIssue, HealthReport
+    from panoptis.memory.health import HealthIssue, HealthReport
 
     memories = [
         {"key": "a", "type": "episodic", "value": "x"},
@@ -345,7 +345,7 @@ def test_visualization_payload_marks_corrupted():
 def test_causal_graph_memory_bounds():
     from datetime import UTC, datetime, timedelta
 
-    from agentwatch.memory.causal_graph import CausalGraph, CausalNode, EdgeKind
+    from panoptis.memory.causal_graph import CausalGraph, CausalNode, EdgeKind
 
     g = CausalGraph(max_nodes=3)
     n1 = CausalNode(

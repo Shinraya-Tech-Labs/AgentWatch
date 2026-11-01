@@ -6,18 +6,18 @@ from typing import Any
 
 import pytest
 
-from agentwatch.core.blast_radius import BlastRadiusEstimator, Reversibility
-from agentwatch.core.injection import scan_text
-from agentwatch.core.loop_detector import LoopDetector
-from agentwatch.core.policy_dsl import PolicyAction, PolicyEngine, Rule
-from agentwatch.core.recursion_depth_detector import RecursionDepthDetector
-from agentwatch.core.risk import score_event
-from agentwatch.core.safety import (
+from panoptis.core.blast_radius import BlastRadiusEstimator, Reversibility
+from panoptis.core.injection import scan_text
+from panoptis.core.loop_detector import LoopDetector
+from panoptis.core.policy_dsl import PolicyAction, PolicyEngine, Rule
+from panoptis.core.recursion_depth_detector import RecursionDepthDetector
+from panoptis.core.risk import score_event
+from panoptis.core.safety import (
     RiskScorer,
     SafetyEngine,
     SafetyPolicy,
 )
-from agentwatch.core.schema import (
+from panoptis.core.schema import (
     AgentEvent,
     AgentFramework,
     EventType,
@@ -25,10 +25,10 @@ from agentwatch.core.schema import (
     RiskLevel,
     ToolCallData,
 )
-from agentwatch.security.exfiltration import detect as detect_exfil
-from agentwatch.security.owasp import OwaspVector, _flatten_values, validate_owasp
-from agentwatch.security.report import generate, to_pdf_bytes
-from agentwatch.security.sandbox import LiveSandbox
+from panoptis.security.exfiltration import detect as detect_exfil
+from panoptis.security.owasp import OwaspVector, _flatten_values, validate_owasp
+from panoptis.security.report import generate, to_pdf_bytes
+from panoptis.security.sandbox import LiveSandbox
 
 
 def _tool_event(tool: str, raw: str, args: dict | None = None) -> AgentEvent:
@@ -156,7 +156,7 @@ def test_policy_dsl_pause_on_low_confidence():
         ]
     )
     ev = _tool_event("read", "x")
-    from agentwatch.core.schema import ConfidenceData
+    from panoptis.core.schema import ConfidenceData
 
     ev.confidence = ConfidenceData(overall_score=0.3)
     decision = engine.evaluate(ev)
@@ -173,7 +173,7 @@ def test_policy_dsl_parenthesized_short_circuit():
         ]
     )
     ev = _tool_event("read", "x")
-    from agentwatch.core.schema import ConfidenceData
+    from panoptis.core.schema import ConfidenceData
 
     ev.confidence = ConfidenceData(overall_score=0.3)
     decision = engine.evaluate(ev)
@@ -393,8 +393,8 @@ def test_sandbox_allows_benign_command():
 
 @pytest.mark.asyncio
 async def test_safety_engine_blocks_on_low_confidence_via_dsl():
-    from agentwatch.core.policy_dsl import PolicyAction, PolicyEngine, Rule
-    from agentwatch.reasoning.auditor import ReasoningAuditor, StepAudit
+    from panoptis.core.policy_dsl import PolicyAction, PolicyEngine, Rule
+    from panoptis.reasoning.auditor import ReasoningAuditor, StepAudit
 
     # Mock auditor that returns low confidence
     class LowConfAuditor(ReasoningAuditor):
@@ -452,7 +452,7 @@ async def test_safety_engine_auto_blocks_if_no_callback_registered():
 
 @pytest.mark.asyncio
 async def test_safety_engine_preserves_pattern_block_when_dsl_allows():
-    from agentwatch.core.policy_dsl import PolicyAction, PolicyEngine, Rule
+    from panoptis.core.policy_dsl import PolicyAction, PolicyEngine, Rule
 
     # Critical command that matches pattern-based block
     event = _tool_event("bash", "rm -rf /")
@@ -527,8 +527,8 @@ async def test_cli_approval_handler_does_not_block_loop(monkeypatch):
     import sys
     import time
 
-    from agentwatch.core.safety import SafetyCheckData, cli_approval_handler
-    from agentwatch.core.schema import RiskLevel
+    from panoptis.core.safety import SafetyCheckData, cli_approval_handler
+    from panoptis.core.schema import RiskLevel
 
     # 1. Start a concurrent async task that ticks every 0.05s
     ticks = 0
@@ -688,7 +688,7 @@ async def test_rm_bypass_variants_are_blocked_by_default(command):
 def test_rm_score_event_catches_bypass_variants():
     """The standalone risk scorer (risk.py) also scores the bypass variants as
     high-danger, not SAFE."""
-    from agentwatch.core.risk import score_event
+    from panoptis.core.risk import score_event
 
     for command in [
         "rm -r -f /",

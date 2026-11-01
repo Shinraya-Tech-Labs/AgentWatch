@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.core.schema import (
+from panoptis.core.schema import (
     AgentEvent,
     EventType,
     RiskLevel,
     SafetyCheckData,
 )
-from agentwatch.hitl import (
+from panoptis.hitl import (
     DecisionOutcome,
     FeedbackLearner,
     HITLOrchestrator,
@@ -18,9 +18,9 @@ from agentwatch.hitl import (
     InteractionPattern,
     RequestState,
 )
-from agentwatch.hitl.decisions import HumanDecision
-from agentwatch.hitl.feedback import ThresholdSuggestion
-from agentwatch.hitl.orchestrator import HITLError
+from panoptis.hitl.decisions import HumanDecision
+from panoptis.hitl.feedback import ThresholdSuggestion
+from panoptis.hitl.orchestrator import HITLError
 
 # --------------------------------------------------------------------------- helpers
 
@@ -251,7 +251,7 @@ class TestQueriesAndAudit:
         assert payload["decided_by"] == "alice"
 
     async def test_audit_trail_supports_len(self):
-        from agentwatch.hitl.decisions import _AuditTrail
+        from panoptis.hitl.decisions import _AuditTrail
 
         trail = _AuditTrail()
         assert len(trail) == 0

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.governance.hipaa import redact_phi
+from panoptis.governance.hipaa import redact_phi
 
 
 @pytest.mark.parametrize(

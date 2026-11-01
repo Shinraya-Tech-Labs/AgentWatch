@@ -13,8 +13,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from agentwatch.sensors.base import ListSink
-from agentwatch.sensors.langchain import (
+from panoptis.sensors.base import ListSink
+from panoptis.sensors.langchain import (
     LANGCHAIN_AVAILABLE,
     AgentWatchLangChainSensor,
     require_langchain,
@@ -243,10 +243,10 @@ def test_concurrent_runs_are_safe_and_clean_up():
 
 
 def test_require_langchain_raises_clear_error_when_missing(monkeypatch):
-    import agentwatch.sensors.langchain as mod
+    import panoptis.sensors.langchain as mod
 
     monkeypatch.setattr(mod, "LANGCHAIN_AVAILABLE", False)
-    with pytest.raises(ImportError, match=r"agentwatch-ai\[langchain\]"):
+    with pytest.raises(ImportError, match=r"panoptis\[langchain\]"):
         mod.require_langchain()
     monkeypatch.setattr(mod, "LANGCHAIN_AVAILABLE", True)
     mod.require_langchain()
@@ -257,9 +257,9 @@ def test_module_imports_and_works_without_langchain_core():
         "import sys\n"
         "sys.modules['langchain_core'] = None\n"
         "sys.modules['langchain_core.callbacks'] = None\n"
-        "import agentwatch.sensors.langchain as m\n"
+        "import panoptis.sensors.langchain as m\n"
         "assert m.LANGCHAIN_AVAILABLE is False\n"
-        "from agentwatch.sensors.base import ListSink\n"
+        "from panoptis.sensors.base import ListSink\n"
         "sink = ListSink(); s = m.AgentWatchLangChainSensor(sink)\n"
         "s.on_chain_start({}, {}, run_id='r1'); s.on_chain_end({}, run_id='r1')\n"
         "assert len(sink.drafts) == 2\n"

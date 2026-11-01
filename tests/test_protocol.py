@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.protocol.badge import check
-from agentwatch.protocol.benchmark import AnonymizedBenchmark
-from agentwatch.protocol.mcp_server import AgentWatchMCPServer
-from agentwatch.protocol.schema_v1 import (
+from panoptis.protocol.badge import check
+from panoptis.protocol.benchmark import AnonymizedBenchmark
+from panoptis.protocol.mcp_server import AgentWatchMCPServer
+from panoptis.protocol.schema_v1 import (
     REASONING_TRACE_VERSION,
     reasoning_trace_schema,
     validate_trace,
@@ -151,15 +151,15 @@ def test_mcp_server_lists_default_tools():
     srv = AgentWatchMCPServer()
     catalog = srv.tool_catalog()
     names = {t["name"] for t in catalog}
-    assert "agentwatch_confidence_history" in names
-    assert "agentwatch_memory_query" in names
-    assert "agentwatch_session_replay" in names
-    assert "agentwatch_safety_status" in names
+    assert "panoptis_confidence_history" in names
+    assert "panoptis_memory_query" in names
+    assert "panoptis_session_replay" in names
+    assert "panoptis_safety_status" in names
 
 
 def test_mcp_server_dispatches_safety_status():
     srv = AgentWatchMCPServer()
-    response = srv.dispatch("agentwatch_safety_status")
+    response = srv.dispatch("panoptis_safety_status")
     assert response.ok
     assert "status" in response.result
 
@@ -167,7 +167,7 @@ def test_mcp_server_dispatches_safety_status():
 def test_mcp_server_uses_custom_provider():
     srv = AgentWatchMCPServer()
     srv.confidence_provider = lambda sid: [0.9, 0.85, 0.7]
-    response = srv.dispatch("agentwatch_confidence_history", {"session_id": "S"})
+    response = srv.dispatch("panoptis_confidence_history", {"session_id": "S"})
     assert response.ok
     assert response.result == [0.9, 0.85, 0.7]
 
@@ -193,3 +193,29 @@ async def test_mcp_server_build_fastmcp():
     assert "list_active_sessions" in tool_names
     assert "get_safety_events" in tool_names
     assert "get_cost_report" in tool_names
+    assert "store_memory" in tool_names
+
+
+def test_mcp_server_dispatches_store_and_query_memory():
+    srv = AgentWatchMCPServer()
+    memories = []
+
+    def mock_store(key: str, val: str):
+        memories.append({"key": key, "value": val})
+        return {"status": "stored", "key": key}
+
+    def mock_query(q: str):
+        return [m for m in memories if q.lower() in m["value"].lower()]
+
+    srv.store_memory_provider = mock_store
+    srv.memory_provider = mock_query
+
+    res1 = srv.dispatch("panoptis_store_memory", {"key": "k1", "value": "pgvector enabled"})
+    assert res1.ok
+    assert res1.result["key"] == "k1"
+
+    res2 = srv.dispatch("panoptis_memory_query", {"question": "pgvector"})
+    assert res2.ok
+    assert len(res2.result) == 1
+    assert res2.result[0]["key"] == "k1"
+

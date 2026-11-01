@@ -11,9 +11,9 @@ from typing import Any
 
 import pytest
 
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.safety import SafetyEngine
-from agentwatch.core.watcher import AgentWatchBlockedError, GenericAdapter
+from panoptis.core.event_bus import EventBus
+from panoptis.core.safety import SafetyEngine
+from panoptis.core.watcher import AgentWatchBlockedError, GenericAdapter
 
 
 class CountingAgent:
@@ -172,14 +172,14 @@ def test_async_event_without_safety_data_blocks():
 
 
 def test_policy_that_cannot_load_blocks_every_tool_call(monkeypatch):
-    from agentwatch.core import watcher
+    from panoptis.core import watcher
 
     def broken_init(self: Any, *a: Any, **k: Any) -> None:
         raise OSError("policy file unreadable")
 
     monkeypatch.setattr(watcher.SafetyEngine, "__init__", broken_init)
     agent = watcher.watch(CountingAgent(), event_bus=EventBus())
-    assert getattr(agent.run, "_agentwatch_wrapped", False), "the agent must still be wrapped"
+    assert getattr(agent.run, "_panoptis_wrapped", False), "the agent must still be wrapped"
     with pytest.raises(AgentWatchBlockedError) as exc:
         agent.run("echo hello")
     assert agent.calls == 0
@@ -229,7 +229,7 @@ def test_blocked_calls_never_execute_on_any_path():
 
 
 def test_watching_twice_does_not_double_wrap_or_double_execute():
-    from agentwatch.core.watcher import watch
+    from panoptis.core.watcher import watch
 
     checks = []
 
@@ -247,7 +247,7 @@ def test_watching_twice_does_not_double_wrap_or_double_execute():
 
 
 def _blocks_seen(bus: EventBus) -> list[Any]:
-    from agentwatch.core.schema import EventType
+    from panoptis.core.schema import EventType
 
     seen: list[Any] = []
     bus.subscribe_fn(seen.append, EventType.SAFETY_BLOCK, handler_id="test.blocks")
@@ -284,11 +284,11 @@ def test_fail_closed_async_block_is_published():
 
 
 def test_action_blocked_is_compatible_with_agentwatch_blocked_error():
-    import agentwatch
-    from agentwatch.protect import ActionBlocked, ProtectionPipeline, ToolAction
+    import panoptis
+    from panoptis.protect import ActionBlocked, ProtectionPipeline, ToolAction
 
     assert issubclass(ActionBlocked, AgentWatchBlockedError)
-    assert agentwatch.AgentWatchBlockedError is AgentWatchBlockedError
+    assert panoptis.AgentWatchBlockedError is AgentWatchBlockedError
     ran: list[str] = []
 
     def shell(command: str) -> str:

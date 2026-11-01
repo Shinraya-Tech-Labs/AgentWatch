@@ -3,18 +3,18 @@ kind: Deployment
 metadata:
   name: {{ .Release.Name }}-api
   labels:
-    app.kubernetes.io/name: agentwatch
+    app.kubernetes.io/name: panoptis
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: agentwatch
+      app.kubernetes.io/name: panoptis
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: agentwatch
+        app.kubernetes.io/name: panoptis
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       containers:
@@ -58,7 +58,7 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}-api
   labels:
-    app.kubernetes.io/name: agentwatch
+    app.kubernetes.io/name: panoptis
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -67,5 +67,5 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: agentwatch
+    app.kubernetes.io/name: panoptis
     app.kubernetes.io/instance: {{ .Release.Name }}

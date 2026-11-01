@@ -2,7 +2,7 @@
 
 This exists to make the CLI refactor in #600 reviewable.
 
-`agentwatch/cli/main.py` is being split into per-family modules. The point of that change is that it
+`panoptis/cli/main.py` is being split into per-family modules. The point of that change is that it
 is *behaviour-preserving*: same commands, same flags, same defaults, same help. But "I didn't change
 anything" is not a claim a reviewer can check by reading a 2,500-line diff that moves code between
 files.
@@ -14,7 +14,7 @@ diff. Move code between modules all you like; the moment the interface shifts, y
 **On why it inspects the Click objects rather than snapshotting `--help`.** The `--help` route is the
 obvious one and it does not work. That output goes through Rich, which wraps text at points that
 differ between Windows and Linux even with `COLUMNS` pinned, draws panels with box characters the
-Windows console encoding cannot represent, and prints the program name as `agentwatch.EXE` on Windows.
+Windows console encoding cannot represent, and prints the program name as `panoptis.EXE` on Windows.
 None of that is the CLI's contract, and a golden file full of it fails on whichever platform did not
 generate it. A test that goes red for cosmetic reasons is one people learn to ignore.
 
@@ -37,7 +37,7 @@ from pathlib import Path, PurePath
 import pytest
 import typer.main
 
-from agentwatch.cli.main import app
+from panoptis.cli.main import app
 
 GOLDEN = Path(__file__).parent / "cli_surface.txt"
 
@@ -73,7 +73,7 @@ def _capture() -> str:
     out: list[str] = []
 
     def walk(cmd: object, path: list[str]) -> None:
-        out.append(f"command: agentwatch {' '.join(path)}".rstrip())
+        out.append(f"command: panoptis {' '.join(path)}".rstrip())
         out.append(f"    help: {(getattr(cmd, 'help', '') or '').strip()}")
         out.append(f"    short_help: {(getattr(cmd, 'short_help', '') or '').strip()}")
         out.extend(_params(cmd))
@@ -139,7 +139,7 @@ def test_every_command_has_a_callback() -> None:
     def walk(cmd: object, path: list[str]) -> None:
         subcommands = getattr(cmd, "commands", {})
         if not subcommands and not callable(getattr(cmd, "callback", None)):
-            broken.append("agentwatch " + " ".join(path))
+            broken.append("panoptis " + " ".join(path))
         for name in sorted(subcommands):
             walk(subcommands[name], [*path, name])
 

@@ -5,7 +5,7 @@ The AgentWatch LangChain adapter provides seamless instrumentation for LangChain
 ## Installation
 
 ```bash
-pip install "agentwatch-ai[langchain]"
+pip install "panoptis[langchain]"
 ```
 
 ## Basic Usage
@@ -13,7 +13,7 @@ pip install "agentwatch-ai[langchain]"
 The most common way to use the adapter is to pass it to the `callbacks` list of your `AgentExecutor` or LLM.
 
 ```python
-from agentwatch.adapters.langchain import AgentWatchCallbackHandler
+from panoptis.adapters.langchain import AgentWatchCallbackHandler
 from langchain.agents import AgentExecutor
 
 # Initialize the handler
@@ -46,8 +46,8 @@ llm = ChatOpenAI(model="gpt-4", callbacks=[handler])
 You can customize the event bus if you need to route events to a custom backend:
 
 ```python
-from agentwatch.core.event_bus import EventBus
-from agentwatch.adapters.langchain import AgentWatchCallbackHandler
+from panoptis.core.event_bus import EventBus
+from panoptis.adapters.langchain import AgentWatchCallbackHandler
 
 custom_bus = EventBus()
 handler = AgentWatchCallbackHandler(event_bus=custom_bus)

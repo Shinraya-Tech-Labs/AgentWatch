@@ -5,7 +5,7 @@ version: 1.0.0
 author: Shinraya Tech Labs
 license: Apache-2.0
 tags: [Safety Alignment, Guardrails, AI Agents, Runtime Safety, Pre-Execution Intercept, Formal Verification, Temporal Logic, Merkle Witness, Forensics]
-dependencies: [agentwatch-ai]
+dependencies: [panoptis]
 ---
 
 # Panopti — Active Pre-Execution Hypervisor for Autonomous AI
@@ -16,7 +16,7 @@ Panopti treats every token emitted by an LLM as untrusted user input, interposin
 
 **Installation**:
 ```bash
-pip install agentwatch-ai
+pip install panoptis
 ```
 
 **Basic Usage (Pre-Execution Intercept)**:

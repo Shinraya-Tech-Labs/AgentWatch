@@ -1,6 +1,6 @@
 # Feature Dossier 06: Latent State Discovery & Behavioral Motifs
 
-**Module Path**: [`agentwatch/state/latent.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/state/latent.py) & [`agentwatch/behaviour/motifs.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/behaviour/motifs.py)  
+**Module Path**: [`panoptis/state/latent.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/state/latent.py) & [`panoptis/behaviour/motifs.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/behaviour/motifs.py)  
 **System Plane**: Plane 3 (Analysis & Attribution Plane)  
 **Primary Maintainer**: Behavioral Topology & Pattern Mining Group  
 **Obsidian Backlinks**: [[01_ARCHITECTURE_AND_PLANES]], [[02_COMPUTATIONAL_EVENT_ALGEBRA]], [[04_HYPEREDGE_GRAPH_AND_PROVENANCE]], [[05_CAUSAL_INFERENCE_AND_BLAST_RADIUS]], [[07_BEHAVIORAL_GENOME_AND_DRIFT]]
@@ -42,7 +42,7 @@ AgentWatch solves this by introducing a dual-engine behavioral analysis framewor
 
 ---
 
-## 2. Latent State Discovery Engine (`agentwatch/state/latent.py`)
+## 2. Latent State Discovery Engine (`panoptis/state/latent.py`)
 
 The latent state discovery engine automatically extracts the underlying cognitive phases of an agent run without requiring manual prompt annotation or supervised labels.
 
@@ -69,7 +69,7 @@ Where:
 8. $x_{\text{memory}} \in [0, 1]$: Relative proportion of `MEMORY_ACCESS` events.
 
 ```python
-# Feature extraction per window in agentwatch/state/latent.py
+# Feature extraction per window in panoptis/state/latent.py
 def _features(chunk: list[dict[str, Any]], seen_ops: set[str], prev_size: float | None) -> list[float]:
     n = len(chunk)
     errors = sum(1 for e in chunk if e.get("status") in ("ERROR", "TIMEOUT"))
@@ -126,9 +126,9 @@ $$\text{State Name} = \textbf{"tool-heavy}\cdot\textbf{failing"}$$
 
 ---
 
-## 3. Behavioral Motifs Catalog (`agentwatch/behaviour/motifs.py`)
+## 3. Behavioral Motifs Catalog (`panoptis/behaviour/motifs.py`)
 
-Motifs are formal structural graph patterns over an agent's execution history. AgentWatch catalogs seven core motifs ($M001$–$M007$), registered with unique cryptographic UUIDs in `agentwatch/behaviour/motifs.py`.
+Motifs are formal structural graph patterns over an agent's execution history. AgentWatch catalogs seven core motifs ($M001$–$M007$), registered with unique cryptographic UUIDs in `panoptis/behaviour/motifs.py`.
 
 ```
   ┌──────┬────────────────────────────┬───────────────┬──────────────────────────────────────────┐
@@ -206,7 +206,7 @@ Motifs are formal structural graph patterns over an agent's execution history. A
 
 ## 4. Formal Code Implementation: Motif Detection Engine
 
-Below is the verified production implementation for `retrieval_echo` and `context_expansion` from [`agentwatch/behaviour/motifs.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/behaviour/motifs.py):
+Below is the verified production implementation for `retrieval_echo` and `context_expansion` from [`panoptis/behaviour/motifs.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/behaviour/motifs.py):
 
 ```python
 @REGISTRY.register(
@@ -456,8 +456,8 @@ Behavioral motifs and latent states are not merely informational charts; they op
 
 ```python
 # In EvidenceLab temporal contract specification:
-from agentwatch.contracts import Contract, Rule
-from agentwatch.behaviour.motifs import REGISTRY
+from panoptis.contracts import Contract, Rule
+from panoptis.behaviour.motifs import REGISTRY
 
 # Contract: An autonomous coding agent must never enter a self-referential echo loop
 no_epistemic_echo = Contract(

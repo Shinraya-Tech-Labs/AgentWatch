@@ -1,6 +1,6 @@
 # Feature Dossier 12: Enterprise Security, Privacy & OWASP Agentic Top 10
 
-**Module Path**: [`agentwatch/security/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/security/) (`owasp.py`, `redaction.py`, `encryption.py`, `exfiltration.py`, `redteam.py`) & [`SECURITY-BASELINE.md`](file:///data/data/com.termux/files/home/AgentWatch/SECURITY-BASELINE.md)  
+**Module Path**: [`panoptis/security/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/security/) (`owasp.py`, `redaction.py`, `encryption.py`, `exfiltration.py`, `redteam.py`) & [`SECURITY-BASELINE.md`](file:///data/data/com.termux/files/home/AgentWatch/SECURITY-BASELINE.md)  
 **System Plane**: Plane 4 (Intervention & Policy Plane) & Plane 1 (Runtime & Ingestion Plane)  
 **Primary Maintainer**: DevSecOps, Enterprise AI Security & Privacy Governance Team  
 **Obsidian Backlinks**: [[01_ARCHITECTURE_AND_PLANES]], [[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB]], [[05_CAUSAL_INFERENCE_AND_BLAST_RADIUS]], [[07_SECURITY_BASELINE_AND_DEVSECOPS]], [[08_REPLAY_AND_COUNTERFACTUALS]], [[09_CIRCUIT_BREAKERS_AND_HITL]]
@@ -75,15 +75,15 @@ assert anchor is not None   # nosec B101 — invariant: caller must supply start
 
 | Bandit Check | Check Description | Codebase Location | Scoped Prose Justification |
 | :--- | :--- | :--- | :--- |
-| `B311` | Standard pseudo-random generator | `agentwatch/behaviour/drift.py:122` | Seeded statistical permutation test for deterministic reproducibility. Not security-critical. |
-| `B311` | Standard pseudo-random generator | `agentwatch/behaviour/profile.py:84` | Seeded bootstrap confidence interval resampling ($B=1000$). |
-| `B311` | Standard pseudo-random generator | `agentwatch/state/latent.py:98` | Deterministic centroid initialization for K-means clustering. |
-| `B101` | Use of `assert` detected | `agentwatch/events/normalizers/` | Internal structural invariant check during normalized event parsing. |
-| `B105` | Hardcoded password string | `agentwatch/circuit_breaker/breaker.py:54` | Label identifier in `TripReason.TOKEN_BUDGET` enum, not a secret. |
+| `B311` | Standard pseudo-random generator | `panoptis/behaviour/drift.py:122` | Seeded statistical permutation test for deterministic reproducibility. Not security-critical. |
+| `B311` | Standard pseudo-random generator | `panoptis/behaviour/profile.py:84` | Seeded bootstrap confidence interval resampling ($B=1000$). |
+| `B311` | Standard pseudo-random generator | `panoptis/state/latent.py:98` | Deterministic centroid initialization for K-means clustering. |
+| `B101` | Use of `assert` detected | `panoptis/events/normalizers/` | Internal structural invariant check during normalized event parsing. |
+| `B105` | Hardcoded password string | `panoptis/circuit_breaker/breaker.py:54` | Label identifier in `TripReason.TOKEN_BUDGET` enum, not a secret. |
 
 ---
 
-## 3. SAF-003: OWASP Agentic Top 10 Coverage (`agentwatch/security/owasp.py`)
+## 3. SAF-003: OWASP Agentic Top 10 Coverage (`panoptis/security/owasp.py`)
 
 AgentWatch monitors and validates all agent operations against the **OWASP Top 10 for Agentic and LLM Applications**:
 
@@ -120,7 +120,7 @@ class OwaspVector(str, Enum):
 - **Defense**: Outbound network egress proxy, Shannon entropy monitoring on URL parameters, and DNS tunneling guards.
 
 ```python
-# OWASP Runtime Scanner Implementation in agentwatch/security/owasp.py
+# OWASP Runtime Scanner Implementation in panoptis/security/owasp.py
 class OwaspScanner:
     def scan_event(self, event: AgentEvent) -> OwaspScan:
         findings: list[OwaspFinding] = []
@@ -152,14 +152,14 @@ class OwaspScanner:
 
 ---
 
-## 4. Telemetry PII and PHI Redaction Engine (`agentwatch/security/redaction.py`)
+## 4. Telemetry PII and PHI Redaction Engine (`panoptis/security/redaction.py`)
 
 Regulatory compliance (GDPR Art. 17/25/32 and HIPAA Security Rule) mandates that Personally Identifiable Information (PII) and Protected Health Information (PHI) must never be written to observability databases or exported to unvetted third parties.
 
 ### 4.1 Dual-Engine Redaction Architecture
 `redaction.py` implements a resilient two-tier architecture:
 1. **Tier 1: Presidio NER Analyzer (Semantic)**: When `presidio-analyzer` and `presidio-anonymizer` are installed, AgentWatch runs spaCy-backed Named Entity Recognition to detect names, medical contexts, and addresses.
-2. **Tier 2: Single-Source-of-Truth Regex Engine (Deterministic)**: If Presidio is unavailable, AgentWatch seamlessly falls back to pre-compiled regex engines sourced directly from `agentwatch.governance.gdpr.pii_patterns()` and `agentwatch.governance.hipaa.phi_patterns()`.
+2. **Tier 2: Single-Source-of-Truth Regex Engine (Deterministic)**: If Presidio is unavailable, AgentWatch seamlessly falls back to pre-compiled regex engines sourced directly from `panoptis.governance.gdpr.pii_patterns()` and `panoptis.governance.hipaa.phi_patterns()`.
 
 ```python
 MASK = "[REDACTED]"
@@ -194,7 +194,7 @@ class RedactionEngine:
 
 ---
 
-## 5. Cryptographic Envelope Encryption (`agentwatch/security/encryption.py`)
+## 5. Cryptographic Envelope Encryption (`panoptis/security/encryption.py`)
 
 To protect customer execution traces in multi-tenant environments, AgentWatch uses **Envelope Encryption**:
 
@@ -269,7 +269,7 @@ class EnvelopeEncryptionEngine:
 
 ---
 
-## 6. Data Exfiltration Defense (`agentwatch/security/exfiltration.py`)
+## 6. Data Exfiltration Defense (`panoptis/security/exfiltration.py`)
 
 Autonomous coding agents frequently make HTTP requests as part of their duties (e.g., downloading packages or fetching documentation). Attackers exploit this to smuggle out credentials.
 
@@ -320,13 +320,13 @@ def inspect_outbound_url_exfiltration(url_string: str) -> dict[str, Any]:
 
 ---
 
-## 7. Automated Adversarial Red-Teaming (`agentwatch/security/redteam.py`)
+## 7. Automated Adversarial Red-Teaming (`panoptis/security/redteam.py`)
 
 Security is verified continuously via the automated red-teaming harness:
 
 ```bash
 # Run automated adversarial fuzzing suite against agent endpoint
-agentwatch redteam run --target "http://localhost:8000" --vectors all --intensity high
+panoptis redteam run --target "http://localhost:8000" --vectors all --intensity high
 ```
 
 The red-teaming engine applies:
@@ -342,9 +342,9 @@ The engine outputs a comprehensive compliance scorecard quantifying the agent's 
 
 ```python
 # Complete DevSecOps Ingestion Pipeline with Redaction and OWASP Scanning
-from agentwatch.security.redaction import RedactionEngine
-from agentwatch.security.owasp import OwaspScanner
-from agentwatch.core.schema import AgentEvent, EventType, ToolCallData
+from panoptis.security.redaction import RedactionEngine
+from panoptis.security.owasp import OwaspScanner
+from panoptis.core.schema import AgentEvent, EventType, ToolCallData
 
 redactor = RedactionEngine()
 scanner = OwaspScanner()
@@ -395,8 +395,8 @@ tests/
 ```
 
 ### Static Analysis Proof
-- `bandit -r agentwatch/`: **0 Issues Found** (Clean zero-baseline scan).
-- `ruff check agentwatch/`: Clean pass.
+- `bandit -r panoptis/`: **0 Issues Found** (Clean zero-baseline scan).
+- `ruff check panoptis/`: Clean pass.
 
 ---
 
@@ -418,7 +418,7 @@ tests/
 
 1. **OWASP Foundation (2025)**: *"OWASP Top 10 for Large Language Model Applications"*.
    - *URL*: [https://genai.owasp.org/](https://genai.owasp.org/)
-   - *Influence*: Theoretical foundation for `agentwatch/security/owasp.py` and automated red-teaming.
+   - *Influence*: Theoretical foundation for `panoptis/security/owasp.py` and automated red-teaming.
 2. **European Union (2016)**: *"General Data Protection Regulation (Regulation (EU) 2016/679)"*. Official Journal of the European Union.
    - *Articles*: Article 17 (Right to Erasure), Article 25 (Data Protection by Design), Article 32 (Security of Processing).
    - *Influence*: Directly governs PII redaction and cryptographic separation in `redaction.py`.

@@ -9,9 +9,9 @@ import time
 
 import httpx
 
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.http_forwarder import _HANDLER_ID, HttpEventForwarder, register_http_forwarder
-from agentwatch.core.schema import AgentEvent, EventType
+from panoptis.core.event_bus import EventBus
+from panoptis.core.http_forwarder import _HANDLER_ID, HttpEventForwarder, register_http_forwarder
+from panoptis.core.schema import AgentEvent, EventType
 
 
 def _closed_port() -> int:

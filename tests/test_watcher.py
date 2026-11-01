@@ -7,9 +7,9 @@ from typing import Any
 
 import pytest
 
-from agentwatch import GenericAdapter, detect_framework, detect_framework_label, watch
-from agentwatch.core.event_bus import EventBus
-from agentwatch.core.schema import AgentFramework, EventType
+from panoptis import GenericAdapter, detect_framework, detect_framework_label, watch
+from panoptis.core.event_bus import EventBus
+from panoptis.core.schema import AgentFramework, EventType
 
 # ─────────────────────────────────────────────
 # Stub agents that look like various frameworks
@@ -129,7 +129,7 @@ def test_watch_emits_session_start():
     # publish_sync may schedule into asyncio.run — drain
     asyncio.run(asyncio.sleep(0.01))
     # At minimum, the adapter was attached and a session-start was queued or logged
-    assert hasattr(agent, "_agentwatch_adapter")
+    assert hasattr(agent, "_panoptis_adapter")
 
 
 def test_watch_preserves_return_value():
@@ -172,7 +172,7 @@ def test_watch_idempotent():
 
 
 def test_watch_langchain_adds_callback():
-    from agentwatch.adapters.langchain import AgentWatchCallbackHandler
+    from panoptis.adapters.langchain import AgentWatchCallbackHandler
 
     bus = EventBus()
     agent = _FakeLangChainAgent()
@@ -237,7 +237,7 @@ def test_generic_adapter_propagates_exceptions():
 
 
 def test_watch_blocks_dangerous_command():
-    from agentwatch import AgentWatchBlockedError
+    from panoptis import AgentWatchBlockedError
 
     bus = EventBus()
     agent = _UnknownAgent()
@@ -259,7 +259,7 @@ def test_watch_allows_safe_command():
 
 
 def test_watch_blocks_multiple_entry_points():
-    from agentwatch import AgentWatchBlockedError
+    from panoptis import AgentWatchBlockedError
 
     bus = EventBus()
     agent = _UnknownAgent()
@@ -276,7 +276,7 @@ def test_watch_blocks_multiple_entry_points():
 
 
 def test_watch_blocks_dangerous_command_async():
-    from agentwatch import AgentWatchBlockedError
+    from panoptis import AgentWatchBlockedError
 
     class AsyncAgent:
         async def arun(self, cmd: str) -> str:

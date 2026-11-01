@@ -12,14 +12,14 @@ from datetime import UTC, datetime
 
 import pytest
 
-from agentwatch.core.schema import (
+from panoptis.core.schema import (
     AgentEvent,
     EventType,
     ReasoningStyleFingerprint,
     StyleSwapAlert,
 )
-from agentwatch.reasoning.auditor import ReasoningAuditor
-from agentwatch.reasoning.fingerprint import StyleFingerprint
+from panoptis.reasoning.auditor import ReasoningAuditor
+from panoptis.reasoning.fingerprint import StyleFingerprint
 
 
 def _plan(text: str, index: int) -> AgentEvent:

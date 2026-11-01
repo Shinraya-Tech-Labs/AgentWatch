@@ -361,7 +361,7 @@ class Analyzer(Protocol):                 # anything in planes C/D
 ### 3.2 Physical choices ([ADR-0006](adr/0006-storage-relational-first.md))
 
 - **One relational database** behind narrow store protocols:
-  - **SQLite** for embedded, local and test use. A developer can run `agentwatch` on a laptop with no services.
+  - **SQLite** for embedded, local and test use. A developer can run `panoptis` on a laptop with no services.
   - **PostgreSQL** for server mode. Reuses the existing compose, Helm and pgvector image.
 - **Blob store:** local filesystem (`<data>/blobs/ab/cd/<hash>`) or an S3-compatible bucket.
 - **No graph database.** Runs are bounded (10²–10⁵ events). Per-run analysis loads the run's relations into an in-memory graph library (candidates: `rustworkx` or `networkx`, chosen by the Phase 2 benchmark). Cross-run questions go through aggregated model-plane records (motif stats, genomes), not through arbitrary multi-run traversals.
@@ -399,7 +399,7 @@ CREATE TABLE evidence_segments (
   merkle_root TEXT NOT NULL, prev_segment_hash TEXT NOT NULL, segment_hash TEXT NOT NULL,
   sealed_at TIMESTAMPTZ NOT NULL
 );
--- DB-level guard (PG): REVOKE UPDATE, DELETE ON observations FROM agentwatch_app; trigger rejects UPDATE.
+-- DB-level guard (PG): REVOKE UPDATE, DELETE ON observations FROM panoptis_app; trigger rejects UPDATE.
 
 -- INTERPRETATION --------------------------------------------------------
 CREATE TABLE interpretations (
@@ -446,7 +446,7 @@ CREATE TABLE relation_evidence (rel_id UUID, evidence_kind TEXT, ref_id TEXT);
 - Observations are appended freely, with no per-row serialization.
 - A sealer closes a **segment** every N observations or T seconds. It computes a Merkle root over `(obs_id, payload_sha256, idempotency_key)` in `obs_id` order and chains each segment to the previous one.
 - This reuses the hash-chain approach of `governance/audit_log.py`. It moves the chain from rows to segments, because the per-row chain serializes all writers.
-- `agentwatch evidence verify` recomputes the chain end to end. An individual observation can be proven to be included with a Merkle proof.
+- `panoptis evidence verify` recomputes the chain end to end. An individual observation can be proven to be included with a Merkle proof.
 
 ### 3.5 Derivation and reprocessing
 
@@ -539,10 +539,10 @@ This refines the brief's suggested tree after studying the code. The main change
 
 - **Sensors live inside the package**, but the base install is dependency-light ([ADR-0008](adr/0008-sensor-plugins-light-sdk.md)).
 - **Motifs, genome and drift are grouped** under `behaviour/`, because they share feature extraction and the scope/SystemVersion machinery.
-- **v0.2 code moves under `agentwatch/legacy/`** instead of being deleted.
+- **v0.2 code moves under `panoptis/legacy/`** instead of being deleted.
 
 ```text
-agentwatch/                         # import name unchanged; distribution agentwatch-ai
+panoptis/                         # import name unchanged; distribution panoptis
   __init__.py                       # v3 public API; legacy names re-exported with DeprecationWarning
   _version.py
 
@@ -588,7 +588,7 @@ tests/
 
 - `evidence` imports nothing from AgentWatch.
 - Each plane may import only lower planes.
-- No v3 package imports `agentwatch.legacy`.
+- No v3 package imports `panoptis.legacy`.
 - `sensors/*` may import only `evidence` (plus its own framework), so sensors run inside observed apps with a minimal footprint.
 
 ---
@@ -609,10 +609,10 @@ The architecture above is implemented. Where the implementation deviates from th
 
 | Proposal | As built | Why |
 |---|---|---|
-| Packages `evidence, events, entities, runs, graph, provenance, compare, behaviour, causality, state, forecasting, replay, counterfactual, experiments, query, storage, runtime, analysis` | All present at the top level of `agentwatch/`, except replay, branching and counterfactuals, which live in `agentwatch/lab/` | `agentwatch/replay` is the v0.2 module. v3 must not shadow it during migration. |
+| Packages `evidence, events, entities, runs, graph, provenance, compare, behaviour, causality, state, forecasting, replay, counterfactual, experiments, query, storage, runtime, analysis` | All present at the top level of `panoptis/`, except replay, branching and counterfactuals, which live in `panoptis/lab/` | `panoptis/replay` is the v0.2 module. v3 must not shadow it during migration. |
 | Alembic migrations | `storage/schema.py` with SQLAlchemy Core, a `schema_version` row, and DB triggers (SQLite and PostgreSQL) | Only one schema version exists so far. Alembic is added with the first incompatible change. |
 | Incremental normalization | Incremental rebuild of the *correlation groups* touched by new observations (native `run_id`, OTel `trace_id`, Claude Code and legacy `session_id`), with automatic fallback to a deterministic full rebuild when correctness cannot be guaranteed (unknown key, run-less events, unresolved links). Tests assert incremental output equals full-rebuild output. | Full rebuild grows linearly with the store. One new run into a 4k-event store: 0.78 s incremental vs 8.8 s full on the same (loaded) machine. Entity aggregation is still linear. |
-| Separate sensor package / `[server]` extra | Sensors live in `agentwatch/sensors`. The base install still carries the server dependencies. | Packaging split (ADR-0008) is deferred to migration stage M2. |
+| Separate sensor package / `[server]` extra | Sensors live in `panoptis/sensors`. The base install still carries the server dependencies. | Packaging split (ADR-0008) is deferred to migration stage M2. |
 | Encryption and crypto-shredding (ADR-0011) | Edge secret redaction plus manifests, and retention by authorized segment purge. No per-subject encryption yet. | Known limitation; see IMPLEMENTATION_STATE. |
 | Graph library chosen by benchmark | Pure-Python traversal (`graph/traverse.py`) | Per-run graphs (10^4 relations) build in 0.2 s and traverse in 17 ms. No dependency was justified. |
 | Causal view | Derived on demand from hypotheses with computed evidence classes (`causality/hypotheses.py`); never from structure | ADR-0007 |

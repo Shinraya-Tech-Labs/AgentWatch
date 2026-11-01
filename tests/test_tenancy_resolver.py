@@ -1,10 +1,10 @@
-"""TO-003: tenant resolution from credentials (agentwatch.api.tenancy)."""
+"""TO-003: tenant resolution from credentials (panoptis.api.tenancy)."""
 
 from __future__ import annotations
 
 import pytest
 
-from agentwatch.api.tenancy import TenancyError, parse_tenant_keys, resolve
+from panoptis.api.tenancy import TenancyError, parse_tenant_keys, resolve
 
 KEYS = parse_tenant_keys("acme=key-acme-123, globex=key-globex-456")
 

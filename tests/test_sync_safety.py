@@ -2,9 +2,9 @@
 
 import asyncio
 
-from agentwatch.core.policy_dsl import PolicyEngine
-from agentwatch.core.safety import SafetyEngine
-from agentwatch.core.schema import AgentEvent, AgentFramework, EventType, ToolCallData
+from panoptis.core.policy_dsl import PolicyEngine
+from panoptis.core.safety import SafetyEngine
+from panoptis.core.schema import AgentEvent, AgentFramework, EventType, ToolCallData
 
 
 def test_sync_vs_async_parity():

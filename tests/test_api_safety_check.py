@@ -1,9 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from agentwatch.api.server import create_app
-from agentwatch.core.safety import SafetyEngine
-from agentwatch.core.schema import RiskLevel, SafetyCheckData
+from panoptis.api.server import create_app
+from panoptis.core.safety import SafetyEngine
+from panoptis.core.schema import RiskLevel, SafetyCheckData
 
 
 @pytest.fixture

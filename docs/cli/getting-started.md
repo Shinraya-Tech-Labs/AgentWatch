@@ -5,7 +5,7 @@
 AgentWatch requires Python 3.12 or newer.
 
 ```bash
-pip install agentwatch-ai
+pip install panoptis
 ```
 
 To work from a checkout of the repository:
@@ -21,7 +21,7 @@ pip install -e ".[dev]"
 Before anything else, confirm your install is healthy:
 
 ```bash
-agentwatch check-env
+panoptis check-env
 ```
 
 This runs a structural check of the install, confirms required dependencies are
@@ -29,7 +29,7 @@ importable, and reports on relevant environment variables. For a broader
 diagnostic, use:
 
 ```bash
-agentwatch doctor
+panoptis doctor
 ```
 
 ## Your first commands
@@ -37,13 +37,13 @@ agentwatch doctor
 List recent agent sessions (requires the API server — see below):
 
 ```bash
-agentwatch session list
+panoptis session list
 ```
 
 Score the risk of a shell command without running it:
 
 ```bash
-agentwatch safety check "rm -rf /"
+panoptis safety check "rm -rf /"
 ```
 
 Sample output:
@@ -57,7 +57,7 @@ Sample output:
 Report token usage and estimated spend across frameworks over the last 30 days:
 
 ```bash
-agentwatch cost report --days 30 --group-by framework
+panoptis cost report --days 30 --group-by framework
 ```
 
 ## Running the API server
@@ -66,13 +66,13 @@ Several commands (`session list`, `session watch`, `cost report`) read from the
 AgentWatch API. Start it locally with:
 
 ```bash
-agentwatch server start
+panoptis server start
 ```
 
 Then, in another terminal, check its health or open the live dashboard:
 
 ```bash
-agentwatch server status
+panoptis server status
 ```
 
 ## Getting help
@@ -80,7 +80,7 @@ agentwatch server status
 Every command and group supports `--help`:
 
 ```bash
-agentwatch --help
-agentwatch session --help
-agentwatch safety check --help
+panoptis --help
+panoptis session --help
+panoptis safety check --help
 ```

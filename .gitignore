@@ -43,3 +43,6 @@ Thumbs.db
 *.log.env.local
 data/
 .agents/
+
+# graphify skill output (generated cache)
+graphify-out/

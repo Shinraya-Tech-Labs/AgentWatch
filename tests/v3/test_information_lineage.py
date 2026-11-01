@@ -8,9 +8,9 @@ information-flow relations by default traversal (ambiguous candidates excluded).
 
 from __future__ import annotations
 
-from agentwatch import instrument as aw
-from agentwatch.provenance.lineage import lineage
-from agentwatch.query.workspace import Workspace
+from panoptis import instrument as aw
+from panoptis.provenance.lineage import lineage
+from panoptis.query.workspace import Workspace
 
 FLOW = ["PRODUCES", "CONSUMES", "DERIVES_FROM", "CONTAINS_ITEM", "TRANSFERS"]
 TEXT = "the reactor cooling loop must be inspected before any restart of unit two"

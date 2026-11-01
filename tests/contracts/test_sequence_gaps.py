@@ -18,13 +18,13 @@ from typing import Any
 
 import pytest
 
-from agentwatch.contracts.coverage import (
+from panoptis.contracts.coverage import (
     CoverageProfileRegistry,
     SequenceContinuityTracker,
     parse_event_sequence,
 )
-from agentwatch.contracts.evaluator import evaluate_contract
-from agentwatch.contracts.schema import (
+from panoptis.contracts.evaluator import evaluate_contract
+from panoptis.contracts.schema import (
     ContractOperator,
     ContractRule,
     CoverageSnapshot,
@@ -33,7 +33,7 @@ from agentwatch.contracts.schema import (
     MissingReason,
     SequenceGap,
 )
-from agentwatch.events.model import (
+from panoptis.events.model import (
     ComputationalEvent,
     EventKind,
     EventStatus,

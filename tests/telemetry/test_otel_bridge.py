@@ -6,7 +6,7 @@ import copy
 
 import pytest
 
-from agentwatch.telemetry.otel import (
+from panoptis.telemetry.otel import (
     OPENINFERENCE_SPAN_KIND_MAP,
     normalize_otel_span,
 )
@@ -37,7 +37,7 @@ def test_openinference_llm_span():
     assert out["gen_ai.usage.total_tokens"] == 17
     assert out["gen_ai.prompt"] == "hi"
     assert out["gen_ai.completion"] == "hello"
-    assert out["agentwatch.span_kind"] == "MODEL_INVOCATION"
+    assert out["panoptis.span_kind"] == "MODEL_INVOCATION"
     assert "extra" not in out  # everything was mapped
 
 
@@ -62,7 +62,7 @@ def test_openinference_and_genai_give_same_result():
 def test_each_span_kind(kind):
     out = normalize_otel_span({"openinference.span.kind": kind})
     aw_kind, operation = OPENINFERENCE_SPAN_KIND_MAP[kind]
-    assert out["agentwatch.span_kind"] == aw_kind
+    assert out["panoptis.span_kind"] == aw_kind
     assert out.get("gen_ai.operation.name") == operation
     assert "extra" not in out
 
@@ -74,7 +74,7 @@ def test_span_kind_is_case_insensitive():
 
 def test_unknown_span_kind_goes_to_extra_without_error():
     out = normalize_otel_span({"openinference.span.kind": "GUARDRAIL"})
-    assert "agentwatch.span_kind" not in out
+    assert "panoptis.span_kind" not in out
     assert out["extra"] == {"openinference.span.kind": "GUARDRAIL"}
 
 

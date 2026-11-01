@@ -18,12 +18,12 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from agentwatch import instrument as aw
-from agentwatch.compare.runs import compare
-from agentwatch.provenance.lineage import lineage
-from agentwatch.query.workspace import Workspace, run_order_key
-from agentwatch.runtime.engine import Engine
-from agentwatch.sensors.base import ListSink
+from panoptis import instrument as aw
+from panoptis.compare.runs import compare
+from panoptis.provenance.lineage import lineage
+from panoptis.query.workspace import Workspace, run_order_key
+from panoptis.runtime.engine import Engine
+from panoptis.sensors.base import ListSink
 
 OUT = Path(__file__).resolve().parent / "results"
 
@@ -143,8 +143,8 @@ def main(argv: list[str] | None = None) -> int:
         results["rebuild_events_per_s"] = round(report["events"] / t_process, 1)  # type: ignore[index]
         results["relations"] = report["relations"]  # type: ignore[index]
         # graph construction alone (the part of a rebuild that builds relations)
-        from agentwatch.graph.build import build_execution, build_information
-        from agentwatch.runs.segment import build_source_index, segment
+        from panoptis.graph.build import build_execution, build_information
+        from panoptis.runs.segment import build_source_index, segment
 
         built = engine.build(
             "default", engine.interp_id_for("default"), engine.store.observations()
@@ -152,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
         evs = built["events"]
         seg = segment(evs, "default")
         index = build_source_index(evs)
-        from agentwatch.events.normalize import NormalizeContext
+        from panoptis.events.normalize import NormalizeContext
 
         nctx = NormalizeContext(
             "default",

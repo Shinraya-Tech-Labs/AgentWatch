@@ -11,10 +11,10 @@ import json
 
 from typer.testing import CliRunner
 
-from agentwatch import instrument as aw
-from agentwatch.cli.main import app
-from agentwatch.runtime.engine import Engine
-from agentwatch.storage.store import Store
+from panoptis import instrument as aw
+from panoptis.cli.main import app
+from panoptis.runtime.engine import Engine
+from panoptis.storage.store import Store
 
 
 def _ingest(store: Store, sink, tenant: str, runs: int) -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from agentwatch.core.schema import (
+from panoptis.core.schema import (
     AgentEvent,
     AgentSession,
     EventType,
@@ -13,17 +13,17 @@ from agentwatch.core.schema import (
     ToolCallData,
     ToolResultData,
 )
-from agentwatch.platform.cloud import TenantStore
-from agentwatch.platform.eval_builder import EvalDataset, EvalLabel
-from agentwatch.platform.intelligence import AgentWatchIntelligence
-from agentwatch.platform.prompts import PromptRegistry
-from agentwatch.platform.sharing import (
+from panoptis.platform.cloud import TenantStore
+from panoptis.platform.eval_builder import EvalDataset, EvalLabel
+from panoptis.platform.intelligence import AgentWatchIntelligence
+from panoptis.platform.prompts import PromptRegistry
+from panoptis.platform.sharing import (
     ShareLinkRegistry,
     ShareScope,
     render_for_viewer,
     sanitize_trace,
 )
-from agentwatch.plugins.registry import PluginRegistry
+from panoptis.plugins.registry import PluginRegistry
 
 # ─────────────────────────────────────────────
 # PLT-001 — Session sharing

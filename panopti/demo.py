@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from panopti._banner import PANOPTI_ASCII_BANNER
+from panopti._banner import PANOPTI_ASCII_BANNER, print_banner
 from panopti.attest import AttestationEngine
 from panopti.court import WitnessChain
 from panopti.killswitch import EmergencyKillSwitch
@@ -115,7 +115,7 @@ def run_interactive_demo(
     def p(text: str = "", end: str = "\n") -> None:
         print(text, end=end, flush=True)
 
-    p(PANOPTI_ASCII_BANNER)
+    print_banner()
     p(
         _c_theme(
             "================================================================================",

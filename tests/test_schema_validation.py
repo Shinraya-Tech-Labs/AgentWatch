@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from agentwatch.api.server import _init_default_schemas, _schema_validator, app
-from agentwatch.core.schema import (
+from panoptis.api.server import _init_default_schemas, _schema_validator, app
+from panoptis.core.schema import (
     AgentEvent,
     AgentFramework,
     AgentSession,

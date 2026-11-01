@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://img.shields.io/pypi/v/agentwatch-ai?label=Panopti&color=black&style=for-the-badge" alt="Panopti on PyPI" />
+<img src="https://img.shields.io/pypi/v/panoptis?label=PANOPTIS&color=black&style=for-the-badge" alt="PANOPTIS on PyPI" />
 
 # 👁️ PANOPTIS
 ### *(formerly AgentWatch)*
@@ -14,7 +14,7 @@
 
 <br/>
 
-[![PyPI Version](https://img.shields.io/pypi/v/agentwatch-ai?style=flat-square&color=blue)](https://pypi.org/project/agentwatch-ai/)
+[![PyPI Version](https://img.shields.io/pypi/v/panoptis?style=flat-square&color=blue)](https://pypi.org/project/panoptis/)
 [![Tests](https://img.shields.io/badge/tests-205_passing-brightgreen?style=flat-square)](https://github.com/Shinraya-Tech-Labs/AgentWatch)
 [![Coverage](https://img.shields.io/codecov/c/github/Shinraya-Tech-Labs/AgentWatch?style=flat-square)](https://codecov.io/gh/Shinraya-Tech-Labs/AgentWatch)
 [![License](https://img.shields.io/badge/license-Apache_2.0-blue?style=flat-square)](LICENSE)
@@ -28,7 +28,7 @@
 <br/>
 
 ```bash
-pip install agentwatch-ai   # or panopti-ai
+pip install panoptis
 
 # 🎮 Instant Interactive Terminal Demo (Simulates rogue agent attempting DROP TABLE users;)
 panopti demo
@@ -50,14 +50,14 @@ panopti playground
 > **AgentWatch v3** (merged into `main`) rebuilds AgentWatch as a *passive instrument*. It reconstructs, compares, replays and explains the behaviour of AI-native systems from immutable runtime evidence, and it does not block or control them.
 >
 > ```bash
-> agentwatch observe python examples/research_system.py   # record a program
-> agentwatch inspect latest                                 # reconstructed execution
-> agentwatch provenance report.md --run latest              # evidence lineage
-> agentwatch compare latest~1 latest                        # earliest divergence
-> agentwatch replay latest --level L2                       # replay with captured results
+> panoptis observe python examples/research_system.py   # record a program
+> panoptis inspect latest                                 # reconstructed execution
+> panoptis provenance report.md --run latest              # evidence lineage
+> panoptis compare latest~1 latest                        # earliest divergence
+> panoptis replay latest --level L2                       # replay with captured results
 > ```
 >
-> See [docs/v3/USER_GUIDE.md](docs/v3/USER_GUIDE.md), [docs/v3](docs/v3/README.md) (architecture, ADRs, migration) and [AWBench results](benchmarks/awbench/results/LATEST.md). Most analysis features are EXPERIMENTAL; `agentwatch status` shows each capability's maturity. The v0.2 guardrail features described below remain available during migration.
+> See [docs/v3/USER_GUIDE.md](docs/v3/USER_GUIDE.md), [docs/v3](docs/v3/README.md) (architecture, ADRs, migration) and [AWBench results](benchmarks/awbench/results/LATEST.md). Most analysis features are EXPERIMENTAL; `panoptis status` shows each capability's maturity. The v0.2 guardrail features described below remain available during migration.
 
 
 ---
@@ -192,7 +192,7 @@ flowchart TB
     style DASH fill:#1e293b,stroke:#3ecf8e,color:#fff
 ```
 ### CLI Architecture
-* All shell commands executed by the CLI are routed through a secure, validated wrapper located in `agentwatch/cli/_utils` to prevent injection vulnerabilities.
+* All shell commands executed by the CLI are routed through a secure, validated wrapper located in `panoptis/cli/_utils` to prevent injection vulnerabilities.
 
 ---
 
@@ -265,7 +265,7 @@ sequenceDiagram
 
 ```bash
 # Install
-pip install agentwatch-ai
+pip install panoptis
 
 # Configure environment variables
 # Copy the template and set AGENTWATCH_API_KEY (docker compose requires it), e.g.
@@ -276,7 +276,7 @@ cp .env.example .env
 docker compose up -d
 
 # Wrap your agent
-agentwatch session watch "Build me a REST API"
+panoptis session watch "Build me a REST API"
 ```
 
 **Dashboard** → http://localhost:3000
@@ -305,7 +305,7 @@ AgentWatch wraps your existing agent. **You change nothing.** Detailed guides fo
 *The feature nobody else has built.*
 
 ```python
-from agentwatch.reasoning.auditor import ReasoningAuditor
+from panoptis.reasoning.auditor import ReasoningAuditor
 
 auditor = ReasoningAuditor()
 audit = await auditor.audit_step(step.step_number, step)
@@ -319,8 +319,8 @@ When the score drops below your threshold, the next action is **held — not log
 ### 🛡️ Safety Engine
 
 ```python
-from agentwatch.core.safety import SafetyEngine
-from agentwatch.core.schema import ExecutionStatus
+from panoptis.core.safety import SafetyEngine
+from panoptis.core.schema import ExecutionStatus
 
 engine = SafetyEngine()
 checked = await engine.check_event(event)
@@ -337,7 +337,7 @@ Blocks **40+ dangerous patterns pre-execution**, not post-hoc logging.
 To prevent command-injection risks when invoking external utilities in CLI extensions or scripts, use the central secure command execution utility:
 
 ```python
-from agentwatch.cli._utils import run, CommandError
+from panoptis.cli._utils import run, CommandError
 
 try:
     # Runs securely (shell=False) with strict argument character whitelisting
@@ -351,7 +351,7 @@ except CommandError as exc:
 ### ⏪ One-Click Rollback
 
 ```bash
-agentwatch session rollback <session-id> --to-step 12
+panoptis session rollback <session-id> --to-step 12
 ```
 
 Every step is a **git-backed filesystem snapshot.** Irreversible actions become reversible. Click rollback in the dashboard or use the CLI.

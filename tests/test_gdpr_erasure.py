@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.governance.gdpr import (
+from panoptis.governance.gdpr import (
     CrossSessionErasureService,
     ErasureReceipt,
     ErasureRequest,

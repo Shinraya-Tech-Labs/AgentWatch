@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.core.event_bus import EventBus
-from agentwatch.orchestration.consensus import AgentVote, detect_consensus
-from agentwatch.orchestration.crew_context import CrewContext
-from agentwatch.orchestration.dag import InterAgentDAG
-from agentwatch.orchestration.deadlock import DeadlockDetector
-from agentwatch.orchestration.propagation import trace_propagation
-from agentwatch.orchestration.race_condition import AccessType, RaceConditionDetector
-from agentwatch.orchestration.shapley import shapley_attribution
-from agentwatch.orchestration.spawning import SpawningTracker, SpawnLimitExceeded
-from agentwatch.orchestration.trust import InterAgentTrust
+from panoptis.core.event_bus import EventBus
+from panoptis.orchestration.consensus import AgentVote, detect_consensus
+from panoptis.orchestration.crew_context import CrewContext
+from panoptis.orchestration.dag import InterAgentDAG
+from panoptis.orchestration.deadlock import DeadlockDetector
+from panoptis.orchestration.propagation import trace_propagation
+from panoptis.orchestration.race_condition import AccessType, RaceConditionDetector
+from panoptis.orchestration.shapley import shapley_attribution
+from panoptis.orchestration.spawning import SpawningTracker, SpawnLimitExceeded
+from panoptis.orchestration.trust import InterAgentTrust
 
 # ─────────────────────────────────────────────
 # MAG-001 — Inter-Agent DAG

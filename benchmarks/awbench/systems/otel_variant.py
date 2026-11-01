@@ -11,8 +11,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from agentwatch.sensors.base import FileSink
-from agentwatch.sensors.otel import AgentWatchSpanProcessor
+from panoptis.sensors.base import FileSink
+from panoptis.sensors.otel import AgentWatchSpanProcessor
 
 
 def run_otel_tool_loop(
@@ -70,7 +70,7 @@ def run_otel_tool_loop(
             out = summarize(prompt)
             span.set_attribute("gen_ai.completion", out)
             if enriched:
-                span.set_attribute("agentwatch.information.instance_id", "awbench:summary")
+                span.set_attribute("panoptis.information.instance_id", "awbench:summary")
         gt.flow(r, m)
         t = node("calculate", "TOOL_INVOCATION")
         with tracer.start_as_current_span(
@@ -90,10 +90,10 @@ def run_otel_tool_loop(
         if enriched:
             report_attrs.update(
                 {
-                    "agentwatch.artifact.operation": "create",
-                    "agentwatch.artifact.id": "report.md",
-                    "agentwatch.artifact.content": "# Report\n" + out,
-                    "agentwatch.information.source": "awbench:summary",
+                    "panoptis.artifact.operation": "create",
+                    "panoptis.artifact.id": "report.md",
+                    "panoptis.artifact.content": "# Report\n" + out,
+                    "panoptis.information.source": "awbench:summary",
                 }
             )
         with tracer.start_as_current_span("write report", attributes=report_attrs):

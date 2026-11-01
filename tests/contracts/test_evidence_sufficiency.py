@@ -5,8 +5,8 @@ from datetime import datetime
 
 import pytest
 
-from agentwatch.contracts.evaluator import evaluate_contract
-from agentwatch.contracts.schema import (
+from panoptis.contracts.evaluator import evaluate_contract
+from panoptis.contracts.schema import (
     ContractOperator,
     ContractRule,
     CoverageSnapshot,
@@ -14,7 +14,7 @@ from agentwatch.contracts.schema import (
     EvidenceVerdict,
     MissingReason,
 )
-from agentwatch.events.model import (
+from panoptis.events.model import (
     ComputationalEvent,
     EventKind,
     EventStatus,

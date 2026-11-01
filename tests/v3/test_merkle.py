@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from agentwatch.evidence.merkle import (
+from panoptis.evidence.merkle import (
     EMPTY_ROOT,
     MerkleProof,
     MerkleTree,
@@ -25,7 +25,7 @@ def leaves(n: int) -> list[str]:
 def external_verify(leaf_hash: str, proof_json: str, root: str) -> bool:
     """A verifier written from the format description alone.
 
-    It imports nothing from agentwatch: only ``hashlib`` and ``json``. It reads the proof JSON
+    It imports nothing from panoptis: only ``hashlib`` and ``json``. It reads the proof JSON
     (``leaf_index``, ``tree_size``, ``path``) and rebuilds the root with the RFC 6962 recursion
     (split at the largest power of two below the size), which is a different derivation from the
     iterative one in the library, so agreement between the two is meaningful.

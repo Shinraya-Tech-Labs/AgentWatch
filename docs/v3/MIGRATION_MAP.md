@@ -9,7 +9,7 @@ Classification key:
 | **KEEP** | Used in v3 as-is, or with cosmetic changes (a move or rename) |
 | **ADAPT** | Logic reused. Interface changed to fit the v3 domain model. |
 | **REWRITE** | The capability is needed in v3, but the implementation cannot carry v3 semantics. It is replaced, and the old code stays as reference. |
-| **DEPRECATE** | Not v3 core. Moved to `agentwatch/legacy/`, kept importable with a `DeprecationWarning`, maintained only for fixes, and removed after a published deprecation window. Some become **benchmark baselines** or **candidate motif detectors**. |
+| **DEPRECATE** | Not v3 core. Moved to `panoptis/legacy/`, kept importable with a `DeprecationWarning`, maintained only for fixes, and removed after a published deprecation window. Some become **benchmark baselines** or **candidate motif detectors**. |
 | **REMOVE** | Dead, duplicated, accidental, or actively misleading. Deleted once references are gone. |
 
 The principle behind every row is that v3 core never depends on anything below KEEP/ADAPT. A DEPRECATE module can survive for a long time without distorting the architecture, because it lives behind the `legacy/` boundary.
@@ -102,7 +102,7 @@ The principle behind every row is that v3 core never depends on anything below K
 |---|---|---|
 | `api/server.py` | **REWRITE** as an app factory + `api/routers/*` | A 1,872-line monolith with process-local singletons (D8). Legacy routes move into `api/routers/legacy_v1.py` unchanged, served from the same app during migration. |
 | `api/auth.py`, `tenant_auth.py`, `middleware/rate_limiter.py` · `models/tenant.py` | **KEEP** | Solid, tested. |
-| `cli/main.py` | **REWRITE** (split) | Split into `cli/commands/{evidence,runs,events,graph,compare,replay,server,doctor,legacy}.py`. Keep `doctor`, `check-env`, `server start`/`status`, `version`. The legacy command group stays under `agentwatch legacy …` with aliases for one release. |
+| `cli/main.py` | **REWRITE** (split) | Split into `cli/commands/{evidence,runs,events,graph,compare,replay,server,doctor,legacy}.py`. Keep `doctor`, `check-env`, `server start`/`status`, `version`. The legacy command group stays under `panoptis legacy …` with aliases for one release. |
 | `cli/_utils`, `cli/verify_env.py`, `cli/animator.py` | **KEEP** | |
 | `cli/demo.py` | **ADAPT** → generates an AWBench-style demo run | Currently in merge conflict. Resolve before branching. |
 | `cli/mcp.py`, `protocol/mcp_server.py` | **ADAPT** → `query/mcp` | Exposing AgentWatch queries via MCP is aligned with QUERY. The tool set is replaced by v3 structured queries. |
@@ -130,7 +130,7 @@ The principle behind every row is that v3 core never depends on anything below K
 | `VISION.md` | **REWRITE** after Phase 1 | It describes a control plane, which v3 rejects |
 | `how HEAD:__main__.py` | **REMOVE** | Accidental file |
 | `demo.py`, `real_agent.py` (root) | **ADAPT** → `benchmarks/awbench/systems/` or REMOVE | |
-| `issues.md`, `agentwatch_masterlist.md`, `MASTERLIST_STATUS.md`, `PROGRESS.md` | **REMOVE** (archive in `docs/archive/`) | Checklist artefacts. The masterlist framing drove the sprawl (D12). |
+| `issues.md`, `panoptis_masterlist.md`, `MASTERLIST_STATUS.md`, `PROGRESS.md` | **REMOVE** (archive in `docs/archive/`) | Checklist artefacts. The masterlist framing drove the sprawl (D12). |
 | `agentwatch-landing/` | Out of scope | Separate repository. Messaging must change after v3 capabilities are validated, not before. |
 
 ### 1.7 Tally
@@ -170,7 +170,7 @@ Stages:
 |---|---|---|---|
 | **M0 — Stabilize** (before branching) | Resolve the in-progress merge on `main`; sync with `origin/main`; ship two low-risk v0.2 fixes: freeze events passed to bus handlers (D2 redaction race), and relabel `/simulate` output (D7) | Bug fixes only | `main` green in CI |
 | **M1 — Parallel core** (Phase 1) | Create `architecture/v3` from `main`. Add `evidence/`, `events/`, `entities/`, `runs/`, `sensors/`, `storage/`, `runtime/`, `/v3` routes and the OTLP receiver. The legacy `/api/v1/events` route **tees** into the legacy translator. | None; additive | Phase 1 exit criteria (PHASE1_PLAN §5) |
-| **M2 — Quarantine** | Move DEPRECATE modules to `agentwatch/legacy/…`, with shim modules at old paths that re-export and warn. Split the base install: `agentwatch-ai` (light, sensors) plus `agentwatch-ai[server]` (ADR-0008). | Import paths warn; `pip install agentwatch-ai` users who run the server must add `[server]` (documented, and the CLI prints the fix) | CI import-linter contract passes; legacy tests pass from `tests/legacy` |
+| **M2 — Quarantine** | Move DEPRECATE modules to `panoptis/legacy/…`, with shim modules at old paths that re-export and warn. Split the base install: `panoptis` (light, sensors) plus `panoptis[server]` (ADR-0008). | Import paths warn; `pip install panoptis` users who run the server must add `[server]` (documented, and the CLI prints the fix) | CI import-linter contract passes; legacy tests pass from `tests/legacy` |
 | **M3 — Read cut-over** (Phases 2–3) | New UI views read `/v3`. Legacy UI pages are hidden behind a "legacy" nav section. The in-memory `TraceCollector` is no longer the source of any v3 read. | Legacy pages still work | TIMELINE, MAP and COMPARE are usable on real data |
 | **M4 — Merge to main** | `architecture/v3` merges to `main` as 0.3.0 (pre-1.0, EXPERIMENTAL). The legacy API is still served. | Deprecation notices published | Release checklist, AWBench v0 results published with honest numbers |
 | **M5 — Retire** | After one or two minor releases: remove `legacy/` modules that have no users, drop the `/api/v1` write path (the translator remains available as a sensor). | Breaking; major-version gated | Telemetry or issue tracker shows no usage; a migration guide exists |
@@ -178,7 +178,7 @@ Stages:
 Guarantees during migration:
 
 1. No working integration is broken before M5. Every v0.2 adapter feeds v3 via `sensors/legacy` from day one of M1.
-2. **No destructive data migration.** Old `agent_events` rows can be *imported* as observations (export them as JSONL, then `agentwatch ingest events.jsonl`; as built, there is no separate `import-legacy` command). They are marked `source_kind="legacy.agent_event.pg"` with `observation_confidence` reflecting that timestamps and parents are unreliable (D1, D5).
+2. **No destructive data migration.** Old `agent_events` rows can be *imported* as observations (export them as JSONL, then `panoptis ingest events.jsonl`; as built, there is no separate `import-legacy` command). They are marked `source_kind="legacy.agent_event.pg"` with `observation_confidence` reflecting that timestamps and parents are unreliable (D1, D5).
 3. The legacy code is frozen for features. Bug and security fixes only.
 
 ---
@@ -188,7 +188,7 @@ Guarantees during migration:
 The working tree is mid-merge at audit time, so creating a branch now would carry unresolved conflicts into v3. The steps:
 
 ```bash
-# 1. finish or abort the in-progress merge on main (conflicts: .dockerignore, agentwatch/cli/demo.py)
+# 1. finish or abort the in-progress merge on main (conflicts: .dockerignore, panoptis/cli/demo.py)
 git status
 # 2. integrate origin/main (local has diverged: 1 local vs 37 remote commits); main is PR-protected → do it via a PR branch
 # 3. once main is clean and green:
@@ -209,7 +209,7 @@ git add docs/v3 && git commit -m "docs(v3): Phase 0 architecture audit, target a
 | M1 Parallel core | **done** | v3 packages, `/api/v3`, the OTLP receiver, and the legacy `/api/v1/events` tee (`AGENTWATCH_V3_TEE`). |
 | M2 Quarantine | **done (logical)** | Enforced by `tests/v3/test_architecture_contracts.py` in CI; the physical move is replaced by deletion at M5 (ADR-0016). Packaging split moved to M4. |
 | M3 Read cut-over | **done for the UI** | The frontend reads only `/api/v3`. v0.2 dashboard pages are removed; the v0.2 API remains. |
-| M4 Merge to main | **merged** (2026-09-27) | `architecture/v3` merged into `main` with `--no-ff` (17d667d), keeping its individual commits. Not yet done: the packaging split (ADR-0008; needs owner approval, the default `pip install agentwatch-ai` is unchanged) and a release tag/version bump (tags publish to PyPI). |
+| M4 Merge to main | **merged** (2026-09-27) | `architecture/v3` merged into `main` with `--no-ff` (17d667d), keeping its individual commits. Not yet done: the packaging split (ADR-0008; needs owner approval, the default `pip install panoptis` is unchanged) and a release tag/version bump (tags publish to PyPI). |
 | M5 Retire | pending | After a deprecation window. |
 
-CLI changes: v3 commands are canonical, and the v0.2 `compare` moved to `agentwatch legacy compare`. v0.2 data in Postgres `agent_events` can be exported as JSONL and imported with `agentwatch ingest file.jsonl`. It goes through `LegacyTranslator` with loss reporting.
+CLI changes: v3 commands are canonical, and the v0.2 `compare` moved to `panoptis legacy compare`. v0.2 data in Postgres `agent_events` can be exported as JSONL and imported with `panoptis ingest file.jsonl`. It goes through `LegacyTranslator` with loss reporting.

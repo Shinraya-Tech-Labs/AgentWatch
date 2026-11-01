@@ -8,7 +8,7 @@
 *.md    @sreerevanth
 
 # Backend & APIs
-/agentwatch/   @sreerevanth
+/panoptis/   @sreerevanth
 /api/          @sreerevanth
 
 # Frontend

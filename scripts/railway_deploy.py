@@ -48,7 +48,7 @@ def main() -> None:
     existing = {p["node"]["name"]: p["node"]["id"] for p in projects["me"]["projects"]["edges"]}
     print(f"Existing projects: {list(existing.keys()) or 'none'}")
 
-    project_name = "agentwatch"
+    project_name = "panoptis"
     if project_name in existing:
         project_id = existing[project_name]
         print(f"Using existing project: {project_id}")

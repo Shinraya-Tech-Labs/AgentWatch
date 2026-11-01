@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from agentwatch.circuit_breaker import (
+from panoptis.circuit_breaker import (
     CircuitBreaker,
     CircuitState,
     CircuitThresholds,
     LoopDetector,
     TripReason,
 )
-from agentwatch.core.schema import (
+from panoptis.core.schema import (
     AgentEvent,
     EventType,
     ExecutionStatus,

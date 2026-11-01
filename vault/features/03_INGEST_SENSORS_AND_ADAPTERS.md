@@ -1,7 +1,7 @@
 # Feature 03: Ingest Sensors, Protocol Taps & Normalizer Adapters
 
-> **Submodule:** [`agentwatch/sensors/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/sensors/), [`agentwatch/adapters/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/adapters/), [`agentwatch/evidence/`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/)  
-> **Source Files:** [`model.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/model.py), [`redaction.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/redaction.py), [`langchain.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/adapters/langchain.py), [`generic.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/adapters/generic.py), [`mcp.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/cli/mcp.py)  
+> **Submodule:** [`panoptis/sensors/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/sensors/), [`panoptis/adapters/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/adapters/), [`panoptis/evidence/`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/)  
+> **Source Files:** [`model.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/model.py), [`redaction.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/redaction.py), [`langchain.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/adapters/langchain.py), [`generic.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/adapters/generic.py), [`mcp.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/cli/mcp.py)  
 > **ADR Anchor:** [ADR-0002: Passive Sidecar Architecture](file:///data/data/com.termux/files/home/AgentWatch/docs/v3/adr/0002-passive-sidecar.md)  
 > **Obsidian Backlinks:** [[README]], [[01_ARCHITECTURE_AND_PLANES]], [[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB]], [[02_COMPUTATIONAL_EVENT_ALGEBRA]], [[04_HYPEREDGE_GRAPH_AND_PROVENANCE]]  
 
@@ -48,7 +48,7 @@ AgentWatch v3 is explicitly engineered as a **Passive Sidecar System** ([ADR-000
 
 ---
 
-## 2. The Raw Observation Model (`agentwatch/evidence/model.py`)
+## 2. The Raw Observation Model (`panoptis/evidence/model.py`)
 
 A `RawObservation` is the immutable record of an event as received on the wire:
 
@@ -80,7 +80,7 @@ AgentWatch implements native compatibility with the **OpenTelemetry Generative A
   - `gen_ai.usage.output_tokens` $\longrightarrow$ `attributes_json["output_tokens"]`.
 - **Span Link Resolution**: Reconstructs distributed multi-agent DAGs across microservices using W3C `traceparent` headers.
 
-### 3.2 LangChain & LangGraph Adapter (`agentwatch/adapters/langchain.py`)
+### 3.2 LangChain & LangGraph Adapter (`panoptis/adapters/langchain.py`)
 Hooks seamlessly into LangChain via a custom `BaseCallbackHandler`:
 
 ```python
@@ -102,13 +102,13 @@ class AgentWatchCallbackHandler(BaseCallbackHandler):
 
 **LangGraph State Graphs**: The normalizer inspects `kwargs.get("run_id")` and `kwargs.get("parent_run_id")` to pair tool executions with parent agent reasoning nodes and graph state checkpoints.
 
-### 3.3 Claude Code & Anthropic Transcripts (`agentwatch/sensors/claude_code/`)
+### 3.3 Claude Code & Anthropic Transcripts (`panoptis/sensors/claude_code/`)
 Ingests stream-json and transcript logs from Claude Code sessions:
 - Maps `invoke_subagent` calls into subagent spawn hyperedges in the Execution View ([[04_HYPEREDGE_GRAPH_AND_PROVENANCE]]).
 - Maps terminal executions (`run_command`), file reads (`view_file`), and file replacements (`replace_file_content`) to formal `TOOL_INVOCATION` events.
 - Normalizes turn delimiters, tool result blocks, and user feedback steps.
 
-### 3.4 Model Context Protocol (MCP) Message Tap (`agentwatch/cli/mcp.py`)
+### 3.4 Model Context Protocol (MCP) Message Tap (`panoptis/cli/mcp.py`)
 The Model Context Protocol (MCP) standardizes how LLM agents interact with local and remote tool servers:
 - **Architecture**: AgentWatch runs a non-intrusive JSON-RPC message tap between MCP clients (e.g., Claude Desktop, Cursor, Antigravity) and MCP servers.
 - **Capture Capabilities**:
@@ -123,7 +123,7 @@ Specialized callback adapters capturing multi-agent dynamics:
 - **AutoGen**: Captures multi-agent conversational turns, speaker selection rounds, and termination conditions.
 
 ### 3.6 Legacy v0.2 Backward Compatibility Bridge (`generic.py`)
-In [`agentwatch/adapters/generic.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/adapters/generic.py), AgentWatch maintains a zero-overhead translation bridge for codebases built against the legacy v0.2 `AgentEvent` schema:
+In [`panoptis/adapters/generic.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/adapters/generic.py), AgentWatch maintains a zero-overhead translation bridge for codebases built against the legacy v0.2 `AgentEvent` schema:
 
 ```python
 class GenericAdapter:
@@ -178,7 +178,7 @@ A critical function of normalizers is converting paired, asynchronous wire obser
 ```
 
 ### 4.1 Pairing State Machine Architecture
-In `agentwatch/events/normalize.py`, the pairing engine operates as a stateful event aggregator:
+In `panoptis/events/normalize.py`, the pairing engine operates as a stateful event aggregator:
 
 ```python
 class SpanPairingStateMachine:
@@ -236,7 +236,7 @@ class RedactionManifest:
 ```
 
 ### 5.1 Pattern Detection Engine
-In [`agentwatch/evidence/redaction.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/evidence/redaction.py), the redaction engine compiles optimized regular expressions:
+In [`panoptis/evidence/redaction.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/evidence/redaction.py), the redaction engine compiles optimized regular expressions:
 
 ```python
 DETECTORS: dict[str, re.Pattern] = {
@@ -278,7 +278,7 @@ def sanitize_payload(raw_json_str: str, salt: bytes) -> tuple[str, RedactionMani
 Under heavy agent workloads (e.g., thousands of parallel evaluation threads), telemetry ingestion must not consume unbounded memory.
 
 ### 6.1 Lock-Free Ring Buffer Architecture
-In `agentwatch/sensors/buffer.py`:
+In `panoptis/sensors/buffer.py`:
 - **Pre-allocated Memory**: Fixed-capacity ring buffer array avoiding dynamic allocations on hot telemetry paths.
 - **Thread Safety**: Uses atomic index updates (`atomic_fetch_add`) to ensure multi-threaded agent runners write without lock contention.
 - **Backpressure & Drop Policy**:
@@ -338,7 +338,7 @@ For enterprise deployments emitting millions of spans per second, JSON transport
 
 ```protobuf
 syntax = "proto3";
-package agentwatch.v3;
+package panoptis.v3;
 
 message OTLPGenAIPayload {
   string trace_id = 1;
@@ -393,7 +393,7 @@ Compared to active proxy architectures that add **250ms–600ms** to every LLM t
    - *Influence*: Governs `traceparent` and `tracestate` header propagation across agent process boundaries.
 3. **Model Context Protocol (MCP) (2024)**: *"Anthropic Model Context Protocol Specification"*.
    - *URL*: [https://modelcontextprotocol.io/](https://modelcontextprotocol.io/)
-   - *Influence*: Informs the JSON-RPC message tap architecture in `agentwatch/cli/mcp.py`.
+   - *Influence*: Informs the JSON-RPC message tap architecture in `panoptis/cli/mcp.py`.
 4. **Chase, J. S., et al. (2001)**: *"End-to-End Tracing of Distributed Systems via Passive Observation"*. SOSP.
    - *Influence*: Governs the non-blocking passive sidecar design ([ADR-0002](file:///data/data/com.termux/files/home/AgentWatch/docs/v3/adr/0002-passive-sidecar.md)).
 

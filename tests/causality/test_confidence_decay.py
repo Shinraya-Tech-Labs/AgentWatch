@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from agentwatch.causality.decay import (
+from panoptis.causality.decay import (
     CUMULATIVE_CONFIDENCE_COLLAPSE,
     DEFAULT_AMBIGUOUS_EXTRACTION_PENALTY,
     DEFAULT_CRITICAL_FLOOR,

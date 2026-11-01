@@ -7,8 +7,8 @@ when one half of the session simply has no PLANNER_OUTPUT events to fingerprint
 
 from __future__ import annotations
 
-from agentwatch.core.schema import AgentEvent, EventType
-from agentwatch.reasoning.fingerprint import detect_mid_session_change
+from panoptis.core.schema import AgentEvent, EventType
+from panoptis.reasoning.fingerprint import detect_mid_session_change
 
 
 def _plan(text: str) -> AgentEvent:

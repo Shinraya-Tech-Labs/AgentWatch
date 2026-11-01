@@ -1,7 +1,7 @@
 """
 Tests for CMP-005 API-layer wiring — SAML SSO + RBAC enforcement.
 
-These verify that the FastAPI auth dependencies in ``agentwatch.api.auth``
+These verify that the FastAPI auth dependencies in ``panoptis.api.auth``
 correctly delegate to the existing ``governance.rbac`` primitives:
 token verification, role resolution, and permission/role enforcement —
 including the opt-in, non-breaking behaviour when no SAML secret is set.
@@ -19,7 +19,7 @@ import time
 import pytest
 from fastapi import HTTPException
 
-from agentwatch.governance.rbac import Role, SAMLClaims, issue_token
+from panoptis.governance.rbac import Role, SAMLClaims, issue_token
 
 # Test-only fixture value (not a real credential).
 _SECRET_STR = "unit-test-saml-secret"  # noqa: S105
@@ -38,7 +38,7 @@ def _reload_auth_with_secret(monkeypatch, secret: str | None, env: str | None = 
     else:
         monkeypatch.setenv("AGENTWATCH_ENV", env)
 
-    import agentwatch.api.auth as auth
+    import panoptis.api.auth as auth
 
     importlib.reload(auth)
     return auth
@@ -159,6 +159,6 @@ def test_production_without_secret_fails_closed_on_permission(monkeypatch):
 def test_cleanup_reload(monkeypatch):
     # Restore the module to its unset-secret state for any later imports.
     _reload_auth_with_secret(monkeypatch, None)
-    import agentwatch.api.auth as auth
+    import panoptis.api.auth as auth
 
     assert auth.saml_enforcement_enabled() is False

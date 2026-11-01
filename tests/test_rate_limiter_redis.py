@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.api.middleware.rate_limiter import (
+from panoptis.api.middleware.rate_limiter import (
     InMemoryBackend,
     RateLimitBackend,
     RateLimiter,
@@ -84,9 +84,9 @@ def test_expire_only_set_on_first_hit():
     shared = FakeRedis()
     backend = RedisBackend(shared)
     backend.hit("user:x", window_sec=60)
-    shared.ttls["agentwatch:ratelimit:user:x"] = 5  # TTL counting down
+    shared.ttls["panoptis:ratelimit:user:x"] = 5  # TTL counting down
     backend.hit("user:x", window_sec=60)
-    assert shared.ttls["agentwatch:ratelimit:user:x"] == 5  # NX: not reset
+    assert shared.ttls["panoptis:ratelimit:user:x"] == 5  # NX: not reset
 
 
 def test_peek_does_not_increment():

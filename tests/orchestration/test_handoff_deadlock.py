@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from agentwatch.orchestration import (
+from panoptis.orchestration import (
     ALERT_AGENT_DELEGATION_DEADLOCK,
     HandoffGraphTracker,
 )

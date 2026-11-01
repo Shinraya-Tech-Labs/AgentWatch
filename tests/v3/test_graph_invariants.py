@@ -14,12 +14,12 @@ from typing import Any
 import pytest
 from sqlalchemy import text
 
-from agentwatch import instrument as aw
-from agentwatch.evidence.canonical import canonical_json
-from agentwatch.graph.information import instance_event
-from agentwatch.query.workspace import Workspace
-from agentwatch.runtime.engine import Engine
-from agentwatch.storage.store import Store
+from panoptis import instrument as aw
+from panoptis.evidence.canonical import canonical_json
+from panoptis.graph.information import instance_event
+from panoptis.query.workspace import Workspace
+from panoptis.runtime.engine import Engine
+from panoptis.storage.store import Store
 
 PHRASES = [
     "the cooling loop must be inspected before any restart of unit two",

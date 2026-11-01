@@ -10,11 +10,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from agentwatch import instrument as aw
-from agentwatch.api import server, tenant_auth
-from agentwatch.api import v3 as v3api
-from agentwatch.runtime.engine import Engine
-from agentwatch.storage.store import Store
+from panoptis import instrument as aw
+from panoptis.api import server, tenant_auth
+from panoptis.api import v3 as v3api
+from panoptis.runtime.engine import Engine
+from panoptis.storage.store import Store
 
 
 def _sid(name: str) -> str:
@@ -26,7 +26,7 @@ def _sid(name: str) -> str:
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    from agentwatch.api.middleware.rate_limiter import InMemoryBackend
+    from panoptis.api.middleware.rate_limiter import InMemoryBackend
 
     server.reset_rate_limiter_for_tests()
     monkeypatch.setattr(server._rate_limiter, "backend", InMemoryBackend())
@@ -158,8 +158,8 @@ def test_v1_tenant_cannot_append_to_or_claim_another_tenants_session(client, clo
 
 
 async def test_collector_drops_a_racing_event_from_another_tenant():
-    from agentwatch.core.schema import AgentEvent, EventType
-    from agentwatch.tracing.collector import TraceCollector
+    from panoptis.core.schema import AgentEvent, EventType
+    from panoptis.tracing.collector import TraceCollector
 
     c = TraceCollector()
     await c.ingest(

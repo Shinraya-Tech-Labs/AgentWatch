@@ -36,11 +36,11 @@ Please paste the exact command you ran locally and its output:
 
 ## 🛡️ Security & Linter Quality Checklist
 
-- [ ] **Bandit Scan Passed**: Ran `bandit -r agentwatch` with 0 issues found.
+- [ ] **Bandit Scan Passed**: Ran `bandit -r panoptis` with 0 issues found.
 - [ ] **No Baseline File**: Confirmed `bandit-baseline.json` was NOT created or edited.
 - [ ] **Inline Suppressions (If applicable)**: Any `# nosec` suppression is scoped (`# nosec <ID> # noqa: <RULE>`), includes prose justification, and is documented in [`SECURITY-BASELINE.md`](SECURITY-BASELINE.md).
-- [ ] **Ruff Format**: Ran `ruff format --check agentwatch/` (Clean pass).
-- [ ] **Ruff Check**: Ran `ruff check agentwatch/` (Clean pass).
+- [ ] **Ruff Format**: Ran `ruff format --check panoptis/` (Clean pass).
+- [ ] **Ruff Check**: Ran `ruff check panoptis/` (Clean pass).
 - [ ] **Plane Boundaries**: Verified lower planes do not import from higher planes.
 
 ---

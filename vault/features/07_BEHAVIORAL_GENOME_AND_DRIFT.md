@@ -1,6 +1,6 @@
 # Feature Dossier 07: Behavioral Genome & Statistical Drift Testing
 
-**Module Path**: [`agentwatch/behaviour/profile.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/behaviour/profile.py) & [`agentwatch/behaviour/drift.py`](file:///data/data/com.termux/files/home/AgentWatch/agentwatch/behaviour/drift.py)  
+**Module Path**: [`panoptis/behaviour/profile.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/behaviour/profile.py) & [`panoptis/behaviour/drift.py`](file:///data/data/com.termux/files/home/AgentWatch/panoptis/behaviour/drift.py)  
 **System Plane**: Plane 3 (Analysis & Attribution Plane)  
 **Primary Maintainer**: AI Behavioral Genetics & Statistical Drift Team  
 **Obsidian Backlinks**: [[01_ARCHITECTURE_AND_PLANES]], [[01_TEMPORAL_CONTRACTS_AND_EVIDENCELAB]], [[02_COMPUTATIONAL_EVENT_ALGEBRA]], [[04_HYPEREDGE_GRAPH_AND_PROVENANCE]], [[06_LATENT_STATE_AND_MOTIFS]]
@@ -192,7 +192,7 @@ When evaluating whether a candidate version has drifted on trait $f$, parametric
    $$p = \frac{1 + \sum_{r=1}^R \mathbb{I}(T_r \ge T_{\text{obs}})}{R + 1}$$
 
 ```python
-# Permutation test in agentwatch/behaviour/drift.py
+# Permutation test in panoptis/behaviour/drift.py
 def _permutation_p(va: list[float], vb: list[float], permutations: int = 2000, seed: int = 42) -> float:
     t_obs = abs(mean(va) - mean(vb))
     combined = va + vb
@@ -282,11 +282,11 @@ This prevents junior developers or automated scripts from failing CI builds due 
 
 ## 8. CI/CD Deployment Gating & Drift Reports
 
-AgentWatch integrates into GitHub Actions via the CLI command `agentwatch compare --drift`:
+AgentWatch integrates into GitHub Actions via the CLI command `panoptis compare --drift`:
 
 ```bash
 # In CI Workflow (.github/workflows/regression.yml)
-agentwatch compare \
+panoptis compare \
     --baseline "scope:tag=v1.2.0" \
     --candidate "scope:commit=HEAD" \
     --alpha 0.05 \
@@ -333,9 +333,9 @@ If any critical trait experiences statistically significant drift ($q \le 0.05$)
 Developers can run behavioral drift testing directly within their test suites or continuous evaluation pipelines using the native Python API:
 
 ```python
-from agentwatch.query.workspace import Workspace
-from agentwatch.behaviour.profile import ProfileAnalyzer
-from agentwatch.behaviour.drift import drift, distances
+from panoptis.query.workspace import Workspace
+from panoptis.behaviour.profile import ProfileAnalyzer
+from panoptis.behaviour.drift import drift, distances
 
 # Initialize workspace connected to central repository
 ws = Workspace.from_env()
@@ -417,9 +417,9 @@ tests/v3/test_analysis.py
 *Researched and verified via `agent-reach` across statistics, information theory, and machine learning literature:*
 
 1. **Benjamini, Y., & Hochberg, Y. (1995)**: *"Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing"*. Journal of the Royal Statistical Society: Series B (Methodological), 57(1), 289–300.
-   - *Influence*: Foundation for multi-hypothesis FDR control in `agentwatch/behaviour/drift.py`.
+   - *Influence*: Foundation for multi-hypothesis FDR control in `panoptis/behaviour/drift.py`.
 2. **Shannon, C. E. (1948)**: *"A Mathematical Theory of Communication"*. Bell System Technical Journal, 27(3), 379–423.
-   - *Influence*: Mathematical formulation of tool and delegation diversity entropy in `agentwatch/behaviour/profile.py`.
+   - *Influence*: Mathematical formulation of tool and delegation diversity entropy in `panoptis/behaviour/profile.py`.
 3. **Efron, B. (1979)**: *"Bootstrap Methods: Another Look at the Jackknife"*. The Annals of Statistics, 7(1), 1–26.
    - *Influence*: Non-parametric confidence interval estimation for behavioral genome traits.
 4. **Lin, J. (1991)**: *"Divergence Measures Based on the Shannon Entropy"*. IEEE Transactions on Information Theory, 37(1), 145–151.

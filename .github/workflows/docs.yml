@@ -31,7 +31,7 @@ jobs:
           cache: pip
 
       # The package itself is installed so mkdocstrings can import
-      # agentwatch.cli to generate the API reference.
+      # panoptis.cli to generate the API reference.
       - name: Install package and docs dependencies
         run: pip install -e ".[docs]"
 

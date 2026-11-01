@@ -9,14 +9,14 @@ Scope reviewed: Python package, frontend dashboard, landing page, documentation,
 
 ### Issue 1: Three independent applications share one repository root
 - **Severity:** Medium
-- **Location:** `agentwatch/`, `frontend/`, `agentwatch-landing/`
+- **Location:** `panoptis/`, `frontend/`, `agentwatch-landing/`
 - **Description:** The repository contains a Python package, a Next.js 14 dashboard, and a Next.js 16 landing page with independent dependency graphs and runtime conventions.
 - **Why it matters:** Contributors can accidentally mix dependencies, Dockerfiles, or components across apps, especially because both frontend apps use similar framework names but incompatible major versions.
 - **Recommended fix:** Keep project-local config and Docker assets inside each app, document boundaries in onboarding docs, and avoid shared frontend source unless a deliberate package boundary is introduced.
 
 ### Issue 2: Public package exports depend on wildcard re-exports
 - **Severity:** Low
-- **Location:** `agentwatch/**/__init__.py`
+- **Location:** `panoptis/**/__init__.py`
 - **Description:** Package entrypoints intentionally use wildcard re-exports.
 - **Why it matters:** Wildcard exports make public API ownership harder to audit and can obscure unused imports.
 - **Recommended fix:** Keep current behavior for compatibility, but define explicit `__all__` lists over time for stable public modules.
@@ -27,7 +27,7 @@ Scope reviewed: Python package, frontend dashboard, landing page, documentation,
 
 ### Issue 3: Large CLI module has too many responsibilities
 - **Severity:** Medium
-- **Location:** `agentwatch/cli/main.py`
+- **Location:** `panoptis/cli/main.py`
 - **Description:** The CLI contains command routing, rendering, API calls, upgrade/checkout logic, policy display, server startup, export, compare, and live watch behavior in a single large module.
 - **Why it matters:** Large command modules are hard to test in isolation and make small CLI changes risky.
 - **Recommended fix:** Split by command family behind the existing Typer command surface without changing CLI behavior.
@@ -41,14 +41,14 @@ Scope reviewed: Python package, frontend dashboard, landing page, documentation,
 
 ### Issue 5: API response conventions are not centrally documented
 - **Severity:** Low
-- **Location:** `agentwatch/api/server.py`, `docs/API-reference.md`
+- **Location:** `panoptis/api/server.py`, `docs/API-reference.md`
 - **Description:** API routes exist across safety, sessions, policies, telemetry, compliance, and security, but response envelope conventions are not documented in one place.
 - **Why it matters:** Contributors may add inconsistent response shapes.
 - **Recommended fix:** Add a contributor-facing API style section documenting existing conventions before accepting new API work.
 
 ### Issue 6: README and package metadata version references must stay synchronized
 - **Severity:** Low
-- **Location:** `README.md`, `pyproject.toml`, `agentwatch/cli/demo.py`
+- **Location:** `README.md`, `pyproject.toml`, `panoptis/cli/demo.py`
 - **Description:** Version and Python support references are distributed across multiple files.
 - **Why it matters:** Drift between package metadata, badges, and CLI output undermines release trust.
 - **Recommended fix:** Keep version bumps atomic and maintain a release checklist that enumerates all version-bearing files.
@@ -120,28 +120,28 @@ Scope reviewed: Python package, frontend dashboard, landing page, documentation,
 
 ### Issue 14: Model Context Protocol (MCP) Pre-Execution Tool Parameter Invariant Gate
 - **Severity:** High
-- **Location:** `agentwatch/runtime/`, `panopti/guard.py`
+- **Location:** `panoptis/runtime/`, `panopti/guard.py`
 - **Description:** In multi-agent systems integrating with MCP (Model Context Protocol) servers, indirect prompt injections (IPI) can inject malicious payloads into JSON tool-call parameters (e.g. destructive SQL, path traversals, out-of-band network exfiltration). Standard text guardrails fail because the tool arguments are syntactically valid JSON.
 - **Why it matters:** AI agents act as untrusted executors. Without pre-execution schema & invariant enforcement at the MCP tap, rogue or manipulated agents can execute catastrophic side-effects.
 - **Recommended fix:** Implement a declarative parameter invariant evaluator in `panopti/guard.py` that intercepts MCP tool requests before execution and validates payload arguments against pre-defined safety bounds (fail-closed).
 
 ### Issue 15: Ephemeral Credential Substitution & Secret Shield for Autonomous Tool Calls
 - **Severity:** High
-- **Location:** `agentwatch/security/`, `agentwatch/runtime/`
+- **Location:** `panoptis/security/`, `panoptis/runtime/`
 - **Description:** Autonomous agents frequently hold long-lived API keys or credentials directly in tool contexts or memory. If an agent is coerced via prompt injection or its execution trace is intercepted, credentials are leaked.
 - **Why it matters:** Direct credential exposure breaks the principle of least privilege in autonomous pipelines.
-- **Recommended fix:** Introduce an ephemeral credential proxy in `agentwatch/security/` where the runtime substitutes raw API secrets with short-lived, scope-limited tokens at execution boundaries, ensuring the agent model never possesses raw production credentials.
+- **Recommended fix:** Introduce an ephemeral credential proxy in `panoptis/security/` where the runtime substitutes raw API secrets with short-lived, scope-limited tokens at execution boundaries, ensuring the agent model never possesses raw production credentials.
 
 ### Issue 16: Stateful Execution Trace & Multi-Step Behavioral Drift Sentinel
 - **Severity:** Medium
-- **Location:** `agentwatch/reasoning/`, `agentwatch/telemetry/`
+- **Location:** `panoptis/reasoning/`, `panoptis/telemetry/`
 - **Description:** Single-turn guardrails evaluate tool calls in isolation, where individual actions (e.g. `list_dir`, `read_file`, `http_post`) appear harmless. Multi-step attacks (data harvesting followed by staging and exfiltration) are only visible across the temporal trajectory.
 - **Why it matters:** Point-in-time checks have a blind spot for chained multi-turn exploitation and autonomous loop runaway.
 - **Recommended fix:** Implement a sliding-window execution trace auditor that tracks intent divergence, tool execution frequency, and cumulative risk scoring across turns, triggering the `EmergencyKillSwitch` if drift exceeds confidence thresholds.
 
 ### Issue 17: Background Worker Integration for Emergency Kill Switch
 - **Severity:** Medium
-- **Location:** `agentwatch/worker/tasks.py`, `agentwatch/runtime/killswitch.py`
-- **Description:** With PR #801 merged, the runtime possesses a thread-safe file sentinel and signal kill switch (`EmergencyKillSwitch`). However, Celery background workers (`agentwatch/worker/`) do not yet evaluate the kill switch before executing queued asynchronous jobs.
+- **Location:** `panoptis/worker/tasks.py`, `panoptis/runtime/killswitch.py`
+- **Description:** With PR #801 merged, the runtime possesses a thread-safe file sentinel and signal kill switch (`EmergencyKillSwitch`). However, Celery background workers (`panoptis/worker/`) do not yet evaluate the kill switch before executing queued asynchronous jobs.
 - **Why it matters:** Tripping the kill switch via `.panopti.kill` or POSIX signals stops the local process, but detached Celery worker nodes continue processing scheduled agent tasks.
-- **Recommended fix:** Wire `EmergencyKillSwitch.verify()` into the Celery task base class or pre-run signal handler in `agentwatch/worker/tasks.py`, ensuring all asynchronous workers halt immediately when the sentinel is active.
+- **Recommended fix:** Wire `EmergencyKillSwitch.verify()` into the Celery task base class or pre-run signal handler in `panoptis/worker/tasks.py`, ensuring all asynchronous workers halt immediately when the sentinel is active.

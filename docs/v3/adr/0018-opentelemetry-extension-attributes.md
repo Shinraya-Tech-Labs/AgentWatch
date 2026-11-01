@@ -14,16 +14,16 @@ As a result:
 
 ## Decision
 
-AgentWatch reads a small set of **extension attributes**. They are namespaced `agentwatch.*` because they are AgentWatch's own convention. They are **not** part of the OpenTelemetry specification, and nothing here claims they are. Spans without them are normalized exactly as before.
+AgentWatch reads a small set of **extension attributes**. They are namespaced `panoptis.*` because they are AgentWatch's own convention. They are **not** part of the OpenTelemetry specification, and nothing here claims they are. Spans without them are normalized exactly as before.
 
 | attribute | on | meaning |
 |---|---|---|
-| `agentwatch.artifact.operation` | any span | `create`, `write` or `update` → STATE_MUTATION with facet `artifact_creation`; `delete` → STATE_MUTATION; `read` → EXTERNAL_IO with a READ effect |
-| `agentwatch.artifact.id` | with `.operation` | the artifact's name or path (object `file:<id>`, output label) |
-| `agentwatch.artifact.content` | optional | the content written or read (becomes the span's output value) |
-| `agentwatch.artifact.parent` | optional | the artifact this one derives from (recorded as an attribute, descriptive) |
-| `agentwatch.information.instance_id` | span producing values | id, or list of ids, for the span's output values, in order |
-| `agentwatch.information.source` | span consuming values | instance id(s) the span's input is, or was built from. Without captured input content, it is a reference-only input. |
+| `panoptis.artifact.operation` | any span | `create`, `write` or `update` → STATE_MUTATION with facet `artifact_creation`; `delete` → STATE_MUTATION; `read` → EXTERNAL_IO with a READ effect |
+| `panoptis.artifact.id` | with `.operation` | the artifact's name or path (object `file:<id>`, output label) |
+| `panoptis.artifact.content` | optional | the content written or read (becomes the span's output value) |
+| `panoptis.artifact.parent` | optional | the artifact this one derives from (recorded as an attribute, descriptive) |
+| `panoptis.information.instance_id` | span producing values | id, or list of ids, for the span's output values, in order |
+| `panoptis.information.source` | span consuming values | instance id(s) the span's input is, or was built from. Without captured input content, it is a reference-only input. |
 
 A declared source becomes `DECLARED_REFERENCE` evidence (STRONG, `HIGH_FIDELITY`). It outranks every content heuristic. Instance ids are resolved within a run.
 

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from panopti._banner import PANOPTI_ASCII_BANNER
+from panopti._banner import PANOPTI_ASCII_BANNER, print_banner
 
 
 def _int_flag(argv: list[str], flag: str, *, default: int, minimum: int) -> int:
@@ -88,7 +88,7 @@ def main(args: list[str] | None = None) -> Any:
         # Check if user specifically called 'panopti --help'
         prog = Path(sys.argv[0]).stem
         if "panopti" in prog.lower() and not argv:
-            print(PANOPTI_ASCII_BANNER)
+            print_banner()
             print("Usage: panopti [COMMAND] [ARGS]...\n")
             print("Panopti Commands:")
             print(
@@ -141,7 +141,7 @@ def main(args: list[str] | None = None) -> Any:
         from panopti.doctor import format_doctor_report, run_diagnostics
 
         diag = run_diagnostics()
-        print(PANOPTI_ASCII_BANNER)
+        print_banner()
         print(format_doctor_report(diag))
         return 0
 
@@ -169,7 +169,7 @@ def main(args: list[str] | None = None) -> Any:
         return 0
 
     if argv and argv[0] in ("top", "live"):
-        from agentwatch.circuit_breaker import CircuitBreaker, CircuitThresholds
+        from panoptis.circuit_breaker import CircuitBreaker, CircuitThresholds
         from panopti.presets.profiles import get_profile
 
         profile_name = "devops"
@@ -192,7 +192,7 @@ def main(args: list[str] | None = None) -> Any:
             ),
         )
 
-        print(PANOPTI_ASCII_BANNER)
+        print_banner()
         print(f"👁️  PANOPTI SENTINEL [LIVE MONITOR - PROFILE: {prof.name.upper()}]")
         print("--------------------------------------------------")
         print(f"Description:        {prof.description}")
@@ -309,10 +309,10 @@ def main(args: list[str] | None = None) -> Any:
         print("Usage: panopti synth <trace_file.json>")
         return 1
 
-    # Delegate all standard commands to agentwatch.cli.main
-    from agentwatch.cli.main import main as agentwatch_main
+    # Delegate all standard commands to panoptis.cli.main
+    from panoptis.cli.main import main as panoptis_main
 
-    return agentwatch_main()
+    return panoptis_main()
 
 
 if __name__ == "__main__":

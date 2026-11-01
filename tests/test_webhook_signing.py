@@ -5,9 +5,9 @@ import json
 import httpx
 import pytest
 
-from agentwatch.alerting.engine import AlertingConfig, AlertingEngine
-from agentwatch.core.schema import AgentEvent, AgentFramework, EventType
-from agentwatch.security.webhook_signing import generate_webhook_signature
+from panoptis.alerting.engine import AlertingConfig, AlertingEngine
+from panoptis.core.schema import AgentEvent, AgentFramework, EventType
+from panoptis.security.webhook_signing import generate_webhook_signature
 
 
 def test_signature_generation():

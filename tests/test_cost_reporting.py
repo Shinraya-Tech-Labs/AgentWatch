@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from agentwatch.core.schema import AgentFramework, AgentSession, ExecutionStatus
-from agentwatch.cost.reporting import build_cost_report, parse_sessions
+from panoptis.core.schema import AgentFramework, AgentSession, ExecutionStatus
+from panoptis.cost.reporting import build_cost_report, parse_sessions
 
 
 def _session(

@@ -3,9 +3,11 @@ from unittest.mock import patch
 
 import pytest
 
-from agentwatch.cost.tracker import CostTracker
-from agentwatch.infrastructure.config import RouterConfig
-from agentwatch.infrastructure.router import ModelRouter
+pytest.importorskip("litellm")
+
+from panoptis.cost.tracker import CostTracker
+from panoptis.infrastructure.config import RouterConfig
+from panoptis.infrastructure.router import ModelRouter
 
 
 class DummyConfig(RouterConfig):
@@ -32,7 +34,7 @@ def mock_config():
 def test_provider_fallback(mock_sleep, mock_config):
     router = ModelRouter(mock_config)
 
-    with patch("agentwatch.infrastructure.router.litellm.completion") as mock_completion:
+    with patch("panoptis.infrastructure.router.litellm.completion") as mock_completion:
         # First provider fails 3 times (due to tenacity retries), then second provider succeeds
         mock_completion.side_effect = [
             Exception("API error"),
@@ -54,7 +56,7 @@ def test_provider_fallback(mock_sleep, mock_config):
 def test_circuit_breaker_transitions(mock_sleep, mock_config):
     router = ModelRouter(mock_config)
 
-    with patch("agentwatch.infrastructure.router.litellm.completion") as mock_completion:
+    with patch("panoptis.infrastructure.router.litellm.completion") as mock_completion:
         mock_completion.side_effect = Exception("API error")
 
         import contextlib
@@ -77,7 +79,7 @@ def test_budget_routing_downgrade(mock_config):
 
     router = ModelRouter(mock_config, cost_tracker=tracker)
 
-    with patch("agentwatch.infrastructure.router.litellm.completion") as mock_completion:
+    with patch("panoptis.infrastructure.router.litellm.completion") as mock_completion:
         mock_completion.return_value = {"choices": []}
         router.completion([{"role": "user", "content": "hi"}], session_id="sess1")
 

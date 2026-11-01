@@ -7,14 +7,14 @@ import uuid
 
 from otlp_fixture import OTLP
 
-from agentwatch import instrument as aw
-from agentwatch.core.schema import AgentEvent, EventType
-from agentwatch.evidence.canonical import canonical_json
-from agentwatch.runtime.engine import Engine
-from agentwatch.sensors.base import ListSink
-from agentwatch.sensors.claude_code import drafts_from_lines
-from agentwatch.sensors.langchain import AgentWatchLangChainSensor
-from agentwatch.sensors.otel import drafts_from_spans, spans_from_otlp_json
+from panoptis import instrument as aw
+from panoptis.core.schema import AgentEvent, EventType
+from panoptis.evidence.canonical import canonical_json
+from panoptis.runtime.engine import Engine
+from panoptis.sensors.base import ListSink
+from panoptis.sensors.claude_code import drafts_from_lines
+from panoptis.sensors.langchain import AgentWatchLangChainSensor
+from panoptis.sensors.otel import drafts_from_spans, spans_from_otlp_json
 
 
 def native_run(name: str, fail: int = 0) -> None:
@@ -128,7 +128,7 @@ def test_late_observation_for_existing_run_rebuilds_only_that_run(engine, sink):
         "payload": {"kind": "FAILURE", "operation": "late_alarm", "data": {}},
         "declared_ids": {"event_id": uuid.uuid4().hex[:8], "run_id": late.declared_ids["run_id"]},
     }
-    from agentwatch.evidence.model import ObservationDraft
+    from panoptis.evidence.model import ObservationDraft
 
     engine.ingest([ObservationDraft.from_dict(json.loads(json.dumps(late_payload)))])
     report = engine.process()

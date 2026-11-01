@@ -27,6 +27,6 @@ Workload shape:
 
 ## Consequences
 
-- `pip install agentwatch-ai && agentwatch ingest …` works with no services.
+- `pip install panoptis && panoptis ingest …` works with no services.
 - There is one backup and restore story, and one migration tool.
 - The store protocols must avoid Postgres-only features in core paths, or provide SQLite equivalents (for example a side table instead of a GIN index for `declared_ids`).

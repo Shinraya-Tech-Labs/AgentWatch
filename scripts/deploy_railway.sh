@@ -42,12 +42,12 @@ PROJECTS=$(gql '{ me { projects { edges { node { id name } } } } }')
 PROJECT_ID=$(echo "$PROJECTS" | python3 -c "
 import json,sys
 edges = json.load(sys.stdin)['data']['me']['projects']['edges']
-hit = [e['node']['id'] for e in edges if e['node']['name']=='agentwatch']
+hit = [e['node']['id'] for e in edges if e['node']['name']=='panoptis']
 print(hit[0] if hit else '')
 ")
 
 if [[ -z "$PROJECT_ID" ]]; then
-  PROJ=$(gql "mutation(\$w: String!) { projectCreate(input: { name: \"agentwatch\", isPublic: false, workspaceId: \$w }) { id name } }" \
+  PROJ=$(gql "mutation(\$w: String!) { projectCreate(input: { name: \"panoptis\", isPublic: false, workspaceId: \$w }) { id name } }" \
               "{\"w\":\"$WORKSPACE_ID\"}")
   PROJECT_ID=$(echo "$PROJ" | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['projectCreate']['id'])")
   ok "Created project  id=$PROJECT_ID"
@@ -77,7 +77,7 @@ print(hit[0] if hit else '')
 step "Adding PostgreSQL plugin"
 PG_ID=$(get_svc_id "Postgres")
 if [[ -z "$PG_ID" ]]; then
-  PG=$(gql "mutation(\$p: String!, \$e: String!) { serviceCreate(input: { projectId: \$p, name: \"Postgres\", source: { image: \"pgvector/pgvector:pg16\" }, variables: { POSTGRES_DB: \"agentwatch\", POSTGRES_USER: \"agentwatch\", POSTGRES_PASSWORD: \"agentwatch_secret\" } }) { id name } }" \
+  PG=$(gql "mutation(\$p: String!, \$e: String!) { serviceCreate(input: { projectId: \$p, name: \"Postgres\", source: { image: \"pgvector/pgvector:pg16\" }, variables: { POSTGRES_DB: \"panoptis\", POSTGRES_USER: \"panoptis\", POSTGRES_PASSWORD: \"panoptis_secret\" } }) { id name } }" \
            "{\"p\":\"$PROJECT_ID\",\"e\":\"$ENV_ID\"}" 2>/dev/null) || true
   # Use Railway's managed Postgres plugin instead
   PG=$(gql "mutation(\$p: String!, \$e: String!) {
