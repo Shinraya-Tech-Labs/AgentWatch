@@ -1954,21 +1954,14 @@ class _SessionErasureTarget:
                     return 0
                 if self._tenant_id is not None:
                     where["tenant_id"] = self._tenant_id
-                event_where = {k: v for k, v in where.items()}
+                # Every scope erases through Repository.erase_session, whose DELETEs carry
+                # the tenant constraint themselves (no fetch-then-delete window).
                 if scope == ErasureScope.SESSION_ID:
-                    erased += await repo.delete_events_by_session(identifier)
-                    erased += await repo.delete_session(identifier)
-                    await db.commit()
-                    return erased
-                session_ids = await repo.get_session_ids(where)
+                    session_ids = [identifier]
+                else:
+                    session_ids = await repo.get_session_ids(where)
                 for sid in session_ids:
-                    event_where_for_sid = dict(event_where)
-                    event_where_for_sid.pop("tenant_id", None)
-                    event_where_for_sid["session_id"] = sid
-                    ignored_events = await repo.get_session(sid)
-                    _ = (event_where_for_sid, ignored_events)
-                    erased += await repo.delete_events_by_session(sid)
-                    erased += await repo.delete_session(sid)
+                    erased += await repo.erase_session(sid, tenant_id=self._tenant_id)
                 await db.commit()
                 return erased
         except Exception as exc:  # noqa: BLE001 — surfaced via ErasureTargetResult
