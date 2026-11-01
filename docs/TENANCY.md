@@ -49,3 +49,31 @@ A tenant is never chosen by the caller. It comes from a validated credential:
 - `AGENTWATCH_TENANT_KEYS`: the self-hosted key → tenant map.
 - `AGENTWATCH_ADMIN_KEY`: the cloud operator credential.
 - Both are documented in `.env.example`.
+
+## Tenant and API-key storage (TO-006)
+
+| Setting | Store |
+|---|---|
+| `AGENTWATCH_TENANT_STORE=<url>` | that database |
+| cloud mode, no explicit URL | the v3 database (`AGENTWATCH_STORE`), else `$AGENTWATCH_HOME/tenants.db` |
+| self-hosted single tenant | memory (keys come from `AGENTWATCH_API_KEY` / `AGENTWATCH_TENANT_KEYS`) |
+
+`SqlTenantStore` (`panoptis/api/tenant_store_sql.py`) creates or upgrades its tables on start-up and refuses a schema newer than the code. Its tables:
+
+| Table | Holds |
+|---|---|
+| `aw_tenants` | tenant records |
+| `aw_api_keys` | the PBKDF2 `salt:hash` only, a unique `key_prefix`, scopes, `expires_at`, `revoked` / `revoked_at` |
+| `aw_tenant_usage` | monthly usage |
+| `aw_tenant_daily_events` | daily event counts |
+| `aw_tenant_audit` | append-only record of create, update, suspend, key create and key revoke |
+| `aw_tenant_schema` | the schema version |
+
+Behaviour:
+
+- A raw key is shown once, when it is created; it is never stored or logged.
+- Suspending a tenant revokes all its keys in the same transaction.
+- A database error while validating a key **denies** the key. A database error while writing **raises**, so no write appears to succeed when it did not.
+- **Bootstrap:** the operator (`AGENTWATCH_ADMIN_KEY`) creates the tenant with `POST /api/v1/tenants?name=…` and issues its first key with `POST /api/v1/tenants/{id}/api-keys`. From then on the tenant manages its own keys, and a key can act only on its own tenant.
+
+**Recovery:** the store is ordinary SQL. Back it up with the database; to restore, point `AGENTWATCH_TENANT_STORE` at the restored database. To revoke every key of a compromised tenant, suspend the tenant.
