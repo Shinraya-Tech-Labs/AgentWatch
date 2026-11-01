@@ -103,22 +103,22 @@ exactly once.
 supported execution integrations. Tests prove ordering: inspect → decide
 → optional approval/mutation → execute once → inspect output → return.
 
-## TO-003 --- Fix tenant identity and authorization
+## TO-003 --- Fix tenant identity and authorization — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-003)
 
--   [ ] Audit every tenant-sensitive API route, storage operation,
+-   [x] Audit every tenant-sensitive API route, storage operation,
     WebSocket path, background job, and evidence lookup.
--   [ ] Stop treating `X-Tenant-ID` as authenticated identity by itself.
--   [ ] Derive tenant identity from a validated authentication
+-   [x] Stop treating `X-Tenant-ID` as authenticated identity by itself.
+-   [x] Derive tenant identity from a validated authentication
     principal, signed credential, or trusted server-side mapping.
--   [ ] If a tenant header is retained as a selector, verify it matches
+-   [x] If a tenant header is retained as a selector, verify it matches
     the authenticated principal's authorized tenant.
--   [ ] Reject missing, malformed, expired, revoked, or cross-tenant
+-   [x] Reject missing, malformed, expired, revoked, or cross-tenant
     credentials.
--   [ ] Ensure tenant identity cannot be changed by request-body or
+-   [x] Ensure tenant identity cannot be changed by request-body or
     header manipulation.
--   [ ] Add tests for forged headers, mismatched tenant claims, missing
+-   [x] Add tests for forged headers, mismatched tenant claims, missing
     credentials, revoked API keys, and cross-tenant reads/writes.
--   [ ] Verify tenant scoping in REST, WebSocket, MCP, CLI, and
+-   [x] Verify tenant scoping in REST, WebSocket, MCP, CLI, and
     background processing paths.
 
 **Acceptance evidence:** Cross-tenant access attempts fail in automated

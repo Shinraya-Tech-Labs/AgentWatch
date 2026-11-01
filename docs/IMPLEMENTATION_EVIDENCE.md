@@ -32,7 +32,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | CTRL-004 … CTRL-008 | IN PROGRESS | rules applied throughout; CTRL-008 runs at the end |
 | TO-001 fail-open execution | DONE | [TO-001](#to-001) |
 | TO-002 enforcement pipeline | IN PROGRESS | [TO-002](#to-002) |
-| TO-003 … TO-040 | NOT STARTED unless listed below | — |
+| TO-003 tenant identity | DONE | [TO-003](#to-003) |
+| TO-004 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -155,9 +156,66 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 - `pytest tests/`: 2341 passed, 8 skipped, 0 failed (4 m 32 s)
 - `ruff check` / `ruff format` on the changed files: clean
 
-**Commits:** `3df851e` `7daeabe` `e55d5c4` `c5620d9` `f80a467` `040eefb` `9dc1fd6` `a1a349b`, plus this ledger commit.
+**Commits:** `3df851e` `7daeabe` `e55d5c4` `c5620d9` `f80a467` `040eefb` `9dc1fd6` `a1a349b`, the ledger commit `79e7cef`, and `3fbf0f1`. The approval-path tests in `3fbf0f1` were written with TO-002 but left out of its commits by mistake; they were committed afterwards.
 
 **Limitations:**
 
 - Output from streaming methods (generators) is not inspected: the generator object is returned as is. This is tracked in TO-011 and TO-018.
 - The legacy `SafetyEngine` gate is still the default for `watch()` without `protection=`; changing that default is decided in TO-016.
+
+### TO-003
+
+**Status:** DONE. Route-by-route audit and trust model: [`docs/TENANCY.md`](TENANCY.md).
+
+**Vulnerabilities found and fixed** (each reproduced: the new tests fail on the old code):
+
+1. `_v3_tenant` returned `X-Tenant-ID` verbatim in self-hosted mode, and fell back to it in cloud mode.
+2. In cloud mode, any valid tenant key could read, simulate or roll back another tenant's v1 session by id, and list every session.
+3. Cloud v1 events were teed into the v3 `default` tenant. A tenant could append events to another tenant's session, or re-register its id.
+4. Any tenant key could list or create tenants and see cross-tenant aggregates and reports, the global safety policy, and prune.
+5. `/ws/events` in cloud mode accepted anyone when no legacy key was set, and streamed every tenant's events to every client.
+
+**Changes:**
+
+- `agentwatch/api/tenancy.py`: a pure resolver.
+  - Single tenant → `default`.
+  - `AGENTWATCH_TENANT_KEYS` key map → the key's tenant.
+  - Cloud → the tenant store's key.
+  - A header is only a selector: mismatch gets 403; no or invalid key in cloud mode gets 401, never a fallback.
+- `agentwatch/api/server.py`:
+  - `_principal`, `_request_tenant`, `_owner`, `_require_session_owner`, `_require_operator`;
+  - v1 ingestion tagging and session guards;
+  - 10 session routes scoped, and the session list filtered;
+  - 14 operator-only routes, plus the tenant-record rule;
+  - WebSocket authentication and per-tenant filtering;
+  - the tee is tenant-aware;
+  - `_key_matches` accepts mapped keys, compared in constant time.
+- `agentwatch/tracing/collector.py`: a cross-tenant append to an existing session is dropped under the lock (race-safe).
+- `tests/v3/test_contracts_api.py`: the multi-tenant isolation test uses real per-tenant keys instead of forged headers.
+- `.env.example` and `docs/TENANCY.md`: configuration documented.
+
+**Tests:** 51 new.
+
+- `tests/test_tenancy_resolver.py` (14).
+- `tests/v3/test_tenant_isolation_api.py` (36):
+  - cloud: a cross-tenant observation read gets 404; the payload tenant is ignored; the header cannot switch tenant;
+  - missing, revoked, expired and suspended keys get 401; a forged header in self-hosted mode gets 403;
+  - v1 tagging; no cross-tenant append or claim; the collector race; the tee tenant;
+  - 8 parametrised session-read cases plus 2 action cases; list scoping;
+  - 9 parametrised operator GET cases, plus operator writes, closed-when-unset, own tenant record, and self-hosted unchanged;
+  - WebSocket auth (4001/4003) and per-tenant delivery.
+- `tests/v3/test_cli_tenant_scope.py` (1).
+
+**Commands and results:**
+
+- `pytest tests/v3/test_tenant_isolation_api.py tests/test_tenancy_resolver.py tests/v3/test_cli_tenant_scope.py`: 51 passed
+- Existing API suites: `test_api_*`, `test_server`, `tests/v3/test_api*`, `test_contracts_api`: all pass
+- `pytest tests/`: 2392 passed, 8 skipped, 0 failed (6 m 32 s)
+
+**Commits:** `bff42c8` `46fa441` `2c4cea4` `19f7e0d` `ddd7d5d` `9728660` `eabb16d` `971b2e8` `8178f43`, plus this ledger commit.
+
+**Limitations:**
+
+- Tenancy on the v1 in-memory collector is held in session/event `metadata`. It is not yet a column in the optional Postgres v1 tables; persistent tenant and key storage is TO-006.
+- The session-scope GDPR delete is TO-004.
+- MCP gateway tenant binding is tested with the gateway (TO-023).
