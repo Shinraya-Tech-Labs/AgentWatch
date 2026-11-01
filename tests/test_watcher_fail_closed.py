@@ -87,3 +87,46 @@ def test_async_allowed_call_runs_exactly_once():
     agent = _attach(AsyncCountingAgent())
     assert asyncio.run(agent.arun("echo hello")) == "ran echo hello"
     assert agent.calls == 1
+
+
+def test_async_safety_check_timeout_blocks():
+    class HangingEngine(SafetyEngine):
+        async def check_event(self, event: Any) -> Any:
+            await asyncio.sleep(10)
+
+    agent = AsyncCountingAgent()
+    GenericAdapter(
+        agent, event_bus=EventBus(), safety_engine=HangingEngine(), safety_timeout_s=0.05
+    ).attach()
+    with pytest.raises(AgentWatchBlockedError) as exc:
+        asyncio.run(agent.arun("echo hello"))
+    assert agent.calls == 0
+    assert "TimeoutError" in exc.value.reasons[0]
+
+
+def test_sync_safety_check_timeout_blocks():
+    import threading
+
+    release = threading.Event()
+
+    class HangingEngine(SafetyEngine):
+        def check_tool_call_sync(self, tool_call: Any) -> tuple[bool, list[str]]:
+            release.wait(5)
+            return False, []
+
+    agent = CountingAgent()
+    GenericAdapter(
+        agent, event_bus=EventBus(), safety_engine=HangingEngine(), safety_timeout_s=0.05
+    ).attach()
+    try:
+        with pytest.raises(AgentWatchBlockedError) as exc:
+            agent.run("echo hello")
+        assert agent.calls == 0
+        assert "TimeoutError" in exc.value.reasons[0]
+    finally:
+        release.set()
+
+
+def test_default_async_deadline_exceeds_the_approval_wait():
+    adapter = GenericAdapter(AsyncCountingAgent(), event_bus=EventBus())
+    assert adapter._async_deadline() > adapter._safety_engine.policy.approval_timeout_seconds

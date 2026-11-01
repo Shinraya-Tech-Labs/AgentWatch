@@ -26,7 +26,10 @@ of any object with `.run`, `.invoke`, `.__call__`, or `astream`).
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import logging
+import os
 import uuid
 from typing import Any
 
@@ -232,6 +235,7 @@ class GenericAdapter:
         safety_engine: SafetyEngine | None = None,
         metadata: dict[str, Any] | None = None,
         redact: bool = False,
+        safety_timeout_s: float | None = None,
     ):
         self.agent = agent
         self.framework = framework
@@ -251,6 +255,16 @@ class GenericAdapter:
         # CMP-003/004: scrub PII/PHI from tool-call payloads before they are
         # published and persisted. Opt-in to avoid the cost when not required.
         self._redact = redact
+        # Deadline for reaching a safety decision; a decision that does not arrive in
+        # time blocks the call. Default: the policy's approval timeout plus margin (the
+        # async check may legitimately wait that long for a human). Env override:
+        # AGENTWATCH_SAFETY_TIMEOUT_S. The sync path enforces it only when set.
+        env_timeout = os.environ.get("AGENTWATCH_SAFETY_TIMEOUT_S")
+        self._safety_timeout_s = (
+            safety_timeout_s
+            if safety_timeout_s is not None
+            else (float(env_timeout) if env_timeout else None)
+        )
 
     def _enforcement_failure(self, method_name: str, exc: BaseException) -> AgentWatchBlockedError:
         """The error raised when no valid safety decision could be reached (fail closed)."""
@@ -266,6 +280,29 @@ class GenericAdapter:
             tool_name=method_name,
             reasons=[f"safety_check_failed: {type(exc).__name__}"],
         )
+
+    def _async_deadline(self) -> float:
+        if self._safety_timeout_s is not None:
+            return self._safety_timeout_s
+        approval = getattr(
+            getattr(self._safety_engine, "policy", None), "approval_timeout_seconds", 120
+        )
+        return float(approval) + 30.0
+
+    def _sync_decision(self, tool_call: ToolCallData) -> tuple[bool, list[str]]:
+        if self._safety_timeout_s is None:
+            return self._safety_engine.check_tool_call_sync(tool_call)
+        # Run the check on a worker so a hung check cannot hold the call open; on
+        # timeout the call is blocked (the worker is abandoned, the tool never runs).
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="aw-safety")
+        try:
+            future = pool.submit(self._safety_engine.check_tool_call_sync, tool_call)
+            try:
+                return future.result(timeout=self._safety_timeout_s)
+            except concurrent.futures.TimeoutError as exc:
+                raise TimeoutError(f"no safety decision within {self._safety_timeout_s}s") from exc
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
 
     def _maybe_redact(self, tool_call: ToolCallData) -> ToolCallData:
         """Redact PII/PHI from a tool call when redaction is enabled.
@@ -372,8 +409,11 @@ class GenericAdapter:
                     )
                     # Decide first; any failure to reach a decision blocks (fail closed).
                     try:
-                        checked = await self._safety_engine.check_event(safety_event)
-                    except Exception as exc:  # noqa: BLE001
+                        checked = await asyncio.wait_for(
+                            self._safety_engine.check_event(safety_event),
+                            timeout=self._async_deadline(),
+                        )
+                    except Exception as exc:  # noqa: BLE001 - includes TimeoutError
                         raise self._enforcement_failure(method_name, exc) from exc
                     # Publish the checked event — it carries the full safety
                     # metadata (risk_level, blocked status, reasons). Scrub
@@ -382,7 +422,9 @@ class GenericAdapter:
                     try:
                         await self.bus.publish(self._redact_event(checked))
                     except Exception as exc:  # noqa: BLE001
-                        logger.warning("Could not publish the safety event for %s: %s", method_name, exc)
+                        logger.warning(
+                            "Could not publish the safety event for %s: %s", method_name, exc
+                        )
                     if checked.is_blocked:
                         reasons = checked.safety.reasons if checked.safety else []
                         reason_str = "; ".join(reasons) if reasons else "safety policy"
@@ -449,8 +491,8 @@ class GenericAdapter:
                 # Decide first. Any failure to reach a decision blocks the call
                 # (fail closed); it never falls through to running the tool.
                 try:
-                    blocked, reasons = self._safety_engine.check_tool_call_sync(tool_call)
-                except Exception as exc:  # noqa: BLE001
+                    blocked, reasons = self._sync_decision(tool_call)
+                except Exception as exc:  # noqa: BLE001 - includes TimeoutError
                     raise self._enforcement_failure(method_name, exc) from exc
                 # Then publish: telemetry failure must not change the decision.
                 try:
@@ -473,7 +515,9 @@ class GenericAdapter:
                     )
                     self.bus.publish_sync(tc_event)
                 except Exception as exc:  # noqa: BLE001
-                    logger.warning("Could not publish the safety event for %s: %s", method_name, exc)
+                    logger.warning(
+                        "Could not publish the safety event for %s: %s", method_name, exc
+                    )
                 if blocked:
                     reason_str = "; ".join(reasons) if reasons else "safety policy"
                     raise AgentWatchBlockedError(
