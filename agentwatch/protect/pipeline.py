@@ -79,6 +79,8 @@ class ProtectionConfig:
     approval_timeout_s: float = 120.0
     require_registered_agents: bool = False
     bind_sessions: bool = True  # a session id belongs to the first agent that uses it
+    # block calls whose agent/session identity was not supplied (no default identities)
+    require_context: bool = False
     output_inspection: bool = True
     on_injection: str = "quarantine"  # quarantine | withhold | flag
     record_allowed: bool = True  # also record ALLOW decisions (full audit trail)
@@ -406,6 +408,18 @@ class ProtectionPipeline:
                     "INVALID_ARGUMENTS",
                     Severity.CRITICAL,
                     "Tool arguments must be an object",
+                    ev,
+                    None,
+                    Verdict.BLOCK,
+                )
+            ]
+        if self.config.require_context and action.defaulted_identity:
+            return [
+                Finding(
+                    Stage.IDENTITY,
+                    "MISSING_CONTEXT",
+                    Severity.CRITICAL,
+                    "No agent/session identity was supplied for this call and the policy requires one",
                     ev,
                     None,
                     Verdict.BLOCK,

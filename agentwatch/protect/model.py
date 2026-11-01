@@ -113,6 +113,8 @@ class ToolAction:
     tenant_id: str = "default"  # from the authenticated principal, never from the agent
     trace_id: str | None = None  # the caller's trace (OTel trace id, run id, ...)
     parent_call_id: str | None = None  # the call that triggered this one (nested tools)
+    # True when agent or session id were defaults, not supplied by the caller or context
+    defaulted_identity: bool = False
 
     @property
     def scope(self) -> str:

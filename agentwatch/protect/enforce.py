@@ -200,6 +200,8 @@ def protect_tool(
     ) -> tuple[ToolAction, Callable[[dict[str, Any]], tuple[tuple[Any, ...], dict[str, Any]]]]:
         named, rebuild = bind_arguments(sig, args, kwargs)
         ctx = current_context()
+        given_agent = agent_id or ctx.get("agent_id")
+        given_session = session_id or ctx.get("session_id")
         action = ToolAction(
             agent_id=agent_id or ctx.get("agent_id") or "default-agent",
             session_id=session_id or ctx.get("session_id") or "default-session",
@@ -209,6 +211,7 @@ def protect_tool(
             tenant_id=tenant_id or ctx.get("tenant_id") or "default",
             trace_id=ctx.get("trace_id"),
             source=source,
+            defaulted_identity=not (given_agent and given_session),
         )
         return action, rebuild
 

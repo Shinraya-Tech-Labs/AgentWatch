@@ -118,3 +118,31 @@ def test_varargs_are_preserved(pipeline):
         return sep.join(parts)
 
     assert run("echo", "hi", sep="-") == "echo-hi"
+
+
+def test_require_context_blocks_calls_without_identity():
+    from agentwatch.protect import ProtectionConfig
+
+    strict = ProtectionPipeline(config=ProtectionConfig(require_context=True))
+    calls: list[str] = []
+
+    @protect_tool(tool="bash", pipeline=strict)
+    def bash(command: str) -> str:
+        calls.append(command)
+        return "ok"
+
+    with pytest.raises(ActionBlocked) as exc:
+        bash("ls")
+    assert exc.value.decision.findings[0].code == "MISSING_CONTEXT"
+    with protection_context(agent_id="coder", session_id="s1"):
+        assert bash("ls") == "ok"
+    assert calls == ["ls"]
+
+
+def test_default_mode_still_allows_calls_without_context(pipeline):
+    @protect_tool(tool="bash", pipeline=pipeline)
+    def bash(command: str) -> str:
+        return "ok"
+
+    assert bash("ls") == "ok"
+    assert "default/default-session" in pipeline.sessions
