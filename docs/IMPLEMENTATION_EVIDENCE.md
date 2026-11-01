@@ -35,7 +35,9 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-001 fail-open execution | DONE | [TO-001](#to-001) |
 | TO-002 enforcement pipeline | IN PROGRESS | [TO-002](#to-002) |
 | TO-003 tenant identity | DONE | [TO-003](#to-003) |
-| TO-004 … TO-040 | NOT STARTED unless listed below | — |
+| Port onto `panoptis` layout | DONE | merge `4c2025d` (see below) |
+| TO-004 tenant-safe erasure | DONE | [TO-004](#to-004) |
+| TO-005 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -221,3 +223,64 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 - Tenancy on the v1 in-memory collector is held in session/event `metadata`. It is not yet a column in the optional Postgres v1 tables; persistent tenant and key storage is TO-006.
 - The session-scope GDPR delete is TO-004.
 - MCP gateway tenant binding is tested with the gateway (TO-023).
+
+### Port onto the `panoptis` package layout (owner decision, 2026-11-02)
+
+- **What changed on `main`:** commit `db95c31` renamed `agentwatch` → `panoptis`. PR #824, which the owner merged, then left an orphan `agentwatch/protect/` on `main` whose imports broke `main`'s CI at test collection.
+- **Decision:** the owner chose "port the branch onto `panoptis`", fixing `main` only through this branch.
+- **Merge `4c2025d`:** brings `main` into the branch.
+  - Git's rename detection carried the TO-001–003 edits onto the renamed files.
+  - One conflict, the import block of `api/server.py`, was resolved to `main`'s imports.
+  - `protect/` and `api/tenancy.py` moved under `panoptis/`.
+  - Branch code was renamed with `main`'s convention: lowercase identifiers changed; `AgentWatch*` classes and `AGENTWATCH_*` variables kept.
+- **Not caused by this branch:** `tests/test_cli_animator.py` (2 tests) also fails on unmodified `main` (`panoptis.cli.animator` lost `Live`). It is fixed under TO-032.
+
+### TO-004
+
+**Status:** DONE. Documentation: [`docs/ERASURE.md`](ERASURE.md).
+
+**Vulnerabilities found and fixed** (each reproduced on a real database before the fix):
+
+1. Session-scope erasure deleted by session id with no tenant constraint. Reproduced: tenant A's erase removed tenant B's rows.
+2. The other scopes deleted events by session id alone, so another tenant's events reusing the id were removed.
+3. **Over-deletion:** `SessionRecord` has no `user_id` column, and unknown filter keys were silently dropped. A `user_id`-scope erase therefore matched every session of the tenant; the test counted 3 sessions instead of 2.
+4. Erased sessions stayed readable through the v1 API, because they were still in the in-memory trace cache the routes are served from.
+
+**Changes:**
+
+- `panoptis/core/models.py`:
+  - `Repository.erase_session(session_id, tenant_id)`: every `DELETE` (events, tasks, checkpoints, session) is constrained through an owned-session subquery;
+  - `_session_filters`: `user_id` maps to `session_metadata.user_id` (`->>` on PostgreSQL, `json_extract` on SQLite), and an unknown key matches nothing; `count_events` follows the user's sessions;
+  - JSONB columns are `JSON().with_variant(JSONB, "postgresql")`. PostgreSQL DDL is unchanged, and the schema now also runs on SQLite.
+- `panoptis/api/server.py`:
+  - all scopes erase through `erase_session`;
+  - a new `_TraceCacheErasureTarget` covers every scope within the caller's tenant, using the principal's tenant;
+  - `gdpr_erase` passes the principal tenant through.
+
+**Tests:**
+
+- `tests/test_session_erasure_tenancy.py` (11, real in-memory SQLite):
+  - tenant A cannot erase tenant B's session;
+  - the owner erases the session with its events, task and checkpoint;
+  - unknown and foreign ids are indistinguishable;
+  - another tenant's events with the same session id survive;
+  - the API target is tenant-scoped for every scope;
+  - the user scope erases only that user's sessions;
+  - unknown filter keys match nothing;
+  - parametrised over 4 scopes: counted equals erased, and tenant B is never reached.
+- `tests/v3/test_tenant_isolation_api.py` (+3):
+  - the HTTP erase evicts the owner's cached session and spares tenant B;
+  - a foreign erase returns the same receipt as an unknown one;
+  - v3 subject crypto-shredding stays per tenant.
+
+**Commands and results:**
+
+- `pytest tests/test_session_erasure_tenancy.py`: 11 passed (3.1 s)
+- `pytest -k "gdpr or erasure or erase"`: 44 passed
+- `pytest tests/`: 2411 passed, 8 skipped, 2 failed. The 2 failures are the pre-existing `test_cli_animator` failures on `main`, described above.
+
+**Environment note:** with files in the Windows temp directory, SQLite fixtures stalled about 19 s each on lock waits. In-memory SQLite removed that: the file went from 158 s to 3 s.
+
+**Commits:** `c37aa28` `0ebcff1` `762ffe8` `aa4e62a` `1337770` `8cadd74` `8745911`, plus this ledger commit. That is 8: the task had 7 separable changes, and no filler commits were made.
+
+**Limitation:** the memory target's missing function is TO-031.

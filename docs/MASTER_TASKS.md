@@ -127,20 +127,20 @@ supported execution integrations. Tests prove ordering: inspect → decide
 API/integration tests, including attempts to substitute another tenant's
 header or identifier.
 
-## TO-004 --- Make session erasure tenant-safe
+## TO-004 --- Make session erasure tenant-safe — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-004)
 
--   [ ] Fix session-scope erasure in `agentwatch/api/server.py` (audit
+-   [x] Fix session-scope erasure in `agentwatch/api/server.py` (audit
     finding around line 1801) so the tenant constraint is part of the
     deletion query itself.
--   [ ] Do not fetch by session ID and delete before checking tenant
+-   [x] Do not fetch by session ID and delete before checking tenant
     ownership.
--   [ ] Apply the same ownership rule to related messages, traces,
+-   [x] Apply the same ownership rule to related messages, traces,
     evidence, cached data, and derived records.
--   [ ] Define and test behavior for unknown sessions and sessions owned
+-   [x] Define and test behavior for unknown sessions and sessions owned
     by another tenant without leaking ownership information.
--   [ ] Add two-tenant regression tests proving tenant A cannot erase
+-   [x] Add two-tenant regression tests proving tenant A cannot erase
     tenant B's session or associated records.
--   [ ] Verify deletion behavior for every supported erasure scope.
+-   [x] Verify deletion behavior for every supported erasure scope.
 
 **Acceptance evidence:** A cross-tenant erase test proves zero records
 belonging to the other tenant are modified or deleted.
