@@ -272,6 +272,10 @@ class Repository:
         await self._session.flush()
 
     async def insert_event(self, event_data: dict[str, Any]) -> None:
+        """Insert an event; idempotent on ``event_id`` (a retried write is not an error)."""
+        event_id = event_data.get("event_id")
+        if event_id and await self._session.get(EventRecord, event_id) is not None:
+            return
         record = EventRecord(**{k: v for k, v in event_data.items() if hasattr(EventRecord, k)})
         self._session.add(record)
         await self._session.flush()

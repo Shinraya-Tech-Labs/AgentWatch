@@ -89,3 +89,40 @@ def test_write_failures_return_503_and_recover_after_reconnect(monkeypatch, tmp_
         monkeypatch.setattr(server, "_db_session_factory", good)  # the database is back
         assert c.post("/api/v1/events", json=_event("db-back")).status_code == 200
         assert c.get("/health").json()["database"]["status"] == "ok"
+
+
+def test_retrying_an_event_after_an_outage_stores_it_exactly_once(monkeypatch, tmp_path):
+    import asyncio
+
+    from sqlalchemy import func, select
+
+    from panoptis.core.models import EventRecord
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{(tmp_path / 'v1.db').as_posix()}")
+    ev = {**_event("retry-session"), "event_id": "11111111-2222-3333-4444-555555555555"}
+    with TestClient(server.app) as c:
+        good = server._db_session_factory
+
+        def broken_factory():
+            raise ConnectionError("down")
+
+        monkeypatch.setattr(server, "_db_session_factory", broken_factory)
+        assert c.post("/api/v1/events", json=ev).status_code == 503
+        monkeypatch.setattr(server, "_db_session_factory", good)
+        assert c.post("/api/v1/events", json=ev).status_code == 200  # the retry persists it
+        assert (
+            c.post("/api/v1/events", json=ev).status_code == 200
+        )  # a second retry is not an error
+
+        async def count() -> int:
+            async with good() as db:
+                return (
+                    await db.execute(
+                        select(func.count())
+                        .select_from(EventRecord)
+                        .where(EventRecord.event_id == ev["event_id"])
+                    )
+                ).scalar_one()
+
+        assert asyncio.run(count()) == 1
+        assert server._collector.get_trace("retry-session").event_count == 1

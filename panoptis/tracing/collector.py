@@ -71,6 +71,10 @@ class Trace:
         self._event_count = 0
 
     def add_event(self, event: AgentEvent) -> TraceSpan:
+        """Add an event; a retried event (same ``event_id``) is recorded once."""
+        for existing in reversed(self.spans[-256:]):
+            if existing.span_id == event.event_id:
+                return existing
         span = TraceSpan(event)
         self.spans.append(span)
         self._event_count += 1
