@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -46,7 +47,8 @@ class TenantStore:
         metadata: dict[str, Any] | None = None,
     ) -> Tenant:
         tenant_id = str(uuid.uuid4())
-        config = PLAN_DEFAULTS.get(plan, TenantConfig())
+        # a copy per tenant: the plan default is shared and must never be mutated
+        config = dataclasses.replace(PLAN_DEFAULTS.get(plan, TenantConfig()))
 
         tenant = Tenant(
             tenant_id=tenant_id,

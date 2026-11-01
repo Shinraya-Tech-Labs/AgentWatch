@@ -17,6 +17,7 @@ Security properties:
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import threading
@@ -235,7 +236,7 @@ class SqlTenantStore:
             tenant_id=str(uuid.uuid4()),
             name=name,
             plan=plan,
-            config=PLAN_DEFAULTS.get(plan, TenantConfig()),
+            config=dataclasses.replace(PLAN_DEFAULTS.get(plan, TenantConfig())),
             metadata=metadata or {},
         )
         with self.engine.begin() as conn:
