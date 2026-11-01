@@ -252,6 +252,21 @@ class GenericAdapter:
         # published and persisted. Opt-in to avoid the cost when not required.
         self._redact = redact
 
+    def _enforcement_failure(self, method_name: str, exc: BaseException) -> AgentWatchBlockedError:
+        """The error raised when no valid safety decision could be reached (fail closed)."""
+        logger.error(
+            "Safety check for %s failed (%s: %s); blocking the call (fail closed)",
+            method_name,
+            type(exc).__name__,
+            exc,
+        )
+        return AgentWatchBlockedError(
+            f"Tool call '{method_name}' blocked: the safety check failed "
+            f"({type(exc).__name__}); AgentWatch fails closed",
+            tool_name=method_name,
+            reasons=[f"safety_check_failed: {type(exc).__name__}"],
+        )
+
     def _maybe_redact(self, tool_call: ToolCallData) -> ToolCallData:
         """Redact PII/PHI from a tool call when redaction is enabled.
 
@@ -433,10 +448,14 @@ class GenericAdapter:
             if is_tool_like:
                 # Check the raw payload; redact only the event we publish below.
                 tool_call = _build_tool_call_data(method_name, args, kwargs)
+                # Decide first. Any failure to reach a decision blocks the call
+                # (fail closed); it never falls through to running the tool.
                 try:
                     blocked, reasons = self._safety_engine.check_tool_call_sync(tool_call)
-                    # Build and publish a TOOL_CALL event with safety data so the
-                    # dashboard shows the correct blocked/safe state.
+                except Exception as exc:  # noqa: BLE001
+                    raise self._enforcement_failure(method_name, exc) from exc
+                # Then publish: telemetry failure must not change the decision.
+                try:
                     tc_event = AgentEvent(
                         session_id=self.session_id,
                         agent_id=self.agent_id,
@@ -455,20 +474,14 @@ class GenericAdapter:
                         metadata=dict(self._session_metadata),
                     )
                     self.bus.publish_sync(tc_event)
-                    if blocked:
-                        reason_str = "; ".join(reasons) if reasons else "safety policy"
-                        raise AgentWatchBlockedError(
-                            f"Tool call '{method_name}' blocked by safety engine: {reason_str}",
-                            tool_name=method_name,
-                            reasons=reasons,
-                        )
-                except AgentWatchBlockedError:
-                    raise  # propagate intentional blocks
                 except Exception as exc:  # noqa: BLE001
-                    logger.debug(
-                        "Safety check failed (suppressed) for %s: %s",
-                        method_name,
-                        exc,
+                    logger.warning("Could not publish the safety event for %s: %s", method_name, exc)
+                if blocked:
+                    reason_str = "; ".join(reasons) if reasons else "safety policy"
+                    raise AgentWatchBlockedError(
+                        f"Tool call '{method_name}' blocked by safety engine: {reason_str}",
+                        tool_name=method_name,
+                        reasons=reasons,
                     )
 
             self._emit_safely(
