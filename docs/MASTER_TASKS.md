@@ -190,20 +190,20 @@ configuration.
 database prove persistence, revocation, and authorization behavior
 across restarts.
 
-## TO-007 --- Remove silent database-to-memory degradation
+## TO-007 --- Remove silent database-to-memory degradation — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-007)
 
--   [ ] Audit the database connection fallback identified in the audit.
--   [ ] Do not silently switch to in-memory mode when a production
+-   [x] Audit the database connection fallback identified in the audit.
+-   [x] Do not silently switch to in-memory mode when a production
     database connection fails.
--   [ ] Define explicit development/test fallback configuration,
+-   [x] Define explicit development/test fallback configuration,
     disabled by default in production.
--   [ ] Surface database unavailability through startup failure or a
+-   [x] Surface database unavailability through startup failure or a
     clear unhealthy state.
--   [ ] Ensure security-sensitive writes cannot appear successful when
+-   [x] Ensure security-sensitive writes cannot appear successful when
     they were not persisted.
--   [ ] Add tests for unavailable database, failed transactions,
+-   [x] Add tests for unavailable database, failed transactions,
     reconnect, and explicit development fallback.
--   [ ] Document operational behavior and recovery.
+-   [x] Document operational behavior and recovery.
 
 **Acceptance evidence:** Production-mode tests prove database failure
 cannot silently create an ephemeral security state.

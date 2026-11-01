@@ -39,7 +39,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-004 tenant-safe erasure | DONE | [TO-004](#to-004) |
 | TO-005 attestation keys | DONE | [TO-005](#to-005) |
 | TO-006 tenant/key persistence | DONE | [TO-006](#to-006) |
-| TO-007 … TO-040 | NOT STARTED unless listed below | — |
+| TO-007 DB fallback | DONE | [TO-007](#to-007) |
+| TO-008 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -388,3 +389,42 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 **Environment:** installed `psycopg[binary]` 3.3.6 (PostgreSQL driver for these tests).
 
 **Commits:** `df38938` `f9661b9` `4120657` `81415d3`, plus this ledger commit.
+
+### TO-007
+
+**Status:** DONE. Operations guide: [`docs/PERSISTENCE.md`](PERSISTENCE.md).
+
+**Problems found and fixed:**
+
+1. With `DATABASE_URL` set but unreachable, the API logged a warning and ran in memory, and `/health` said `in_memory` without marking the deployment degraded.
+2. A database write failure for an event or session was logged as a warning, and the request still answered "accepted".
+3. Discovered while documenting retry: an event retried after it had been stored hit a duplicate-key error (503), and the in-memory trace recorded retries twice.
+
+**Changes:**
+
+- `panoptis/api/server.py`:
+  - `_persistence` state: `not_configured` / `connected` / `fallback`.
+  - An unreachable configured database refuses to start; `AGENTWATCH_ALLOW_MEMORY_FALLBACK=1` allows a degraded start outside production only.
+  - `/health` reports `persistence` and is 503 in fallback.
+  - Write failures are captured per request (a context variable shared with the bus handlers), and the route answers 503 "not persisted".
+- `panoptis/core/models.py`: `insert_event` is idempotent on `event_id`.
+- `panoptis/tracing/collector.py`: `Trace.add_event` ignores a known `event_id`.
+- `.env.example` and `docs/PERSISTENCE.md`: modes and recovery.
+
+**Tests:** `tests/test_persistence_failures.py` (6, real aiosqlite database):
+
+- an unreachable database stops startup;
+- the explicit fallback starts degraded (`/health` 503) and every write gets 503;
+- the fallback is refused in production;
+- no database configured is healthy, in memory by design;
+- write failures give 503 for events and sessions, health is 503, and both recover after reconnecting;
+- a retry after an outage stores the event exactly once, in the database and in the trace.
+
+**Commands and results:**
+
+- `pytest tests/test_persistence_failures.py`: 6 passed
+- Related API suites: 117 passed
+- `pytest -k "collector or trace or tracing or event or replay or session"`: 276 passed
+- `pytest tests/`: 2473 passed, 8 skipped, 2 failed (the pre-existing `test_cli_animator` failures)
+
+**Commits:** `53a271b` `9a0d999` `1408747`, plus this ledger commit.
