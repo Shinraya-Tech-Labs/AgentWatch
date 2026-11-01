@@ -17,6 +17,13 @@ from agentwatch.runtime.engine import Engine
 from agentwatch.storage.store import Store
 
 
+def _sid(name: str) -> str:
+    """Session ids are global in the collector: make each test's ids unique."""
+    import uuid
+
+    return f"{name}-{uuid.uuid4().hex[:8]}"
+
+
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     from agentwatch.api.middleware.rate_limiter import InMemoryBackend
@@ -179,3 +186,44 @@ def test_v1_events_are_teed_into_the_tenants_v3_store(client, cloud):
     client.post("/api/v1/events", json=_event("sess-tee"), headers=a)
     assert client.get("/api/v3/status", headers=a).json()["observations"] >= 1
     assert client.get("/api/v3/status", headers=b).json()["observations"] == 0
+
+
+SESSION_READS = [
+    "",
+    "/events",
+    "/trace",
+    "/confidence",
+    "/reasoning",
+    "/cost",
+    "/replay",
+    "/checkpoints",
+]
+
+
+@pytest.mark.parametrize("suffix", SESSION_READS)
+def test_v1_session_reads_are_tenant_scoped(client, cloud, suffix):
+    a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
+    sid = _sid("sess-private")
+    client.post("/api/v1/events", json=_event(sid), headers=a)
+    other = client.get(f"/api/v1/sessions/{sid}{suffix}", headers=b)
+    assert other.status_code == 404, f"{suffix}: {other.status_code} {other.text[:200]}"
+    assert client.get(f"/api/v1/sessions/{sid}{suffix}", headers=a).status_code != 404
+
+
+@pytest.mark.parametrize("suffix", ["/simulate", "/rollback"])
+def test_v1_session_actions_are_tenant_scoped(client, cloud, suffix):
+    a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
+    sid = _sid("sess-act")
+    client.post("/api/v1/events", json=_event(sid), headers=a)
+    body = {"rewind_to_step": 0} if suffix == "/simulate" else {}
+    assert client.post(f"/api/v1/sessions/{sid}{suffix}", json=body, headers=b).status_code == 404
+
+
+def test_v1_session_list_shows_only_the_callers_sessions(client, cloud):
+    a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
+    client.post("/api/v1/events", json=_event("sess-list-a"), headers=a)
+    client.post("/api/v1/events", json=_event("sess-list-b"), headers=b)
+    ids_a = {x["session_id"] for x in client.get("/api/v1/sessions", headers=a).json()["sessions"]}
+    ids_b = {x["session_id"] for x in client.get("/api/v1/sessions", headers=b).json()["sessions"]}
+    assert "sess-list-a" in ids_a and "sess-list-b" not in ids_a
+    assert "sess-list-b" in ids_b and "sess-list-a" not in ids_b

@@ -730,6 +730,13 @@ def _owner(metadata: dict[str, Any] | None) -> str:
     return str((metadata or {}).get("tenant_id") or _tenancy.DEFAULT_TENANT)
 
 
+def _require_session_owner(session_id: str, tenant_id: str) -> None:
+    """404 unless the session exists in the caller's tenant (existence is not leaked)."""
+    trace = _collector.get_trace(session_id)
+    if trace is not None and _owner(trace.session.metadata) != tenant_id:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+
 def _v3_tenant(
     x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
@@ -902,14 +909,22 @@ async def list_sessions(
     status: str | None = Query(default=None),
     since_hours: int | None = Query(default=None),
     _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> SessionListResponse:
     _limiter.check(_rate_limit_key(request, "r"), RATE_READ, request)
     since = None
     if since_hours is not None:
         since = datetime.now(UTC) - timedelta(hours=since_hours)
-    sessions = _collector.list_sessions(
-        limit=limit, framework=framework, status=status, since=since
-    )
+    sessions = [
+        sess
+        for sess in _collector.list_sessions(
+            limit=10_000 if _CLOUD_MODE or _tenant_keys() else limit,
+            framework=framework,
+            status=status,
+            since=since,
+        )
+        if _owner(sess.metadata) == tenant_id
+    ][:limit]
     return SessionListResponse(
         sessions=[session.model_dump(mode="json") for session in sessions], total=len(sessions)
     )
@@ -1003,7 +1018,9 @@ async def get_session(
     request: Request,
     session_id: str,
     _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     _limiter.check(_rate_limit_key(request, "r"), RATE_READ, request)
     trace = _collector.get_trace(session_id)
     if not trace:
@@ -1018,7 +1035,9 @@ async def get_events(
     event_type: str | None = Query(default=None),
     limit: int = Query(default=500, le=2000),
     _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> TraceResponse:
+    _require_session_owner(session_id, tenant_id)
     _limiter.check(_rate_limit_key(request, "r"), RATE_READ, request)
     events = _collector.get_events(session_id, event_type=event_type, limit=limit)
     return TraceResponse(
@@ -1078,7 +1097,12 @@ async def ingest_event(
 
 
 @app.get("/api/v1/sessions/{session_id}/trace")
-async def get_trace(session_id: str, _auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def get_trace(
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
+) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     trace = _collector.get_trace(session_id)
     if not trace:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
@@ -1087,8 +1111,11 @@ async def get_trace(session_id: str, _auth: None = Depends(_require_api_key)) ->
 
 @app.get("/api/v1/sessions/{session_id}/confidence", response_model=ConfidenceResponse)
 async def get_confidence(
-    session_id: str, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> ConfidenceResponse:
+    _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=2000)
     if not events:
         raise HTTPException(status_code=404, detail=f"No events for session {session_id}")
@@ -1107,8 +1134,11 @@ async def get_confidence(
 
 @app.get("/api/v1/sessions/{session_id}/reasoning")
 async def get_reasoning_audit(
-    session_id: str, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=5000)
     if not events:
         raise HTTPException(status_code=404, detail=f"No events for session {session_id}")
@@ -1117,8 +1147,11 @@ async def get_reasoning_audit(
 
 @app.get("/api/v1/sessions/{session_id}/cost")
 async def get_cost_budget(
-    session_id: str, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     budget = _cost_tracker.get_session(session_id)
     if not budget:
         events = _collector.get_events(session_id, limit=5000)
@@ -1131,7 +1164,12 @@ async def get_cost_budget(
 
 
 @app.get("/api/v1/sessions/{session_id}/replay")
-async def get_replay(session_id: str, _auth: None = Depends(_require_api_key)) -> dict[str, Any]:
+async def get_replay(
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
+) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=5000)
     trace = _collector.get_trace(session_id)
     if not events or not trace:
@@ -1163,8 +1201,12 @@ async def get_replay(session_id: str, _auth: None = Depends(_require_api_key)) -
 
 @app.post("/api/v1/sessions/{session_id}/simulate")
 async def simulate_session(
-    session_id: str, request: SimulateRequest, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    request: SimulateRequest,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=5000)
     trace = _collector.get_trace(session_id)
     if not events or not trace:
@@ -1198,8 +1240,11 @@ async def simulate_session(
 
 @app.get("/api/v1/sessions/{session_id}/checkpoints")
 async def list_checkpoints(
-    session_id: str, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     checkpoints = _rollback_engine.list_checkpoints(session_id)
     return {
         "session_id": session_id,
@@ -1209,8 +1254,12 @@ async def list_checkpoints(
 
 @app.post("/api/v1/sessions/{session_id}/rollback")
 async def rollback_session(
-    session_id: str, request: RollbackRequest, _auth: None = Depends(_require_api_key)
+    session_id: str,
+    request: RollbackRequest,
+    _auth: None = Depends(_require_api_key),
+    tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
+    _require_session_owner(session_id, tenant_id)
     if request.checkpoint_id:
         result = await _rollback_engine.rollback(
             request.checkpoint_id,
