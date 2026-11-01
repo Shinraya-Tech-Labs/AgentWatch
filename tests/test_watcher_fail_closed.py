@@ -189,3 +189,58 @@ def test_policy_that_cannot_load_blocks_every_tool_call(monkeypatch):
     with pytest.raises(AgentWatchBlockedError):
         asyncio.run(async_agent.arun("echo hello"))
     assert async_agent.calls == 0
+
+
+class StreamingAgent:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def stream(self, command: str):
+        self.calls += 1
+        yield f"chunk of {command}"
+
+
+def test_allowed_calls_execute_exactly_once_on_every_path():
+    sync_agent = _attach(CountingAgent())
+    for i in range(3):
+        sync_agent.run(f"echo {i}")
+    assert sync_agent.calls == 3
+
+    async_agent = _attach(AsyncCountingAgent())
+    asyncio.run(async_agent.arun("echo hi"))
+    assert async_agent.calls == 1
+
+    streamer = _attach(StreamingAgent())
+    assert list(streamer.stream("echo hi")) == ["chunk of echo hi"]
+    assert streamer.calls == 1
+
+
+def test_blocked_calls_never_execute_on_any_path():
+    sync_agent = _attach(CountingAgent())
+    with pytest.raises(AgentWatchBlockedError):
+        sync_agent.run("rm -rf /")
+    async_agent = _attach(AsyncCountingAgent())
+    with pytest.raises(AgentWatchBlockedError):
+        asyncio.run(async_agent.arun("rm -rf /"))
+    streamer = _attach(StreamingAgent())
+    with pytest.raises(AgentWatchBlockedError):
+        list(streamer.stream("rm -rf /"))
+    assert (sync_agent.calls, async_agent.calls, streamer.calls) == (0, 0, 0)
+
+
+def test_watching_twice_does_not_double_wrap_or_double_execute():
+    from agentwatch.core.watcher import watch
+
+    checks = []
+
+    class CountingEngine(SafetyEngine):
+        def check_tool_call_sync(self, tool_call: Any) -> tuple[bool, list[str]]:
+            checks.append(tool_call.tool_name)
+            return False, []
+
+    agent = CountingAgent()
+    GenericAdapter(agent, event_bus=EventBus(), safety_engine=CountingEngine()).attach()
+    watch(agent, event_bus=EventBus())
+    agent.run("echo hi")
+    assert agent.calls == 1
+    assert checks == ["run"], "a second watch() must not stack another wrapper"
