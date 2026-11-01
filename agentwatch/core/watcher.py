@@ -254,6 +254,7 @@ class GenericAdapter:
         metadata: dict[str, Any] | None = None,
         redact: bool = False,
         safety_timeout_s: float | None = None,
+        protection: Any | None = None,
     ):
         self.agent = agent
         self.framework = framework
@@ -279,6 +280,9 @@ class GenericAdapter:
         # CMP-003/004: scrub PII/PHI from tool-call payloads before they are
         # published and persisted. Opt-in to avoid the cost when not required.
         self._redact = redact
+        # When set (an agentwatch.protect.ProtectionPipeline), tool-like calls go through
+        # the shared enforcement boundary instead of this adapter's SafetyEngine gate.
+        self._protection = protection
         # Deadline for reaching a safety decision; a decision that does not arrive in
         # time blocks the call. Default: the policy's approval timeout plus margin (the
         # async check may legitimately wait that long for a human). Env override:
@@ -385,6 +389,77 @@ class GenericAdapter:
         finally:
             pool.shutdown(wait=False, cancel_futures=True)
 
+    # ── shared-pipeline enforcement (protection=...) ─────────────────────────────
+    def _action(
+        self, method_name: str, original: Any, args: tuple, kwargs: dict
+    ) -> tuple[Any, Any]:
+        import inspect
+
+        from agentwatch.protect.enforce import bind_arguments, current_context
+        from agentwatch.protect.model import ToolAction
+
+        try:
+            sig = inspect.signature(original)
+        except (TypeError, ValueError):
+            sig = None
+        named, rebuild = bind_arguments(sig, args, kwargs)
+        ctx = current_context()
+        action = ToolAction(
+            agent_id=ctx.get("agent_id") or self.agent_id,
+            session_id=ctx.get("session_id") or self.session_id,
+            tool=method_name,
+            arguments=named,
+            objective=ctx.get("objective") or self._session_metadata.get("objective"),
+            tenant_id=ctx.get("tenant_id") or "default",
+            trace_id=ctx.get("trace_id"),
+            source=f"adapter:{self.framework_label}",
+        )
+        return action, rebuild
+
+    def _protected_sync(self, method_name: str, original: Any, args: tuple, kwargs: dict) -> Any:
+        from agentwatch.protect.enforce import enforce_call
+
+        self._step += 1
+        action, rebuild = self._action(method_name, original, args, kwargs)
+
+        def invoke(arguments: dict[str, Any]) -> Any:
+            a, k = rebuild(arguments)
+            self._emit_safely(
+                EventType.AGENT_START, metadata={"method": method_name, "step": self._step}
+            )
+            result = original(*a, **k)
+            self._emit_safely(
+                EventType.AGENT_END,
+                status=ExecutionStatus.SUCCESS,
+                metadata={"method": method_name},
+            )
+            return result
+
+        return enforce_call(self._protection, action, invoke)
+
+    async def _protected_async(
+        self, method_name: str, original: Any, args: tuple, kwargs: dict
+    ) -> Any:
+        from agentwatch.protect.enforce import aenforce_call
+
+        self._step += 1
+        action, rebuild = self._action(method_name, original, args, kwargs)
+
+        async def invoke(arguments: dict[str, Any]) -> Any:
+            a, k = rebuild(arguments)
+            await self._async_emit(
+                EventType.AGENT_START, metadata={"method": method_name, "step": self._step}
+            )
+            result = await original(*a, **k)
+            await self._async_emit(
+                EventType.AGENT_END,
+                status=ExecutionStatus.SUCCESS,
+                metadata={"method": method_name},
+            )
+            return result
+
+        return await aenforce_call(self._protection, action, invoke)
+
     def _maybe_redact(self, tool_call: ToolCallData) -> ToolCallData:
         """Redact PII/PHI from a tool call when redaction is enabled.
 
@@ -463,6 +538,8 @@ class GenericAdapter:
             @functools.wraps(original)
             async def async_wrapped(*args: Any, **kwargs: Any) -> Any:
                 """Async wrapper that logs execution and applies the safety gate."""
+                if is_tool_like and self._protection is not None:
+                    return await self._protected_async(method_name, original, args, kwargs)
                 self._step += 1
 
                 import time as _time
@@ -557,6 +634,8 @@ class GenericAdapter:
         @functools.wraps(original)
         def sync_wrapped(*args: Any, **kwargs: Any) -> Any:
             """Sync wrapper that logs execution and applies the pattern-match safety gate."""
+            if is_tool_like and self._protection is not None:
+                return self._protected_sync(method_name, original, args, kwargs)
             self._step += 1
 
             import time as _time
@@ -807,6 +886,7 @@ def watch(
     event_bus: EventBus | None = None,
     metadata: dict[str, Any] | None = None,
     redact: bool = False,
+    protection: Any | None = None,
 ) -> Any:
     """
     Instrument an agent for AgentWatch observability.
@@ -823,6 +903,9 @@ def watch(
         metadata:    optional custom metadata attached to all session events
         redact:      scrub PII/PHI from tool-call payloads before they are
                      published/persisted (generic-adapter path only)
+        protection:  an ``agentwatch.protect.ProtectionPipeline``: tool-like calls are
+                     decided by the shared enforcement pipeline (RBAC, threats, loops,
+                     intent, approvals, output sanitization) instead of the legacy gate
     """
     if agent is None:
         logger.warning("watch() called with None — returning None")
@@ -861,6 +944,7 @@ def watch(
             agent_id=agent_id,
             metadata=metadata,
             redact=redact,
+            protection=protection,
         )
         return adapter.attach()
 

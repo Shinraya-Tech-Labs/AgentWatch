@@ -202,3 +202,33 @@ def test_mutated_arguments_reach_the_tool_and_the_mutation_is_recorded(ledger):
     import json
 
     assert key not in json.dumps(row), "the original secret must not be stored in evidence"
+
+
+def test_watch_with_protection_routes_tool_calls_through_the_pipeline(ledger):
+    from agentwatch.core.event_bus import EventBus
+    from agentwatch.core.watcher import watch
+
+    class Agent:
+        def __init__(self) -> None:
+            self.ran: list[str] = []
+
+        def run(self, command: str) -> str:
+            self.ran.append(command)
+            return f"done {command}"
+
+        async def arun(self, command: str) -> str:
+            self.ran.append(command)
+            return "async done"
+
+    p = ProtectionPipeline(ledger=ledger)
+    agent = watch(Agent(), event_bus=EventBus(), agent_id="coder", session_id="w1", protection=p)
+    assert agent.run("ls") == "done ls"
+    with pytest.raises(ActionBlocked):
+        agent.run("rm -rf /")
+    assert asyncio.run(agent.arun("pwd")) == "async done"
+    assert agent.ran == ["ls", "pwd"]
+    sources = {r["payload"]["action"]["source"] for r in ledger.query(("protect.decision",))}
+    assert sources == {"adapter:custom"}
+    assert {r["payload"]["action"]["agent_id"] for r in ledger.query(("protect.decision",))} == {
+        "coder"
+    }
