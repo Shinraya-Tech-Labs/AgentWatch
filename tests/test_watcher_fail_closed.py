@@ -169,3 +169,23 @@ def test_async_event_without_safety_data_blocks():
     with pytest.raises(AgentWatchBlockedError):
         asyncio.run(agent.arun("echo hello"))
     assert agent.calls == 0
+
+
+def test_policy_that_cannot_load_blocks_every_tool_call(monkeypatch):
+    from agentwatch.core import watcher
+
+    def broken_init(self: Any, *a: Any, **k: Any) -> None:
+        raise OSError("policy file unreadable")
+
+    monkeypatch.setattr(watcher.SafetyEngine, "__init__", broken_init)
+    agent = watcher.watch(CountingAgent(), event_bus=EventBus())
+    assert getattr(agent.run, "_agentwatch_wrapped", False), "the agent must still be wrapped"
+    with pytest.raises(AgentWatchBlockedError) as exc:
+        agent.run("echo hello")
+    assert agent.calls == 0
+    assert exc.value.reasons == ["safety_check_failed: RuntimeError"]
+
+    async_agent = watcher.watch(AsyncCountingAgent(), event_bus=EventBus())
+    with pytest.raises(AgentWatchBlockedError):
+        asyncio.run(async_agent.arun("echo hello"))
+    assert async_agent.calls == 0

@@ -203,6 +203,24 @@ def detect_framework_label(agent: Any) -> str:
 # ─────────────────────────────────────────────
 
 
+class _UnavailableSafetyEngine:
+    """Stands in for a SafetyEngine whose policy failed to load: every check raises."""
+
+    def __init__(self, error: BaseException) -> None:
+        self.error = error
+
+    def _fail(self) -> Any:
+        raise RuntimeError(
+            f"safety policy could not be loaded: {type(self.error).__name__}: {self.error}"
+        )
+
+    def check_tool_call_sync(self, tool_call: ToolCallData) -> tuple[bool, list[str]]:
+        return self._fail()
+
+    async def check_event(self, event: AgentEvent) -> AgentEvent:
+        return self._fail()
+
+
 class GenericAdapter:
     """
     Best-effort wrapper that intercepts the agent's primary entry points
@@ -245,7 +263,13 @@ class GenericAdapter:
         self.agent_id = agent_id or f"{framework_label}-{uuid.uuid4().hex[:8]}"
         self._step = 0
         self._wrapped_methods: dict[str, Any] = {}
-        self._safety_engine = safety_engine or SafetyEngine()
+        try:
+            self._safety_engine: Any = safety_engine or SafetyEngine()
+        except Exception as exc:  # noqa: BLE001
+            # The policy could not be loaded. Wrap anyway and block every tool-like
+            # call, rather than leaving the agent unwrapped (fail closed).
+            logger.error("Safety policy could not be loaded (%s); tool calls will be blocked", exc)
+            self._safety_engine = _UnavailableSafetyEngine(exc)
         self._session_metadata: dict[str, Any] = dict(metadata) if metadata else {}
         self._exec_logger = ExecutionLogger(
             agent_id=self.agent_id,
