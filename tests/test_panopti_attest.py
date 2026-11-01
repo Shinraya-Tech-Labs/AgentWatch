@@ -174,3 +174,43 @@ def test_dev_key_from_env_round_trips_in_process(monkeypatch):
     assert not AttestationEngine.verify_seal(seal, keyring=keyring_from_env()), (
         "another process's dev key must not verify"
     )
+
+
+def _run_verifier(*args: str, env: dict | None = None) -> tuple[int, str]:
+    import os
+    import subprocess
+    import sys
+
+    p = subprocess.run(  # noqa: S603 - fixed script, test-controlled arguments
+        [sys.executable, "scripts/verify_seal.py", *args],
+        capture_output=True,
+        text=True,
+        env={**os.environ, **(env or {})},
+        check=False,
+    )
+    return p.returncode, p.stdout + p.stderr
+
+
+def test_independent_verifier_agrees_with_the_engine(tmp_path):
+    key = secrets.token_bytes(32)
+    r = ring(audit=key)
+    seal = AttestationEngine.create_seal(
+        merkle_root=ROOT, tool_count=7, confidence_floor=0.875, keyring=r
+    )
+    seal_file, key_file = tmp_path / "seal.json", tmp_path / "key.b64"
+    seal_file.write_text(seal.to_json(), encoding="utf-8")
+    key_file.write_text(base64.b64encode(key).decode(), encoding="utf-8")
+    assert _run_verifier(str(seal_file), "--key-file", str(key_file))[0] == 0
+    code, out = _run_verifier(
+        str(seal_file), env={"AGENTWATCH_ATTEST_KEYS": f"audit={base64.b64encode(key).decode()}"}
+    )
+    assert code == 0 and "VALID" in out
+
+    tampered = dataclasses.replace(seal, policy_verdict="VIOLATION")
+    seal_file.write_text(tampered.to_json(), encoding="utf-8")
+    assert _run_verifier(str(seal_file), "--key-file", str(key_file))[0] == 1
+    other = tmp_path / "other.b64"
+    other.write_text(base64.b64encode(secrets.token_bytes(32)).decode(), encoding="utf-8")
+    seal_file.write_text(seal.to_json(), encoding="utf-8")
+    assert _run_verifier(str(seal_file), "--key-file", str(other))[0] == 1
+    assert _run_verifier(str(seal_file))[0] == 2  # no key configured
