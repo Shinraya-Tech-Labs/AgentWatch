@@ -388,3 +388,33 @@ def test_cli_export_verify_and_proof(db, tmp_path):
     assert run(app, ["protect", "evidence", "verify-bundle", str(out)]).exit_code == 0
     tamper(db, "update aw3_observations set source_kind = 'x' where rowid = 1")
     assert run(app, ["protect", "evidence", "verify", "--store", url]).exit_code == 2
+
+
+@pytest.mark.skipif(
+    not __import__("os").environ.get("AGENTWATCH_TEST_PG_URL"),
+    reason="AGENTWATCH_TEST_PG_URL not set",
+)
+def test_postgres_guards_every_envelope_column_and_verifies_v2():
+    import os
+    import uuid
+
+    from sqlalchemy import text
+
+    from panoptis.storage.store import Store
+
+    st = Store(os.environ["AGENTWATCH_TEST_PG_URL"])
+    tenant = f"t{uuid.uuid4().hex[:10]}"
+    lg = ProtectLedger(st, tenant_id=tenant, seal_every=0)
+    for i in range(3):
+        lg.record(KIND_DECISION, {"i": i}, {"verdict": "allow"})
+    st.seal_all(tenant)
+    rep = st.verify(tenant).to_dict()
+    assert rep["ok"] and rep["leaf_versions"] == {"2": 1}
+    for stmt in (
+        "UPDATE aw3_observations SET observed_at = '2000-01-01' WHERE tenant_id = :t",
+        "UPDATE aw3_observations SET sensor_instance = 'x' WHERE tenant_id = :t",
+        "DELETE FROM aw3_segment_versions WHERE segment_id LIKE :t || ':%'",
+    ):
+        with pytest.raises(Exception, match="append-only"), st.engine.begin() as conn:
+            conn.execute(text(stmt), {"t": tenant})
+    st.close()
