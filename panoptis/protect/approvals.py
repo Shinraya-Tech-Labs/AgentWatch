@@ -410,7 +410,7 @@ class ApprovalBroker:
             out.append(
                 {
                     **doc,
-                    "obs_id": r["obs_id"],
+                    "obs_id": row["obs_id"],
                     "state": _state(doc, outcome),
                     "outcome": outcome.to_dict() if outcome else None,
                 }

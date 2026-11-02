@@ -332,3 +332,18 @@ def test_api_rejection_and_wrong_digest_and_other_tenants(api, ledger):
     assert r.json()["state"] == "rejected"
     t.join(5)
     assert state["ran"] == [] and state["blocked"].approval["state"] == "rejected"
+
+
+def test_list_reports_each_requests_own_record_id_after_decisions(ledger):
+    """Regression: a renamed loop variable made list() report the last *decision's* record
+    id for every request (and crash when there was no decision)."""
+    broker = ApprovalBroker(ledger, approver=lambda r: True, timeout_s=5)
+    p = ProtectionPipeline(ledger=ledger, approvals=broker)
+    for _ in range(2):
+        enforce_call(p, act(), lambda a: "ran")
+    requests = {
+        r["payload"]["request_id"]: r["obs_id"]
+        for r in ledger.query((KIND_APPROVAL_REQUEST,), newest_first=False)
+    }
+    listed = {row["request_id"]: row["obs_id"] for row in broker.list()}
+    assert listed == requests and len(listed) == 2
