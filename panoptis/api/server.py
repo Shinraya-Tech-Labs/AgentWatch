@@ -895,6 +895,11 @@ def _v3_tenant(
 # AgentWatch v3: /api/v3/* and the OTLP receiver at /v1/traces (see docs/v3).
 app.include_router(build_v3_router(_require_api_key, _v3_tenant))
 
+# Human approval of escalated tool calls (TO-019), scoped to the caller's tenant.
+from panoptis.api.protect_approvals import build_router as _build_approvals_router  # noqa: E402
+
+app.include_router(_build_approvals_router(_require_api_key_or_operator, _v3_tenant))
+
 
 @app.exception_handler(HTTPException)
 async def _panoptis_http_exception_handler(request: Request, exc: HTTPException):
