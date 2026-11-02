@@ -564,3 +564,33 @@ PASS  api and frontend run as uid 10001, CapEff 0000000000000000, no-new-privile
 - `pytest tests/`: **2508 passed**, 9 skipped, 2 failed (the pre-existing `test_cli_animator` failures on `main`)
 
 **Commits:** `822d8d1` `8eaacca` `0a55eda` and the test-isolation commit, plus this ledger commit.
+
+### Legacy `agentwatch` Docker stack remediation (owner request, 2026-11-02)
+
+**Inspected:** project `agentwatch`, created on 2026-05-22 from the *old* `D:\agentwatch\docker-compose.yml`.
+
+- Postgres: user and db `agentwatch`, the default password `agentwatch`, volume `agentwatch_postgres_data` (7.5 MB, no user tables).
+- Redis: no auth and no volume.
+- API: old image, running as root.
+- All ports were published on `0.0.0.0`; Redis answered unauthenticated `PING` on the LAN address.
+
+**Done, without deleting data or touching other containers:**
+
+1. **Backup:** a full `pg_dumpall` and container-inspect snapshots, saved to `%USERPROFILE%\.agentwatch-legacy\`, outside the repository.
+2. **Password rotation:** the Postgres password was rotated in place (`ALTER USER`, with the value passed through the environment).
+3. **Recreation:** the stack was recreated from `docker-compose.legacy-hardened.yml` (kept in that folder) with the same images, the same external volume and the same network.
+   - Ports bound to loopback.
+   - Redis `requirepass`.
+   - `no-new-privileges` everywhere; the app containers drop all capabilities.
+   - New credentials are in `legacy.env` in that folder.
+   - `check_deploy_security.py`: 0 errors, 0 warnings.
+
+**Verification:** 10/10 passed.
+
+- Redis NOAUTH without the password, PONG with it.
+- The old Postgres password is rejected; the new one works on the same database.
+- Ports 5432, 6379, 8000 and 3000 are unreachable on 192.168.1.5.
+- The API and dashboard answer on loopback.
+- The volume `agentwatch_postgres_data` (created 2026-05-22) was kept.
+
+Operating and rollback notes: `%USERPROFILE%\.agentwatch-legacy\README.md`.
