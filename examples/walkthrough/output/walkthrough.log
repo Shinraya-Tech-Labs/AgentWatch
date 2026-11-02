@@ -1,0 +1,54 @@
+1. An allowed tool call
+    ok: the call ran and returned its result
+    decision recorded by the running API  {"verdict": "allow", "tool": "read_file", "reason": "[rbac:RBAC_ALLOWED] Role 'coder' allows 'read_file' (rule 'read_file')"}
+    ok: the API reports the decision as allow
+2. A dangerous action blocked before execution (side-effect marker)
+    blocked  {"reason": "[threat:FS_DELETE_CRITICAL] Recursive/forced deletion of a system or home path: /"}
+    ok: the tool body never ran (no new line in the side-effect marker)
+3. A human-in-the-loop action that runs only after approval (through the API)
+    ok: the escalated call is pending approval in the API
+    ok: nothing ran while the approval was pending
+    approval request  {"tool": "bash", "arguments": {"kwargs": {"command": "git push --force origin release"}}, "digest": "sha256:ceeb6e067aa0cfa19e1038323428d48b32dad96dcaa0d5b80b4e706dda9ab7ae"}
+    ok: alice approved exactly that action through the API
+    ok: the tool ran exactly once, after the approval
+4. A malicious tool output sanitized before it reaches the agent
+    what the agent received  {"text": "Release notes for v2.\n[AGENTWATCH: removed a line containing instructions addressed to the model (60 chars)]\nVersion 2 adds caching."}
+    ok: the injected line was removed and the rest kept
+5. A loop detected, then the circuit breaker opens
+    outcomes of five identical calls  {"outcomes": ["ran", "ran", "DUPLICATE_CALL_LOOP", "DUPLICATE_CALL_LOOP", "CIRCUIT_OPEN"]}
+    ok: the third identical call is a loop; repeated loops open the session's breaker
+6. An intent mismatch blocked
+    refused  {"intent_findings": ["GOAL_ACTION_MISMATCH", "LOW_GOAL_OVERLAP"], "reason": "[intent:GOAL_ACTION_MISMATCH] The task is read-only but 'bash' is destructive"}
+    ok: the intent stage reports GOAL_ACTION_MISMATCH
+7. An RBAC denial
+    denied  {"reason": "[rbac:RBAC_TOOL_FORBIDDEN] Role 'researcher' forbids 'bash' (rule 'bash')"}
+    ok: RBAC_TOOL_FORBIDDEN
+    ok: the API's dry-run check explains the same denial
+8. An MCP tool call intercepted by the gateway
+    MCP SDK client -> gateway -> MCP server  {"allowed": "hello through the gateway", "blocked": "AgentWatch blocked this tool call: [threat:FS_DELETE_CRITICAL] Recursive/forced deletion of a system or home path: /", "server_received": ["echo", "read_doc"]}
+    ok: the allowed call reached the server and returned
+    ok: the dangerous call was answered by the gateway and never reached the server
+    ok: the injected line in the server's result was removed before the client saw it
+9. Agent discovery: monitored vs unmonitored
+    discovered  {"files": "UNMONITORED", "guarded": "MONITORED", "cursor": "UNSUPPORTED"}
+    ok: a server started directly is UNMONITORED; one behind the gateway is MONITORED
+    inventory recorded for the dashboard (before wrapping)
+    ok: after 'discover wrap --apply' it runs behind the gateway and is MONITORED
+10. Evidence verification and tamper rejection
+    ok: the acme evidence chain verifies (1 segments, 29 records)
+    ok: the standalone verifier accepts the exported evidence
+    verification of the tampered copy  {"errors": ["segment acme:00000001: merkle root mismatch", "observation 01M6EHF62T0AJBAZRDB0738J0P: declared-id index does not match the record", "observation 01M6EHF7989MTC7EBW64WBDE05: declared-id index does not match the record"]}
+    ok: rewriting 'block' verdicts to 'allow' in the database is detected
+11. Tenant isolation with two tenants
+    decisions seen per tenant  {"acme_tools": ["bash", "echo", "list_branches", "read_doc", "read_file"], "globex": [["read_file", "allow"]]}
+    ok: globex sees only its own decision
+    ok: globex cannot see or decide acme's approval (404)
+    ok: a tenant key cannot trip the global emergency stop (403)
+12. Dashboard screenshots of this run
+    captured overview.png
+    captured decisions.png
+    captured agents.png
+    captured approvals.png
+    captured mcp.png
+    captured evidence.png
+    captured controls.png

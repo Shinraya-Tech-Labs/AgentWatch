@@ -783,88 +783,88 @@ or explicit internal purpose.
 
 # P3 --- Documentation, benchmarks, and presentation readiness
 
-## TO-035 --- Correct product claims and support matrix
+## TO-035 --- Correct product claims and support matrix — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-035)
 
--   [ ] Correct the README contradiction about whether v3 blocks or
+-   [x] Correct the README contradiction about whether v3 blocks or
     controls agents.
--   [ ] Distinguish prevention, observation, detection, alerting, and
+-   [x] Distinguish prevention, observation, detection, alerting, and
     post-execution labelling.
--   [ ] Correct the "40+ critical patterns" claim to match the actual
+-   [x] Correct the "40+ critical patterns" claim to match the actual
     verified pattern inventory (audit observed 15 built-in patterns, 5
     blocking by default; re-count after implementation).
--   [ ] Publish an adapter support matrix showing enforcement stage and
+-   [x] Publish an adapter support matrix showing enforcement stage and
     limitations for every integration.
--   [ ] Document what happens when policy evaluation fails.
--   [ ] Document security boundaries, threat model, non-goals,
+-   [x] Document what happens when policy evaluation fails.
+-   [x] Document security boundaries, threat model, non-goals,
     deployment assumptions, and known limitations.
--   [ ] Ensure every security claim links to a test, benchmark, or
+-   [x] Ensure every security claim links to a test, benchmark, or
     reproducible procedure.
--   [ ] Remove claims that cannot be demonstrated by the current
+-   [x] Remove claims that cannot be demonstrated by the current
     release.
 
 **Acceptance evidence:** Documentation review maps every product claim
 to implementation and verification evidence.
 
-## TO-036 --- Build reproducible security evaluation suite
+## TO-036 --- Build reproducible security evaluation suite — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-036-to-037)
 
--   [ ] Create a versioned, harmless synthetic test corpus for prompt
+-   [x] Create a versioned, harmless synthetic test corpus for prompt
     injection, secret exposure, dangerous tool arguments, policy
     violations, loops, and intent mismatch.
--   [ ] Include benign controls to measure false positives and content
+-   [x] Include benign controls to measure false positives and content
     preservation.
--   [ ] Keep test fixtures clearly labelled as defensive tests; do not
+-   [x] Keep test fixtures clearly labelled as defensive tests; do not
     download external datasets or run third-party code without explicit
     authorization.
--   [ ] Define metrics: detection rate, false-positive rate, block rate,
+-   [x] Define metrics: detection rate, false-positive rate, block rate,
     missed-attack rate, sanitization correctness, and decision latency.
--   [ ] Report results by threat category and integration.
--   [ ] Record hardware, software versions, configuration, seeds, and
+-   [x] Report results by threat category and integration.
+-   [x] Record hardware, software versions, configuration, seeds, and
     exact commands.
--   [ ] Ensure benchmarks are repeatable and distinguish synthetic
+-   [x] Ensure benchmarks are repeatable and distinguish synthetic
     results from external dataset results.
--   [ ] Do not claim competitor superiority without a fair, comparable,
+-   [x] Do not claim competitor superiority without a fair, comparable,
     independently reproducible evaluation.
 
 **Acceptance evidence:** A reproducible benchmark report includes
 methodology, raw results, limitations, and false-positive measurements.
 
-## TO-037 --- Measure runtime overhead and reliability
+## TO-037 --- Measure runtime overhead and reliability — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-036-to-037)
 
--   [ ] Benchmark allow, block, escalation, mutation, and
+-   [x] Benchmark allow, block, escalation, mutation, and
     output-sanitization paths.
--   [ ] Measure median and tail latency, throughput, memory use, and
+-   [x] Measure median and tail latency, throughput, memory use, and
     behavior under concurrency.
--   [ ] Measure overhead with and without evidence recording where
+-   [x] Measure overhead with and without evidence recording where
     configuration permits.
--   [ ] Test timeouts, cancellation, upstream failures, and degraded
+-   [x] Test timeouts, cancellation, upstream failures, and degraded
     dependencies.
--   [ ] Publish raw benchmark data and reproduction commands.
--   [ ] Define performance targets based on measured product
+-   [x] Publish raw benchmark data and reproduction commands.
+-   [x] Define performance targets based on measured product
     requirements rather than invented numbers.
 
 **Acceptance evidence:** Performance report is generated from
 reproducible runs on identified hardware/software.
 
-## TO-038 --- Create end-to-end product walkthrough
+## TO-038 --- Create end-to-end product walkthrough — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-038)
 
--   [ ] Create a clean local deployment or documented reproducible
+-   [x] Create a clean local deployment or documented reproducible
     environment.
--   [ ] Demonstrate a real agent/tool call that is allowed.
--   [ ] Demonstrate a dangerous action blocked before execution using a
+-   [x] Demonstrate a real agent/tool call that is allowed.
+-   [x] Demonstrate a dangerous action blocked before execution using a
     side-effect marker.
--   [ ] Demonstrate a HITL action that executes only after approval.
--   [ ] Demonstrate a malicious tool output sanitized before it reaches
+-   [x] Demonstrate a HITL action that executes only after approval.
+-   [x] Demonstrate a malicious tool output sanitized before it reaches
     the agent.
--   [ ] Demonstrate a loop detected and circuit breaker response.
--   [ ] Demonstrate an intent mismatch blocked or escalated.
--   [ ] Demonstrate RBAC denial.
--   [ ] Demonstrate an MCP call intercepted by the gateway.
--   [ ] Demonstrate agent discovery with monitored versus unmonitored
+-   [x] Demonstrate a loop detected and circuit breaker response.
+-   [x] Demonstrate an intent mismatch blocked or escalated.
+-   [x] Demonstrate RBAC denial.
+-   [x] Demonstrate an MCP call intercepted by the gateway.
+-   [x] Demonstrate agent discovery with monitored versus unmonitored
     status.
--   [ ] Demonstrate evidence/Merkle verification and tamper rejection.
--   [ ] Demonstrate tenant isolation with two test tenants.
--   [ ] Capture genuine screenshots/logs from the running product.
--   [ ] Provide setup, run, reset, and troubleshooting instructions.
+-   [x] Demonstrate evidence/Merkle verification and tamper rejection.
+-   [x] Demonstrate tenant isolation with two test tenants.
+-   [x] Capture genuine screenshots/logs from the running product.
+-   [x] Provide setup, run, reset, and troubleshooting instructions.
 
 **Acceptance evidence:** A reviewer can reproduce the walkthrough from a
 clean checkout using the documented commands. Screenshots and logs

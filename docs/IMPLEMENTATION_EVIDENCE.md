@@ -65,7 +65,12 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-032 CI and static security | IN PROGRESS (GitHub CI run pending) | [TO-032](#to-032) |
 | TO-033 release workflow | IN PROGRESS (GitHub RC run pending) | [TO-033](#to-033) |
 | TO-034 architecture | DONE | [TO-034](#to-034) |
-| TO-035 … TO-040 | NOT STARTED unless listed below | — |
+| TO-035 claims and support matrix | DONE | [TO-035](#to-035) |
+| TO-036 security evaluation | DONE | [TO-036, TO-037](#to-036-to-037) |
+| TO-037 overhead and reliability | DONE | [TO-036, TO-037](#to-036-to-037) |
+| TO-038 end-to-end walkthrough | DONE | [TO-038](#to-038) |
+| TO-039 full validation | IN PROGRESS | — |
+| TO-040 final review | NOT STARTED | — |
 
 ## Pre-task work already on the branch
 
@@ -1389,3 +1394,65 @@ The coverage-floor gate was re-measured on the final tree in TO-039, because the
 - **Dependency direction** is documented, and single-boundary enforcement is guarded by `tests/protect/test_single_boundary.py`.
 - **Guard:** `tests/test_architecture.py` (5) fails on any unreachable module, on an unwired module missing from the map or a stale entry, on shims that stop warning, and on the removed modules coming back.
 
+### TO-035
+
+**Status:** DONE. Every product claim is mapped to its implementation and verification in [`docs/CLAIMS.md`](CLAIMS.md). Commit `5e214f3`.
+
+- **README contradiction resolved.** The v3 evidence engine is described as passive; `panoptis.protect` is described as the enforcer, with its entry points, linking ADAPTER_SUPPORT, THREAT_MODEL and CLAIMS.
+- **Kinds of claim distinguished.** CLAIMS.md defines prevention, detection, observation or post-execution labelling, and alerting, and tags every claim with its kind.
+- **"40+ critical patterns" corrected.** The legacy gate has 15 built-in patterns, 5 of them critical and blocked by default (counted from `core/safety.py`). The pipeline has about 70 finding types, and the README links the evaluation. The landing site still says "40+". It is a separate repository outside this branch, which is noted in CLAIMS.md.
+- **Support matrix.** [`docs/ADAPTER_SUPPORT.md`](ADAPTER_SUPPORT.md) is generated from `protect/support.py`, also available as `panoptis protect support`. It lists every integration's enforcement stage and limits. `tests/protect/test_single_boundary.py` checks every enforcing row against the real code path.
+- **Failure behaviour, boundaries, threat model, non-goals, assumptions and limitations:** [`docs/THREAT_MODEL.md`](THREAT_MODEL.md).
+- **Removed or qualified claims:**
+  - "One command. Every failure caught.";
+  - the auditor's "never after the fact", now scoped to the legacy async path and stated to need `ANTHROPIC_API_KEY`;
+  - the stream adapter's "blocked" labels (TO-012).
+- **Unverified claims are flagged.** The Claude Code hook against the real CLI (TO-012) and the GitHub release-candidate run (TO-033) are marked as not yet verified.
+
+### TO-036, TO-037
+
+**Status:** DONE. The results are in [`benchmarks/results/protect_eval/REPORT.md`](../benchmarks/results/protect_eval/REPORT.md) (with `results.json` and `corpus_v1.json`) and [`docs/EVALUATION.md`](EVALUATION.md). Commits `e01b3c6` and `5e214f3`, plus fixes `56c9d86`, `4f50104` and `5ff9d14`.
+
+- **Corpus.** `benchmarks/protect_eval/corpus.py` (v1.0.0) has 82 harmless synthetic cases, each labelled attack or benign. They cover dangerous arguments, secrets, prompt injection and secrets in output, RBAC, loops, and intent. Nothing is downloaded or executed, and the evaluation tools are no-op stubs.
+- **Metrics.** Detection, block, escalate and false-positive rates, the missed attacks, sanitization correctness (injection removed and legitimate content kept), and p50/p95/p99 latency. Results are reported by category and by integration: the pipeline, `protect_tool` (also counting executions), the MCP gateway, and the Claude Code hook contract.
+- **Overhead.** Measured for allow, block, escalate (approved), mutate and sanitize, each with and without the SQLite ledger, plus throughput at 1, 4 and 8 threads and memory (tracemalloc). The report records the commit, Python, OS, CPU, the seed (no randomness is used) and the exact command.
+- **Reliability.** Timeouts, cancellation, upstream failure and degraded dependencies are covered by named tests, listed in the report, rather than timed.
+- **Defects found and fixed.** The first run found two real defects:
+  - a relative traversal to `/etc/shadow` was allowed; fixed in `4f50104`;
+  - an injected HTML comment dropped its whole line; fixed in `5ff9d14`.
+
+  It also caught my regression in `ApprovalBroker.list`, fixed in `56c9d86`. Each fix has a regression test. The corpus was not changed to make cases pass.
+- **Limits, stated in the report.** The corpus was written by the rule authors, so the score is optimistic. No external dataset and no competitor comparison were used. The benchmark ran under Python 3.14.2 on the dev machine; the package targets 3.12. No performance targets are set: targets must come from product requirements.
+
+### TO-038
+
+**Status:** DONE. Reproduce from a clean checkout with:
+
+```bash
+python examples/walkthrough/run_walkthrough.py --out walkthrough-out [--screenshots]
+```
+
+Docs: [`examples/walkthrough/README.md`](../examples/walkthrough/README.md). The committed output of the run is in `examples/walkthrough/output/`: the log, the JSON, the console, and 7 dashboard screenshots.
+
+- **What it runs.** The real API server (uvicorn) runs on a free port with a temporary SQLite store, kill file, anchors, RBAC policy, two tenant keys and an operator key. The agents share that store, as in a deployment. With `--screenshots`, the production dashboard build is also started and captured with Playwright.
+- **Self-checks.** 23 checks across the 11 steps. The run exits non-zero at the first failure, and every step listed in the task is demonstrated:
+  - allow;
+  - block, with a side-effect marker;
+  - HITL approved over the API, running once;
+  - output sanitized;
+  - loop, then the circuit breaker opens;
+  - intent mismatch;
+  - RBAC denial, also via the API dry-run;
+  - MCP SDK client → gateway CLI → MCP server, where the server's own call log shows the blocked call never arrived;
+  - discovery UNMONITORED/MONITORED, plus wrap;
+  - store and standalone-verifier verification, and rejection of a tampered database copy;
+  - two-tenant isolation (decisions, a cross-tenant approval gets 404, a tenant trying the global stop gets 403).
+- **Precise caveats, stated in the README.**
+  - The loop step's blocks come from `NO_APPROVAL_CHANNEL`, because loop findings escalate.
+  - The Claude Code hook is not part of the walkthrough (TO-012).
+- **Fixed while building it.** On Windows, `terminate()` on `npx next start` left the Next.js server running. This happened in the walkthrough and in `tests/e2e_dashboard`; 9 orphaned servers from earlier runs were found and stopped. Both now kill the process tree (`taskkill /T`).
+- **Verified after the fix:**
+  - the walkthrough ran with `--screenshots` (exit 0, 23/23 checks);
+  - `AGENTWATCH_E2E_DASHBOARD=1 pytest tests/e2e_dashboard`: 4 passed;
+  - 0 `next start` processes remained;
+  - the deployment directory was removed.

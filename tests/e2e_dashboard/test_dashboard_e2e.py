@@ -42,6 +42,22 @@ ROOT = Path(__file__).resolve().parents[2]
 FRONTEND = ROOT / "frontend"
 
 
+def _stop(p: subprocess.Popen[bytes]) -> None:
+    """Stop a server and its children. On Windows ``npx`` starts ``next`` as a child that
+    ``terminate()`` would leave running, so the whole tree is killed."""
+    if p.poll() is not None:
+        return
+    if sys.platform == "win32":
+        kill = [shutil.which("taskkill") or "taskkill", "/T", "/F", "/PID", str(p.pid)]
+        subprocess.run(kill, capture_output=True, check=False)  # noqa: S603
+    else:
+        p.terminate()
+    try:
+        p.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        p.kill()
+
+
 def _free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -124,11 +140,7 @@ def stack(tmp_path_factory):
         }
     finally:
         for p in procs:
-            p.terminate()
-            try:
-                p.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                p.kill()
+            _stop(p)
 
 
 def _pipeline(stack: dict[str, Any], **kw: Any) -> Any:
