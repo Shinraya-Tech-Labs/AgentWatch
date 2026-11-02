@@ -270,26 +270,26 @@ rejected without unbounded memory/CPU use.
 
 # P1 --- Runtime interception and protection capabilities
 
-## TO-011 --- Audit and enforce every framework adapter
+## TO-011 --- Audit and enforce every framework adapter — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-011)
 
--   [ ] Inventory all framework adapters and classify each as
+-   [x] Inventory all framework adapters and classify each as
     `PRE_EXECUTION_ENFORCEMENT`, `POST_EXECUTION_OBSERVATION`, or
     `UNSUPPORTED`.
--   [ ] Trace how `watch()`, `GenericAdapter`, and framework attach
+-   [x] Trace how `watch()`, `GenericAdapter`, and framework attach
     functions reach actual tool execution.
--   [ ] Route every adapter that claims prevention through TO-002's
+-   [x] Route every adapter that claims prevention through TO-002's
     authoritative enforcement pipeline.
--   [ ] Do not describe an observation-only adapter as blocking or
+-   [x] Do not describe an observation-only adapter as blocking or
     controlling execution.
--   [ ] Add per-adapter integration tests that execute a real test tool
+-   [x] Add per-adapter integration tests that execute a real test tool
     with a side-effect counter.
--   [ ] For each supported adapter, prove a blocked call never reaches
+-   [x] For each supported adapter, prove a blocked call never reaches
     the underlying tool.
--   [ ] Prove allowed calls execute once and results are returned
+-   [x] Prove allowed calls execute once and results are returned
     correctly.
--   [ ] Test sync/async execution, exceptions, cancellation, and
+-   [x] Test sync/async execution, exceptions, cancellation, and
     streaming where supported.
--   [ ] Update support matrix and documentation with actual enforcement
+-   [x] Update support matrix and documentation with actual enforcement
     boundaries.
 
 **Acceptance evidence:** Each adapter marked as enforcing has an
@@ -320,46 +320,46 @@ integrations are explicitly labelled.
 command did not execute. Output-stream observation alone does not
 satisfy this task.
 
-## TO-013 --- Complete LangGraph enforcement
+## TO-013 --- Complete LangGraph enforcement — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-013-to-014-to-015)
 
--   [ ] Trace the LangGraph adapter's actual tool execution lifecycle.
--   [ ] Attach enforcement at a pre-tool execution boundary, not only at
+-   [x] Trace the LangGraph adapter's actual tool execution lifecycle.
+-   [x] Attach enforcement at a pre-tool execution boundary, not only at
     agent entry or event observation.
--   [ ] Preserve tool schemas, state, callbacks, streaming, and
+-   [x] Preserve tool schemas, state, callbacks, streaming, and
     return/error semantics.
--   [ ] Add tests for allowed, blocked, escalated, mutated,
+-   [x] Add tests for allowed, blocked, escalated, mutated,
     failed-check, and sanitized-output cases.
--   [ ] Include a real integration test with a deterministic test graph
+-   [x] Include a real integration test with a deterministic test graph
     and side-effect counter.
--   [ ] Document version compatibility and unsupported execution modes.
+-   [x] Document version compatibility and unsupported execution modes.
 
 **Acceptance evidence:** LangGraph integration tests prove pre-execution
 blocking and post-execution output handling.
 
-## TO-014 --- Complete AutoGen enforcement
+## TO-014 --- Complete AutoGen enforcement — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-013-to-014-to-015)
 
--   [ ] Trace AutoGen tool/function invocation and interception points.
--   [ ] Route tool calls through TO-002 before the underlying function
+-   [x] Trace AutoGen tool/function invocation and interception points.
+-   [x] Route tool calls through TO-002 before the underlying function
     executes.
--   [ ] Preserve supported AutoGen message, tool schema, and approval
+-   [x] Preserve supported AutoGen message, tool schema, and approval
     semantics.
--   [ ] Add allowed, blocked, escalated, mutated, failure, and
+-   [x] Add allowed, blocked, escalated, mutated, failure, and
     output-sanitization tests.
--   [ ] Add a deterministic integration test with a side-effect counter.
--   [ ] Document supported AutoGen versions and limitations.
+-   [x] Add a deterministic integration test with a side-effect counter.
+-   [x] Document supported AutoGen versions and limitations.
 
 **Acceptance evidence:** AutoGen integration tests prove blocked
 functions never execute.
 
-## TO-015 --- Complete smolagents enforcement
+## TO-015 --- Complete smolagents enforcement — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-013-to-014-to-015)
 
--   [ ] Trace the smolagents tool wrapping and invocation path.
--   [ ] Ensure every supported tool invocation enters TO-002.
--   [ ] Preserve tool metadata, input/output contracts, and exceptions.
--   [ ] Add allowed, blocked, escalated, mutated, failed-check, and
+-   [x] Trace the smolagents tool wrapping and invocation path.
+-   [x] Ensure every supported tool invocation enters TO-002.
+-   [x] Preserve tool metadata, input/output contracts, and exceptions.
+-   [x] Add allowed, blocked, escalated, mutated, failed-check, and
     output-sanitization tests.
--   [ ] Add a deterministic integration test with a side-effect counter.
--   [ ] Document supported versions and limitations.
+-   [x] Add a deterministic integration test with a side-effect counter.
+-   [x] Document supported versions and limitations.
 
 **Acceptance evidence:** smolagents integration tests prove blocked
 tools never execute.

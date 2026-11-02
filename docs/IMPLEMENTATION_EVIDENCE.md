@@ -43,7 +43,10 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-008 safety-check endpoint | DONE | [TO-008](#to-008) |
 | TO-009 service exposure | DONE | [TO-009](#to-009) |
 | TO-010 request limits | DONE | [TO-010](#to-010) |
-| TO-011 … TO-040 | NOT STARTED unless listed below | — |
+| TO-011 adapter audit and enforcement | DONE | [TO-011](#to-011) |
+| TO-012 Claude Code PreToolUse | NOT STARTED | — |
+| TO-013 / TO-014 / TO-015 LangGraph, AutoGen, smolagents | DONE | [TO-013, TO-014, TO-015](#to-013-to-014-to-015) |
+| TO-016 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -594,3 +597,74 @@ PASS  api and frontend run as uid 10001, CapEff 0000000000000000, no-new-privile
 - The volume `agentwatch_postgres_data` (created 2026-05-22) was kept.
 
 Operating and rollback notes: `%USERPROFILE%\.agentwatch-legacy\README.md`.
+
+### TO-011
+
+**Status:** DONE. Matrix: [`docs/ADAPTER_SUPPORT.md`](ADAPTER_SUPPORT.md), generated from `panoptis/protect/support.py`.
+
+**Inventory and classification:** every module in `panoptis/adapters/` is classified (`tests/protect/test_support_matrix.py` fails if one is missing).
+
+- `PRE_EXECUTION_ENFORCEMENT`: `protect_tool()`, `watch(agent, protection=)` on generic agents, the fail-closed legacy gate, and the LangChain, LangGraph, smolagents and AutoGen tool integrations.
+- `POST_EXECUTION_OBSERVATION`: the callback and event adapters (LangChain callbacks, LangGraph, AutoGen, smolagents observability, CrewAI, OpenAI Agents SDK, AutoGPT, OpenClaw, generic CLI, and the Claude Code stream-json adapter). Each is labelled "observation only" in code and docs, and a test enforces the label.
+
+**Trace:** `watch()` → `GenericAdapter._wrap` → `enforce_call` for tool-like methods; for framework agents, `watch(agent, protection=)` → `protect_agent` → the framework's execution entry point (`StructuredTool.func/coroutine` or `BaseTool._run/_arun`, `ToolNode.tools_by_name`, `Tool.forward`, `FunctionTool.run_json`). `protect_agent` raises when it finds no tools, so asking for enforcement never silently gives observation only.
+
+**Changes:** `panoptis/protect/integrations.py`, `panoptis/protect/support.py`, `panoptis/core/watcher.py` (`protection=`); streaming (`_inspect_stream` / `_ainspect_stream`) and cancellation recording in `panoptis/protect/pipeline.py`.
+
+**Tests:**
+
+- `tests/protect/test_framework_integrations.py` (26): each test drives the framework's own execution code with a side-effect counter.
+  - A blocked call never runs; an allowed call runs once and returns its result.
+  - Sanitized output reaches the agent; a failing pipeline blocks.
+  - Escalated (approved or rejected) and mutated calls, per framework.
+  - `watch(agent, protection=)` on built agents.
+- `tests/protect/test_enforce.py`: sync and async contract, tool exceptions propagate unchanged, streamed results sanitized chunk by chunk (sync and async), and cancellation runs the tool once and records the failure.
+- `tests/protect/test_support_matrix.py` (4): the matrix covers every adapter module, every enforcement claim names an existing test, observation entries say so, and the docs match the code.
+
+**Commands and results:**
+
+- `pytest tests/protect tests/test_watcher_fail_closed.py`: 147 passed
+
+**Commits:** `bbf9750` `17e96b7` `b555a36` `25fc32a` `2035770` `f872cdf`, plus this ledger commit.
+
+### TO-013, TO-014, TO-015
+
+**Status:** DONE for LangGraph (TO-013), AutoGen (TO-014) and smolagents (TO-015).
+
+**Execution boundary:**
+
+- **LangGraph:** every tool of each `ToolNode`, found in the compiled graph's nodes.
+- **AutoGen:** `FunctionTool.run_json`, on the agent's tools and its workbench.
+- **smolagents:** `Tool.forward`; `final_answer` is skipped because it has no side effect.
+
+The decision is made before the underlying function runs, and the output is inspected before the framework hands it back to the model.
+
+**Cases tested, per framework, through the framework's own execution path** (`tests/protect/test_framework_integrations.py`):
+
+| Case | LangGraph | AutoGen | smolagents |
+|---|---|---|---|
+| allowed: runs once, result returned | compiled graph `invoke` | `AssistantAgent.run` (replay model) | `execute_tool_call` |
+| blocked: never runs | error ToolMessage, or `ActionBlocked` without error handling | `is_error` tool result | wrapped tool error |
+| escalated and approved: runs once after one approval | yes | yes | yes |
+| escalated and rejected: never runs | yes | yes | yes |
+| mutated: the tool receives redacted arguments | yes | yes | yes |
+| failed check: blocked, never runs | yes (via LangChain) | yes | yes |
+| sanitized output reaches the agent | yes | yes | yes |
+
+**Preserved semantics:**
+
+- LangGraph: streaming (`graph.stream`) and LangChain tool callbacks still fire once per call.
+- LangChain tool schema and name are unchanged.
+- smolagents `Tool` metadata (`inputs`) is unchanged.
+- smolagents and AutoGen tool exceptions surface exactly as they do unprotected (tested against an unprotected tool).
+
+**Versions tested** (documented in `docs/ADAPTER_SUPPORT.md`): langchain-core 1.2.17, langgraph 1.0.10, smolagents 1.26.0, autogen-agentchat/core/ext 0.7.5.
+
+**Unsupported (documented):**
+
+- LangGraph custom nodes that call functions directly instead of through a `ToolNode`.
+- smolagents `CodeAgent` interpreter code that is not a `Tool` call.
+- AutoGen 0.2 (`pyautogen`), which is observation only.
+- AutoGen MCP workbenches, which go through the MCP gateway (TO-023).
+
+**Commits:** `bbf9750` `17e96b7` `2035770` `f872cdf`, plus this ledger commit.
