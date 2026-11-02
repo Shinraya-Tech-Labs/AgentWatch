@@ -2223,45 +2223,39 @@ class _TraceCacheErasureTarget:
 
 
 class _MemoryErasureTarget:
-    """Best-effort ErasureTarget for memory/causal backends that may not be wired.
+    """ErasureTarget for the memory engines of this process (``panoptis.memory``).
 
-    When the optional memory imports succeed the target delegates to the
-    in-memory stores; otherwise it raises a scoped RuntimeError so the
-    CrossSessionErasureService records the missing backend as a per-target
-    failure rather than silently reporting zero matches.
+    Each MemoryEngine registers its store under its tenant; this target counts and deletes
+    the entries matching the identifier exactly, in the caller's tenant only. It is
+    registered only when a memory store exists in the process (otherwise there are no
+    memory records to erase here); a failing store is reported as a failed target.
     """
 
-    name = "memory_and_causal"
+    name = "memory"
 
-    def __init__(self, tenant_id: str | None = None) -> None:
+    def __init__(self, tenant_id: str) -> None:
         self._tenant_id = tenant_id
 
+    def _scope(self, identifier: str, scope: ErasureScope) -> str | None:
+        if scope == ErasureScope.TENANT_ID and identifier != self._tenant_id:
+            return None  # a tenant can only erase itself
+        return scope.value
+
     async def count_matching(self, identifier: str, scope: ErasureScope) -> int:
-        try:
-            from panoptis.memory.governance import list_memory_entries
-        except Exception as exc:  # noqa: BLE001 — surfaced via ErasureTargetResult
-            raise RuntimeError(f"memory_and_causal backend unavailable: {exc}") from exc
-        items = await list_memory_entries()
-        return sum(
-            1
-            for entry in items
-            if identifier in (entry.get("user_id", "") or "")
-            and (self._tenant_id is None or entry.get("tenant_id") == self._tenant_id)
-        )
+        from panoptis.memory.governance import list_memory_entries
+
+        s = self._scope(identifier, scope)
+        if s is None:
+            return 0
+        return len(await list_memory_entries(identifier, scope=s, tenant_id=self._tenant_id))
 
     async def erase_matching(self, identifier: str, scope: ErasureScope) -> int:
-        try:
-            from panoptis.memory.governance import drop_memory_entries
-        except Exception as exc:  # noqa: BLE001 — surfaced via ErasureTargetResult
-            raise RuntimeError(f"memory_and_causal backend unavailable: {exc}") from exc
-        try:
-            removed = await drop_memory_entries(
-                identifier=identifier,
-                tenant_id=self._tenant_id,
-            )
-        except TypeError:
-            removed = await drop_memory_entries(identifier)
-        return int(removed)
+        from panoptis.memory.governance import drop_memory_entries
+
+        s = self._scope(identifier, scope)
+        if s is None:
+            return 0
+        return await drop_memory_entries(identifier, scope=s, tenant_id=self._tenant_id)
 
 
 async def _build_erasure_service(
@@ -2275,10 +2269,10 @@ async def _build_erasure_service(
         logger.warning(
             "Database session factory is not initialised; portability-and-events target omitted from erasure service."
         )
-    try:
-        targets.append(_MemoryErasureTarget(tenant_id=tenant_id))
-    except Exception as exc:  # noqa: BLE001 — surfaced via ErasureTargetResult
-        logger.debug("Memory target will register as failure on first call: %s", exc)
+    from panoptis.memory.governance import memory_stores_registered
+
+    if memory_stores_registered():
+        targets.append(_MemoryErasureTarget(cache_tenant or tenant_id or _tenancy.DEFAULT_TENANT))
     if len(targets) == 1:
         logger.warning("Only the in-memory trace cache can be erased: no database is configured")
     if not targets:
@@ -2315,6 +2309,9 @@ async def gdpr_erase(
     a clean no-op from a partially-failed erasure; the response body in both
     200 and 207 cases is the signed ``ErasureReceipt`` itself.
     """
+    if tenant_id is None and _tenant_keys():
+        # self-hosted with tenant keys: the SQL target must not reach other tenants' rows
+        tenant_id = principal_tenant
     service = await _build_erasure_service(tenant_id=tenant_id, cache_tenant=principal_tenant)
     receipt = await service.erase(request)
     if receipt.failure_count:

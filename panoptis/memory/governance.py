@@ -6,6 +6,8 @@ Retention policies, deletion schedules, and GDPR right-to-erasure.
 
 from __future__ import annotations
 
+import threading
+import weakref
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -110,7 +112,85 @@ class MemoryGovernance:
         )
 
 
+# ── memory stores reachable for right-to-erasure ─────────────────────────────────
+#
+# Memory engines keep their entries in process (MemoryStore). Every MemoryEngine registers
+# its store here under its tenant, so the GDPR erasure endpoint of the same process can
+# find and delete a subject's memories. Stores are held weakly: a discarded engine drops
+# out. If no store is registered, the process holds no memory records at all.
+
+_STORES: weakref.WeakKeyDictionary[Any, str] = weakref.WeakKeyDictionary()
+_STORES_LOCK = threading.Lock()
+SCOPES = ("user_id", "agent_id", "session_id", "tenant_id")
+
+
+def register_memory_store(store: Any, *, tenant_id: str = "default") -> None:
+    """Make ``store`` (a :class:`~panoptis.memory.engine.MemoryStore`) erasable for ``tenant_id``."""
+    with _STORES_LOCK:
+        _STORES[store] = tenant_id
+
+
+def memory_stores_registered() -> int:
+    with _STORES_LOCK:
+        return len(_STORES)
+
+
+def _stores(tenant_id: str | None) -> list[tuple[Any, str]]:
+    with _STORES_LOCK:
+        return [(s, t) for s, t in list(_STORES.items()) if tenant_id is None or t == tenant_id]
+
+
+def _matches(entry: Any, identifier: str, scope: str, tenant: str) -> bool:
+    if scope == "user_id":
+        return str((entry.metadata or {}).get("user_id")) == identifier
+    if scope == "agent_id":
+        return entry.agent_id == identifier
+    if scope == "session_id":
+        return entry.session_id == identifier
+    if scope == "tenant_id":
+        return tenant == identifier
+    raise ValueError(f"unknown erasure scope {scope!r}; expected one of {SCOPES}")
+
+
+async def list_memory_entries(
+    identifier: str | None = None, *, scope: str = "user_id", tenant_id: str | None = None
+) -> list[dict[str, Any]]:
+    """Memory entries of the registered stores (of ``tenant_id``), optionally only those
+    matching ``identifier`` in ``scope`` (exact match)."""
+    out = []
+    for store, tenant in _stores(tenant_id):
+        for e in store.all_entries():
+            if identifier is None or _matches(e, identifier, scope, tenant):
+                out.append(
+                    {
+                        **e.to_dict(),
+                        "tenant_id": tenant,
+                        "user_id": (e.metadata or {}).get("user_id"),
+                    }
+                )
+    return out
+
+
+async def drop_memory_entries(
+    identifier: str, *, scope: str = "user_id", tenant_id: str | None = None
+) -> int:
+    """Delete every memory entry matching ``identifier`` in ``scope`` (exact match) in the
+    stores of ``tenant_id``. Returns the number deleted. Only memory is touched: the
+    evidence ledger is append-only and keeps its own erasure path (crypto-shredding)."""
+    if not identifier or not identifier.strip():
+        raise ValueError("an erasure needs a non-empty identifier")
+    removed = 0
+    for store, tenant in _stores(tenant_id):
+        for e in [e for e in store.all_entries() if _matches(e, identifier, scope, tenant)]:
+            removed += bool(store.remove(e.entry_id))
+    return removed
+
+
 __all__ = [
+    "register_memory_store",
+    "memory_stores_registered",
+    "list_memory_entries",
+    "drop_memory_entries",
     "RetentionPolicy",
     "ErasureRequest",
     "ErasureReceipt",
