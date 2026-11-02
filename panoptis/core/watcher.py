@@ -484,6 +484,7 @@ class GenericAdapter:
         Returns the (same) agent object — never a proxy, so identity is preserved.
         """
         emitted_session_start = False
+        protected = 0  # tool-like methods that go through enforcement
 
         for name in self.INTERCEPT_METHODS:
             if not hasattr(self.agent, name):
@@ -493,6 +494,7 @@ class GenericAdapter:
                 continue
             # Skip already-wrapped methods (idempotent)
             if getattr(original, "_panoptis_wrapped", False):
+                protected += _is_tool_like(name)
                 continue
 
             wrapped = self._wrap(name, original)
@@ -500,10 +502,17 @@ class GenericAdapter:
             try:
                 setattr(self.agent, name, wrapped)
                 self._wrapped_methods[name] = original
-            except (AttributeError, TypeError):
-                # Some agents have read-only attrs (e.g. slotted classes) — skip
+            except (AttributeError, TypeError) as exc:
+                # Some agents have read-only attrs (e.g. slotted classes). Observation can
+                # skip them; enforcement cannot leave a tool-like method unprotected.
+                if self._protection is not None and _is_tool_like(name):
+                    raise TypeError(
+                        f"cannot protect {type(self.agent).__name__}.{name}: the attribute "
+                        f"is read-only ({exc}); use protect_tool() on the agent's tools"
+                    ) from exc
                 logger.debug("Could not wrap %s on %s", name, type(self.agent).__name__)
                 continue
+            protected += _is_tool_like(name)
 
             if not emitted_session_start:
                 self._emit_safely(
@@ -511,6 +520,12 @@ class GenericAdapter:
                     metadata={"framework": self.framework_label},
                 )
                 emitted_session_start = True
+
+        if self._protection is not None and not protected:
+            raise ValueError(
+                f"protection requested but {type(self.agent).__name__} has no tool-like "
+                "method to enforce on; use protect_tool() on its tools"
+            )
 
         # Stash the adapter on the agent for later retrieval/diagnostics
         try:
@@ -956,6 +971,9 @@ def watch(
         return adapter.attach()
 
     except Exception as exc:  # noqa: BLE001 — invisible-when-healthy contract
+        if protection is not None:
+            # observation may degrade to "unmodified"; enforcement may not
+            raise
         logger.warning(
             "watch() instrumentation failed for %s: %s — returning agent unmodified",
             type(agent).__name__,
