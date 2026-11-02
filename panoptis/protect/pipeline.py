@@ -87,6 +87,8 @@ class ProtectionConfig:
     trip_breaker_after_loops: int = 2  # confirmed loops in a session before the breaker opens
     breaker_cooldown_s: float = 30.0
     breaker_consecutive_errors: int = 5
+    enable_wasi_sandbox: bool = False
+    sandbox_config: Any = None
 
 
 @dataclass
@@ -162,6 +164,7 @@ class ProtectionPipeline:
         intent: IntentGrounder | None = None,
         output: OutputInspector | None = None,
         config: ProtectionConfig | None = None,
+        sandbox: Any = None,
     ) -> None:
         self.config = config or ProtectionConfig()
         self.policy = policy or PolicyStore()
@@ -173,6 +176,14 @@ class ProtectionPipeline:
         self.loops = loops or LoopDetector(LoopConfig())
         self.intent = intent or IntentGrounder(GroundingConfig())
         self.output = output or OutputInspector(on_injection=self.config.on_injection)
+        if sandbox is not None:
+            self.sandbox = sandbox
+        elif self.config.enable_wasi_sandbox:
+            from panoptis.protect.wasi_sandbox import WasiSandbox, WasiSandboxConfig
+
+            self.sandbox = WasiSandbox(self.config.sandbox_config or WasiSandboxConfig())
+        else:
+            self.sandbox = None
         self.telemetry = Telemetry()
         self.sessions: dict[str, SessionInfo] = {}
         self.registered_agents: set[str] = set()
@@ -793,7 +804,14 @@ class ProtectionPipeline:
         )
         try:
             started = time.perf_counter()
-            result = call(args) if call is not None else fn(**args)
+            if self.sandbox is not None:
+                sandbox_res = self.sandbox.run_function(
+                    lambda: call(args) if call is not None else fn(**args),
+                    rollback_on_error=True,
+                )
+                result = sandbox_res.output
+            else:
+                result = call(args) if call is not None else fn(**args)
         except Exception as exc:
             self._finish(
                 action,

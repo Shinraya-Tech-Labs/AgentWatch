@@ -25,6 +25,11 @@ from panoptis.protect.enforce import (
     set_default_pipeline,
 )
 from panoptis.protect.intent import GroundingConfig, IntentGrounder, openai_compatible_verifier
+from panoptis.protect.kernel_sandbox import (
+    KernelSandbox,
+    KernelSandboxConfig,
+    KernelSandboxStatus,
+)
 from panoptis.protect.ledger import ProtectLedger
 from panoptis.protect.loops import LoopConfig, LoopDetector
 from panoptis.protect.model import (
@@ -41,6 +46,14 @@ from panoptis.protect.output import OutputInspector
 from panoptis.protect.pipeline import ProtectionConfig, ProtectionPipeline
 from panoptis.protect.rbac import PolicyError, PolicyStore, RBACEngine, parse_policy
 from panoptis.protect.threats import ThreatAnalyzer
+from panoptis.protect.wasi_sandbox import (
+    SandboxExecutionError,
+    SandboxResult,
+    SnapshotDiff,
+    WasiSandbox,
+    WasiSandboxConfig,
+    WorkspaceSnapshot,
+)
 
 __all__ = [
     "ActionBlocked",
@@ -52,6 +65,9 @@ __all__ = [
     "Finding",
     "GroundingConfig",
     "IntentGrounder",
+    "KernelSandbox",
+    "KernelSandboxConfig",
+    "KernelSandboxStatus",
     "LoopConfig",
     "LoopDetector",
     "OutputInspection",
@@ -62,11 +78,17 @@ __all__ = [
     "ProtectionConfig",
     "ProtectionPipeline",
     "RBACEngine",
+    "SandboxExecutionError",
+    "SandboxResult",
+    "SnapshotDiff",
     "Severity",
     "Stage",
     "ThreatAnalyzer",
     "ToolAction",
     "Verdict",
+    "WasiSandbox",
+    "WasiSandboxConfig",
+    "WorkspaceSnapshot",
     "aenforce_call",
     "current_context",
     "enforce_call",
