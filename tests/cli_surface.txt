@@ -321,6 +321,72 @@ command: panoptis protect config generate
     param force kind=TyperOption type=boolean required=False default=False flags=--force help='Overwrite an existing file.'
     param path kind=TyperOption type=path required=False default='.agentwatch-safety.yml' flags=--path help='Where to write the policy file.'
 
+command: panoptis protect control
+    help: Emergency stop and agent/session suspension for protected agents.
+    short_help: 
+
+command: panoptis protect control history
+    help: The control audit trail, newest first.
+    short_help: 
+    param limit kind=TyperOption type=int required=False default=50 flags=--limit help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store shared with the agents (default: AGENTWATCH_STORE).'
+
+command: panoptis protect control kill
+    help: Stop every protected agent before its next tool call (this host at once; others via the store).
+    short_help: 
+    param actor kind=TyperOption type=str required=False default=None flags=--actor help='Who (default: the OS user).'
+    param reason kind=TyperOption type=str required=True default=None flags=--reason help='Why (recorded).'
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store shared with the agents (default: AGENTWATCH_STORE).'
+
+command: panoptis protect control reset
+    help: Lift the emergency stop.
+    short_help: 
+    param actor kind=TyperOption type=str required=False default=None flags=--actor help='Who (default: the OS user).'
+    param reason kind=TyperOption type=str required=True default=None flags=--reason help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store shared with the agents (default: AGENTWATCH_STORE).'
+
+command: panoptis protect control resume-agent
+    help: Resume an agent: its tool calls are allowed again.
+    short_help: 
+    param actor kind=TyperOption type=str required=False default=None flags=--actor help='Who (default: the OS user).'
+    param reason kind=TyperOption type=str required=True default=None flags=--reason help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store shared with the agents (default: AGENTWATCH_STORE).'
+    param target kind=TyperArgument type=str required=True default=None flags=target help='The agent id.'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+
+command: panoptis protect control resume-session
+    help: Resume a session: its tool calls are allowed again.
+    short_help: 
+    param actor kind=TyperOption type=str required=False default=None flags=--actor help='Who (default: the OS user).'
+    param reason kind=TyperOption type=str required=True default=None flags=--reason help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store shared with the agents (default: AGENTWATCH_STORE).'
+    param target kind=TyperArgument type=str required=True default=None flags=target help='The session id.'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+
+command: panoptis protect control status
+    help: Show the kill switch and the suspended agents and sessions.
+    short_help: 
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store shared with the agents (default: AGENTWATCH_STORE).'
+    param tenant kind=TyperOption type=str required=False default=None flags=--tenant help="Only this tenant's suspensions."
+
+command: panoptis protect control suspend-agent
+    help: Suspend an agent: its tool calls are blocked.
+    short_help: 
+    param actor kind=TyperOption type=str required=False default=None flags=--actor help='Who (default: the OS user).'
+    param reason kind=TyperOption type=str required=True default=None flags=--reason help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store shared with the agents (default: AGENTWATCH_STORE).'
+    param target kind=TyperArgument type=str required=True default=None flags=target help='The agent id.'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+
+command: panoptis protect control suspend-session
+    help: Suspend a session: its tool calls are blocked.
+    short_help: 
+    param actor kind=TyperOption type=str required=False default=None flags=--actor help='Who (default: the OS user).'
+    param reason kind=TyperOption type=str required=True default=None flags=--reason help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store shared with the agents (default: AGENTWATCH_STORE).'
+    param target kind=TyperArgument type=str required=True default=None flags=target help='The session id.'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+
 command: panoptis protect discover
     help: Find local agent runtimes and MCP servers, and whether AgentWatch enforces on them.
     short_help: 

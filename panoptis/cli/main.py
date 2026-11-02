@@ -3086,5 +3086,99 @@ def protect_discover_wrap(
         console.print("[yellow]Not written. Re-run with --apply, then restart the client.[/yellow]")
 
 
+# ── Emergency controls (TO-025) ───────────────────────────────────────────────────────
+
+control_app = typer.Typer(
+    name="control",
+    help="Emergency stop and agent/session suspension for protected agents.",
+    no_args_is_help=True,
+)
+protect_app.add_typer(control_app, name="control")
+
+_STORE_HELP = "Evidence store shared with the agents (default: AGENTWATCH_STORE)."
+
+
+def _actor(actor: str | None) -> str:
+    return "cli:" + (actor or os.environ.get("USER") or os.environ.get("USERNAME") or "unknown")
+
+
+def _control_state(store: str | None) -> Any:
+    from panoptis.protect.control import ControlState
+    from panoptis.protect.ledger import ProtectLedger
+
+    return ControlState(
+        ProtectLedger(store or os.environ.get("AGENTWATCH_STORE") or None), refresh_s=0.0
+    )
+
+
+@control_app.command("status")
+def control_status(
+    store: str | None = typer.Option(None, "--store", help=_STORE_HELP),
+    tenant: str | None = typer.Option(None, "--tenant", help="Only this tenant's suspensions."),
+) -> None:
+    """Show the kill switch and the suspended agents and sessions."""
+    typer.echo(json.dumps(_control_state(store).status(tenant_id=tenant), indent=2, default=str))
+
+
+@control_app.command("history")
+def control_history(
+    store: str | None = typer.Option(None, "--store", help=_STORE_HELP),
+    limit: int = typer.Option(50, "--limit"),
+) -> None:
+    """The control audit trail, newest first."""
+    typer.echo(json.dumps(_control_state(store).history(limit), indent=2, default=str))
+
+
+@control_app.command("kill")
+def control_kill(
+    reason: str = typer.Option(..., "--reason", help="Why (recorded)."),
+    actor: str | None = typer.Option(None, "--actor", help="Who (default: the OS user)."),
+    store: str | None = typer.Option(None, "--store", help=_STORE_HELP),
+) -> None:
+    """Stop every protected agent before its next tool call (this host at once; others via the store)."""
+    out = _control_state(store).trip(reason, actor=_actor(actor))
+    console.print(f"[red]EMERGENCY STOP active[/red] ({out.get('obs_id')})")
+
+
+@control_app.command("reset")
+def control_reset(
+    reason: str = typer.Option(..., "--reason"),
+    actor: str | None = typer.Option(None, "--actor", help="Who (default: the OS user)."),
+    store: str | None = typer.Option(None, "--store", help=_STORE_HELP),
+) -> None:
+    """Lift the emergency stop."""
+    out = _control_state(store).reset(reason, actor=_actor(actor))
+    console.print(f"[green]Emergency stop lifted[/green] ({out.get('obs_id')})")
+
+
+def _scoped_control(
+    op: str, kind: str, target: str, reason: str, actor: str | None, tenant: str, store: str | None
+) -> None:
+    c = _control_state(store)
+    out = getattr(c, f"{op}_{kind}")(target, reason, actor=_actor(actor), tenant_id=tenant)
+    console.print(f"{kind} {tenant}/{target}: {op}ed ({out.get('obs_id')})")
+
+
+def _make_scoped(op: str, kind: str) -> Any:
+    def cmd(
+        target: str = typer.Argument(..., help=f"The {kind} id."),
+        reason: str = typer.Option(..., "--reason"),
+        tenant: str = typer.Option("default", "--tenant"),
+        actor: str | None = typer.Option(None, "--actor", help="Who (default: the OS user)."),
+        store: str | None = typer.Option(None, "--store", help=_STORE_HELP),
+    ) -> None:
+        _scoped_control(op, kind, target, reason, actor, tenant, store)
+
+    article = "an" if kind == "agent" else "a"
+    effect = "blocked" if op == "suspend" else "allowed again"
+    cmd.__doc__ = f"{op.capitalize()} {article} {kind}: its tool calls are {effect}."
+    return cmd
+
+
+for _kind in ("agent", "session"):
+    for _op in ("suspend", "resume"):
+        control_app.command(f"{_op}-{_kind}")(_make_scoped(_op, _kind))
+
+
 if __name__ == "__main__":
     main()
