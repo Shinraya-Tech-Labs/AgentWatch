@@ -28,11 +28,7 @@ jobs:
       - name: Install package
         run: pip install -e ".[dev,crypto]"
 
-      - name: Security Vulnerability Audit
-        continue-on-error: true
-        run: |
-          pip install pip-audit "filelock>=4.2.1"
-          pip-audit --desc
+      # dependency auditing (blocking) runs in CI's "package" job over a clean install
 
       - name: Run tests with coverage
         id: pytest
@@ -74,4 +70,10 @@ jobs:
         if: steps.pytest.outcome != 'success'
         run: |
           echo "::error::pytest reported failures — see the test step log above."
+          exit 1
+
+      - name: Fail if lint failed
+        if: steps.ruff.outcome != 'success'
+        run: |
+          echo "::error::ruff reported findings — see the lint step log above."
           exit 1

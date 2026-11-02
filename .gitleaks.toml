@@ -1,0 +1,29 @@
+# Secret scanning (gitleaks). CI fails on any finding not allowlisted here.
+#
+# Allowlisted: build and cache output, and test files whose fake credentials exist to test
+# redaction and detection. Every entry is a named file, not a directory, so a real secret
+# added anywhere else in tests/ is still caught.
+title = "AgentWatch gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "build output, caches and named test fixtures"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)\.next/''',
+  '''(^|/)__pycache__/''',
+  '''\.pyc$''',
+  '''(^|/)\.venv/''',
+  '''^agentwatch-landing/''',  # a separate repository with its own scanning
+  '''^tests/security/test_secret_redactor\.py$''',
+  '''^tests/protect/test_output_inspection\.py$''',
+  '''^tests/protect/test_threat_analysis\.py$''',
+  '''^tests/protect/test_discovery\.py$''',
+  '''^tests/test_tasks_and_alerting\.py$''',
+  '''^tests/test_tenancy_resolver\.py$''',
+  '''^tests/v3/test_evidence\.py$''',
+]
+# AWS's documented example key, used as a fixture in several tests
+regexes = ['''AKIAIOSFODNN7EXAMPLE''']
