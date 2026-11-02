@@ -22,7 +22,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from panoptis.contracts.schema import (
     ContractOperator,
@@ -76,6 +76,16 @@ def _reexecution_allowed() -> bool:
 
 class ObservationBatch(BaseModel):
     observations: list[dict[str, Any]] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _bounded(self) -> ObservationBatch:
+        """Item count, nesting depth and string size are bounded (TO-010)."""
+        from panoptis.api.limits import check_json_limits, max_batch_items
+
+        if len(self.observations) > max_batch_items():
+            raise ValueError(f"a batch may hold at most {max_batch_items()} observations")
+        check_json_limits(self.observations)
+        return self
 
 
 class ReplayRequest(BaseModel):

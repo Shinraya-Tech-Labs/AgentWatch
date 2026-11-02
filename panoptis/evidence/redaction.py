@@ -34,6 +34,15 @@ SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "secret.jwt",
         re.compile(r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b"),
     ),
+    # a credential assigned to a credential-named key: KEY=value, "key": "value", key: value
+    (
+        "secret.credential_assignment",
+        re.compile(
+            r"(?i)\b(?:aws_secret_access_key|secret_access_key|client_secret|api[_-]?secret|"
+            r"api[_-]?key|access[_-]?token|auth[_-]?token|private[_-]?token|password|passwd)"
+            r"[\"']?\s*[:=]\s*[\"']?(?!\[REDACTED)[^\s\"',;]{8,}"
+        ),
+    ),
 )
 
 PII_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (

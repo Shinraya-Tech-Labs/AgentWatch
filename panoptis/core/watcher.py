@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import contextvars
 import logging
 import os
 import uuid
@@ -203,6 +204,47 @@ def detect_framework_label(agent: Any) -> str:
 # ─────────────────────────────────────────────
 
 
+# The legacy SafetyEngine decision of the call being checked, read by the shared
+# pipeline's threat stage (_LegacyGateThreats). A ContextVar, so it reaches the
+# pipeline's worker thread (asyncio.to_thread copies the context).
+_LEGACY_CHECK: contextvars.ContextVar[Any] = contextvars.ContextVar(
+    "panoptis_legacy_check", default=None
+)
+
+
+def _legacy_finding(code: str, message: str, reasons: list[str]) -> Any:
+    from panoptis.protect.model import Finding, Severity, Stage, Verdict
+
+    return Finding(
+        Stage.THREAT, code, Severity.CRITICAL, message, {"reasons": reasons}, None, Verdict.BLOCK
+    )
+
+
+class _LegacyGateThreats:
+    """Threat stage of the pipeline behind ``watch(agent)`` without ``protection=``.
+
+    The adapter's SafetyEngine (its policies, patterns and approvals) decides; the
+    pipeline around it provides the one decision flow: identity, the kill switch and
+    suspensions, fail-closed handling, and execute-at-most-once. No other stage adds
+    findings (no RBAC policy, loops record only, no objective, no output rewriting), so
+    the legacy behaviour is unchanged apart from the kill switch now applying.
+    """
+
+    def __init__(self) -> None:
+        from panoptis.protect.arguments import ArgumentAnalyzer
+
+        self._arguments = ArgumentAnalyzer()
+
+    def analyze(self, tool: str, arguments: dict[str, Any]) -> Any:
+        from panoptis.protect.threats import ThreatReport
+
+        profile, _ = self._arguments.analyze(tool, arguments)
+        check = _LEGACY_CHECK.get()
+        if check is None:
+            raise RuntimeError("legacy safety gate called without a pending check")
+        return ThreatReport(profile=profile, findings=check())
+
+
 class _UnavailableSafetyEngine:
     """Stands in for a SafetyEngine whose policy failed to load: every check raises."""
 
@@ -283,6 +325,7 @@ class GenericAdapter:
         # When set (an panoptis.protect.ProtectionPipeline), tool-like calls go through
         # the shared enforcement boundary instead of this adapter's SafetyEngine gate.
         self._protection = protection
+        self._compat: Any = None  # pipeline running the SafetyEngine gate when protection is None
         # Deadline for reaching a safety decision; a decision that does not arrive in
         # time blocks the call. Default: the policy's approval timeout plus margin (the
         # async check may legitimately wait that long for a human). Env override:
@@ -389,6 +432,53 @@ class GenericAdapter:
         finally:
             pool.shutdown(wait=False, cancel_futures=True)
 
+    # ── legacy gate, run inside the shared pipeline (TO-002) ─────────────────────
+    def _legacy_pipeline(self) -> Any:
+        if self._compat is None:
+            from panoptis.protect.loops import LoopConfig, LoopDetector
+            from panoptis.protect.model import Verdict
+            from panoptis.protect.pipeline import ProtectionConfig, ProtectionPipeline
+
+            self._compat = ProtectionPipeline(
+                threats=_LegacyGateThreats(),  # type: ignore[arg-type]
+                loops=LoopDetector(LoopConfig(verdict=Verdict.ALLOW)),
+                config=ProtectionConfig(
+                    output_inspection=False, record_allowed=False, breaker_consecutive_errors=0
+                ),
+            )
+        return self._compat
+
+    def _legacy_action(self, method_name: str, original: Any, args: tuple, kwargs: dict) -> Any:
+        try:
+            action, _ = self._action(method_name, original, args, kwargs)
+        except Exception:  # noqa: BLE001 - unusual signatures: the gate reads the raw call
+            from panoptis.protect.model import ToolAction
+
+            action = ToolAction(
+                agent_id=self.agent_id, session_id=self.session_id, tool=method_name
+            )
+        action.objective = None  # the legacy gate does no intent grounding
+        action.source = f"adapter:{self.framework_label}:legacy-gate"
+        return action
+
+    def _legacy_block(
+        self, method_name: str, outcome: dict[str, Any], blocked: Any
+    ) -> BaseException:
+        """The legacy error for a refused call (same type and message as before)."""
+        if "failure" in outcome:
+            err, exc = outcome["failure"]
+            err.__cause__ = exc
+            return err
+        if "blocked" in outcome:
+            reasons = outcome["blocked"]
+            reason_str = "; ".join(reasons) if reasons else "safety policy"
+            return AgentWatchBlockedError(
+                f"Tool call '{method_name}' blocked by safety engine: {reason_str}",
+                tool_name=method_name,
+                reasons=reasons,
+            )
+        return blocked  # refused by the pipeline itself (kill switch, suspension)
+
     # ── shared-pipeline enforcement (protection=...) ─────────────────────────────
     def _action(
         self, method_name: str, original: Any, args: tuple, kwargs: dict
@@ -484,6 +574,7 @@ class GenericAdapter:
         Returns the (same) agent object — never a proxy, so identity is preserved.
         """
         emitted_session_start = False
+        protected = 0  # tool-like methods that go through enforcement
 
         for name in self.INTERCEPT_METHODS:
             if not hasattr(self.agent, name):
@@ -493,6 +584,7 @@ class GenericAdapter:
                 continue
             # Skip already-wrapped methods (idempotent)
             if getattr(original, "_panoptis_wrapped", False):
+                protected += _is_tool_like(name)
                 continue
 
             wrapped = self._wrap(name, original)
@@ -500,10 +592,17 @@ class GenericAdapter:
             try:
                 setattr(self.agent, name, wrapped)
                 self._wrapped_methods[name] = original
-            except (AttributeError, TypeError):
-                # Some agents have read-only attrs (e.g. slotted classes) — skip
+            except (AttributeError, TypeError) as exc:
+                # Some agents have read-only attrs (e.g. slotted classes). Observation can
+                # skip them; enforcement cannot leave a tool-like method unprotected.
+                if self._protection is not None and _is_tool_like(name):
+                    raise TypeError(
+                        f"cannot protect {type(self.agent).__name__}.{name}: the attribute "
+                        f"is read-only ({exc}); use protect_tool() on the agent's tools"
+                    ) from exc
                 logger.debug("Could not wrap %s on %s", name, type(self.agent).__name__)
                 continue
+            protected += _is_tool_like(name)
 
             if not emitted_session_start:
                 self._emit_safely(
@@ -511,6 +610,12 @@ class GenericAdapter:
                     metadata={"framework": self.framework_label},
                 )
                 emitted_session_start = True
+
+        if self._protection is not None and not protected:
+            raise ValueError(
+                f"protection requested but {type(self.agent).__name__} has no tool-like "
+                "method to enforce on; use protect_tool() on its tools"
+            )
 
         # Stash the adapter on the agent for later retrieval/diagnostics
         try:
@@ -550,84 +655,116 @@ class GenericAdapter:
                     {"step": self._step, "args_count": len(args), "kwargs": list(kwargs.keys())},
                 )
 
-                # ── Safety gate (async path — full check_event with approval) ──
-                if is_tool_like:
-                    # Safety must evaluate the RAW payload — redacting first would
-                    # hide signals (paths, secrets, identifiers) the engine needs.
-                    tool_call = _build_tool_call_data(method_name, args, kwargs)
-                    safety_event = AgentEvent(
-                        session_id=self.session_id,
-                        agent_id=self.agent_id,
-                        agent_name=self.framework_label,
-                        framework=self.framework,
-                        event_type=EventType.TOOL_CALL,
-                        step_number=self._step,
-                        tool_call=tool_call,
-                        metadata=dict(self._session_metadata),
+                async def run(_arguments: Any = None) -> Any:
+                    # Use await so HTTP forwarding completes before the caller returns.
+                    await self._async_emit(
+                        EventType.AGENT_START,
+                        metadata={"method": method_name, "step": self._step},
                     )
-                    # Decide first; any failure to reach a decision blocks (fail closed).
+                    try:
+                        result = await original(*args, **kwargs)
+                        _dur = (_time.monotonic() - _t0) * 1000
+                        self._exec_logger.log_execution_complete("success", _dur)
+                        await self._async_emit(
+                            EventType.AGENT_END,
+                            status=ExecutionStatus.SUCCESS,
+                            metadata={"method": method_name},
+                        )
+                        return result
+                    except AgentWatchBlockedError:
+                        raise
+                    except Exception as exc:
+                        import traceback as _tb
+
+                        _dur = (_time.monotonic() - _t0) * 1000
+                        self._exec_logger.log_error(
+                            str(exc),
+                            type(exc).__name__,
+                            _tb.format_exc(),
+                            {"method": method_name, "step": self._step},
+                        )
+                        self._exec_logger.log_execution_complete("failure", _dur)
+                        await self._async_emit(
+                            EventType.AGENT_ERROR,
+                            status=ExecutionStatus.FAILURE,
+                            metadata={"method": method_name, "error": str(exc)},
+                        )
+                        raise
+
+                if not is_tool_like:
+                    return await run()
+
+                # ── Safety gate (async path — full check_event with approval) ──
+                # The adapter's SafetyEngine is the threat stage of the shared pipeline
+                # (TO-002): the pipeline decides, fails closed, honours the kill switch
+                # and runs the tool at most once. Safety must evaluate the RAW payload —
+                # redacting first would hide signals the engine needs.
+                tool_call = _build_tool_call_data(method_name, args, kwargs)
+                safety_event = AgentEvent(
+                    session_id=self.session_id,
+                    agent_id=self.agent_id,
+                    agent_name=self.framework_label,
+                    framework=self.framework,
+                    event_type=EventType.TOOL_CALL,
+                    step_number=self._step,
+                    tool_call=tool_call,
+                    metadata=dict(self._session_metadata),
+                )
+                loop = asyncio.get_running_loop()
+                outcome: dict[str, Any] = {}
+
+                def check() -> list[Any]:
+                    # runs on the pipeline's worker thread; the engine runs on our loop
+                    fut = asyncio.run_coroutine_threadsafe(
+                        self._safety_engine.check_event(safety_event), loop
+                    )
                     try:
                         checked = self._valid_checked_event(
-                            await asyncio.wait_for(
-                                self._safety_engine.check_event(safety_event),
-                                timeout=self._async_deadline(),
-                            )
+                            fut.result(timeout=self._async_deadline())
                         )
                     except Exception as exc:  # noqa: BLE001 - includes TimeoutError
-                        raise self._enforcement_failure(method_name, exc) from exc
-                    # Publish the checked event — it carries the full safety
-                    # metadata (risk_level, blocked status, reasons). Scrub
-                    # PII/PHI only now, after the decision, before persist.
-                    # Await so the HTTP forwarder completes before we proceed.
+                        fut.cancel()
+                        outcome["failure"] = (self._enforcement_failure(method_name, exc), exc)
+                        return [
+                            _legacy_finding(
+                                "LEGACY_GATE_FAILED",
+                                f"safety check failed: {type(exc).__name__}",
+                                [],
+                            )
+                        ]
+                    # Publish the checked event — it carries the full safety metadata.
+                    # Scrub PII/PHI only now, after the decision, before persist.
                     try:
-                        await self.bus.publish(self._redact_event(checked))
+                        asyncio.run_coroutine_threadsafe(
+                            self.bus.publish(self._redact_event(checked)), loop
+                        ).result(timeout=30)
                     except Exception as exc:  # noqa: BLE001
                         logger.warning(
                             "Could not publish the safety event for %s: %s", method_name, exc
                         )
                     if checked.is_blocked:
                         reasons = checked.safety.reasons if checked.safety else []
-                        reason_str = "; ".join(reasons) if reasons else "safety policy"
-                        raise AgentWatchBlockedError(
-                            f"Tool call '{method_name}' blocked by safety engine: {reason_str}",
-                            tool_name=method_name,
-                            reasons=reasons,
-                        )
+                        outcome["blocked"] = reasons
+                        return [
+                            _legacy_finding(
+                                "LEGACY_SAFETY_BLOCK",
+                                "; ".join(reasons) or "safety policy",
+                                reasons,
+                            )
+                        ]
+                    return []
 
-                # Use await so HTTP forwarding completes before the caller returns.
-                await self._async_emit(
-                    EventType.AGENT_START,
-                    metadata={"method": method_name, "step": self._step},
-                )
+                action = self._legacy_action(method_name, original, args, kwargs)
+                from panoptis.protect.enforce import aenforce_call
+                from panoptis.protect.model import ActionBlocked
+
+                token = _LEGACY_CHECK.set(check)
                 try:
-                    result = await original(*args, **kwargs)
-                    _dur = (_time.monotonic() - _t0) * 1000
-                    self._exec_logger.log_execution_complete("success", _dur)
-                    await self._async_emit(
-                        EventType.AGENT_END,
-                        status=ExecutionStatus.SUCCESS,
-                        metadata={"method": method_name},
-                    )
-                    return result
-                except AgentWatchBlockedError:
-                    raise
-                except Exception as exc:
-                    import traceback as _tb
-
-                    _dur = (_time.monotonic() - _t0) * 1000
-                    self._exec_logger.log_error(
-                        str(exc),
-                        type(exc).__name__,
-                        _tb.format_exc(),
-                        {"method": method_name, "step": self._step},
-                    )
-                    self._exec_logger.log_execution_complete("failure", _dur)
-                    await self._async_emit(
-                        EventType.AGENT_ERROR,
-                        status=ExecutionStatus.FAILURE,
-                        metadata={"method": method_name, "error": str(exc)},
-                    )
-                    raise
+                    return await aenforce_call(self._legacy_pipeline(), action, run)
+                except ActionBlocked as blocked:
+                    raise self._legacy_block(method_name, outcome, blocked) from None
+                finally:
+                    _LEGACY_CHECK.reset(token)
 
             return async_wrapped
 
@@ -646,16 +783,61 @@ class GenericAdapter:
                 {"step": self._step, "args_count": len(args), "kwargs": list(kwargs.keys())},
             )
 
+            def run(_arguments: Any = None) -> Any:
+                self._emit_safely(
+                    EventType.AGENT_START,
+                    metadata={"method": method_name, "step": self._step},
+                )
+                try:
+                    result = original(*args, **kwargs)
+                    _dur = (_time.monotonic() - _t0) * 1000
+                    self._exec_logger.log_execution_complete("success", _dur)
+                    self._emit_safely(
+                        EventType.AGENT_END,
+                        status=ExecutionStatus.SUCCESS,
+                        metadata={"method": method_name},
+                    )
+                    return result
+                except AgentWatchBlockedError:
+                    raise
+                except Exception as exc:
+                    import traceback as _tb
+
+                    _dur = (_time.monotonic() - _t0) * 1000
+                    self._exec_logger.log_error(
+                        str(exc),
+                        type(exc).__name__,
+                        _tb.format_exc(),
+                        {"method": method_name, "step": self._step},
+                    )
+                    self._exec_logger.log_execution_complete("failure", _dur)
+                    self._emit_safely(
+                        EventType.AGENT_ERROR,
+                        status=ExecutionStatus.FAILURE,
+                        metadata={"method": method_name, "error": str(exc)},
+                    )
+                    raise
+
+            if not is_tool_like:
+                return run()
+
             # ── Safety gate (sync path — pattern match only, no approval) ──
-            if is_tool_like:
-                # Check the raw payload; redact only the event we publish below.
-                tool_call = _build_tool_call_data(method_name, args, kwargs)
-                # Decide first. Any failure to reach a decision blocks the call
-                # (fail closed); it never falls through to running the tool.
+            # The adapter's SafetyEngine is the threat stage of the shared pipeline
+            # (TO-002). Check the raw payload; redact only the event we publish.
+            tool_call = _build_tool_call_data(method_name, args, kwargs)
+            outcome: dict[str, Any] = {}
+
+            def check() -> list[Any]:
+                # Decide first. Any failure to reach a decision blocks the call.
                 try:
                     blocked, reasons = self._sync_decision(tool_call)
                 except Exception as exc:  # noqa: BLE001 - includes TimeoutError
-                    raise self._enforcement_failure(method_name, exc) from exc
+                    outcome["failure"] = (self._enforcement_failure(method_name, exc), exc)
+                    return [
+                        _legacy_finding(
+                            "LEGACY_GATE_FAILED", f"safety check failed: {type(exc).__name__}", []
+                        )
+                    ]
                 # Then publish: telemetry failure must not change the decision.
                 try:
                     tc_event = AgentEvent(
@@ -681,46 +863,25 @@ class GenericAdapter:
                         "Could not publish the safety event for %s: %s", method_name, exc
                     )
                 if blocked:
-                    reason_str = "; ".join(reasons) if reasons else "safety policy"
-                    raise AgentWatchBlockedError(
-                        f"Tool call '{method_name}' blocked by safety engine: {reason_str}",
-                        tool_name=method_name,
-                        reasons=reasons,
-                    )
+                    outcome["blocked"] = reasons
+                    return [
+                        _legacy_finding(
+                            "LEGACY_SAFETY_BLOCK", "; ".join(reasons) or "safety policy", reasons
+                        )
+                    ]
+                return []
 
-            self._emit_safely(
-                EventType.AGENT_START,
-                metadata={"method": method_name, "step": self._step},
-            )
+            action = self._legacy_action(method_name, original, args, kwargs)
+            from panoptis.protect.enforce import enforce_call
+            from panoptis.protect.model import ActionBlocked
+
+            token = _LEGACY_CHECK.set(check)
             try:
-                result = original(*args, **kwargs)
-                _dur = (_time.monotonic() - _t0) * 1000
-                self._exec_logger.log_execution_complete("success", _dur)
-                self._emit_safely(
-                    EventType.AGENT_END,
-                    status=ExecutionStatus.SUCCESS,
-                    metadata={"method": method_name},
-                )
-                return result
-            except AgentWatchBlockedError:
-                raise
-            except Exception as exc:
-                import traceback as _tb
-
-                _dur = (_time.monotonic() - _t0) * 1000
-                self._exec_logger.log_error(
-                    str(exc),
-                    type(exc).__name__,
-                    _tb.format_exc(),
-                    {"method": method_name, "step": self._step},
-                )
-                self._exec_logger.log_execution_complete("failure", _dur)
-                self._emit_safely(
-                    EventType.AGENT_ERROR,
-                    status=ExecutionStatus.FAILURE,
-                    metadata={"method": method_name, "error": str(exc)},
-                )
-                raise
+                return enforce_call(self._legacy_pipeline(), action, run)
+            except ActionBlocked as blocked:
+                raise self._legacy_block(method_name, outcome, blocked) from None
+            finally:
+                _LEGACY_CHECK.reset(token)
 
         return sync_wrapped
 
@@ -915,6 +1076,13 @@ def watch(
     register_http_forwarder(bus, api_url=None)
     label = detect_framework_label(agent)
 
+    if protection is not None and label in ("langchain", "langgraph", "autogen", "smolagents"):
+        # Enforcement for a framework agent is attached to its tool-execution entry points.
+        # Errors propagate: asking for protection must never silently yield observation only.
+        from panoptis.protect.integrations import protect_agent
+
+        protect_agent(agent, label, pipeline=protection, agent_id=agent_id, session_id=session_id)
+
     try:
         if label == "langchain":
             attached = _attach_langchain(agent, session_id, bus, metadata)
@@ -949,6 +1117,9 @@ def watch(
         return adapter.attach()
 
     except Exception as exc:  # noqa: BLE001 — invisible-when-healthy contract
+        if protection is not None:
+            # observation may degrade to "unmodified"; enforcement may not
+            raise
         logger.warning(
             "watch() instrumentation failed for %s: %s — returning agent unmodified",
             type(agent).__name__,

@@ -146,3 +146,48 @@ def test_default_mode_still_allows_calls_without_context(pipeline):
 
     assert bash("ls") == "ok"
     assert "default/default-session" in pipeline.sessions
+
+
+def _decisions(ledger) -> dict[str, dict]:
+    from panoptis.protect.ledger import KIND_DECISION
+
+    return {r["declared"]["tool"]: r["declared"] for r in ledger.query((KIND_DECISION,))}
+
+
+def test_nested_calls_record_their_parent(ledger):
+    pipeline = ProtectionPipeline(ledger=ledger)
+
+    @protect_tool(tool="read_file", pipeline=pipeline)
+    def read_file(path: str) -> str:
+        return "data"
+
+    @protect_tool(tool="summarize", pipeline=pipeline)
+    def summarize(path: str) -> str:
+        return read_file(path).upper()
+
+    @protect_tool(tool="list_dir", pipeline=pipeline)
+    def list_dir(path: str) -> str:
+        return "a b"
+
+    assert summarize("notes.txt") == "DATA"
+    list_dir(".")  # a sibling call afterwards has no parent
+    rows = _decisions(ledger)
+    assert rows["read_file"]["parent_call_id"] == rows["summarize"]["call_id"]
+    assert rows["summarize"].get("parent_call_id") is None
+    assert rows["list_dir"].get("parent_call_id") is None
+
+
+def test_nested_async_calls_record_their_parent(ledger):
+    pipeline = ProtectionPipeline(ledger=ledger)
+
+    @protect_tool(tool="fetch", pipeline=pipeline)
+    async def fetch(url: str) -> str:
+        return "page"
+
+    @protect_tool(tool="research", pipeline=pipeline)
+    async def research(url: str) -> str:
+        return await fetch(url)
+
+    assert asyncio.run(research("https://example.com")) == "page"
+    rows = _decisions(ledger)
+    assert rows["fetch"]["parent_call_id"] == rows["research"]["call_id"]

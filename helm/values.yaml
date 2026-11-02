@@ -19,11 +19,16 @@ ingress:
         - path: /
           pathType: Prefix
 
+# Name of an existing Secret holding AGENTWATCH_API_KEY, DATABASE_URL, AGENTWATCH_STORE and
+# REDIS_URL. Required: the chart does not render without it, and no password lives here.
+secrets:
+  existingSecret: ""
+
 postgres:
   enabled: true
   database: panoptis
   username: panoptis
-  password: panoptis
+  # the password is part of DATABASE_URL in secrets.existingSecret; there is no default
   size: 10Gi
 
 redis:

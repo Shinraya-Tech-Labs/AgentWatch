@@ -53,4 +53,4 @@ def test_watch_dry_run_output_file(tmp_path):
     assert result.exit_code == 0
     assert "Path:" in result.stdout
     assert "Would save session to file" in result.stdout
-    assert output.name in result.stdout
+    assert output.name in result.stdout.replace("\n", "")  # Rich wraps long paths

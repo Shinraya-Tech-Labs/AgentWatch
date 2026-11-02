@@ -253,9 +253,7 @@ def _make_engine_with_entries() -> GovernanceEngine:
     engine.register_principal(admin)
     engine.check_permission("u1", Permission.SAFETY_OVERRIDE, "policy")
     engine.check_permission("u1", Permission.ADMIN_ALL, "config")
-    engine.record_action(
-        "u2", AuditEventType.CONFIG_CHANGE, "config", "updated", allowed=True
-    )
+    engine.record_action("u2", AuditEventType.CONFIG_CHANGE, "config", "updated", allowed=True)
     return engine
 
 
@@ -282,9 +280,7 @@ def test_compliance_report_to_csv_contains_denials():
 def test_compliance_report_to_csv_empty_when_no_denials():
     engine = GovernanceEngine()
     engine.register_principal(Principal(principal_id="a", name="A", roles=["admin"]))
-    engine.record_action(
-        "a", AuditEventType.CONFIG_CHANGE, "c", "u", allowed=True
-    )
+    engine.record_action("a", AuditEventType.CONFIG_CHANGE, "c", "u", allowed=True)
     reporter = ComplianceReporter(engine)
     report = reporter.generate()
     csv_output = report.to_csv()

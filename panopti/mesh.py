@@ -39,7 +39,11 @@ class SwarmMesh:
         task_description: str = "",
     ) -> SwarmAgentNode:
         """Register an agent or subagent within the swarm mesh."""
-        effective_parent = parent_id if parent_id is not None else (self.root_agent_id if agent_id != self.root_agent_id else None)
+        effective_parent = (
+            parent_id
+            if parent_id is not None
+            else (self.root_agent_id if agent_id != self.root_agent_id else None)
+        )
         node = SwarmAgentNode(
             agent_id=agent_id,
             role=role,
@@ -92,10 +96,14 @@ class SwarmMesh:
             if not node:
                 return
 
-            status_icon = "🟢" if node.status == "completed" else ("🔴" if node.status == "failed" else "🟡")
+            status_icon = (
+                "🟢" if node.status == "completed" else ("🔴" if node.status == "failed" else "🟡")
+            )
             desc = f" - '{node.task_description[:30]}...'" if node.task_description else ""
             connector = "└── " if is_tail else "├── "
-            lines.append(f"{prefix}{connector}{status_icon} [{node.role}] {node.agent_id} ({node.status}){desc}")
+            lines.append(
+                f"{prefix}{connector}{status_icon} [{node.role}] {node.agent_id} ({node.status}){desc}"
+            )
 
             new_prefix = prefix + ("    " if is_tail else "│   ")
             child_count = len(node.children)
@@ -104,7 +112,9 @@ class SwarmMesh:
 
         if self.root_agent_id in self._nodes:
             root = self._nodes[self.root_agent_id]
-            status_icon = "🟢" if root.status == "completed" else ("🔴" if root.status == "failed" else "🟡")
+            status_icon = (
+                "🟢" if root.status == "completed" else ("🔴" if root.status == "failed" else "🟡")
+            )
             lines.append(f"{status_icon} [{root.role}] {root.agent_id} ({root.status})")
             for i, child_id in enumerate(root.children):
                 _walk(child_id, "  ", i == (len(root.children) - 1))

@@ -16,8 +16,11 @@ does not need it (a file write, a message), the secret is redacted and the call 
 from __future__ import annotations
 
 import copy
+import hashlib
 import re
+import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from panoptis.core.injection import scan_text
@@ -27,6 +30,19 @@ from panoptis.evidence.redaction import SECRET_PATTERNS, SENSITIVE_KEYS
 from panoptis.protect.arguments import READ_ONLY_CMDS, ArgumentAnalyzer, ArgumentProfile
 from panoptis.protect.model import Finding, Severity, Stage, Verdict
 from panoptis.security.owasp import OwaspVector
+
+
+def _rules_version() -> str:
+    """Content hash of the rule code, so every decision names the exact rules that made it."""
+    import panoptis.core.safety as legacy
+    import panoptis.evidence.redaction as redaction
+    import panoptis.protect.arguments as args_mod
+
+    h = hashlib.sha256()
+    for mod in (args_mod, sys.modules[__name__], legacy, redaction):
+        h.update(Path(mod.__file__ or "").read_bytes())
+    return f"sha256:{h.hexdigest()[:16]}"
+
 
 _LEVEL = {
     RiskLevel.SAFE: Severity.INFO,
@@ -213,3 +229,6 @@ class ThreatAnalyzer:
                 )
                 break
         return out
+
+
+THREAT_RULES_VERSION = _rules_version()

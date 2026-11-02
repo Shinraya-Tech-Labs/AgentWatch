@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from panoptis.circuit_breaker.loop_detector import AgentLoopError
-from panoptis.core.watcher import AgentWatchBlockedError
 from panopti import guard
 from panopti.guard import PanoptiGuard
+from panoptis.circuit_breaker.loop_detector import AgentLoopError
 
 
 def test_guard_decision_allowed() -> None:

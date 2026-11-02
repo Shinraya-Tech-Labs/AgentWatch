@@ -39,7 +39,7 @@ panopti playground
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FShinraya-Tech-Labs%2FAgentWatch&root-directory=agentwatch-landing)
 
-*One command. Every failure caught. Before it runs.*
+*Decide on every tool call before it runs, and keep verifiable evidence of what happened.*
 
 <br/>
 
@@ -47,7 +47,7 @@ panopti playground
 
 </div>
 
-> **AgentWatch v3** (merged into `main`) rebuilds AgentWatch as a *passive instrument*. It reconstructs, compares, replays and explains the behaviour of AI-native systems from immutable runtime evidence, and it does not block or control them.
+> **What blocks and what only observes.** The **v3 evidence engine** (`panoptis observe / inspect / compare / replay`) is a *passive instrument*: it reconstructs, compares, replays and explains AI-native systems from immutable evidence, and it never blocks anything. **Enforcement** comes from the protection pipeline (`panoptis.protect`): it decides each tool call *before* it runs (allow, block, ask a human, or rewrite), sanitizes results before the agent sees them, and records tamper-evident (Merkle-sealed) evidence. It is reached through `protect_tool()`, `watch(agent, protection=...)`, LangChain/LangGraph/AutoGen/smolagents tools, the Claude Code PreToolUse hook and the MCP gateway; some other adapters only observe. The exact boundary of every integration is in [docs/ADAPTER_SUPPORT.md](docs/ADAPTER_SUPPORT.md), the security model in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md), and every claim's evidence in [docs/CLAIMS.md](docs/CLAIMS.md).
 >
 > ```bash
 > panoptis observe python examples/research_system.py   # record a program
@@ -171,7 +171,7 @@ flowchart TB
 
     subgraph CORE["⚙️ Core Engine"]
         direction TB
-        SAFE["🛡️ Safety Engine<br/>40+ patterns · blast radius"]
+        SAFE["🛡️ Safety Engine<br/>15 legacy patterns · blast radius"]
         REASON["🧠 Reasoning Auditor<br/>independent scoring"]
         SAFE --- REASON
     end
@@ -206,7 +206,7 @@ flowchart TD
     CHK -->|no| PASS["↩️ pass through unchanged"]
     CHK -->|yes| AUDIT["🧠 Reasoning audit<br/>confidence score 0.0 – 1.0"]
 
-    AUDIT --> MATCH["🔍 Pattern match<br/>40+ risk patterns"]
+    AUDIT --> MATCH["🔍 Pattern match<br/>15 legacy risk patterns"]
     MATCH --> NORM["🧹 Intent normalizers<br/>rm · disk · perms · RCE pipe"]
     NORM --> BLAST["💥 Blast-radius estimate"]
 
@@ -224,7 +224,7 @@ flowchart TD
     style HITL fill:#2a230f,stroke:#eab308,color:#fff
 ```
 
-**Blocked by default:** `rm -rf /` · `curl | bash` · disk formatting · credential exfiltration · `DROP TABLE` · mass deletion · privilege escalation · **40+ additional critical patterns.**
+**Blocked by default:** `rm -rf /` · `curl | bash` · disk formatting · credential exfiltration · `DROP TABLE` · mass deletion · privilege escalation. The legacy SafetyEngine gate ships **15 built-in patterns (5 critical, blocked by default)**; the protection pipeline (`panoptis.protect`) adds **about 70 finding types** across shell, SQL, filesystem, network/SSRF, Python code, secrets and prompt injection. Measured on a synthetic corpus in [benchmarks/results/protect_eval/REPORT.md](benchmarks/results/protect_eval/REPORT.md) (with its limits stated there).
 
 The intent normalizers are what make this robust — they catch bypass attempts the naive regex misses: split flags (`rm -r -f /`), long-form flags (`rm --recursive --force /`), and reordered fetch-then-interpret RCE chains.
 
@@ -232,7 +232,7 @@ The intent normalizers are what make this robust — they catch bypass attempts 
 
 ## 🔄 Reasoning Audit Sequence
 
-The independent auditor scores each step *before* the action runs. A drop below threshold holds the next action and fires an alert — it is never logged after the fact.
+On the legacy async `watch()` path, the auditor scores each step before the action runs; a drop below threshold holds the next action and fires an alert. The scoring model needs `ANTHROPIC_API_KEY`; without it the audit is skipped and only pattern rules apply.
 
 ```mermaid
 sequenceDiagram
@@ -330,7 +330,7 @@ if checked.status == ExecutionStatus.BLOCKED:
     print(f"Risk level: {checked.safety.risk_level.value}")
 ```
 
-Blocks **40+ dangerous patterns pre-execution**, not post-hoc logging.
+Blocks dangerous calls **pre-execution** (15 legacy patterns here; the protection pipeline covers more: [docs/THREAT_ANALYSIS.md](docs/THREAT_ANALYSIS.md)), not post-hoc logging.
 
 ### 🔒 Secure Subprocess Wrapper
 

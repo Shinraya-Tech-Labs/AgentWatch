@@ -78,6 +78,15 @@ segments = Table(
     UniqueConstraint("tenant_id", "seq", name="uq_aw3_seg_seq"),
 )
 
+# The leaf version of each segment sealed with a version other than 1 (a new table, so
+# existing stores upgrade additively). The version is also bound into the segment hash.
+segment_versions = Table(
+    "aw3_segment_versions",
+    metadata,
+    Column("segment_id", String(64), primary_key=True),
+    Column("leaf_version", Integer, nullable=False),
+)
+
 purge_authorizations = Table(
     "aw3_purge_authorizations",
     metadata,
@@ -285,14 +294,21 @@ meta_table = Table(
 
 
 SQLITE_TRIGGERS = [
-    """CREATE TRIGGER IF NOT EXISTS aw3_obs_no_update BEFORE UPDATE ON aw3_observations
+    # recreated on every init, so existing stores get the current (stricter) guard
+    "DROP TRIGGER IF EXISTS aw3_obs_no_update",
+    """CREATE TRIGGER aw3_obs_no_update BEFORE UPDATE ON aw3_observations
        WHEN NOT (OLD.segment_id IS NULL AND NEW.segment_id IS NOT NULL
                  AND NEW.payload_sha256 = OLD.payload_sha256 AND NEW.obs_id = OLD.obs_id
                  AND NEW.idempotency_key = OLD.idempotency_key
                  AND COALESCE(NEW.payload_json, '') = COALESCE(OLD.payload_json, '')
                  AND COALESCE(NEW.payload_blob, '') = COALESCE(OLD.payload_blob, '')
                  AND NEW.declared_ids = OLD.declared_ids AND NEW.tenant_id = OLD.tenant_id
-                 AND NEW.source_kind = OLD.source_kind)
+                 AND NEW.source_kind = OLD.source_kind
+                 AND NEW.sensor_type IS OLD.sensor_type AND NEW.sensor_version IS OLD.sensor_version
+                 AND NEW.sensor_instance IS OLD.sensor_instance AND NEW.source_seq IS OLD.source_seq
+                 AND NEW.observed_at IS OLD.observed_at AND NEW.received_at IS OLD.received_at
+                 AND NEW.clock IS OLD.clock AND NEW.content_type IS OLD.content_type
+                 AND NEW.redaction IS OLD.redaction AND NEW.sampling IS OLD.sampling)
        BEGIN SELECT RAISE(ABORT, 'aw3_observations is append-only'); END""",
     """CREATE TRIGGER IF NOT EXISTS aw3_obs_no_delete BEFORE DELETE ON aw3_observations
        WHEN OLD.segment_id IS NULL OR NOT EXISTS
@@ -304,6 +320,10 @@ SQLITE_TRIGGERS = [
        BEGIN SELECT RAISE(ABORT, 'aw3_segments is append-only'); END""",
     """CREATE TRIGGER IF NOT EXISTS aw3_seg_no_delete BEFORE DELETE ON aw3_segments
        BEGIN SELECT RAISE(ABORT, 'aw3_segments is append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS aw3_segver_no_update BEFORE UPDATE ON aw3_segment_versions
+       BEGIN SELECT RAISE(ABORT, 'aw3_segment_versions is append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS aw3_segver_no_delete BEFORE DELETE ON aw3_segment_versions
+       BEGIN SELECT RAISE(ABORT, 'aw3_segment_versions is append-only'); END""",
 ]
 
 POSTGRES_TRIGGERS = [
@@ -316,7 +336,17 @@ POSTGRES_TRIGGERS = [
            AND COALESCE(NEW.payload_json, '') = COALESCE(OLD.payload_json, '')
            AND COALESCE(NEW.payload_blob, '') = COALESCE(OLD.payload_blob, '')
            AND NEW.declared_ids = OLD.declared_ids AND NEW.tenant_id = OLD.tenant_id
-           AND NEW.source_kind = OLD.source_kind THEN
+           AND NEW.source_kind = OLD.source_kind
+           AND NEW.sensor_type IS NOT DISTINCT FROM OLD.sensor_type
+           AND NEW.sensor_version IS NOT DISTINCT FROM OLD.sensor_version
+           AND NEW.sensor_instance IS NOT DISTINCT FROM OLD.sensor_instance
+           AND NEW.source_seq IS NOT DISTINCT FROM OLD.source_seq
+           AND NEW.observed_at IS NOT DISTINCT FROM OLD.observed_at
+           AND NEW.received_at IS NOT DISTINCT FROM OLD.received_at
+           AND NEW.clock IS NOT DISTINCT FROM OLD.clock
+           AND NEW.content_type IS NOT DISTINCT FROM OLD.content_type
+           AND NEW.redaction IS NOT DISTINCT FROM OLD.redaction
+           AND NEW.sampling IS NOT DISTINCT FROM OLD.sampling THEN
           RETURN NEW;
         END IF;
         RAISE EXCEPTION 'aw3_observations is append-only';
@@ -341,4 +371,11 @@ POSTGRES_TRIGGERS = [
     "DROP TRIGGER IF EXISTS aw3_seg_guard_t ON aw3_segments",
     """CREATE TRIGGER aw3_seg_guard_t BEFORE UPDATE OR DELETE ON aw3_segments
        FOR EACH ROW EXECUTE FUNCTION aw3_seg_guard()""",
+    """CREATE OR REPLACE FUNCTION aw3_segver_guard() RETURNS trigger AS $$
+    BEGIN
+      RAISE EXCEPTION 'aw3_segment_versions is append-only';
+    END; $$ LANGUAGE plpgsql""",
+    "DROP TRIGGER IF EXISTS aw3_segver_guard_t ON aw3_segment_versions",
+    """CREATE TRIGGER aw3_segver_guard_t BEFORE UPDATE OR DELETE ON aw3_segment_versions
+       FOR EACH ROW EXECUTE FUNCTION aw3_segver_guard()""",
 ]

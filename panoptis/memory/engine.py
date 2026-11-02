@@ -247,11 +247,16 @@ class MemoryEngine:
         embedding_provider: EmbeddingProvider | None = None,
         max_entries_per_agent: int = 10_000,
         decay_manager: ForgettingEngine | None = None,
+        tenant_id: str = "default",
     ):
         # Imported lazily: ForgettingEngine imports from this module.
         from panoptis.memory.decay import ForgettingEngine
+        from panoptis.memory.governance import register_memory_store
 
         self._store = MemoryStore()
+        self.tenant_id = tenant_id
+        # reachable by the GDPR erasure endpoint of this process
+        register_memory_store(self._store, tenant_id=tenant_id)
         self._embedder = embedding_provider or EmbeddingProvider()
         self._max_entries = max_entries_per_agent
         self._contradiction_reports: list[ContradictionReport] = []

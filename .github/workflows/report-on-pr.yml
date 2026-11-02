@@ -54,14 +54,30 @@ jobs:
               return;
             }
 
-            const testOutcome = fs.readFileSync('pr_results/pytest_outcome.txt', 'utf8').trim();
-            const ruffOutcome = fs.readFileSync('pr_results/ruff_outcome.txt', 'utf8').trim();
+            // The artifact comes from the PR's own (possibly forked, untrusted) run. Never
+            // trust its PR number: the PR must exist and its head must be the exact commit
+            // the tested run checked out, or the comment would land on another PR.
+            const runSha = context.payload.workflow_run.head_sha;
+            const { data: pr } = await github.rest.pulls.get({ ...context.repo, pull_number: prNumber });
+            if (pr.head.sha !== runSha || prSha.toLowerCase() !== runSha.toLowerCase()) {
+              core.setFailed(`PR #${prNumber} head ${pr.head.sha} is not the tested commit ${runSha}`);
+              return;
+            }
+
+            // Outcomes are rendered into the comment: accept only GitHub's step outcomes.
+            const outcome = (file) => {
+              const v = fs.readFileSync(file, 'utf8').trim();
+              return ['success', 'failure', 'cancelled', 'skipped'].includes(v) ? v : 'unknown';
+            };
+            const testOutcome = outcome('pr_results/pytest_outcome.txt');
+            const ruffOutcome = outcome('pr_results/ruff_outcome.txt');
             
             let coverage = 'n/a';
             try {
               const cov = JSON.parse(fs.readFileSync('pr_results/coverage.json', 'utf8'));
-              if (cov && cov.totals && cov.totals.percent_covered !== undefined) {
-                coverage = `${cov.totals.percent_covered.toFixed(2)}%`;
+              const pct = Number(cov && cov.totals && cov.totals.percent_covered);
+              if (Number.isFinite(pct) && pct >= 0 && pct <= 100) {
+                coverage = `${pct.toFixed(2)}%`;
               }
             } catch (e) {
               core.warning(`Could not read coverage.json: ${e}`);

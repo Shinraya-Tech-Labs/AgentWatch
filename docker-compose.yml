@@ -1,12 +1,24 @@
+# Security defaults (docs/DEPLOYMENT_SECURITY.md):
+# - Postgres and Redis credentials are required from .env; there are no default passwords.
+# - Redis requires a password (requirepass).
+# - Every published port binds to 127.0.0.1. To expose the API or dashboard on another
+#   interface, set AGENTWATCH_BIND_HOST explicitly (and put TLS / a reverse proxy in front).
+#   Postgres, Redis and Jaeger are never published beyond loopback.
+# - Containers run with no-new-privileges; app containers drop all Linux capabilities.
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    <<: *hardening
     environment:
       POSTGRES_DB: panoptis
       POSTGRES_USER: panoptis
-      POSTGRES_PASSWORD: panoptis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env - see .env.example}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,8 +30,12 @@ services:
 
   redis:
     image: redis:7-alpine
+    <<: *hardening
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env - see .env.example}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env - see .env.example}
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -31,22 +47,24 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
+    <<: *hardening
+    cap_drop: [ALL]
     environment:
-      DATABASE_URL: postgresql+asyncpg://panoptis:panoptis@postgres:5432/panoptis
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
+      DATABASE_URL: postgresql+asyncpg://panoptis:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/panoptis
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379/1
       AGENTWATCH_ENV: production
       # production refuses to start without a key; set it in .env (see .env.example)
       AGENTWATCH_API_KEY: ${AGENTWATCH_API_KEY:?set AGENTWATCH_API_KEY in .env - see .env.example}
       # v3 evidence store: on the Postgres service, whose volume persists (otherwise it would
       # be SQLite inside the container and lost when the container is recreated)
-      AGENTWATCH_STORE: postgresql+psycopg://panoptis:panoptis@postgres:5432/panoptis
+      AGENTWATCH_STORE: postgresql+psycopg://panoptis:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/panoptis
       # payloads over 64 KB are stored as files; keep them on a volume
       AGENTWATCH_BLOB_DIR: /data/blobs
     volumes:
       - panoptis_blobs:/data/blobs
     ports:
-      - "8000:8000"
+      - "${AGENTWATCH_BIND_HOST:-127.0.0.1}:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,10 +81,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
+    <<: *hardening
+    cap_drop: [ALL]
     environment:
-      DATABASE_URL: postgresql+asyncpg://panoptis:panoptis@postgres:5432/panoptis
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
+      DATABASE_URL: postgresql+asyncpg://panoptis:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/panoptis
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379/1
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,13 +99,15 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    <<: *hardening
+    cap_drop: [ALL]
     environment:
       AGENTWATCH_API_URL: http://api:8000
       # the server-side proxy attaches this key; the browser never sees it
       AGENTWATCH_API_KEY: ${AGENTWATCH_API_KEY:?set AGENTWATCH_API_KEY in .env - see .env.example}
       NEXT_PUBLIC_API_URL: /api/v1
     ports:
-      - "3000:3000"
+      - "${AGENTWATCH_BIND_HOST:-127.0.0.1}:3000:3000"
     depends_on:
       api:
         condition: service_healthy
@@ -93,10 +115,11 @@ services:
 
   jaeger:
     image: jaegertracing/all-in-one:1.60
+    <<: *hardening
     ports:
-      - "16686:16686"
-      - "4317:4317"
-      - "4318:4318"
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     profiles: ["tracing"]

@@ -6,8 +6,10 @@ FastAPI-based REST API for the observability dashboard, CLI, and integrations.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import functools
 import hmac
+import json
 import logging
 import os
 import re
@@ -34,7 +36,7 @@ from fastapi.exception_handlers import http_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import generate_latest
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
 from panoptis._version import __version__
@@ -42,6 +44,7 @@ from panoptis.alerting.engine import AlertingConfig, AlertingEngine
 from panoptis.api import tenancy as _tenancy
 from panoptis.api.auth import require_permission
 from panoptis.api.entitlement import require_entitlement
+from panoptis.api.limits import BodySizeLimitMiddleware, PayloadTooLarge, check_json_limits
 from panoptis.api.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
 from panoptis.api.tenant_auth import get_tenant_store
 from panoptis.api.v3 import build_router as build_v3_router
@@ -140,8 +143,12 @@ _limiter = _Limiter()
 
 
 def reset_rate_limiter_for_tests() -> None:
-    """Clear in-memory counters between tests (test-only helper)."""
+    """Clear in-memory counters between tests (test-only helper): the route limiter and
+    the per-user middleware limiter, whose 100/hour budget otherwise carried over."""
     _limiter.reset()
+    mw = globals().get("_rate_limiter")
+    if mw is not None and hasattr(mw.backend, "_buckets"):
+        mw.backend._buckets.clear()
 
 
 def _client_ip(request: Request) -> str:
@@ -223,6 +230,38 @@ def _event_to_pg(event: AgentEvent) -> dict:
     return d
 
 
+# Durable persistence state (TO-007). "not_configured": no DATABASE_URL, in-memory by
+# design. "connected": writes go to the database. "fallback": DATABASE_URL is set but
+# could not be reached and AGENTWATCH_ALLOW_MEMORY_FALLBACK=1 allowed starting anyway
+# (never in production); health then reports degraded.
+_persistence: dict[str, Any] = {"state": "not_configured", "error": None}
+
+# Write failures of the current request; handlers append to it, the route checks it.
+_write_failures: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
+    "agentwatch_write_failures", default=None
+)
+
+
+def _note_write_failure(what: str) -> None:
+    failures = _write_failures.get()
+    if failures is not None:
+        failures.append(what)
+
+
+def _require_persisted(failures: list[str]) -> None:
+    """503 when the database is configured but this request's writes did not persist."""
+    if failures:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"not persisted: database write failed ({', '.join(sorted(set(failures)))})",
+        )
+    if _persistence["state"] == "fallback":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="not persisted: the configured database is unavailable (memory fallback)",
+        )
+
+
 async def _pg_write_session(session: AgentSession, tenant_id: str | None = None) -> None:
     if _db_session_factory is None:
         return
@@ -235,7 +274,8 @@ async def _pg_write_session(session: AgentSession, tenant_id: str | None = None)
             await repo.upsert_session(data)
             await db.commit()
     except Exception:
-        logger.warning("PG session write failed", exc_info=True)
+        logger.error("PG session write failed", exc_info=True)
+        _note_write_failure("session")
 
 
 async def _pg_write_event(event: AgentEvent, tenant_id: str | None = None) -> None:
@@ -247,16 +287,27 @@ async def _pg_write_event(event: AgentEvent, tenant_id: str | None = None) -> No
             event_data = _event_to_pg(event)
             if tenant_id:
                 event_data["tenant_id"] = tenant_id
-            await repo.insert_event(event_data)
+            # the session row first: agent_events.session_id references it, and a session
+            # first seen through an event has no row yet
+            # The collector is another subscriber of the same event, so its trace may not
+            # exist yet: then write a minimal session row (never over an existing one).
             trace = _collector.get_trace(event.session_id)
-            if trace:
-                session_data = _session_to_pg(trace.session)
+            if trace is not None or await repo.get_session(event.session_id) is None:
+                session = trace.session if trace is not None else None
+                session = session or AgentSession(
+                    session_id=event.session_id,
+                    agent_id=event.agent_id,
+                    metadata={"tenant_id": tenant_id} if tenant_id else {},
+                )
+                session_data = _session_to_pg(session)
                 if tenant_id:
                     session_data["tenant_id"] = tenant_id
                 await repo.upsert_session(session_data)
+            await repo.insert_event(event_data)
             await db.commit()
     except Exception:
-        logger.warning("PG event write failed", exc_info=True)
+        logger.error("PG event write failed", exc_info=True)
+        _note_write_failure("event")
 
 
 _collector = TraceCollector()
@@ -407,6 +458,24 @@ def _require_api_key(
         )
 
 
+def _is_operator_key(x_api_key: str | None) -> bool:
+    admin = os.environ.get("AGENTWATCH_ADMIN_KEY")
+    return bool(
+        admin
+        and x_api_key
+        and hmac.compare_digest(x_api_key.encode("utf-8"), admin.encode("utf-8"))
+    )
+
+
+def _require_api_key_or_operator(
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+) -> None:
+    """A tenant key, or (cloud mode) the operator credential."""
+    if _CLOUD_MODE and _is_operator_key(x_api_key):
+        return
+    _require_api_key(x_api_key)
+
+
 def _require_operator(
     x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
 ) -> None:
@@ -418,6 +487,19 @@ def _require_operator(
     """
     if not _CLOUD_MODE:
         _require_api_key(x_api_key)
+        # a tenant key (AGENTWATCH_TENANT_KEYS) authenticates a tenant, not the operator
+        if (
+            x_api_key is not None
+            and _tenancy.match_key(x_api_key, _tenant_keys()) is not None
+            and not (
+                _API_KEY is not None
+                and hmac.compare_digest(x_api_key.encode("utf-8"), _API_KEY.encode("utf-8"))
+            )
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Operator credential required for this route.",
+            )
         return
     admin = os.environ.get("AGENTWATCH_ADMIN_KEY")
     if (
@@ -553,11 +635,35 @@ class SimulateRequest(BaseModel):
     notes: str = ""
 
 
+SAFETY_CHECK_MAX_COMMAND = int(os.getenv("AGENTWATCH_SAFETY_CHECK_MAX_COMMAND", "8192"))
+SAFETY_CHECK_MAX_ARGS_BYTES = int(os.getenv("AGENTWATCH_SAFETY_CHECK_MAX_ARGS_BYTES", "16384"))
+
+
+def _json_depth(value: Any, depth: int = 0) -> int:
+    if depth > 32:
+        return depth
+    if isinstance(value, dict):
+        return max((_json_depth(v, depth + 1) for v in value.values()), default=depth + 1)
+    if isinstance(value, list):
+        return max((_json_depth(v, depth + 1) for v in value), default=depth + 1)
+    return depth
+
+
 class SafetyCheckRequest(BaseModel):
-    command: str = Field(min_length=1)
-    tool_name: str = "bash"
+    # Bounded: the input is matched against every policy regex (including custom ones),
+    # so its size bounds the work an authenticated caller can make the server do.
+    command: str = Field(min_length=1, max_length=SAFETY_CHECK_MAX_COMMAND)
+    tool_name: str = Field("bash", min_length=1, max_length=128)
     arguments: dict[str, Any] = Field(default_factory=dict)
-    affected_resources: list[str] = Field(default_factory=list)
+    affected_resources: list[str] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def _bounded_arguments(self) -> SafetyCheckRequest:
+        if len(json.dumps(self.arguments, default=str)) > SAFETY_CHECK_MAX_ARGS_BYTES:
+            raise ValueError(f"arguments exceed {SAFETY_CHECK_MAX_ARGS_BYTES} bytes")
+        if _json_depth(self.arguments) > 8:
+            raise ValueError("arguments are nested deeper than 8 levels")
+        return self
 
 
 class EntitlementUsageReport(BaseModel):
@@ -590,9 +696,15 @@ def _record_budget(event: AgentEvent) -> None:
     _cost_tracker.ingest_event(event)
 
 
+def _pg_tenant(metadata: dict[str, Any] | None) -> str | None:
+    """The tenant to tag a self-hosted row with: the authenticated owner when tenant keys
+    partition the deployment (so erasure can be scoped to it), else none (single tenant)."""
+    return _owner(metadata) if _tenant_keys() else None
+
+
 async def _after_publish(event: AgentEvent) -> None:
     _record_budget(event)
-    await _pg_write_event(event)
+    await _pg_write_event(event, tenant_id=None if _CLOUD_MODE else _pg_tenant(event.metadata))
     if event.is_blocked or (event.safety and event.safety.risk_level.value in {"high", "critical"}):
         await _alerting.alert_event(event)
 
@@ -727,9 +839,29 @@ async def lifespan(app: FastAPI):
     if db_url:
         try:
             _db_session_factory = await init_db(db_url)
+            _persistence.update(state="connected", error=None)
             logger.info("PostgreSQL connected and tables ready")
-        except Exception:
-            logger.warning("PostgreSQL unavailable — running in-memory only", exc_info=True)
+        except Exception as exc:
+            allow = os.getenv("AGENTWATCH_ALLOW_MEMORY_FALLBACK", "").lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            if _IS_PROD or not allow:
+                # A configured database that cannot be reached must not become a silent
+                # in-memory deployment whose writes vanish on restart.
+                logger.critical("DATABASE_URL is set but the database is unavailable; not starting")
+                raise RuntimeError(
+                    "DATABASE_URL is set but the database is unavailable; refusing to start "
+                    "in memory (set AGENTWATCH_ALLOW_MEMORY_FALLBACK=1 to allow it outside production)"
+                ) from exc
+            _persistence.update(state="fallback", error=type(exc).__name__)
+            logger.error(
+                "DATABASE_URL unavailable; running in memory (AGENTWATCH_ALLOW_MEMORY_FALLBACK=1)",
+                exc_info=True,
+            )
+    else:
+        _persistence.update(state="not_configured", error=None)
     _init_default_schemas()
     bus = get_event_bus()
     bus.subscribe_fn(_collector.ingest, handler_id="api.collector")
@@ -737,6 +869,12 @@ async def lifespan(app: FastAPI):
     _seed_demo_data()
     logger.info("AgentWatch API started")
     yield
+    if _db_session_factory is not None:
+        # release the pool: its connections belong to this event loop, which ends here
+        engine = _db_session_factory.kw.get("bind")
+        _db_session_factory = None
+        if engine is not None:
+            await engine.dispose()
     logger.info("AgentWatch API shutdown")
 
 
@@ -795,6 +933,28 @@ def _v3_tenant(
 
 # AgentWatch v3: /api/v3/* and the OTLP receiver at /v1/traces (see docs/v3).
 app.include_router(build_v3_router(_require_api_key, _v3_tenant))
+
+# Human approval of escalated tool calls (TO-019), scoped to the caller's tenant.
+from panoptis.api.protect_approvals import build_router as _build_approvals_router  # noqa: E402
+
+app.include_router(_build_approvals_router(_require_api_key_or_operator, _v3_tenant))
+
+# Effective RBAC permissions and dry-run authorization checks (TO-022), tenant-scoped.
+from panoptis.api.protect_rbac import build_router as _build_rbac_router  # noqa: E402
+
+app.include_router(_build_rbac_router(_require_api_key_or_operator, _v3_tenant))
+
+# Decisions, agents, loops, intent, MCP, discovery and evidence (TO-027), tenant-scoped.
+from panoptis.api.protect_api import build_router as _build_protect_router  # noqa: E402
+
+app.include_router(_build_protect_router(_require_api_key_or_operator, _v3_tenant))
+
+# Emergency stop and suspensions (TO-025): global controls are operator-only.
+from panoptis.api.protect_control import build_router as _build_control_router  # noqa: E402
+
+app.include_router(
+    _build_control_router(_require_api_key_or_operator, _require_operator, _v3_tenant)
+)
 
 
 @app.exception_handler(HTTPException)
@@ -878,6 +1038,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Outermost: oversized bodies are refused before any other layer reads them (TO-010).
+app.add_middleware(BodySizeLimitMiddleware)
 
 
 @app.get("/api/v1/system/status")
@@ -908,7 +1070,15 @@ async def health(request: Request) -> JSONResponse:
     }
     degraded = False
 
-    if _db_session_factory is None:
+    checks["persistence"] = dict(_persistence)
+    if _persistence["state"] == "fallback":
+        degraded = True
+        checks["database"] = {
+            "status": "unavailable",
+            "mode": "memory_fallback",
+            "error": "Database is Unavailable",
+        }
+    elif _db_session_factory is None:
         checks["database"] = {"status": "in_memory"}
     else:
         try:
@@ -1061,7 +1231,16 @@ async def create_session(
         raise HTTPException(status_code=409, detail="session id unavailable")
     session.metadata["tenant_id"] = tenant_id
     _collector.register_session(session)
-    await _pg_write_session(session)
+    failures: list[str] = []
+    token = _write_failures.set(failures)
+    try:
+        await _pg_write_session(
+            session, tenant_id=None if _CLOUD_MODE else _pg_tenant(session.metadata)
+        )
+    finally:
+        _write_failures.reset(token)
+    if _db_session_factory is not None or _persistence["state"] == "fallback":
+        _require_persisted(failures)
     return {"status": "registered", "session": session.model_dump(mode="json")}
 
 
@@ -1123,6 +1302,12 @@ async def ingest_event(
     tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
     _limiter.check(_rate_limit_key(request, "w"), RATE_WRITE, request)
+    try:  # free-form fields are bounded in depth and string size (TO-010)
+        check_json_limits(event.metadata)
+        if event.tool_call is not None:
+            check_json_limits(event.tool_call.arguments)
+    except PayloadTooLarge as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     # tenancy is the server's to record: a client-supplied value is overwritten
     event.metadata["tenant_id"] = tenant_id
     existing = _collector.get_trace(event.session_id)
@@ -1138,8 +1323,15 @@ async def ingest_event(
             valid, err = _schema_validator.validate_task_parameters(schema_key, params)
             if not valid:
                 raise HTTPException(status_code=422, detail=f"Schema validation failed: {err}")
-    await get_event_bus().publish(event)
+    failures: list[str] = []
+    token = _write_failures.set(failures)
+    try:
+        await get_event_bus().publish(event)
+    finally:
+        _write_failures.reset(token)
     _v3_tee(event, tenant_id)
+    if _db_session_factory is not None or _persistence["state"] == "fallback":
+        _require_persisted(failures)
 
     if event.agent_id and hasattr(event, "status"):
         if getattr(event, "status", None) == ExecutionStatus.FAILURE:
@@ -1404,8 +1596,18 @@ async def get_blocked_events(
 @app.post("/api/v1/safety/check", response_model=SafetyCheckResponse)
 async def check_safety_command(
     request: SafetyCheckRequest,
-    _auth: None = Depends(_require_api_key),
+    http_request: Request,
+    _auth: None = Depends(_require_api_key_or_operator),
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
 ) -> SafetyCheckResponse:
+    """Dry-run a command against the safety policy (authenticated, rate limited).
+
+    The rule-by-rule ``threat_path`` and custom-rule names describe the deployment's
+    policy, so they go only to the policy's owner: the self-hosted key holder or the cloud
+    operator. A cloud tenant gets the decision and risk level; custom rules are redacted.
+    """
+    _limiter.check(_rate_limit_key(http_request, "w"), RATE_WRITE, http_request)
+    owner = not _CLOUD_MODE or _is_operator_key(x_api_key)
     cmd = request.command.strip()
     if not cmd:
         raise HTTPException(status_code=400, detail="command must not be empty")
@@ -1462,6 +1664,15 @@ async def check_safety_command(
         )
 
     safety = checked.safety
+    reasons, matched = list(safety.reasons), list(safety.matched_policies)
+    if not owner:
+        custom = {p.policy_id for p in _safety_engine.policy.custom_patterns}
+        custom_reasons = {p.reason for p in _safety_engine.policy.custom_patterns}
+        matched = [m if m not in custom else "custom-policy" for m in matched]
+        reasons = [
+            r if r not in custom_reasons else "matched a custom policy rule" for r in reasons
+        ]
+        threat_path = []
     if safety.blocked:
         decision = "blocked"
     elif safety.requires_approval:
@@ -1476,8 +1687,8 @@ async def check_safety_command(
         decision=decision,
         risk_level=safety.risk_level.value,
         risk_score=safety.risk_score,
-        reasons=safety.reasons,
-        matched_policies=safety.matched_policies,
+        reasons=reasons,
+        matched_policies=matched,
         requires_approval=safety.requires_approval,
         threat_path=threat_path,
     )
@@ -1931,11 +2142,11 @@ class _SessionErasureTarget:
                 "panoptis.api.server._db_session_factory must be wired "
                 "before the /api/v1/gdpr/erase endpoint accepts traffic."
             )
-        if not _CLOUD_MODE and tenant_id is not None:
+        if not _CLOUD_MODE and tenant_id is not None and not _tenant_keys():
             raise RuntimeError(
                 "Tenant filtering requested but server is in legacy mode "
-                "(_CLOUD_MODE=False). Reject the request rather than silently "
-                "scoping to a non-cloud tenant."
+                "(_CLOUD_MODE=False) without tenant keys. Reject the request rather than "
+                "silently scoping to a tenant the rows are not tagged with."
             )
         self._tenant_id = tenant_id
 
@@ -2036,45 +2247,39 @@ class _TraceCacheErasureTarget:
 
 
 class _MemoryErasureTarget:
-    """Best-effort ErasureTarget for memory/causal backends that may not be wired.
+    """ErasureTarget for the memory engines of this process (``panoptis.memory``).
 
-    When the optional memory imports succeed the target delegates to the
-    in-memory stores; otherwise it raises a scoped RuntimeError so the
-    CrossSessionErasureService records the missing backend as a per-target
-    failure rather than silently reporting zero matches.
+    Each MemoryEngine registers its store under its tenant; this target counts and deletes
+    the entries matching the identifier exactly, in the caller's tenant only. It is
+    registered only when a memory store exists in the process (otherwise there are no
+    memory records to erase here); a failing store is reported as a failed target.
     """
 
-    name = "memory_and_causal"
+    name = "memory"
 
-    def __init__(self, tenant_id: str | None = None) -> None:
+    def __init__(self, tenant_id: str) -> None:
         self._tenant_id = tenant_id
 
+    def _scope(self, identifier: str, scope: ErasureScope) -> str | None:
+        if scope == ErasureScope.TENANT_ID and identifier != self._tenant_id:
+            return None  # a tenant can only erase itself
+        return scope.value
+
     async def count_matching(self, identifier: str, scope: ErasureScope) -> int:
-        try:
-            from panoptis.memory.governance import list_memory_entries
-        except Exception as exc:  # noqa: BLE001 — surfaced via ErasureTargetResult
-            raise RuntimeError(f"memory_and_causal backend unavailable: {exc}") from exc
-        items = await list_memory_entries()
-        return sum(
-            1
-            for entry in items
-            if identifier in (entry.get("user_id", "") or "")
-            and (self._tenant_id is None or entry.get("tenant_id") == self._tenant_id)
-        )
+        from panoptis.memory.governance import list_memory_entries
+
+        s = self._scope(identifier, scope)
+        if s is None:
+            return 0
+        return len(await list_memory_entries(identifier, scope=s, tenant_id=self._tenant_id))
 
     async def erase_matching(self, identifier: str, scope: ErasureScope) -> int:
-        try:
-            from panoptis.memory.governance import drop_memory_entries
-        except Exception as exc:  # noqa: BLE001 — surfaced via ErasureTargetResult
-            raise RuntimeError(f"memory_and_causal backend unavailable: {exc}") from exc
-        try:
-            removed = await drop_memory_entries(
-                identifier=identifier,
-                tenant_id=self._tenant_id,
-            )
-        except TypeError:
-            removed = await drop_memory_entries(identifier)
-        return int(removed)
+        from panoptis.memory.governance import drop_memory_entries
+
+        s = self._scope(identifier, scope)
+        if s is None:
+            return 0
+        return await drop_memory_entries(identifier, scope=s, tenant_id=self._tenant_id)
 
 
 async def _build_erasure_service(
@@ -2088,10 +2293,10 @@ async def _build_erasure_service(
         logger.warning(
             "Database session factory is not initialised; portability-and-events target omitted from erasure service."
         )
-    try:
-        targets.append(_MemoryErasureTarget(tenant_id=tenant_id))
-    except Exception as exc:  # noqa: BLE001 — surfaced via ErasureTargetResult
-        logger.debug("Memory target will register as failure on first call: %s", exc)
+    from panoptis.memory.governance import memory_stores_registered
+
+    if memory_stores_registered():
+        targets.append(_MemoryErasureTarget(cache_tenant or tenant_id or _tenancy.DEFAULT_TENANT))
     if len(targets) == 1:
         logger.warning("Only the in-memory trace cache can be erased: no database is configured")
     if not targets:
@@ -2128,6 +2333,9 @@ async def gdpr_erase(
     a clean no-op from a partially-failed erasure; the response body in both
     200 and 207 cases is the signed ``ErasureReceipt`` itself.
     """
+    if tenant_id is None and _tenant_keys():
+        # self-hosted with tenant keys: the SQL target must not reach other tenants' rows
+        tenant_id = principal_tenant
     service = await _build_erasure_service(tenant_id=tenant_id, cache_tenant=principal_tenant)
     receipt = await service.erase(request)
     if receipt.failure_count:
@@ -2142,4 +2350,6 @@ def create_app() -> FastAPI:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0." + "0.0", port=8000, log_level="info")
+    from panoptis.api.limits import ws_max_bytes
+
+    uvicorn.run(app, host="0.0." + "0.0", port=8000, log_level="info", ws_max_size=ws_max_bytes())

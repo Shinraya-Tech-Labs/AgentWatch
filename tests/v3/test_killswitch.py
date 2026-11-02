@@ -10,15 +10,15 @@ import time
 import unittest
 from pathlib import Path
 
+from panopti.demo import ActiveSentinel
+from panopti.guard import PanoptiGuard
+from panopti.killswitch import EmergencyKillSwitch, EmergencyStopTriggered
 from panoptis.runtime.killswitch import (
     EmergencyKillSwitch as RuntimeEmergencyKillSwitch,
 )
 from panoptis.runtime.killswitch import (
     EmergencyStopTriggered as RuntimeEmergencyStopTriggered,
 )
-from panopti.demo import ActiveSentinel
-from panopti.guard import PanoptiGuard
-from panopti.killswitch import EmergencyKillSwitch, EmergencyStopTriggered
 
 
 class TestEmergencyKillSwitch(unittest.TestCase):

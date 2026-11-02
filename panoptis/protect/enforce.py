@@ -23,6 +23,18 @@ from panoptis.protect.pipeline import ProtectionPipeline
 
 logger = logging.getLogger(__name__)
 
+# The protected call that is executing right now; a protected call made inside it records
+# it as parent_call_id, so the evidence shows the call tree.
+_current_call: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "panoptis_current_call", default=None
+)
+
+
+def _with_parent(action: ToolAction) -> ToolAction:
+    if action.parent_call_id is None:
+        action.parent_call_id = _current_call.get()
+    return action
+
 
 def enforce_call(
     pipeline: ProtectionPipeline, action: ToolAction, invoke: Callable[[dict[str, Any]], Any]
@@ -37,11 +49,15 @@ def enforce_call(
 
     def run(arguments: dict[str, Any]) -> Any:
         state["executed"] = True
+        token = _current_call.set(action.call_id)
         try:
             return invoke(arguments)
         except Exception as exc:
             raise _ToolError(exc) from exc
+        finally:
+            _current_call.reset(token)
 
+    _with_parent(action)
     try:
         return pipeline.execute(action, fn=_unused, call=run)
     except ActionBlocked:
@@ -63,11 +79,15 @@ async def aenforce_call(
 
     async def run(arguments: dict[str, Any]) -> Any:
         state["executed"] = True
+        token = _current_call.set(action.call_id)
         try:
             return await invoke(arguments)
         except Exception as exc:
             raise _ToolError(exc) from exc
+        finally:
+            _current_call.reset(token)
 
+    _with_parent(action)
     try:
         return await pipeline.aexecute(action, fn=_unused, call=run)
     except ActionBlocked:

@@ -11,7 +11,7 @@ Policy (YAML or JSON)::
       researcher:
         allowed_tools: [web_search, read_file, fetch_url]
         forbidden_tools: [execute_shell, "write_*"]
-        rate_limits: {max_calls_per_minute: 30, per_tool: {web_search: 10}}
+        rate_limits: {max_calls_per_minute: 30, per_session_per_minute: 10, per_tool: {web_search: 10}}
       coder:
         allowed_tools: [read_file, write_file, execute_shell, git]
         require_approval: [git]               # always escalate these tools
@@ -24,13 +24,22 @@ Policy (YAML or JSON)::
             allowed_hosts: [pypi.org, "*.github.com"]
             fields: {timeout: {max: 600}, branch: {pattern: "^feature/"}}
 
+    tenants:                    # optional: agent bindings that apply in one tenant only
+      acme:
+        inherit: false          # default true: the top-level agents also apply in acme
+        agents: {coder-*: [coder]}
+
 Tool names and agent ids are matched with shell-style globs. Forbidden beats allowed;
 an agent with several roles is allowed a tool if any role allows it and none forbids it.
-Every decision names the role and rule that produced it.
+Every decision names the role and rule that produced it. Authorization is bound to the
+call's tenant: an agent's roles are looked up for the tenant the call was authenticated
+for, and rate-limit counters are kept per tenant (and per session for session limits).
 
 :class:`PolicyStore` validates a whole policy before swapping it in atomically; an
-invalid file leaves the previous policy active and reports why. Rate-limit counters
-survive reloads.
+invalid file leaves the previous policy active and reports why. Duplicate keys, unknown
+keys, a tool both allowed and forbidden by one role and unknown roles are errors. A store
+with a file path re-reads it when it changes (at most every ``auto_reload_s``), and only
+activates a file that was stable while it was read. Rate-limit counters survive reloads.
 """
 
 from __future__ import annotations
@@ -63,6 +72,7 @@ class PolicyError(ValueError):
         super().__init__("; ".join(errors))
 
 
+_SUPPORTED_VERSIONS = re.compile(r"^1(\.\d+)?$")
 _ROLE_KEYS = {
     "allowed_tools",
     "forbidden_tools",
@@ -82,7 +92,31 @@ _RESTRICT_KEYS = {
     "max_length",
 }
 _FIELD_KEYS = {"pattern", "enum", "max", "min", "max_length"}
-_TOP_KEYS = {"version", "default", "agents", "roles", "agent_roles", "description"}
+_TOP_KEYS = {"version", "default", "agents", "roles", "agent_roles", "description", "tenants"}
+_RATE_KEYS = {"max_calls_per_minute", "per_session_per_minute", "per_tool"}
+
+
+class _UniqueKeyLoader(yaml.SafeLoader):
+    """A YAML loader that rejects duplicate keys instead of keeping the last one."""
+
+
+def _construct_unique_mapping(
+    loader: _UniqueKeyLoader, node: yaml.MappingNode, deep: bool = False
+) -> dict[Any, Any]:
+    seen: set[Any] = set()
+    for key_node, _ in node.value:
+        key = loader.construct_object(key_node, deep=deep)  # type: ignore[no-untyped-call]
+        if key in seen:
+            raise yaml.constructor.ConstructorError(
+                None, None, f"duplicate key {key!r}", key_node.start_mark
+            )
+        seen.add(key)
+    return loader.construct_mapping(node, deep=deep)  # type: ignore[no-untyped-call]
+
+
+_UniqueKeyLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_unique_mapping
+)
 
 
 @dataclass
@@ -104,6 +138,7 @@ class Role:
     forbidden_tools: list[str] = field(default_factory=list)
     require_approval: list[str] = field(default_factory=list)
     max_calls_per_minute: int | None = None
+    per_session_per_minute: int | None = None
     per_tool_per_minute: dict[str, int] = field(default_factory=dict)
     restrictions: dict[str, ArgumentRestriction] = field(default_factory=dict)  # tool glob -> rules
 
@@ -116,10 +151,21 @@ class RBACPolicy:
     roles: dict[str, Role]
     digest: str
     source: str = "inline"
+    tenants: dict[str, dict[str, Any]] = field(default_factory=dict)  # tenant -> {inherit, agents}
 
-    def roles_for(self, agent_id: str) -> list[Role]:
+    def bindings_for(self, tenant_id: str = "default") -> dict[str, list[str]]:
+        """The agent → roles bindings in force for ``tenant_id``."""
+        t = self.tenants.get(tenant_id)
+        if t is None:
+            return dict(self.agents)
+        out = dict(self.agents) if t.get("inherit", True) else {}
+        for pattern, roles in t.get("agents", {}).items():
+            out[pattern] = list(dict.fromkeys([*out.get(pattern, []), *roles]))
+        return out
+
+    def roles_for(self, agent_id: str, tenant_id: str = "default") -> list[Role]:
         names: list[str] = []
-        for pattern, roles in self.agents.items():
+        for pattern, roles in self.bindings_for(tenant_id).items():
             if fnmatch.fnmatchcase(agent_id, pattern):
                 names.extend(r for r in roles if r not in names)
         return [self.roles[n] for n in names if n in self.roles]
@@ -138,12 +184,14 @@ class RBACPolicy:
                     "require_approval": r.require_approval,
                     "rate_limits": {
                         "max_calls_per_minute": r.max_calls_per_minute,
+                        "per_session_per_minute": r.per_session_per_minute,
                         "per_tool": r.per_tool_per_minute,
                     },
                     "restricted_arguments": {t: vars(a) for t, a in r.restrictions.items()},
                 }
                 for n, r in self.roles.items()
             },
+            "tenants": self.tenants,
         }
 
 
@@ -155,7 +203,13 @@ def _strlist(v: Any, where: str, errors: list[str]) -> list[str]:
     if not isinstance(v, list) or not all(isinstance(x, str) for x in v):
         errors.append(f"{where}: expected a list of strings")
         return []
+    if any(not x.strip() for x in v):
+        errors.append(f"{where}: empty pattern")
     return list(v)
+
+
+def _nonneg_int(v: Any) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool) and v >= 0
 
 
 def parse_policy(doc: Any, *, source: str = "inline") -> RBACPolicy:
@@ -163,7 +217,7 @@ def parse_policy(doc: Any, *, source: str = "inline") -> RBACPolicy:
     errors: list[str] = []
     if isinstance(doc, (str, bytes)):
         try:
-            doc = yaml.safe_load(doc)
+            doc = yaml.load(doc, Loader=_UniqueKeyLoader)  # noqa: S506  # nosec B506 - a SafeLoader subclass
         except yaml.YAMLError as exc:
             raise PolicyError([f"not valid YAML/JSON: {exc}"]) from exc
     if not isinstance(doc, dict):
@@ -172,6 +226,10 @@ def parse_policy(doc: Any, *, source: str = "inline") -> RBACPolicy:
         if k not in _TOP_KEYS:
             errors.append(f"unknown top-level key {k!r}")
     version = str(doc.get("version", "1.0"))
+    if not _SUPPORTED_VERSIONS.match(version):
+        errors.append(f"unsupported policy version {version!r} (supported: 1.x)")
+    if "roles" in doc and "agent_roles" in doc:
+        errors.append("give either 'roles' or 'agent_roles', not both")
     default = str(doc.get("default", "deny")).lower()
     if default not in ("deny", "allow"):
         errors.append("default must be 'deny' or 'allow'")
@@ -196,20 +254,22 @@ def parse_policy(doc: Any, *, source: str = "inline") -> RBACPolicy:
                 rd.get("require_approval"), f"{where}.require_approval", errors
             ),
         )
+        both = sorted(set(role.allowed_tools) & set(role.forbidden_tools))
+        if both:
+            errors.append(f"{where}: {both} both allowed and forbidden (ambiguous)")
         rl = rd.get("rate_limits") or {}
         if not isinstance(rl, dict):
             errors.append(f"{where}.rate_limits: must be a mapping")
         else:
             for k in rl:
-                if k not in ("max_calls_per_minute", "per_tool"):
+                if k not in _RATE_KEYS:
                     errors.append(f"{where}.rate_limits: unknown key {k!r}")
-            m = rl.get("max_calls_per_minute")
-            if m is not None and (not isinstance(m, int) or isinstance(m, bool) or m < 0):
-                errors.append(
-                    f"{where}.rate_limits.max_calls_per_minute: must be a non-negative integer"
-                )
-            else:
-                role.max_calls_per_minute = m
+            for key in ("max_calls_per_minute", "per_session_per_minute"):
+                m = rl.get(key)
+                if m is not None and not _nonneg_int(m):
+                    errors.append(f"{where}.rate_limits.{key}: must be a non-negative integer")
+                else:
+                    setattr(role, key, m)
             pt = rl.get("per_tool") or {}
             if not isinstance(pt, dict) or not all(
                 isinstance(v, int) and not isinstance(v, bool) and v >= 0 for v in pt.values()
@@ -242,13 +302,30 @@ def parse_policy(doc: Any, *, source: str = "inline") -> RBACPolicy:
                 for k in spec:
                     if k not in _FIELD_KEYS:
                         errors.append(f"{w2}.fields.{fname}: unknown key {k!r}")
+                for k in ("max", "min"):
+                    if k in spec and (
+                        not isinstance(spec[k], (int, float)) or isinstance(spec[k], bool)
+                    ):
+                        errors.append(f"{w2}.fields.{fname}.{k}: must be a number")
+                if "enum" in spec and not isinstance(spec["enum"], list):
+                    errors.append(f"{w2}.fields.{fname}.enum: must be a list")
+                if "max_length" in spec and not (
+                    _nonneg_int(spec["max_length"]) and spec["max_length"] > 0
+                ):
+                    errors.append(f"{w2}.fields.{fname}.max_length: must be a positive integer")
+                if (
+                    isinstance(spec.get("max"), (int, float))
+                    and isinstance(spec.get("min"), (int, float))
+                    and spec["min"] > spec["max"]
+                ):
+                    errors.append(f"{w2}.fields.{fname}: min is greater than max")
                 if "pattern" in spec:
                     try:
                         re.compile(str(spec["pattern"]))
                     except re.error as exc:
                         errors.append(f"{w2}.fields.{fname}.pattern: invalid regex ({exc})")
             ml = rules.get("max_length")
-            if ml is not None and (not isinstance(ml, int) or ml <= 0):
+            if ml is not None and (not _nonneg_int(ml) or ml <= 0):
                 errors.append(f"{w2}.max_length: must be a positive integer")
             role.restrictions[str(tool)] = ArgumentRestriction(
                 blocked_commands=_strlist(
@@ -276,6 +353,34 @@ def parse_policy(doc: Any, *, source: str = "inline") -> RBACPolicy:
                 if n not in roles:
                     errors.append(f"agents.{aid}: unknown role {n!r}")
             agents[str(aid)] = names
+    tenants: dict[str, dict[str, Any]] = {}
+    tenants_doc = doc.get("tenants") or {}
+    if not isinstance(tenants_doc, dict):
+        errors.append("tenants must map tenant ids to {inherit, agents}")
+        tenants_doc = {}
+    for tid, td in tenants_doc.items():
+        w = f"tenants.{tid}"
+        if not isinstance(td, dict):
+            errors.append(f"{w}: must be a mapping")
+            continue
+        for k in td:
+            if k not in ("inherit", "agents"):
+                errors.append(f"{w}: unknown key {k!r}")
+        inherit = td.get("inherit", True)
+        if not isinstance(inherit, bool):
+            errors.append(f"{w}.inherit: must be true or false")
+        tad = td.get("agents") or {}
+        if not isinstance(tad, dict):
+            errors.append(f"{w}.agents: must map agent ids (globs) to role lists")
+            tad = {}
+        bindings: dict[str, list[str]] = {}
+        for aid, rl3 in tad.items():
+            names = _strlist(rl3, f"{w}.agents.{aid}", errors)
+            for n in names:
+                if n not in roles:
+                    errors.append(f"{w}.agents.{aid}: unknown role {n!r}")
+            bindings[str(aid)] = names
+        tenants[str(tid)] = {"inherit": bool(inherit), "agents": bindings}
     if errors:
         raise PolicyError(errors)
     canonical = json.dumps(doc, sort_keys=True, default=str)
@@ -286,6 +391,7 @@ def parse_policy(doc: Any, *, source: str = "inline") -> RBACPolicy:
         roles=roles,
         digest=hashlib.sha256(canonical.encode()).hexdigest()[:16],
         source=source,
+        tenants=tenants,
     )
 
 
@@ -310,25 +416,49 @@ def _path_glob(path: str, patterns: list[str]) -> str | None:
 
 
 class RateLimiter:
-    """Sliding 60-second windows keyed by (agent, scope). Thread-safe; injectable clock."""
+    """Sliding 60-second windows keyed by tuples such as (tenant, agent, scope).
 
-    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+    Thread-safe; injectable clock. Memory is bounded: past ``max_keys`` keys, idle keys
+    are dropped (an idle key's window is empty, so dropping it changes no decision).
+    """
+
+    def __init__(
+        self, clock: Callable[[], float] = time.monotonic, max_keys: int = 100_000
+    ) -> None:
         self._clock = clock
-        self._hits: dict[tuple[str, str], deque[float]] = {}
+        self._hits: dict[tuple[str, ...], deque[float]] = {}
         self._lock = threading.Lock()
+        self.max_keys = max_keys
+
+    def _window(self, key: tuple[str, ...], now: float, window: float) -> deque[float]:
+        q = self._hits.setdefault(key, deque())
+        while q and now - q[0] >= window:
+            q.popleft()
+        return q
 
     def check_and_add(
-        self, key: tuple[str, str], limit: int, window: float = 60.0
+        self, key: tuple[str, ...], limit: int, window: float = 60.0
     ) -> tuple[bool, int]:
         now = self._clock()
         with self._lock:
-            q = self._hits.setdefault(key, deque())
-            while q and now - q[0] >= window:
-                q.popleft()
+            q = self._window(key, now, window)
             if len(q) >= limit:
                 return False, len(q)
             q.append(now)
+            if len(self._hits) > self.max_keys:
+                self._prune(now, window)
             return True, len(q)
+
+    def peek(self, key: tuple[str, ...], window: float = 60.0) -> int:
+        with self._lock:
+            return len(self._window(key, self._clock(), window))
+
+    def _prune(self, now: float, window: float) -> None:
+        for k in [k for k, q in self._hits.items() if not q or now - q[-1] >= window]:
+            del self._hits[k]
+
+    def __len__(self) -> int:
+        return len(self._hits)
 
 
 class RBACEngine:
@@ -336,11 +466,21 @@ class RBACEngine:
 
     def __init__(self, store: PolicyStore, limiter: RateLimiter | None = None) -> None:
         self.store = store
-        self.limiter = limiter or RateLimiter()
+        self.limiter = limiter if limiter is not None else RateLimiter()
 
     def authorize(
-        self, agent_id: str, tool: str, arguments: dict[str, Any], profile: ArgumentProfile
+        self,
+        agent_id: str,
+        tool: str,
+        arguments: dict[str, Any],
+        profile: ArgumentProfile,
+        *,
+        tenant_id: str = "default",
+        session_id: str | None = None,
+        dry_run: bool = False,
     ) -> list[Finding]:
+        """Authorize one call. ``dry_run`` evaluates rate limits without counting the call."""
+        self.store.maybe_reload()
         policy = self.store.policy
         if policy is None:
             return [
@@ -354,8 +494,13 @@ class RBACEngine:
                     Verdict.ALLOW,
                 )
             ]
-        ev = {"agent_id": agent_id, "tool": tool, "policy_digest": policy.digest}
-        roles = policy.roles_for(agent_id)
+        ev: dict[str, Any] = {
+            "agent_id": agent_id,
+            "tenant_id": tenant_id,
+            "tool": tool,
+            "policy_digest": policy.digest,
+        }
+        roles = policy.roles_for(agent_id, tenant_id)
         if not roles:
             if policy.default == "deny":
                 return [
@@ -363,7 +508,7 @@ class RBACEngine:
                         Stage.RBAC,
                         "RBAC_UNKNOWN_AGENT",
                         Severity.CRITICAL,
-                        f"Agent '{agent_id}' has no role and the policy is default-deny",
+                        f"Agent '{agent_id}' has no role in tenant '{tenant_id}' and the policy is default-deny",
                         ev,
                         OwaspVector.EXCESSIVE_PERMISSIONS.value,
                         Verdict.BLOCK,
@@ -423,41 +568,53 @@ class RBACEngine:
                     )
         if any(f.recommends is Verdict.BLOCK for f in out):
             return out
-        # rate limits (counted only for calls RBAC would let through)
+        # rate limits (counted only for calls RBAC would let through). All limits are
+        # checked first and counted only if none is exceeded, so a refused call never
+        # consumes another limit's budget.
+        limits: list[tuple[tuple[str, ...], int, str]] = []
         for r in roles:
             for glob, limit in r.per_tool_per_minute.items():
                 if fnmatch.fnmatchcase(tool, glob):
-                    ok, n = self.limiter.check_and_add((agent_id, f"tool:{glob}"), limit)
-                    if not ok:
-                        return [
-                            *out,
-                            Finding(
-                                Stage.RBAC,
-                                "RBAC_RATE_LIMIT",
-                                Severity.HIGH,
-                                f"'{agent_id}' exceeded {limit} '{glob}' calls per minute (role {r.name})",
-                                {**ev, "limit": limit, "window_s": 60},
-                                OwaspVector.TOOL_ABUSE.value,
-                                Verdict.BLOCK,
-                            ),
-                        ]
+                    limits.append(
+                        (
+                            (tenant_id, agent_id, f"tool:{glob}"),
+                            limit,
+                            f"{limit} '{glob}' calls per minute (role {r.name})",
+                        )
+                    )
             if r.max_calls_per_minute is not None:
-                ok, n = self.limiter.check_and_add(
-                    (agent_id, f"role:{r.name}"), r.max_calls_per_minute
+                limits.append(
+                    (
+                        (tenant_id, agent_id, f"role:{r.name}"),
+                        r.max_calls_per_minute,
+                        f"{r.max_calls_per_minute} calls per minute (role {r.name})",
+                    )
                 )
-                if not ok:
-                    return [
-                        *out,
-                        Finding(
-                            Stage.RBAC,
-                            "RBAC_RATE_LIMIT",
-                            Severity.HIGH,
-                            f"'{agent_id}' exceeded {r.max_calls_per_minute} calls per minute (role {r.name})",
-                            {**ev, "limit": r.max_calls_per_minute, "window_s": 60},
-                            OwaspVector.TOOL_ABUSE.value,
-                            Verdict.BLOCK,
-                        ),
-                    ]
+            if r.per_session_per_minute is not None and session_id is not None:
+                limits.append(
+                    (
+                        (tenant_id, agent_id, f"session:{session_id}:{r.name}"),
+                        r.per_session_per_minute,
+                        f"{r.per_session_per_minute} calls per minute in session {session_id!r} (role {r.name})",
+                    )
+                )
+        for key, limit, what in limits:
+            if self.limiter.peek(key) >= limit:
+                return [
+                    *out,
+                    Finding(
+                        Stage.RBAC,
+                        "RBAC_RATE_LIMIT",
+                        Severity.HIGH,
+                        f"'{agent_id}' exceeded {what}",
+                        {**ev, "limit": limit, "window_s": 60, "scope": key[2]},
+                        OwaspVector.TOOL_ABUSE.value,
+                        Verdict.BLOCK,
+                    ),
+                ]
+        if not dry_run:
+            for key, limit, _ in limits:
+                self.limiter.check_and_add(key, limit)
         for r in roles:
             pat = _glob_any(tool, r.require_approval)
             if pat:
@@ -483,6 +640,50 @@ class RBACEngine:
                 Verdict.ALLOW,
             )
         )
+        return out
+
+    def effective_permissions(self, agent_id: str, tenant_id: str = "default") -> dict[str, Any]:
+        """What ``agent_id`` may do in ``tenant_id`` under the active policy, and why."""
+        self.store.maybe_reload()
+        policy = self.store.policy
+        if policy is None:
+            return {"agent_id": agent_id, "tenant_id": tenant_id, "policy": None, "enforced": False}
+        roles = policy.roles_for(agent_id, tenant_id)
+        matched = [p for p in policy.bindings_for(tenant_id) if fnmatch.fnmatchcase(agent_id, p)]
+        out: dict[str, Any] = {
+            "agent_id": agent_id,
+            "tenant_id": tenant_id,
+            "policy": {
+                "digest": policy.digest,
+                "version": policy.version,
+                "default": policy.default,
+            },
+            "enforced": True,
+            "bindings": matched,
+            "roles": [r.name for r in roles],
+            "allowed_tools": sorted({t for r in roles for t in r.allowed_tools}),
+            "forbidden_tools": sorted({t for r in roles for t in r.forbidden_tools}),
+            "require_approval": sorted({t for r in roles for t in r.require_approval}),
+            "restricted_arguments": {
+                f"{r.name}:{t}": {k: v for k, v in vars(a).items() if v}
+                for r in roles
+                for t, a in r.restrictions.items()
+            },
+            "rate_limits": {
+                r.name: {
+                    "max_calls_per_minute": r.max_calls_per_minute,
+                    "per_session_per_minute": r.per_session_per_minute,
+                    "per_tool": r.per_tool_per_minute,
+                }
+                for r in roles
+            },
+        }
+        if not roles:
+            out["effect"] = "deny_all" if policy.default == "deny" else "allow_all"
+        elif not any(r.allowed_tools for r in roles) and policy.default == "allow":
+            out["effect"] = "allow_all_except_forbidden"
+        else:
+            out["effect"] = "allowed_tools_only"
         return out
 
     def _restrictions(
@@ -616,11 +817,21 @@ class RBACEngine:
 class PolicyStore:
     """Holds the active policy; reloads atomically and never activates an invalid one."""
 
-    def __init__(self, policy: RBACPolicy | None = None, path: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        policy: RBACPolicy | None = None,
+        path: str | Path | None = None,
+        *,
+        auto_reload_s: float | None = 2.0,
+    ) -> None:
         self._policy = policy
         self._lock = threading.Lock()
+        self._reload_lock = threading.Lock()
         self.path = Path(path) if path else None
+        self.auto_reload_s = auto_reload_s
+        self._checked_at = time.monotonic()
         self._mtime: float | None = None
+        self._stat: tuple[int, float] | None = None
         self.last_error: list[str] | None = None
         self.loaded_at: float | None = time.time() if policy else None
         self.history: list[dict[str, Any]] = []
@@ -670,12 +881,21 @@ class PolicyStore:
         if self.path is None:
             return self._policy
         try:
+            before = self.path.stat()
             text = self.path.read_text(encoding="utf-8")
-            self._mtime = self.path.stat().st_mtime
+            after = self.path.stat()
         except OSError as exc:
             with self._lock:
                 self.last_error = [f"cannot read {self.path}: {exc}"]
             raise PolicyError(self.last_error) from exc
+        if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+            # the file changed while it was read (a non-atomic write in progress): never
+            # activate what may be a truncated policy; the next check reads it again
+            with self._lock:
+                self.last_error = [f"{self.path} changed while it was read; not activated"]
+            raise PolicyError(self.last_error)
+        self._mtime = after.st_mtime
+        self._stat = (after.st_size, after.st_mtime_ns)
         return self.load_document(text, source=str(self.path))
 
     def reload_if_changed(self) -> bool:
@@ -683,17 +903,30 @@ class PolicyStore:
         if self.path is None:
             return False
         try:
-            mtime = self.path.stat().st_mtime
+            st = self.path.stat()
         except OSError:
             return False
-        if self._mtime is not None and mtime == self._mtime:
+        if self._stat is not None and (st.st_size, st.st_mtime_ns) == self._stat:
             return False
-        try:
-            self.reload()
-        except PolicyError:
-            self._mtime = mtime  # do not retry the same broken file every poll
-            return False
+        with self._reload_lock:
+            try:
+                self.reload()
+            except PolicyError:
+                if self.last_error and "changed while it was read" in self.last_error[0]:
+                    return False  # retry next time
+                self._stat = (st.st_size, st.st_mtime_ns)  # do not retry the same broken file
+                return False
         return True
+
+    def maybe_reload(self) -> None:
+        """Called on every authorization: re-check the file at most every ``auto_reload_s``."""
+        if self.path is None or self.auto_reload_s is None:
+            return
+        now = time.monotonic()
+        if now - self._checked_at < self.auto_reload_s:
+            return
+        self._checked_at = now
+        self.reload_if_changed()
 
     def status(self) -> dict[str, Any]:
         p = self._policy
@@ -707,5 +940,7 @@ class PolicyStore:
             "last_error": self.last_error,
             "roles": sorted(p.roles) if p else [],
             "agents": p.agents if p else {},
+            "tenants": sorted(p.tenants) if p else [],
+            "auto_reload_s": self.auto_reload_s if self.path else None,
             "history": self.history[-20:],
         }

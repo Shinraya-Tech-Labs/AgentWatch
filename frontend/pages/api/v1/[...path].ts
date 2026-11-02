@@ -36,8 +36,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!isReadMethod && requestBody !== undefined) {
       forwardHeaders['content-type'] = 'application/json';
     }
-    if (req.headers['authorization']) {
-      forwardHeaders['authorization'] = req.headers['authorization'] as string;
+    // the caller's credentials go upstream unchanged: the API decides the tenant
+    for (const h of ['authorization', 'x-api-key', 'x-tenant-id']) {
+      const v = req.headers[h];
+      if (typeof v === 'string' && v) forwardHeaders[h] = v;
     }
 
     const upstreamRes = await fetch(upstream, {
@@ -56,12 +58,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.send(payload);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const upstream = `${API_BASE}/api/v1/...`;
     console.error(`[proxy] ${req.method} ${req.url} →`, message);
-    res.status(502).json({
-      error: 'upstream_unavailable',
-      upstream,
-      detail: message,
-    });
+    // no internal address or error text in the response
+    res
+      .status(502)
+      .json({ error: 'upstream_unavailable', detail: 'The AgentWatch API is unavailable' });
   }
 }

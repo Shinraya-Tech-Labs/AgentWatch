@@ -110,6 +110,12 @@ app.add_typer(legacy_app, hidden=True)
 _IN_REPL = False
 
 
+def _ws_max_bytes() -> int:
+    from panoptis.api.limits import ws_max_bytes
+
+    return ws_max_bytes()
+
+
 @app.callback(invoke_without_command=True)
 def main_callback(
     ctx: typer.Context,
@@ -1435,7 +1441,8 @@ def _print_eval_report(report: EvalReport) -> None:
 
 @server_app.command(name="start")
 def serve(
-    host: str = typer.Option("0.0." + "0.0", "--host"),
+    # loopback by default (TO-009): exposing the API on other interfaces is a deliberate --host
+    host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(8000, "--port"),
     reload: bool = typer.Option(False, "--reload"),
     dry_run: bool = typer.Option(
@@ -1486,6 +1493,7 @@ def serve(
         port=port,
         reload=reload,
         log_level="info",
+        ws_max_size=_ws_max_bytes(),
     )
 
 
@@ -2906,6 +2914,304 @@ _register_v3(app)
 
 protect_app.add_typer(compliance_app, name="compliance")
 protect_app.add_typer(evidence_app, name="evidence")
+
+# ── Claude Code PreToolUse hook (TO-012) ──────────────────────────────────────────────
+
+claude_hook_app = typer.Typer(
+    name="claude-hook",
+    help="Enforce on Claude Code: install the PreToolUse/PostToolUse hook.",
+    no_args_is_help=True,
+)
+protect_app.add_typer(claude_hook_app, name="claude-hook")
+
+_HOOK_SETTINGS_HELP = "Claude Code settings file (default: ./.claude/settings.local.json)."
+
+
+@claude_hook_app.command("install")
+def claude_hook_install(
+    settings: Path = typer.Option(
+        Path(".claude") / "settings.local.json", "--settings", help=_HOOK_SETTINGS_HELP
+    ),
+    timeout: int = typer.Option(30, "--timeout", help="Hook timeout in seconds."),
+    on_failure_block: bool = typer.Option(
+        False,
+        "--on-failure-block",
+        help='Add "onFailure": "block" so a hook that cannot start blocks the call '
+        "(needs Claude Code 2.1.295 or later).",
+    ),
+) -> None:
+    """Merge the AgentWatch hook into a Claude Code settings file."""
+    from panoptis.protect import claude_hook
+
+    claude_hook.install(settings, timeout_s=timeout, on_failure_block=on_failure_block)
+    console.print(f"[green]AgentWatch hook installed in {settings}[/green]")
+    if not on_failure_block:
+        console.print(
+            "[yellow]Claude Code runs the tool if the hook command cannot start or times out. "
+            "On Claude Code 2.1.295+, re-run with --on-failure-block.[/yellow]"
+        )
+
+
+@claude_hook_app.command("uninstall")
+def claude_hook_uninstall(
+    settings: Path = typer.Option(
+        Path(".claude") / "settings.local.json", "--settings", help=_HOOK_SETTINGS_HELP
+    ),
+) -> None:
+    """Remove the AgentWatch hook from a Claude Code settings file."""
+    from panoptis.protect import claude_hook
+
+    found = claude_hook.uninstall(settings)
+    console.print("Removed." if found else "No AgentWatch hook found.")
+
+
+@claude_hook_app.command("print")
+def claude_hook_print(
+    on_failure_block: bool = typer.Option(False, "--on-failure-block"),
+) -> None:
+    """Print the settings JSON (for `claude --settings`)."""
+    from panoptis.protect import claude_hook
+
+    typer.echo(json.dumps(claude_hook.hook_settings(on_failure_block=on_failure_block), indent=2))
+
+
+# ── MCP gateway (TO-023) ──────────────────────────────────────────────────────────────
+
+
+@protect_app.command(
+    "mcp-gateway",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    add_help_option=False,
+)
+def protect_mcp_gateway(ctx: typer.Context) -> None:
+    """Run the enforcing MCP gateway: stdio | http | config | status (see --help of each).
+
+    
+    panoptis protect mcp-gateway stdio --server-name fs -- npx -y @modelcontextprotocol/server-filesystem .
+    panoptis protect mcp-gateway http --upstream http://127.0.0.1:9000/mcp --port 8765
+    panoptis protect mcp-gateway config --server-name fs -- npx -y @modelcontextprotocol/server-filesystem .
+    panoptis protect mcp-gateway status
+    """
+    from panoptis.protect import mcp_gateway
+
+    raise typer.Exit(mcp_gateway.main(list(ctx.args)))
+
+
+# ── Agent and MCP discovery (TO-024) ──────────────────────────────────────────────────
+
+discover_app = typer.Typer(
+    name="discover",
+    help="Find local agent runtimes and MCP servers, and whether AgentWatch enforces on them.",
+    invoke_without_command=True,
+)
+protect_app.add_typer(discover_app, name="discover")
+
+
+@discover_app.callback()
+def protect_discover(
+    ctx: typer.Context,
+    project: list[Path] = typer.Option(
+        [], "--project", help="Project roots to check (.mcp.json, .claude/, .cursor/, .vscode/)."
+    ),
+    processes: bool = typer.Option(
+        True, "--processes/--no-processes", help="Also scan running processes (needs psutil)."
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Print the inventory as JSON."),
+    record: bool = typer.Option(
+        False, "--record", help="Store the inventory in the evidence store for the dashboard."
+    ),
+    store: str | None = typer.Option(
+        None, "--store", help="Evidence store URL (default: AGENTWATCH_STORE)."
+    ),
+    tenant: str = typer.Option("default", "--tenant"),
+) -> None:
+    """Read-only inventory. Detection is not protection: only MONITORED items are enforced on."""
+    if ctx.invoked_subcommand is not None:
+        return
+    from panoptis.protect import discovery
+
+    inv = discovery.discover(projects=project or [Path.cwd()], processes=processes)
+    if record:
+        discovery.record_inventory(inv, store=store, tenant_id=tenant)
+    if as_json:
+        typer.echo(json.dumps(inv, indent=2, default=str))
+        return
+    from rich.table import Table
+
+    table = Table(title="AgentWatch discovery")
+    for col in ("Status", "Kind", "Runtime", "Name", "Source", "Why"):
+        table.add_column(col)
+    colors = {
+        "MONITORED": "green",
+        "UNMONITORED": "red",
+        "UNKNOWN": "yellow",
+        "UNSUPPORTED": "magenta",
+    }
+    for item in inv["items"]:
+        c = colors.get(item["status"], "white")
+        table.add_row(
+            f"[{c}]{item['status']}[/{c}]",
+            item["kind"],
+            item["runtime"],
+            str(item["name"])[:40],
+            str(item["source"])[:50],
+            item["reason"],
+        )
+    console.print(table)
+    console.print(
+        ", ".join(f"{k}: {v}" for k, v in sorted(inv["counts"].items())) or "nothing found"
+    )
+
+
+@discover_app.command("wrap")
+def protect_discover_wrap(
+    config: Path = typer.Option(..., "--config", help="The MCP config file (mcpServers)."),
+    server: str = typer.Option(..., "--server", help="The server entry to put behind the gateway."),
+    apply: bool = typer.Option(
+        False,
+        "--apply",
+        help="Write the change (a .agentwatch.bak backup is kept). Without it, only show it.",
+    ),
+) -> None:
+    """Rewrite one configured stdio MCP server to run behind the AgentWatch gateway."""
+    from panoptis.protect import discovery
+
+    try:
+        result = discovery.wrap_server(config, server, apply=apply)
+    except (KeyError, ValueError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    typer.echo(json.dumps(result, indent=2))
+    if result.get("changed") and not apply:
+        console.print("[yellow]Not written. Re-run with --apply, then restart the client.[/yellow]")
+
+
+# ── Emergency controls (TO-025) ───────────────────────────────────────────────────────
+
+control_app = typer.Typer(
+    name="control",
+    help="Emergency stop and agent/session suspension for protected agents.",
+    no_args_is_help=True,
+)
+protect_app.add_typer(control_app, name="control")
+
+_STORE_HELP = "Evidence store shared with the agents (default: AGENTWATCH_STORE)."
+
+
+def _actor(actor: str | None) -> str:
+    return "cli:" + (actor or os.environ.get("USER") or os.environ.get("USERNAME") or "unknown")
+
+
+def _control_state(store: str | None) -> Any:
+    from panoptis.protect.control import ControlState
+    from panoptis.protect.ledger import ProtectLedger
+
+    return ControlState(
+        ProtectLedger(store or os.environ.get("AGENTWATCH_STORE") or None), refresh_s=0.0
+    )
+
+
+@control_app.command("status")
+def control_status(
+    store: str | None = typer.Option(None, "--store", help=_STORE_HELP),
+    tenant: str | None = typer.Option(None, "--tenant", help="Only this tenant's suspensions."),
+) -> None:
+    """Show the kill switch and the suspended agents and sessions."""
+    typer.echo(json.dumps(_control_state(store).status(tenant_id=tenant), indent=2, default=str))
+
+
+@control_app.command("history")
+def control_history(
+    store: str | None = typer.Option(None, "--store", help=_STORE_HELP),
+    limit: int = typer.Option(50, "--limit"),
+) -> None:
+    """The control audit trail, newest first."""
+    typer.echo(json.dumps(_control_state(store).history(limit), indent=2, default=str))
+
+
+@control_app.command("kill")
+def control_kill(
+    reason: str = typer.Option(..., "--reason", help="Why (recorded)."),
+    actor: str | None = typer.Option(None, "--actor", help="Who (default: the OS user)."),
+    store: str | None = typer.Option(None, "--store", help=_STORE_HELP),
+) -> None:
+    """Stop every protected agent before its next tool call (this host at once; others via the store)."""
+    out = _control_state(store).trip(reason, actor=_actor(actor))
+    console.print(f"[red]EMERGENCY STOP active[/red] ({out.get('obs_id')})")
+
+
+@control_app.command("reset")
+def control_reset(
+    reason: str = typer.Option(..., "--reason"),
+    actor: str | None = typer.Option(None, "--actor", help="Who (default: the OS user)."),
+    store: str | None = typer.Option(None, "--store", help=_STORE_HELP),
+) -> None:
+    """Lift the emergency stop."""
+    out = _control_state(store).reset(reason, actor=_actor(actor))
+    console.print(f"[green]Emergency stop lifted[/green] ({out.get('obs_id')})")
+
+
+def _scoped_control(
+    op: str, kind: str, target: str, reason: str, actor: str | None, tenant: str, store: str | None
+) -> None:
+    c = _control_state(store)
+    out = getattr(c, f"{op}_{kind}")(target, reason, actor=_actor(actor), tenant_id=tenant)
+    console.print(f"{kind} {tenant}/{target}: {op}ed ({out.get('obs_id')})")
+
+
+def _make_scoped(op: str, kind: str) -> Any:
+    def cmd(
+        target: str = typer.Argument(..., help=f"The {kind} id."),
+        reason: str = typer.Option(..., "--reason"),
+        tenant: str = typer.Option("default", "--tenant"),
+        actor: str | None = typer.Option(None, "--actor", help="Who (default: the OS user)."),
+        store: str | None = typer.Option(None, "--store", help=_STORE_HELP),
+    ) -> None:
+        _scoped_control(op, kind, target, reason, actor, tenant, store)
+
+    article = "an" if kind == "agent" else "a"
+    effect = "blocked" if op == "suspend" else "allowed again"
+    cmd.__doc__ = f"{op.capitalize()} {article} {kind}: its tool calls are {effect}."
+    return cmd
+
+
+for _kind in ("agent", "session"):
+    for _op in ("suspend", "resume"):
+        control_app.command(f"{_op}-{_kind}")(_make_scoped(_op, _kind))
+
+
+# ── support matrix (TO-034: the protect.support table had no entry point) ────────────
+
+
+@protect_app.command("support")
+def protect_support(as_json: bool = typer.Option(False, "--json")) -> None:
+    """What each integration does to a tool call: enforced before execution, or only observed."""
+    from dataclasses import asdict
+
+    from panoptis.protect.support import MATRIX
+
+    if as_json:
+        typer.echo(json.dumps([asdict(s) for s in MATRIX], indent=2))
+        return
+    from rich.table import Table
+
+    table = Table(title="AgentWatch integration support")
+    for col in ("Integration", "Stage", "Entry point", "Limitations"):
+        table.add_column(col)
+    for s in MATRIX:
+        stage = (
+            "[green]ENFORCED[/green]"
+            if s.stage.startswith("PRE")
+            else "[yellow]observed only[/yellow]"
+        )
+        table.add_row(s.integration, stage, s.entry_point, s.limitations)
+    console.print(table)
+
+
+# ── status, decisions, agents, approvals, rbac, doctor (TO-028) ───────────────────────
+from panoptis.cli import protect_ops as _protect_ops  # noqa: E402
+
+_protect_ops.register(protect_app)
 
 
 if __name__ == "__main__":

@@ -73,7 +73,7 @@
 enforcement failure blocks execution and that allowed calls execute
 exactly once.
 
-## TO-002 --- Establish one authoritative enforcement pipeline — **IN PROGRESS** (boundary done; framework adapters and the MCP gateway adopt it in TO-011–016 and TO-023)
+## TO-002 --- Establish one authoritative enforcement pipeline — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-002)
 
 -   [x] Implement or complete the shared enforcement module under
     `agentwatch/protect/` (planned path:
@@ -96,7 +96,7 @@ exactly once.
     reject mismatched or missing context according to policy.
 -   [x] Expose a documented public `protect_tool()` API for protecting
     individual tools.
--   [ ] Ensure all integrations call this shared pipeline rather than
+-   [x] Ensure all integrations call this shared pipeline rather than
     reimplementing security decisions.
 -   [x] Add unit, integration, sync, async, exception-path, and
     side-effect-count tests.
@@ -190,78 +190,78 @@ configuration.
 database prove persistence, revocation, and authorization behavior
 across restarts.
 
-## TO-007 --- Remove silent database-to-memory degradation
+## TO-007 --- Remove silent database-to-memory degradation — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-007)
 
--   [ ] Audit the database connection fallback identified in the audit.
--   [ ] Do not silently switch to in-memory mode when a production
+-   [x] Audit the database connection fallback identified in the audit.
+-   [x] Do not silently switch to in-memory mode when a production
     database connection fails.
--   [ ] Define explicit development/test fallback configuration,
+-   [x] Define explicit development/test fallback configuration,
     disabled by default in production.
--   [ ] Surface database unavailability through startup failure or a
+-   [x] Surface database unavailability through startup failure or a
     clear unhealthy state.
--   [ ] Ensure security-sensitive writes cannot appear successful when
+-   [x] Ensure security-sensitive writes cannot appear successful when
     they were not persisted.
--   [ ] Add tests for unavailable database, failed transactions,
+-   [x] Add tests for unavailable database, failed transactions,
     reconnect, and explicit development fallback.
--   [ ] Document operational behavior and recovery.
+-   [x] Document operational behavior and recovery.
 
 **Acceptance evidence:** Production-mode tests prove database failure
 cannot silently create an ephemeral security state.
 
-## TO-008 --- Protect the unauthenticated safety-check endpoint
+## TO-008 --- Protect the unauthenticated safety-check endpoint — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-008)
 
--   [ ] Review `/api/v1/safety/check` and determine whether it must be
+-   [x] Review `/api/v1/safety/check` and determine whether it must be
     public.
--   [ ] Require authentication/authorization if it exposes custom policy
+-   [x] Require authentication/authorization if it exposes custom policy
     matches or tenant-specific rule information.
--   [ ] If a public check endpoint is intentionally retained, return
+-   [x] If a public check endpoint is intentionally retained, return
     only a deliberately limited response that does not reveal internal
     rule names, regexes, custom policy details, or sensitive
     diagnostics.
--   [ ] Apply rate limits and bounded input size/complexity.
--   [ ] Add tests for unauthenticated access, tenant isolation,
+-   [x] Apply rate limits and bounded input size/complexity.
+-   [x] Add tests for unauthenticated access, tenant isolation,
     information disclosure, abuse limits, and valid authorized use.
--   [ ] Document the endpoint's intended trust model.
+-   [x] Document the endpoint's intended trust model.
 
 **Acceptance evidence:** Tests prove unauthorized callers cannot
 enumerate private policy rules or obtain tenant-specific security
 information.
 
-## TO-009 --- Secure container and service exposure
+## TO-009 --- Secure container and service exposure — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-009)
 
--   [ ] Review Compose and deployment manifests for every published port
+-   [x] Review Compose and deployment manifests for every published port
     and bind address.
--   [ ] Remove unnecessary host-wide port exposure.
--   [ ] Bind development-only services to loopback unless remote access
+-   [x] Remove unnecessary host-wide port exposure.
+-   [x] Bind development-only services to loopback unless remote access
     is explicitly required.
--   [ ] Secure Redis with authentication/ACLs and appropriate network
+-   [x] Secure Redis with authentication/ACLs and appropriate network
     isolation; do not expose unauthenticated Redis on all interfaces.
--   [ ] Remove fixed/default credentials from Postgres and other
+-   [x] Remove fixed/default credentials from Postgres and other
     services; use documented secret configuration.
--   [ ] Define production-safe network boundaries, volumes, health
+-   [x] Define production-safe network boundaries, volumes, health
     checks, and least-privilege service users.
--   [ ] Add configuration validation or security checks that detect
+-   [x] Add configuration validation or security checks that detect
     unsafe exposed services.
--   [ ] Document secure local and production deployment profiles.
--   [ ] Validate with Compose configuration inspection and a deployment
+-   [x] Document secure local and production deployment profiles.
+-   [x] Validate with Compose configuration inspection and a deployment
     smoke test.
 
 **Acceptance evidence:** Deployment checks prove Redis and database
 services are not unintentionally exposed and cannot be accessed with
 default credentials.
 
-## TO-010 --- Add request and payload limits
+## TO-010 --- Add request and payload limits — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-010)
 
--   [ ] Add configurable maximum HTTP request-body size.
--   [ ] Add bounded observation-batch size, item count, string length,
+-   [x] Add configurable maximum HTTP request-body size.
+-   [x] Add bounded observation-batch size, item count, string length,
     and nesting depth where relevant.
--   [ ] Apply limits to upload, API, WebSocket, and batch ingestion
+-   [x] Apply limits to upload, API, WebSocket, and batch ingestion
     paths as appropriate.
--   [ ] Reject oversized requests with predictable error responses
+-   [x] Reject oversized requests with predictable error responses
     before expensive processing.
--   [ ] Add tests for boundary-sized, oversized, deeply nested, and
+-   [x] Add tests for boundary-sized, oversized, deeply nested, and
     malformed requests.
--   [ ] Document defaults and configuration.
+-   [x] Document defaults and configuration.
 
 **Acceptance evidence:** Automated tests prove oversized payloads are
 rejected without unbounded memory/CPU use.
@@ -270,317 +270,317 @@ rejected without unbounded memory/CPU use.
 
 # P1 --- Runtime interception and protection capabilities
 
-## TO-011 --- Audit and enforce every framework adapter
+## TO-011 --- Audit and enforce every framework adapter — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-011)
 
--   [ ] Inventory all framework adapters and classify each as
+-   [x] Inventory all framework adapters and classify each as
     `PRE_EXECUTION_ENFORCEMENT`, `POST_EXECUTION_OBSERVATION`, or
     `UNSUPPORTED`.
--   [ ] Trace how `watch()`, `GenericAdapter`, and framework attach
+-   [x] Trace how `watch()`, `GenericAdapter`, and framework attach
     functions reach actual tool execution.
--   [ ] Route every adapter that claims prevention through TO-002's
+-   [x] Route every adapter that claims prevention through TO-002's
     authoritative enforcement pipeline.
--   [ ] Do not describe an observation-only adapter as blocking or
+-   [x] Do not describe an observation-only adapter as blocking or
     controlling execution.
--   [ ] Add per-adapter integration tests that execute a real test tool
+-   [x] Add per-adapter integration tests that execute a real test tool
     with a side-effect counter.
--   [ ] For each supported adapter, prove a blocked call never reaches
+-   [x] For each supported adapter, prove a blocked call never reaches
     the underlying tool.
--   [ ] Prove allowed calls execute once and results are returned
+-   [x] Prove allowed calls execute once and results are returned
     correctly.
--   [ ] Test sync/async execution, exceptions, cancellation, and
+-   [x] Test sync/async execution, exceptions, cancellation, and
     streaming where supported.
--   [ ] Update support matrix and documentation with actual enforcement
+-   [x] Update support matrix and documentation with actual enforcement
     boundaries.
 
 **Acceptance evidence:** Each adapter marked as enforcing has an
 integration test proving pre-execution blocking. Observation-only
 integrations are explicitly labelled.
 
-## TO-012 --- Implement genuine Claude Code pre-tool enforcement
+## TO-012 --- Implement genuine Claude Code pre-tool enforcement — **BLOCKED** (implemented and contract-tested; the real `claude -p` E2E needs the owner to sign the CLI in: evidence docs/IMPLEMENTATION_EVIDENCE.md#to-012)
 
--   [ ] Replace or supplement output-stream-only observation with Claude
+-   [x] Replace or supplement output-stream-only observation with Claude
     Code's supported `PreToolUse` hook/permission mechanism.
--   [ ] Ensure the hook invokes the authoritative enforcement decision
+-   [x] Ensure the hook invokes the authoritative enforcement decision
     before the CLI executes the tool.
--   [ ] Implement correct allow/deny/approval behavior for supported
+-   [x] Implement correct allow/deny/approval behavior for supported
     hook responses.
--   [ ] Inspect tool name and arguments; apply policy and risk checks.
+-   [x] Inspect tool name and arguments; apply policy and risk checks.
 -   [ ] Ensure a blocked tool cannot execute and cannot be relabelled as
     blocked after the fact.
--   [ ] Capture post-tool output only where the supported lifecycle
+-   [x] Capture post-tool output only where the supported lifecycle
     permits it; do not claim output sanitization if the integration
     cannot perform it.
 -   [ ] Add an end-to-end test using a harmless local tool that writes a
     marker file; prove the marker is absent when blocked and present
     once when allowed.
--   [ ] Document hook installation, permissions, limitations, and
+-   [x] Document hook installation, permissions, limitations, and
     supported CLI versions.
 
 **Acceptance evidence:** A real Claude Code hook test proves the blocked
 command did not execute. Output-stream observation alone does not
 satisfy this task.
 
-## TO-013 --- Complete LangGraph enforcement
+## TO-013 --- Complete LangGraph enforcement — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-013-to-014-to-015)
 
--   [ ] Trace the LangGraph adapter's actual tool execution lifecycle.
--   [ ] Attach enforcement at a pre-tool execution boundary, not only at
+-   [x] Trace the LangGraph adapter's actual tool execution lifecycle.
+-   [x] Attach enforcement at a pre-tool execution boundary, not only at
     agent entry or event observation.
--   [ ] Preserve tool schemas, state, callbacks, streaming, and
+-   [x] Preserve tool schemas, state, callbacks, streaming, and
     return/error semantics.
--   [ ] Add tests for allowed, blocked, escalated, mutated,
+-   [x] Add tests for allowed, blocked, escalated, mutated,
     failed-check, and sanitized-output cases.
--   [ ] Include a real integration test with a deterministic test graph
+-   [x] Include a real integration test with a deterministic test graph
     and side-effect counter.
--   [ ] Document version compatibility and unsupported execution modes.
+-   [x] Document version compatibility and unsupported execution modes.
 
 **Acceptance evidence:** LangGraph integration tests prove pre-execution
 blocking and post-execution output handling.
 
-## TO-014 --- Complete AutoGen enforcement
+## TO-014 --- Complete AutoGen enforcement — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-013-to-014-to-015)
 
--   [ ] Trace AutoGen tool/function invocation and interception points.
--   [ ] Route tool calls through TO-002 before the underlying function
+-   [x] Trace AutoGen tool/function invocation and interception points.
+-   [x] Route tool calls through TO-002 before the underlying function
     executes.
--   [ ] Preserve supported AutoGen message, tool schema, and approval
+-   [x] Preserve supported AutoGen message, tool schema, and approval
     semantics.
--   [ ] Add allowed, blocked, escalated, mutated, failure, and
+-   [x] Add allowed, blocked, escalated, mutated, failure, and
     output-sanitization tests.
--   [ ] Add a deterministic integration test with a side-effect counter.
--   [ ] Document supported AutoGen versions and limitations.
+-   [x] Add a deterministic integration test with a side-effect counter.
+-   [x] Document supported AutoGen versions and limitations.
 
 **Acceptance evidence:** AutoGen integration tests prove blocked
 functions never execute.
 
-## TO-015 --- Complete smolagents enforcement
+## TO-015 --- Complete smolagents enforcement — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-013-to-014-to-015)
 
--   [ ] Trace the smolagents tool wrapping and invocation path.
--   [ ] Ensure every supported tool invocation enters TO-002.
--   [ ] Preserve tool metadata, input/output contracts, and exceptions.
--   [ ] Add allowed, blocked, escalated, mutated, failed-check, and
+-   [x] Trace the smolagents tool wrapping and invocation path.
+-   [x] Ensure every supported tool invocation enters TO-002.
+-   [x] Preserve tool metadata, input/output contracts, and exceptions.
+-   [x] Add allowed, blocked, escalated, mutated, failed-check, and
     output-sanitization tests.
--   [ ] Add a deterministic integration test with a side-effect counter.
--   [ ] Document supported versions and limitations.
+-   [x] Add a deterministic integration test with a side-effect counter.
+-   [x] Document supported versions and limitations.
 
 **Acceptance evidence:** smolagents integration tests prove blocked
 tools never execute.
 
-## TO-016 --- Complete generic and direct tool protection
+## TO-016 --- Complete generic and direct tool protection — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-016)
 
--   [ ] Ensure `GenericAdapter` cannot bypass the enforcement boundary.
--   [ ] Provide and document `protect_tool()` for tools not managed by a
+-   [x] Ensure `GenericAdapter` cannot bypass the enforcement boundary.
+-   [x] Provide and document `protect_tool()` for tools not managed by a
     framework adapter.
--   [ ] Define behavior for nested tools, dynamically registered tools,
+-   [x] Define behavior for nested tools, dynamically registered tools,
     and tools registered after agent startup.
--   [ ] Prevent double-wrapping and duplicate execution.
--   [ ] Add tests for direct calls, nested calls, repeated registration,
+-   [x] Prevent double-wrapping and duplicate execution.
+-   [x] Add tests for direct calls, nested calls, repeated registration,
     sync/async tools, and wrapper exceptions.
--   [ ] Provide an explicit compatibility mode for observation-only
+-   [x] Provide an explicit compatibility mode for observation-only
     operation, visibly distinct from enforcement mode.
 
 **Acceptance evidence:** Direct and generic tool calls are tested
 against the same enforcement contract as framework adapters.
 
-## TO-017 --- Complete pre-execution threat analysis
+## TO-017 --- Complete pre-execution threat analysis — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-017)
 
--   [ ] Inspect tool names, arguments, structured payloads, and relevant
+-   [x] Inspect tool names, arguments, structured payloads, and relevant
     execution context.
--   [ ] Cover shell commands, Python execution, SQL, filesystem paths,
+-   [x] Cover shell commands, Python execution, SQL, filesystem paths,
     URLs/network destinations, and other supported high-risk tool types.
--   [ ] Detect destructive operations, privilege escalation, credential
+-   [x] Detect destructive operations, privilege escalation, credential
     exposure, suspicious command composition, and policy violations.
--   [ ] Use structured parsing/AST or domain-aware validation where
+-   [x] Use structured parsing/AST or domain-aware validation where
     appropriate; avoid relying only on brittle string matching.
--   [ ] Define risk scoring and policy thresholds with explainable
+-   [x] Define risk scoring and policy thresholds with explainable
     reasons.
--   [ ] Ensure detection errors fail closed according to policy.
--   [ ] Add positive, negative, edge-case, and bypass-oriented tests for
+-   [x] Ensure detection errors fail closed according to policy.
+-   [x] Add positive, negative, edge-case, and bypass-oriented tests for
     each detector family.
--   [ ] Record rule/policy version and decision rationale in evidence.
+-   [x] Record rule/policy version and decision rationale in evidence.
 
 **Acceptance evidence:** Threat-analysis tests demonstrate both attack
 detection and benign-content preservation, with documented
 false-positive behavior.
 
-## TO-018 --- Complete post-execution output inspection
+## TO-018 --- Complete post-execution output inspection — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-018)
 
--   [ ] Inspect tool results before they are returned to the agent.
--   [ ] Detect prompt-injection instructions in retrieved or
+-   [x] Inspect tool results before they are returned to the agent.
+-   [x] Detect prompt-injection instructions in retrieved or
     tool-produced content.
--   [ ] Detect secrets and sensitive data in outputs.
--   [ ] Sanitize or withhold malicious content without destroying
+-   [x] Detect secrets and sensitive data in outputs.
+-   [x] Sanitize or withhold malicious content without destroying
     unrelated benign content.
--   [ ] Define behavior for structured, text, binary, oversized, and
+-   [x] Define behavior for structured, text, binary, oversized, and
     streaming results.
--   [ ] Ensure sanitized output---not the original unsafe output---is
+-   [x] Ensure sanitized output---not the original unsafe output---is
     what the agent receives.
--   [ ] Add synthetic harmless fixtures for detection, sanitization,
+-   [x] Add synthetic harmless fixtures for detection, sanitization,
     benign preservation, and false-positive tests.
--   [ ] Add integration tests that inspect the exact value returned to
+-   [x] Add integration tests that inspect the exact value returned to
     the agent.
--   [ ] Record sanitization actions in evidence without storing
+-   [x] Record sanitization actions in evidence without storing
     unnecessary secrets.
 
 **Acceptance evidence:** Tests prove malicious content is
 removed/withheld before reaching the agent and benign content remains
 usable.
 
-## TO-019 --- Complete human-in-the-loop approvals
+## TO-019 --- Complete human-in-the-loop approvals — **DONE** (dashboard approvals view and browser E2E delivered in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-019)
 
--   [ ] Define approval request identity, context, expiry, and one-time
+-   [x] Define approval request identity, context, expiry, and one-time
     use.
--   [ ] Bind approvals to the exact agent, session, tool, arguments, and
+-   [x] Bind approvals to the exact agent, session, tool, arguments, and
     policy decision.
--   [ ] Prevent approval replay or reuse after arguments change.
--   [ ] Support approve, reject, timeout, cancellation, and
+-   [x] Prevent approval replay or reuse after arguments change.
+-   [x] Support approve, reject, timeout, cancellation, and
     unavailable-approver outcomes.
--   [ ] Ensure no tool executes before a valid approval.
--   [ ] Record approval actor, timestamp, decision, and bound action in
+-   [x] Ensure no tool executes before a valid approval.
+-   [x] Record approval actor, timestamp, decision, and bound action in
     evidence.
 -   [ ] Add API/UI and integration tests for the full approval
-    lifecycle.
+    lifecycle. *(API, integration and dashboard UI with browser E2E: TO-029)*
 
 **Acceptance evidence:** End-to-end tests prove execution occurs only
 after a valid approval for the exact requested action.
 
-## TO-020 --- Complete semantic loop and stuck-agent detection
+## TO-020 --- Complete semantic loop and stuck-agent detection — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-020)
 
--   [ ] Track the last 10 tool calls per session, with configurable
+-   [x] Track the last 10 tool calls per session, with configurable
     bounds.
--   [ ] Detect exact repeated tool/argument calls at the defined
+-   [x] Detect exact repeated tool/argument calls at the defined
     threshold (initial target: 3 repeats).
--   [ ] Detect oscillation patterns such as A→B→A→B across two or three
+-   [x] Detect oscillation patterns such as A→B→A→B across two or three
     tools.
--   [ ] Detect repeated failures with small argument/command edits using
+-   [x] Detect repeated failures with small argument/command edits using
     a documented similarity method and threshold (initial target:
     similarity \>0.80).
--   [ ] Integrate loop decisions with the circuit breaker and runtime
+-   [x] Integrate loop decisions with the circuit breaker and runtime
     control policy.
--   [ ] Distinguish productive polling from stuck polling using
+-   [x] Distinguish productive polling from stuck polling using
     observable state change or progress evidence.
--   [ ] Avoid treating different meaningful arguments as duplicates
+-   [x] Avoid treating different meaningful arguments as duplicates
     without supporting evidence.
--   [ ] Add synthetic tests for repeated identical calls, A/B
+-   [x] Add synthetic tests for repeated identical calls, A/B
     oscillation, edited failing retries, productive polling, and
     legitimate repeated operations.
--   [ ] Add session-isolation and memory-bound tests.
--   [ ] Document thresholds, limitations, and false-positive handling.
+-   [x] Add session-isolation and memory-bound tests.
+-   [x] Document thresholds, limitations, and false-positive handling.
 
 **Acceptance evidence:** The complete loop test matrix passes, including
 a productive-polling case that must not be flagged.
 
-## TO-021 --- Complete intent grounding
+## TO-021 --- Complete intent grounding — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-021)
 
--   [ ] Capture or accept the user's stated objective and relevant
+-   [x] Capture or accept the user's stated objective and relevant
     authorized context.
--   [ ] Compare each proposed tool/action and arguments against that
+-   [x] Compare each proposed tool/action and arguments against that
     objective.
--   [ ] Implement entity/token/operation matching as evidence, not as
+-   [x] Implement entity/token/operation matching as evidence, not as
     sole proof of intent.
--   [ ] Detect destructive actions under read-only objectives and
+-   [x] Detect destructive actions under read-only objectives and
     unrelated tool calls.
--   [ ] Support ambiguous objectives through escalation or explicit
+-   [x] Support ambiguous objectives through escalation or explicit
     policy behavior.
--   [ ] Use optional model verification only as a secondary signal with
+-   [x] Use optional model verification only as a secondary signal with
     bounded, explainable behavior.
--   [ ] Do not let similarity alone authorize a risky action.
--   [ ] Add tests for aligned, unrelated, destructive, ambiguous, and
+-   [x] Do not let similarity alone authorize a risky action.
+-   [x] Add tests for aligned, unrelated, destructive, ambiguous, and
     adversarially phrased actions.
--   [ ] Record grounding rationale and confidence in the evidence trail.
+-   [x] Record grounding rationale and confidence in the evidence trail.
 
 **Acceptance evidence:** Tests prove destructive actions inconsistent
 with read-only objectives are blocked/escalated while legitimate aligned
 actions remain usable.
 
-## TO-022 --- Complete per-agent RBAC
+## TO-022 --- Complete per-agent RBAC — **DONE** (dashboard Policy view delivered in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-022)
 
--   [ ] Define agent roles and an explicit allowed/forbidden tool
+-   [x] Define agent roles and an explicit allowed/forbidden tool
     matrix.
--   [ ] Support argument restrictions and resource constraints for
+-   [x] Support argument restrictions and resource constraints for
     sensitive tools.
--   [ ] Add per-agent/session rate limits where policy requires.
--   [ ] Define default-deny behavior and explicit configurable
+-   [x] Add per-agent/session rate limits where policy requires.
+-   [x] Define default-deny behavior and explicit configurable
     exceptions.
--   [ ] Validate policy schemas and reject invalid or ambiguous
+-   [x] Validate policy schemas and reject invalid or ambiguous
     policies.
--   [ ] Support safe policy reload without a window of unintended
+-   [x] Support safe policy reload without a window of unintended
     authorization.
--   [ ] Bind authorization to authenticated agent identity and tenant.
--   [ ] Add tests for allowed/forbidden tools, restricted arguments,
+-   [x] Bind authorization to authenticated agent identity and tenant.
+-   [x] Add tests for allowed/forbidden tools, restricted arguments,
     rate limits, default deny, invalid policy, reload, and tenant
     boundaries.
--   [ ] Expose effective permissions and denial reasons in the
-    dashboard/API.
+-   [x] Expose effective permissions and denial reasons in the
+    dashboard/API. *(API, and the dashboard Policy view: TO-029)*
 
 **Acceptance evidence:** RBAC integration tests prove unauthorized tool
 names and arguments are rejected before execution.
 
-## TO-023 --- Build standalone MCP gateway/proxy
+## TO-023 --- Build standalone MCP gateway/proxy — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-023)
 
--   [ ] Implement a standalone MCP gateway/proxy using the supported
+-   [x] Implement a standalone MCP gateway/proxy using the supported
     project architecture.
--   [ ] Support stdio transport.
--   [ ] Support the relevant HTTP transport(s) required by the supported
+-   [x] Support stdio transport.
+-   [x] Support the relevant HTTP transport(s) required by the supported
     MCP protocol/version.
--   [ ] Correctly parse and preserve JSON-RPC messages, IDs, errors,
+-   [x] Correctly parse and preserve JSON-RPC messages, IDs, errors,
     notifications, initialization, capabilities, and tool schemas.
--   [ ] Intercept `tools/call` before forwarding it upstream.
--   [ ] Route tool name and arguments through TO-002.
--   [ ] Forward only allowed/approved/mutated calls.
--   [ ] Inspect and sanitize tool responses before returning them to the
+-   [x] Intercept `tools/call` before forwarding it upstream.
+-   [x] Route tool name and arguments through TO-002.
+-   [x] Forward only allowed/approved/mutated calls.
+-   [x] Inspect and sanitize tool responses before returning them to the
     client.
--   [ ] Handle malformed messages, oversized payloads, disconnects,
+-   [x] Handle malformed messages, oversized payloads, disconnects,
     timeouts, and upstream failures safely.
--   [ ] Add redaction, tenant/session binding, rate limits, and evidence
+-   [x] Add redaction, tenant/session binding, rate limits, and evidence
     recording.
--   [ ] Provide CLI commands/configuration for starting and inspecting
+-   [x] Provide CLI commands/configuration for starting and inspecting
     the gateway.
--   [ ] Add protocol-level unit tests and end-to-end tests with a local
+-   [x] Add protocol-level unit tests and end-to-end tests with a local
     fake MCP server/client.
--   [ ] Document setup, transport support, security model, and
+-   [x] Document setup, transport support, security model, and
     limitations.
 
 **Acceptance evidence:** An end-to-end MCP client → AgentWatch gateway →
 test server scenario proves a blocked `tools/call` never reaches the
 upstream server and unsafe output is sanitized before returning.
 
-## TO-024 --- Build local agent and MCP discovery
+## TO-024 --- Build local agent and MCP discovery — **DONE** (dashboard views delivered in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-024)
 
--   [ ] Discover supported local agent runtimes using documented process
+-   [x] Discover supported local agent runtimes using documented process
     and configuration inspection.
--   [ ] Discover relevant MCP configuration files, sockets, and
+-   [x] Discover relevant MCP configuration files, sockets, and
     listening ports using safe, bounded methods.
--   [ ] Identify known runtimes and distinguish `MONITORED`,
+-   [x] Identify known runtimes and distinguish `MONITORED`,
     `UNMONITORED`, `UNKNOWN`, and `UNSUPPORTED`.
--   [ ] Avoid assuming that a discovered process is protected merely
+-   [x] Avoid assuming that a discovered process is protected merely
     because it is detected.
--   [ ] Show discovery source, timestamp, confidence, and monitoring
-    status.
--   [ ] Define permission boundaries and avoid collecting unrelated
+-   [x] Show discovery source, timestamp, confidence, and monitoring
+    status. *(CLI/JSON, evidence record and the dashboard Agents/MCP views: TO-029)*
+-   [x] Define permission boundaries and avoid collecting unrelated
     process data or secrets.
--   [ ] Do not automatically kill or modify discovered processes.
--   [ ] Add safe lifecycle controls only where explicitly supported and
+-   [x] Do not automatically kill or modify discovered processes.
+-   [x] Add safe lifecycle controls only where explicitly supported and
     authorized.
--   [ ] Add tests using fixture processes/configurations and tests for
+-   [x] Add tests using fixture processes/configurations and tests for
     malformed or inaccessible sources.
--   [ ] Document platform-specific support and limitations.
+-   [x] Document platform-specific support and limitations.
 
 **Acceptance evidence:** Discovery tests prove supported agents are
 identified accurately and unmonitored agents are never represented as
 protected.
 
-## TO-025 --- Complete runtime controls and emergency stop
+## TO-025 --- Complete runtime controls and emergency stop — **DONE** (dashboard Controls view delivered in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-025)
 
--   [ ] Verify kill switch behavior across all supported execution
+-   [x] Verify kill switch behavior across all supported execution
     paths.
--   [ ] Ensure kill switch state is shared correctly across
+-   [x] Ensure kill switch state is shared correctly across
     processes/instances where required.
--   [ ] Ensure suspension and resume operations are authorized,
+-   [x] Ensure suspension and resume operations are authorized,
     auditable, and race-safe.
--   [ ] Define behavior for in-flight calls and pending approvals during
+-   [x] Define behavior for in-flight calls and pending approvals during
     emergency stop.
--   [ ] Ensure emergency stop blocks new actions before tool execution.
--   [ ] Add concurrency, restart, multi-process, and failure-path tests.
--   [ ] Expose status and authorized controls through API/CLI/dashboard.
+-   [x] Ensure emergency stop blocks new actions before tool execution.
+-   [x] Add concurrency, restart, multi-process, and failure-path tests.
+-   [x] Expose status and authorized controls through API/CLI/dashboard. *(API, CLI and the dashboard Controls view with browser E2E: TO-029)*
 
 **Acceptance evidence:** Integration tests prove the kill switch blocks
 new tool execution across the supported runtime topology.
@@ -589,191 +589,191 @@ new tool execution across the supported runtime topology.
 
 # P2 --- Evidence, API, dashboard, and operational platform
 
-## TO-026 --- Verify append-only evidence and Merkle integrity
+## TO-026 --- Verify append-only evidence and Merkle integrity — **DONE** (dashboard Evidence view delivered in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-026)
 
--   [ ] Audit the existing v3 evidence store and all write/read paths.
--   [ ] Verify append-only behavior and detect unauthorized mutation,
+-   [x] Audit the existing v3 evidence store and all write/read paths.
+-   [x] Verify append-only behavior and detect unauthorized mutation,
     deletion, reordering, or truncation.
--   [ ] Verify Merkle proof/root generation and independent
+-   [x] Verify Merkle proof/root generation and independent
     verification.
--   [ ] Bind evidence to tenant, agent, session, action, policy version,
+-   [x] Bind evidence to tenant, agent, session, action, policy version,
     and relevant timestamps.
--   [ ] Ensure evidence records distinguish observed, allowed, blocked,
+-   [x] Ensure evidence records distinguish observed, allowed, blocked,
     escalated, mutated, executed, and sanitized events.
--   [ ] Define retention, export, and tenant-scoped erasure behavior
+-   [x] Define retention, export, and tenant-scoped erasure behavior
     without silently breaking integrity guarantees.
--   [ ] Add tampering tests for modified payloads, missing entries,
+-   [x] Add tampering tests for modified payloads, missing entries,
     reordered entries, and invalid proofs.
--   [ ] Add an independent verification command or documented verifier.
--   [ ] Avoid recording plaintext secrets or unnecessary sensitive
+-   [x] Add an independent verification command or documented verifier.
+-   [x] Avoid recording plaintext secrets or unnecessary sensitive
     content.
 
 **Acceptance evidence:** An independent verifier accepts valid evidence
 and rejects tampered or incomplete evidence.
 
-## TO-027 --- Complete API integration
+## TO-027 --- Complete API integration — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-027)
 
--   [ ] Expose the authoritative protection decisions and runtime events
+-   [x] Expose the authoritative protection decisions and runtime events
     through versioned API routes.
--   [ ] Implement authenticated, tenant-scoped endpoints for agents,
+-   [x] Implement authenticated, tenant-scoped endpoints for agents,
     policies, approvals, loops, intent decisions, MCP, discovery,
     evidence, and emergency controls as applicable.
--   [ ] Validate request and response schemas.
--   [ ] Apply authorization, rate limits, request-size limits, and safe
+-   [x] Validate request and response schemas.
+-   [x] Apply authorization, rate limits, request-size limits, and safe
     error handling consistently.
--   [ ] Ensure API responses do not expose secrets, internal regexes, or
+-   [x] Ensure API responses do not expose secrets, internal regexes, or
     other tenants' information.
--   [ ] Add API integration tests for success, denial, malformed input,
+-   [x] Add API integration tests for success, denial, malformed input,
     tenant isolation, and service failure.
--   [ ] Document endpoint contracts and authentication.
+-   [x] Document endpoint contracts and authentication.
 
 **Acceptance evidence:** API integration tests exercise the real
 protection pipeline and verify tenant isolation.
 
-## TO-028 --- Complete CLI
+## TO-028 --- Complete CLI — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-028)
 
--   [ ] Provide commands to inspect status, agents, policies, approvals,
+-   [x] Provide commands to inspect status, agents, policies, approvals,
     evidence, MCP gateway, discovery, and emergency controls.
--   [ ] Provide a command to run evidence verification.
--   [ ] Provide safe configuration validation and diagnostics.
--   [ ] Ensure commands use the same authorization and policy rules as
+-   [x] Provide a command to run evidence verification.
+-   [x] Provide safe configuration validation and diagnostics.
+-   [x] Ensure commands use the same authorization and policy rules as
     the API.
--   [ ] Avoid printing secrets or claiming a runtime is protected when
+-   [x] Avoid printing secrets or claiming a runtime is protected when
     it is only discovered.
--   [ ] Add CLI tests for valid use, invalid configuration,
+-   [x] Add CLI tests for valid use, invalid configuration,
     authorization failure, and service unavailability.
--   [ ] Document installation and command examples.
+-   [x] Document installation and command examples.
 
 **Acceptance evidence:** CLI smoke tests run against a real local test
 deployment and verify returned state.
 
-## TO-029 --- Complete the security dashboard
+## TO-029 --- Complete the security dashboard — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-029)
 
--   [ ] Provide a truthful security overview using actual backend data.
--   [ ] Provide agent inventory and clear monitored/unmonitored status.
--   [ ] Provide runtime protection status and recent
+-   [x] Provide a truthful security overview using actual backend data.
+-   [x] Provide agent inventory and clear monitored/unmonitored status.
+-   [x] Provide runtime protection status and recent
     allow/block/escalate decisions.
--   [ ] Provide policy/RBAC management views.
--   [ ] Provide MCP gateway and discovery views.
--   [ ] Provide loop and intent-grounding events.
--   [ ] Provide human approval workflows.
--   [ ] Provide evidence/Merkle verification views.
--   [ ] Provide authorized emergency-stop controls.
--   [ ] Include loading, empty, stale, error, and disconnected states.
--   [ ] Ensure all displayed data is tenant-scoped and
+-   [x] Provide policy/RBAC management views.
+-   [x] Provide MCP gateway and discovery views.
+-   [x] Provide loop and intent-grounding events.
+-   [x] Provide human approval workflows.
+-   [x] Provide evidence/Merkle verification views.
+-   [x] Provide authorized emergency-stop controls.
+-   [x] Include loading, empty, stale, error, and disconnected states.
+-   [x] Ensure all displayed data is tenant-scoped and
     permission-checked.
--   [ ] Do not use fabricated events or static values presented as live
+-   [x] Do not use fabricated events or static values presented as live
     telemetry.
--   [ ] Add frontend unit, component, accessibility, and browser E2E
+-   [x] Add frontend unit, component, accessibility, and browser E2E
     tests for critical flows.
--   [ ] Verify type-check, lint, and production build.
+-   [x] Verify type-check, lint, and production build.
 
 **Acceptance evidence:** Browser E2E tests operate against a running
 backend and prove that displayed decisions and controls correspond to
 real backend state.
 
-## TO-030 --- Fix dependency and package integrity
+## TO-030 --- Fix dependency and package integrity — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-030)
 
--   [ ] Declare `jsonschema` in the correct package/dependency group if
+-   [x] Declare `jsonschema` in the correct package/dependency group if
     it is required; otherwise remove the undeclared import and use a
     supported alternative.
--   [ ] Verify every runtime import is declared in packaging metadata.
--   [ ] Verify both `agentwatch/` and `panopti/` are included and tested
+-   [x] Verify every runtime import is declared in packaging metadata.
+-   [x] Verify both `agentwatch/` and `panopti/` are included and tested
     as shipped.
--   [ ] Check wheel and source distribution contents.
--   [ ] Test clean installation from built wheel and source distribution
+-   [x] Check wheel and source distribution contents.
+-   [x] Test clean installation from built wheel and source distribution
     in isolated environments.
--   [ ] Resolve or explicitly document dependency advisories with
+-   [x] Resolve or explicitly document dependency advisories with
     severity, reachability, affected versions, and mitigation.
--   [ ] Update dashboard `next` from the audited 14.2.30 version to a
+-   [x] Update dashboard `next` from the audited 14.2.30 version to a
     verified patched supported version; rerun all frontend checks and
     E2E tests.
--   [ ] Pin or constrain dependencies reproducibly and review transitive
+-   [x] Pin or constrain dependencies reproducibly and review transitive
     dependency changes.
 
 **Acceptance evidence:** Clean-install tests pass and dependency audit
 output is attached to the release evidence.
 
-## TO-031 --- Repair memory-erasure integration
+## TO-031 --- Repair memory-erasure integration — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-031)
 
--   [ ] Fix the missing function import identified in the memory-erasure
+-   [x] Fix the missing function import identified in the memory-erasure
     target (TO18 in the existing task list).
--   [ ] Verify the intended function exists, is exported, and has the
+-   [x] Verify the intended function exists, is exported, and has the
     expected semantics.
--   [ ] Add tests for successful erasure, missing target, authorization
+-   [x] Add tests for successful erasure, missing target, authorization
     failure, and tenant isolation.
--   [ ] Verify erasure does not bypass evidence-retention or integrity
+-   [x] Verify erasure does not bypass evidence-retention or integrity
     rules.
--   [ ] Document the supported erasure behavior.
+-   [x] Document the supported erasure behavior.
 
 **Acceptance evidence:** The memory-erasure path executes successfully
 in integration tests and rejects unauthorized cross-tenant requests.
 
-## TO-032 --- Strengthen CI and static security checks
+## TO-032 --- Strengthen CI and static security checks — **IN PROGRESS** (all checks pass locally; the GitHub CI run on this branch is checked in TO-039; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-032)
 
--   [ ] Make CI lint all shipped Python packages, including
+-   [x] Make CI lint all shipped Python packages, including
     `agentwatch/` and `panopti/`.
--   [ ] Resolve the 49 repo-wide Ruff findings or document narrowly
+-   [x] Resolve the 49 repo-wide Ruff findings or document narrowly
     justified suppressions.
--   [ ] Add/retain type checking and coverage gates.
--   [ ] Make dependency auditing actionable; do not silently configure
+-   [x] Add/retain type checking and coverage gates.
+-   [x] Make dependency auditing actionable; do not silently configure
     `pip-audit` to always succeed.
--   [ ] Add a maintained static security scanner (for example Bandit or
+-   [x] Add a maintained static security scanner (for example Bandit or
     Semgrep) if compatible with the repository and CI policy.
--   [ ] Add checks for secrets, unsafe configuration, dependency drift,
+-   [x] Add checks for secrets, unsafe configuration, dependency drift,
     and packaging errors.
--   [ ] Ensure security-critical tests run on pull requests.
--   [ ] Set meaningful coverage thresholds for security-sensitive
+-   [x] Ensure security-critical tests run on pull requests.
+-   [x] Set meaningful coverage thresholds for security-sensitive
     modules, including tenant auth and adapters.
--   [ ] Test CI workflow behavior for fork pull requests and
+-   [x] Test CI workflow behavior for fork pull requests and
     least-privilege permissions.
--   [ ] Ensure CI checks the exact code that will be released.
+-   [x] Ensure CI checks the exact code that will be released.
 
 **Acceptance evidence:** A clean CI run demonstrates lint, type, tests,
 coverage, package checks, and configured security checks all pass on the
 release candidate.
 
-## TO-033 --- Secure release and publishing workflows
+## TO-033 --- Secure release and publishing workflows — **IN PROGRESS** (workflow, gates and local dry run done; a GitHub release-candidate run needs a tag or dispatch from main and the owner's PyPI/environment settings; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-033)
 
--   [ ] Consolidate duplicate GitHub Release creation workflows or
+-   [x] Consolidate duplicate GitHub Release creation workflows or
     define a single authoritative release path.
--   [ ] Require green CI and the full required test suite before PyPI
+-   [x] Require green CI and the full required test suite before PyPI
     publication.
--   [ ] Ensure `v*` tags cannot publish untested artifacts.
--   [ ] Replace any placeholder/echo-only integrity validation with real
+-   [x] Ensure `v*` tags cannot publish untested artifacts.
+-   [x] Replace any placeholder/echo-only integrity validation with real
     verification.
--   [ ] Verify build provenance, package metadata, artifact contents,
+-   [x] Verify build provenance, package metadata, artifact contents,
     and signatures/attestations where supported.
--   [ ] Restrict workflow permissions to least privilege.
--   [ ] Audit fork-PR comment/report workflows for cross-PR write or
+-   [x] Restrict workflow permissions to least privilege.
+-   [x] Audit fork-PR comment/report workflows for cross-PR write or
     comment abuse.
--   [ ] Add release dry-run tests and document rollback/yank procedures.
--   [ ] Verify the published artifact matches the tested commit and
+-   [x] Add release dry-run tests and document rollback/yank procedures.
+-   [x] Verify the published artifact matches the tested commit and
     build.
 
 **Acceptance evidence:** A release-candidate workflow refuses
 publication when tests or required checks fail and publishes only the
 verified artifact.
 
-## TO-034 --- Architecture and dead-code review
+## TO-034 --- Architecture and dead-code review — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-034)
 
--   [ ] Map runtime entry points, API routes, CLI commands, adapters,
+-   [x] Map runtime entry points, API routes, CLI commands, adapters,
     dashboard calls, package exports, and tests.
--   [ ] Review the reported approximately 54 importable but unreachable
+-   [x] Review the reported approximately 54 importable but unreachable
     modules (\~6,500 lines).
--   [ ] Classify each module as required library API, internal
+-   [x] Classify each module as required library API, internal
     dependency, experimental, dead code, or undocumented feature.
--   [ ] Do not delete modules solely because a simple static
+-   [x] Do not delete modules solely because a simple static
     reachability scan cannot find dynamic imports or plugin entry
     points.
--   [ ] Remove genuinely dead code or wire required functionality into
+-   [x] Remove genuinely dead code or wire required functionality into
     documented entry points.
--   [ ] Consolidate duplicated subsystems only where behavior and
+-   [x] Consolidate duplicated subsystems only where behavior and
     compatibility are understood.
--   [ ] Establish dependency direction and avoid circular or duplicated
+-   [x] Establish dependency direction and avoid circular or duplicated
     enforcement logic.
--   [ ] Add tests before removing or consolidating behavior.
--   [ ] Update package exports and documentation.
+-   [x] Add tests before removing or consolidating behavior.
+-   [x] Update package exports and documentation.
 
 **Acceptance evidence:** The architecture map accounts for the reviewed
 modules and every retained public capability has a supported entry point
@@ -783,88 +783,88 @@ or explicit internal purpose.
 
 # P3 --- Documentation, benchmarks, and presentation readiness
 
-## TO-035 --- Correct product claims and support matrix
+## TO-035 --- Correct product claims and support matrix — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-035)
 
--   [ ] Correct the README contradiction about whether v3 blocks or
+-   [x] Correct the README contradiction about whether v3 blocks or
     controls agents.
--   [ ] Distinguish prevention, observation, detection, alerting, and
+-   [x] Distinguish prevention, observation, detection, alerting, and
     post-execution labelling.
--   [ ] Correct the "40+ critical patterns" claim to match the actual
+-   [x] Correct the "40+ critical patterns" claim to match the actual
     verified pattern inventory (audit observed 15 built-in patterns, 5
     blocking by default; re-count after implementation).
--   [ ] Publish an adapter support matrix showing enforcement stage and
+-   [x] Publish an adapter support matrix showing enforcement stage and
     limitations for every integration.
--   [ ] Document what happens when policy evaluation fails.
--   [ ] Document security boundaries, threat model, non-goals,
+-   [x] Document what happens when policy evaluation fails.
+-   [x] Document security boundaries, threat model, non-goals,
     deployment assumptions, and known limitations.
--   [ ] Ensure every security claim links to a test, benchmark, or
+-   [x] Ensure every security claim links to a test, benchmark, or
     reproducible procedure.
--   [ ] Remove claims that cannot be demonstrated by the current
+-   [x] Remove claims that cannot be demonstrated by the current
     release.
 
 **Acceptance evidence:** Documentation review maps every product claim
 to implementation and verification evidence.
 
-## TO-036 --- Build reproducible security evaluation suite
+## TO-036 --- Build reproducible security evaluation suite — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-036-to-037)
 
--   [ ] Create a versioned, harmless synthetic test corpus for prompt
+-   [x] Create a versioned, harmless synthetic test corpus for prompt
     injection, secret exposure, dangerous tool arguments, policy
     violations, loops, and intent mismatch.
--   [ ] Include benign controls to measure false positives and content
+-   [x] Include benign controls to measure false positives and content
     preservation.
--   [ ] Keep test fixtures clearly labelled as defensive tests; do not
+-   [x] Keep test fixtures clearly labelled as defensive tests; do not
     download external datasets or run third-party code without explicit
     authorization.
--   [ ] Define metrics: detection rate, false-positive rate, block rate,
+-   [x] Define metrics: detection rate, false-positive rate, block rate,
     missed-attack rate, sanitization correctness, and decision latency.
--   [ ] Report results by threat category and integration.
--   [ ] Record hardware, software versions, configuration, seeds, and
+-   [x] Report results by threat category and integration.
+-   [x] Record hardware, software versions, configuration, seeds, and
     exact commands.
--   [ ] Ensure benchmarks are repeatable and distinguish synthetic
+-   [x] Ensure benchmarks are repeatable and distinguish synthetic
     results from external dataset results.
--   [ ] Do not claim competitor superiority without a fair, comparable,
+-   [x] Do not claim competitor superiority without a fair, comparable,
     independently reproducible evaluation.
 
 **Acceptance evidence:** A reproducible benchmark report includes
 methodology, raw results, limitations, and false-positive measurements.
 
-## TO-037 --- Measure runtime overhead and reliability
+## TO-037 --- Measure runtime overhead and reliability — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-036-to-037)
 
--   [ ] Benchmark allow, block, escalation, mutation, and
+-   [x] Benchmark allow, block, escalation, mutation, and
     output-sanitization paths.
--   [ ] Measure median and tail latency, throughput, memory use, and
+-   [x] Measure median and tail latency, throughput, memory use, and
     behavior under concurrency.
--   [ ] Measure overhead with and without evidence recording where
+-   [x] Measure overhead with and without evidence recording where
     configuration permits.
--   [ ] Test timeouts, cancellation, upstream failures, and degraded
+-   [x] Test timeouts, cancellation, upstream failures, and degraded
     dependencies.
--   [ ] Publish raw benchmark data and reproduction commands.
--   [ ] Define performance targets based on measured product
+-   [x] Publish raw benchmark data and reproduction commands.
+-   [x] Define performance targets based on measured product
     requirements rather than invented numbers.
 
 **Acceptance evidence:** Performance report is generated from
 reproducible runs on identified hardware/software.
 
-## TO-038 --- Create end-to-end product walkthrough
+## TO-038 --- Create end-to-end product walkthrough — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-038)
 
--   [ ] Create a clean local deployment or documented reproducible
+-   [x] Create a clean local deployment or documented reproducible
     environment.
--   [ ] Demonstrate a real agent/tool call that is allowed.
--   [ ] Demonstrate a dangerous action blocked before execution using a
+-   [x] Demonstrate a real agent/tool call that is allowed.
+-   [x] Demonstrate a dangerous action blocked before execution using a
     side-effect marker.
--   [ ] Demonstrate a HITL action that executes only after approval.
--   [ ] Demonstrate a malicious tool output sanitized before it reaches
+-   [x] Demonstrate a HITL action that executes only after approval.
+-   [x] Demonstrate a malicious tool output sanitized before it reaches
     the agent.
--   [ ] Demonstrate a loop detected and circuit breaker response.
--   [ ] Demonstrate an intent mismatch blocked or escalated.
--   [ ] Demonstrate RBAC denial.
--   [ ] Demonstrate an MCP call intercepted by the gateway.
--   [ ] Demonstrate agent discovery with monitored versus unmonitored
+-   [x] Demonstrate a loop detected and circuit breaker response.
+-   [x] Demonstrate an intent mismatch blocked or escalated.
+-   [x] Demonstrate RBAC denial.
+-   [x] Demonstrate an MCP call intercepted by the gateway.
+-   [x] Demonstrate agent discovery with monitored versus unmonitored
     status.
--   [ ] Demonstrate evidence/Merkle verification and tamper rejection.
--   [ ] Demonstrate tenant isolation with two test tenants.
--   [ ] Capture genuine screenshots/logs from the running product.
--   [ ] Provide setup, run, reset, and troubleshooting instructions.
+-   [x] Demonstrate evidence/Merkle verification and tamper rejection.
+-   [x] Demonstrate tenant isolation with two test tenants.
+-   [x] Capture genuine screenshots/logs from the running product.
+-   [x] Provide setup, run, reset, and troubleshooting instructions.
 
 **Acceptance evidence:** A reviewer can reproduce the walkthrough from a
 clean checkout using the documented commands. Screenshots and logs

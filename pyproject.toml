@@ -23,7 +23,11 @@ classifiers = [
 ]
 
 dependencies = [
-  "fastapi>=0.119.0,<1.0.0",
+  "fastapi>=0.162.0,<1.0.0",
+  # imported directly (middleware, MCP gateway HTTP transport); >=1.3.1 for PYSEC-2026-161/248/249/2280/2281
+  "starlette>=1.3.1,<2.0.0",
+  # transitive (huggingface-hub, litellm): security floor for GHSA-v4x8-3wr5-3wq8 and 12 related advisories
+  "filelock>=4.2.1",
   "uvicorn[standard]>=0.33.0,<1.0.0",
   "pydantic>=2.11.0,<3.0.0",
   "pydantic-settings>=2.5.0,<3.0.0",
@@ -32,11 +36,11 @@ dependencies = [
   "redis[hiredis]>=5.3.0,<6.0.0",
   "celery[redis]>=5.5.0,<6.0.0",
   "httpx>=0.28.0,<1.0.0",
-  "typer[all]>=0.12.0,<1.0.0",
+  "typer>=0.12.0,<1.0.0",  # rich and shellingham are declared below (typer[all] no longer exists)
   "rich>=13.9.0,<14.0.0",
   "shellingham>=1.5.0,<2.0.0",
   "python-multipart>=0.0.12,<1.0.0",
-  "mcp>=1.0.0,<2.0.0",
+  "mcp>=1.8.0,<2.0.0",  # Streamable HTTP; the gateway tests use the SDK client and server
   "prometheus-client>=0.21.0,<1.0.0",
   "litellm>=1.0.0,<2.0.0",
   "tenacity>=8.0.0,<9.0.0",
@@ -51,7 +55,9 @@ embeddings = [
   "numpy>=1.26.0",
 ]
 otel = [
+  "opentelemetry-api>=1.27.0",
   "opentelemetry-proto>=1.27.0",
+  "protobuf>=5.26.0",  # google.protobuf, used to decode OTLP/protobuf
   "opentelemetry-sdk>=1.27.0",
   "opentelemetry-exporter-otlp-proto-grpc>=1.27.0",
   "opentelemetry-semantic-conventions>=0.48b0",
@@ -81,6 +87,17 @@ docs = [
   "mkdocs-material>=9.5.0",
   "mkdocstrings[python]>=0.26.0",
 ]
+reports = [
+  # PDF security reports; without it reports are rendered as text
+  "reportlab>=4.0.0",
+]
+groq = [
+  "groq>=0.11.0",
+]
+discovery = [
+  # running-process scan of `panoptis protect discover`; config files are scanned without it
+  "psutil>=5.9.0",
+]
 postgres = [
   # synchronous driver used by the v3 store (SQLAlchemy Core) in server mode
   "psycopg[binary]>=3.2.0,<4.0.0",
@@ -95,9 +112,10 @@ dev = [
   "openai>=1.0.0",
   "httpx>=0.28.0",
   "opentelemetry-sdk>=1.27.0",
+  "psutil>=5.9.0",
 ]
 all = [
-  "panoptis[embeddings,otel,crypto,langchain,postgres]",
+  "panoptis[embeddings,otel,crypto,langchain,postgres,discovery]",
 ]
 
 [project.scripts]
@@ -111,6 +129,21 @@ Issues = "https://github.com/Shinraya-Tech-Labs/AgentWatch/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["panoptis", "panopti"]
+
+# The source distribution holds the packages, their tests and the project files only:
+# not the dashboard, the landing site (a separate repository), deployment files or notes.
+[tool.hatch.build.targets.sdist]
+include = [
+  "/panoptis",
+  "/panopti",
+  "/tests",
+  "/scripts/check_imports.py",
+  "/pyproject.toml",
+  "/README.md",
+  "/LICENSE",
+  "/CHANGELOG.md",
+]
+exclude = ["**/__pycache__", "**/*.pyc", "/tests/**/node_modules"]
 
 [tool.pytest.ini_options]
 cache_dir = ".pytest_cache"
@@ -147,6 +180,10 @@ ignore = [
 # (F405: __all__ names resolve through those wildcards).
 "panoptis/**/__init__.py" = ["F401", "F403", "F405"]
 "panoptis/*/__init__.py"  = ["F401", "F403", "F405"]
+# uppercase properties are the legacy Colors API, kept for compatibility
+"panopti/themes.py" = ["N802"]
+# notebook cells import where they are used
+"*.ipynb" = ["E402"]
 
 [tool.mypy]
 python_version = "3.12"

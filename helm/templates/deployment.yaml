@@ -17,10 +17,20 @@ spec:
         app.kubernetes.io/name: panoptis
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: api
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - name: http
               containerPort: 8000
@@ -30,14 +40,13 @@ spec:
             - name: {{ $k }}
               value: "{{ $v }}"
             {{- end }}
-            {{- if .Values.postgres.enabled }}
-            - name: DATABASE_URL
-              value: "postgresql+asyncpg://{{ .Values.postgres.username }}:{{ .Values.postgres.password }}@{{ .Release.Name }}-postgres:5432/{{ .Values.postgres.database }}"
-            {{- end }}
-            {{- if .Values.redis.enabled }}
-            - name: REDIS_URL
-              value: "redis://{{ .Release.Name }}-redis:6379/0"
-            {{- end }}
+          # Credentials come only from a Secret (never from values or the pod spec). The
+          # Secret must hold AGENTWATCH_API_KEY and, when the bundled services are used,
+          # DATABASE_URL, AGENTWATCH_STORE and REDIS_URL with their passwords
+          # (docs/DEPLOYMENT_SECURITY.md).
+          envFrom:
+            - secretRef:
+                name: {{ required "secrets.existingSecret is required: create a Secret with AGENTWATCH_API_KEY (and DATABASE_URL / REDIS_URL) - see docs/DEPLOYMENT_SECURITY.md" .Values.secrets.existingSecret }}
           livenessProbe:
             httpGet:
               path: /health

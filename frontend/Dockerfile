@@ -1,4 +1,4 @@
-# AgentWatch Dashboard (Next.js 14) — multi-stage Docker build.
+# AgentWatch Dashboard (Next.js 16, Pages Router) — multi-stage Docker build.
 # Uses Next.js's standalone output mode so the runtime image only carries
 # the resolved dependencies + traced assets (typically <150MB total),
 # not the entire frontend/node_modules tree.

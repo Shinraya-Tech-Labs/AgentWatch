@@ -77,3 +77,17 @@ Behaviour:
 - **Bootstrap:** the operator (`AGENTWATCH_ADMIN_KEY`) creates the tenant with `POST /api/v1/tenants?name=…` and issues its first key with `POST /api/v1/tenants/{id}/api-keys`. From then on the tenant manages its own keys, and a key can act only on its own tenant.
 
 **Recovery:** the store is ordinary SQL. Back it up with the database; to restore, point `AGENTWATCH_TENANT_STORE` at the restored database. To revoke every key of a compromised tenant, suspend the tenant.
+
+## Policy dry-run endpoint (`POST /api/v1/safety/check`, TO-008)
+
+Evaluates a command against the deployment's safety policy without running it.
+
+- **Authentication:** an API key. In cloud mode, a tenant key or the operator key.
+- **Detail:** the rule-by-rule `threat_path`, and the names and reasons of custom rules, describe the deployment's policy. They are returned only to the policy owner: the self-hosted key holder, or the cloud operator (`AGENTWATCH_ADMIN_KEY`). A cloud tenant receives `decision`, `risk_level` and `risk_score`, an empty `threat_path`, and custom rules redacted as `custom-policy` / "matched a custom policy rule".
+- **Bounds:** these are rejected with 422 before any rule is evaluated, which also caps the regex work one request can cause:
+  - `command` up to `AGENTWATCH_SAFETY_CHECK_MAX_COMMAND` (8192 characters);
+  - `arguments` up to `AGENTWATCH_SAFETY_CHECK_MAX_ARGS_BYTES` (16 KB of JSON) and 8 levels deep;
+  - `tool_name` up to 128 characters;
+  - up to 100 `affected_resources`.
+- **Rate limit:** the write tier (`API_RATE_LIMIT_WRITE`).
+- **Tests:** `tests/test_api_safety_check.py`.

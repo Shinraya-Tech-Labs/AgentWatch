@@ -92,7 +92,7 @@ The principle behind every row is that v3 core never depends on anything below K
 | `governance/engine.py`, `compliance_reporter.py`, `reports.py`, `eu_ai_act.py`, `iso42001.py`, `hipaa.py`, `residency.py` | **DEPRECATE** → `legacy/governance` | Compliance reporting is a product line, not the instrument. It could later be rebuilt *on top of* v3 queries. |
 | `governance/rbac.py` | **ADAPT** → `api/auth` | Roles for API access. |
 | `security/redaction.py` | **KEEP** (move to sensor edge) | Good library. It changes from mutating stored events to producing a `RedactionManifest` at capture or ingest (ADR-0011). |
-| `security/encryption.py`, `key_storage.py`, `webhook_signing.py` | **KEEP** | Needed for per-tenant keys, crypto-shredding and signed webhooks. |
+| `webhook_signing.py` | **KEEP** | Signed webhooks. (`security/encryption.py` and `key_storage.py` were removed in TO-034: unused and untested; per-tenant keys and crypto-shredding are `evidence/crypto.py` and the store.) |
 | `security/license.py`, `entitlement_store.py`, `checkout.py`, `abuse_detection.py` · `api/entitlement.py` | **DEPRECATE** from core (retain in the API layer only if the commercial model needs it) | Commercial concerns must not shape the domain model. |
 | `security/owasp.py`, `redteam.py`, `exfiltration.py`, `sandbox.py`, `report.py`, `payloads.json` | **DEPRECATE** | Guardrail product. The red-team payloads may seed AWBench "invalid external data" perturbations. |
 

@@ -38,7 +38,7 @@ from typing import Any, TypeVar
 from panoptis.circuit_breaker.breaker import CircuitBreaker, CircuitState
 from panoptis.circuit_breaker.thresholds import CircuitThresholds
 from panoptis.core.schema import AgentEvent, AgentFramework, EventType, ExecutionStatus
-from panoptis.protect.approvals import ApprovalBroker
+from panoptis.protect.approvals import ApprovalBroker, action_digest
 from panoptis.protect.control import ControlState
 from panoptis.protect.intent import GroundingConfig, IntentGrounder
 from panoptis.protect.ledger import (
@@ -63,7 +63,7 @@ from panoptis.protect.model import (
 )
 from panoptis.protect.output import OutputInspector
 from panoptis.protect.rbac import PolicyStore, RBACEngine
-from panoptis.protect.threats import ThreatAnalyzer
+from panoptis.protect.threats import THREAT_RULES_VERSION, ThreatAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,11 @@ _AGENT_ID = re.compile(r"^[A-Za-z0-9_.:@/\-]{1,128}$")
 @dataclass
 class ProtectionConfig:
     fail_closed: bool = True
+    # "enforce" (default) blocks, mutates and sanitizes. "observe" is a compatibility mode:
+    # every call is decided and recorded (mode="observe", would_block) but still runs with
+    # its original arguments and unsanitized output. The kill switch and suspensions are
+    # enforced in both modes.
+    mode: str = "enforce"
     # what to do when a finding asks for human approval but no approval channel exists
     escalate_without_approver: Verdict = Verdict.BLOCK
     approval_timeout_s: float = 120.0
@@ -179,6 +184,13 @@ class ProtectionPipeline:
         temporal_simulator: Any = None,
     ) -> None:
         self.config = config or ProtectionConfig()
+        if self.config.mode not in ("enforce", "observe"):
+            raise ValueError(f"mode must be 'enforce' or 'observe', not {self.config.mode!r}")
+        if self.config.mode == "observe":
+            logger.warning(
+                "AgentWatch protection is in OBSERVE mode: calls are recorded, nothing is "
+                "blocked, rewritten or sanitized (except by the kill switch)"
+            )
         self.policy = policy or PolicyStore()
         self.rbac = RBACEngine(self.policy)
         self.ledger = ledger
@@ -253,7 +265,7 @@ class ProtectionPipeline:
         self.sessions: dict[str, SessionInfo] = {}
         self.registered_agents: set[str] = set()
         self._breakers: dict[str, CircuitBreaker] = {}
-        self._loop_hits: dict[str, int] = {}
+        self._loop_hits: OrderedDict[str, int] = OrderedDict()
         self._executed: OrderedDict[str, float] = OrderedDict()
         self._lock = threading.RLock()
 
@@ -300,14 +312,29 @@ class ProtectionPipeline:
                 "metadata": metadata or {},
             },
             {"agent_id": agent_id, "session_id": session_id},
+            tenant_id=tenant_id,
         )
         return info
 
     def set_objective(self, session_id: str, objective: str, *, tenant_id: str = "default") -> None:
+        """Change a started session's objective (recorded). An unknown session is an error."""
         scope = f"{tenant_id}/{session_id}"
         with self._lock:
-            if scope in self.sessions:
-                self.sessions[scope].objective = objective
+            info = self.sessions.get(scope)
+            if info is None:
+                raise KeyError(f"session {session_id!r} has not been started")
+            info.objective = objective
+        self._record(
+            KIND_AGENT,
+            {
+                "event": "objective_set",
+                "agent_id": info.agent_id,
+                "session_id": session_id,
+                "objective": objective,
+            },
+            {"agent_id": info.agent_id, "session_id": session_id},
+            tenant_id=tenant_id,
+        )
 
     def breaker(self, scope: str) -> CircuitBreaker:
         with self._lock:
@@ -390,7 +417,12 @@ class ProtectionPipeline:
                 findings += timed(
                     "rbac",
                     lambda: self.rbac.authorize(
-                        action.agent_id, action.tool, action.arguments, profile
+                        action.agent_id,
+                        action.tool,
+                        action.arguments,
+                        profile,
+                        tenant_id=action.tenant_id,
+                        session_id=action.session_id,
                     ),
                 )
                 findings += timed(
@@ -407,6 +439,7 @@ class ProtectionPipeline:
                         action.arguments,
                         profile,
                         reasoning=action.reasoning,
+                        context=(session.metadata.get("authorized_context") if session else None),
                     ),
                 )
             elif not _blocked(findings):
@@ -461,6 +494,7 @@ class ProtectionPipeline:
             mutated_arguments=mutated if verdict is Verdict.MUTATE_AND_ALLOW else None,
             timings_ms=timings,
             policy_version=self.policy.policy.digest if self.policy.policy else None,
+            threat_rules_version=THREAT_RULES_VERSION,
         )
 
         if verdict is Verdict.ESCALATE_HITL:
@@ -576,47 +610,28 @@ class ProtectionPipeline:
                 ]
         return out
 
-    def _control(self, action: ToolAction) -> list[Finding]:
-        killed, reason = self.control.local_kill()
+    def _emergency(self, action: ToolAction) -> list[Finding]:
+        """Kill switch and suspensions: checked when deciding and again just before running."""
+        hit = self.control.emergency(action.tenant_id, action.agent_id, action.session_id)
+        if hit is None:
+            return []
+        code, message = hit
         snap = self.control.snapshot()
-        if killed or snap.killed:
-            return [
-                Finding(
-                    Stage.KILLSWITCH,
-                    "KILL_SWITCH",
-                    Severity.CRITICAL,
-                    f"Emergency stop is active: {reason or snap.kill_reason}",
-                    {"actor": snap.kill_actor},
-                    None,
-                    Verdict.BLOCK,
-                )
-            ]
-        if action.agent_id in snap.suspended_agents:
-            meta = snap.suspended_agents[action.agent_id]
-            return [
-                Finding(
-                    Stage.KILLSWITCH,
-                    "AGENT_SUSPENDED",
-                    Severity.CRITICAL,
-                    f"Agent '{action.agent_id}' is suspended: {meta.get('reason')}",
-                    meta,
-                    None,
-                    Verdict.BLOCK,
-                )
-            ]
-        if action.session_id in snap.suspended_sessions:
-            meta = snap.suspended_sessions[action.session_id]
-            return [
-                Finding(
-                    Stage.KILLSWITCH,
-                    "SESSION_SUSPENDED",
-                    Severity.CRITICAL,
-                    f"Session '{action.session_id}' is suspended: {meta.get('reason')}",
-                    meta,
-                    None,
-                    Verdict.BLOCK,
-                )
-            ]
+        meta: dict[str, Any] = {"actor": snap.kill_actor} if code == "KILL_SWITCH" else {}
+        if code == "AGENT_SUSPENDED":
+            meta = dict(snap.suspended_agents.get(f"{action.tenant_id}/{action.agent_id}") or {})
+        elif code == "SESSION_SUSPENDED":
+            meta = dict(
+                snap.suspended_sessions.get(f"{action.tenant_id}/{action.session_id}") or {}
+            )
+        return [
+            Finding(Stage.KILLSWITCH, code, Severity.CRITICAL, message, meta, None, Verdict.BLOCK)
+        ]
+
+    def _control(self, action: ToolAction) -> list[Finding]:
+        stop = self._emergency(action)
+        if stop:
+            return stop
         b = self.breaker(action.scope)
         if b.state is CircuitState.OPEN:
             # let an elapsed cooldown move the breaker to HALF_OPEN (this call is the probe)
@@ -669,21 +684,47 @@ class ProtectionPipeline:
         }
         if not wait:
             return
-        outcome = self.approvals.wait(req)
+
+        def abort() -> str | None:
+            stop = self._emergency(decision.action)
+            return stop[0].message if stop else None
+
+        outcome = self.approvals.wait(req, abort=abort)
         decision.approval = {
             "request_id": req.request_id,
             "state": "approved"
             if outcome.approved
-            else ("expired" if outcome.timed_out else "rejected"),
+            else (
+                "cancelled"
+                if outcome.cancelled
+                else ("expired" if outcome.timed_out else "rejected")
+            ),
             **outcome.to_dict(),
         }
+        if outcome.approved and action_digest(decision.action) != req.action_digest:
+            # the action changed after approval was requested: the approval does not cover it
+            decision.findings.append(
+                Finding(
+                    Stage.HITL,
+                    "APPROVAL_MISMATCH",
+                    Severity.CRITICAL,
+                    "The action changed after approval was requested; the approval does not cover it",
+                    {"request_id": req.request_id},
+                    None,
+                    Verdict.BLOCK,
+                )
+            )
+            decision.verdict = Verdict.BLOCK
+            return
         if not outcome.approved:
             decision.findings.append(
                 Finding(
                     Stage.HITL,
-                    "APPROVAL_TIMEOUT" if outcome.timed_out else "APPROVAL_REJECTED",
+                    "APPROVAL_CANCELLED"
+                    if outcome.cancelled
+                    else ("APPROVAL_TIMEOUT" if outcome.timed_out else "APPROVAL_REJECTED"),
                     Severity.HIGH,
-                    f"{'No decision before the deadline' if outcome.timed_out else 'Rejected'} by {outcome.decided_by}"
+                    f"{'Cancelled' if outcome.cancelled else ('No decision before the deadline' if outcome.timed_out else 'Rejected')} by {outcome.decided_by}"
                     + (f": {outcome.comment}" if outcome.comment else ""),
                     {"request_id": req.request_id},
                     None,
@@ -741,17 +782,24 @@ class ProtectionPipeline:
                 s.escalated += any(f.recommends is Verdict.ESCALATE_HITL for f in decision.findings)
                 s.loops += bool(loop_findings)
             if loop_findings:
-                n = self._loop_hits.get(a.scope, 0) + 1
+                n = self._loop_hits.pop(a.scope, 0) + 1
                 self._loop_hits[a.scope] = n
+                while len(self._loop_hits) > self.loops.config.max_sessions:
+                    self._loop_hits.popitem(last=False)
                 if n >= self.config.trip_breaker_after_loops:
                     self.breaker(a.scope).trip(f"loop:{loop_findings[0].code}")
         if not decision.allowed:
-            self.loops.record_result(a.call_id, success=False, output={"blocked": decision.reason})
+            self.loops.record_result(
+                a.call_id, success=False, output={"blocked": decision.reason}, session_id=a.scope
+            )
         if decision.allowed and not self.config.record_allowed:
             self.telemetry.emit(_summary(decision))
             return
         doc = decision.to_dict()
         doc["arguments_mutated"] = decision.mutated_arguments is not None
+        doc["mode"] = self.config.mode
+        if self.config.mode == "observe":
+            doc["would_block"] = not decision.allowed
         self._record(
             KIND_DECISION,
             doc,
@@ -849,7 +897,28 @@ class ProtectionPipeline:
         duration_ms = (
             round((time.perf_counter() - started) * 1000, 3) if started is not None else None
         )
-        error = getattr(error, "original", error)  # the tool's own exception, not a wrapper
+        self.record_execution(
+            action,
+            success=success,
+            result=result,
+            duration_ms=duration_ms,
+            error=getattr(error, "original", error),  # the tool's own exception, not a wrapper
+            mutated=mutated,
+        )
+
+    def record_execution(
+        self,
+        action: ToolAction,
+        *,
+        success: bool,
+        result: Any = None,
+        duration_ms: float | None = None,
+        error: BaseException | str | None = None,
+        mutated: bool = False,
+    ) -> None:
+        """Record that ``action`` ran, for runtimes that execute the tool themselves
+        (a Claude Code hook sees the call before and after, but never runs it)."""
+        error_name = error if isinstance(error, str) or error is None else type(error).__name__
         self._record(
             KIND_EXECUTION,
             {
@@ -858,7 +927,7 @@ class ProtectionPipeline:
                 "agent_id": action.agent_id,
                 "session_id": action.session_id,
                 "outcome": "success" if success else "failure",
-                "error": type(error).__name__ if error is not None else None,
+                "error": error_name,
                 "duration_ms": duration_ms,
                 "arguments_mutated": mutated,
             },
@@ -871,7 +940,9 @@ class ProtectionPipeline:
             },
             tenant_id=action.tenant_id,
         )
-        self.loops.record_result(action.call_id, success=success, output=result)
+        self.loops.record_result(
+            action.call_id, success=success, output=result, session_id=action.scope
+        )
         if self.ltl is not None and success:
             self.ltl.record_step(action, result=result)
         b = self.breaker(action.scope)
@@ -897,15 +968,8 @@ class ProtectionPipeline:
         Raises :class:`ActionBlocked` when the verdict does not allow the call; ``fn`` is
         then never invoked.
         """
-        decision = self.evaluate(action)
-        if not decision.allowed:
-            raise ActionBlocked(decision)
-        self._claim(action.call_id)
-        args = (
-            decision.mutated_arguments
-            if decision.mutated_arguments is not None
-            else action.arguments
-        )
+        decision = self.evaluate(action, wait_for_approval=not self.observing)
+        args = self._admit(action, decision)
         try:
             started = time.perf_counter()
             if self.counterfactual is not None:
@@ -958,7 +1022,7 @@ class ProtectionPipeline:
                 result=repr(exc),
                 started=started,
                 error=exc,
-                mutated=decision.mutated_arguments is not None,
+                mutated=args is not action.arguments,
             )
             raise
         self._finish(
@@ -966,10 +1030,16 @@ class ProtectionPipeline:
             success=_looks_successful(result),
             result=result,
             started=started,
-            mutated=decision.mutated_arguments is not None,
+            mutated=args is not action.arguments,
         )
         if not self.config.output_inspection:
             return result
+        if self.observing:
+            if not (inspect.isgenerator(result) or inspect.isasyncgen(result)):
+                self.inspect_output(action, result)  # recorded, not applied
+            return result
+        if inspect.isgenerator(result):
+            return self._inspect_stream(action, result)
         return self.inspect_output(action, result).sanitized_output
 
     async def aexecute(
@@ -979,18 +1049,30 @@ class ProtectionPipeline:
         *,
         call: Callable[[dict[str, Any]], Awaitable[Any]] | None = None,
     ) -> Any:
-        decision = await asyncio.to_thread(self.evaluate, action)
-        if not decision.allowed:
-            raise ActionBlocked(decision)
-        self._claim(action.call_id)
-        args = (
-            decision.mutated_arguments
-            if decision.mutated_arguments is not None
-            else action.arguments
-        )
+        try:
+            decision = await asyncio.to_thread(
+                functools.partial(self.evaluate, wait_for_approval=not self.observing), action
+            )
+        except asyncio.CancelledError:
+            # the caller went away while a human was being asked: withdraw the request
+            if self.approvals is not None:
+                self.approvals.cancel_for_call(action.call_id)
+            raise
+        args = self._admit(action, decision)
         try:
             started = time.perf_counter()
             result = await (call(args) if call is not None else fn(**args))
+        except asyncio.CancelledError as exc:
+            # cancelled mid-flight: the tool may have had side effects; record it, then propagate
+            self._finish(
+                action,
+                success=False,
+                result="cancelled",
+                started=started,
+                error=exc,
+                mutated=args is not action.arguments,
+            )
+            raise
         except Exception as exc:
             self._finish(
                 action,
@@ -998,7 +1080,7 @@ class ProtectionPipeline:
                 result=repr(exc),
                 started=started,
                 error=exc,
-                mutated=decision.mutated_arguments is not None,
+                mutated=args is not action.arguments,
             )
             raise
         self._finish(
@@ -1006,11 +1088,64 @@ class ProtectionPipeline:
             success=_looks_successful(result),
             result=result,
             started=started,
-            mutated=decision.mutated_arguments is not None,
+            mutated=args is not action.arguments,
         )
         if not self.config.output_inspection:
             return result
+        if self.observing:
+            if not (inspect.isgenerator(result) or inspect.isasyncgen(result)):
+                await asyncio.to_thread(self.inspect_output, action, result)
+            return result
+        if inspect.isasyncgen(result):
+            return self._ainspect_stream(action, result)
+        if inspect.isgenerator(result):
+            return self._inspect_stream(action, result)
         return (await asyncio.to_thread(self.inspect_output, action, result)).sanitized_output
+
+    @property
+    def observing(self) -> bool:
+        return self.config.mode == "observe"
+
+    def _admit(self, action: ToolAction, decision: Decision) -> dict[str, Any]:
+        """The arguments the tool runs with, or :class:`ActionBlocked`."""
+        emergency = any(f.stage is Stage.KILLSWITCH for f in decision.findings)
+        if not decision.allowed and (not self.observing or emergency):
+            raise ActionBlocked(decision)
+        # an emergency stop or suspension issued while the call was being decided (or waited
+        # for approval) still prevents it: checked again right before the tool runs
+        stop = self._emergency(action)
+        if stop:
+            decision.findings.extend(stop)
+            decision.verdict = Verdict.BLOCK
+            raise ActionBlocked(decision)
+        approved_for = (decision.approval or {}).get("action_digest")
+        if approved_for and decision.allowed and approved_for != action_digest(action):
+            # the arguments were changed between the approval and the execution
+            decision.verdict = Verdict.BLOCK
+            raise ActionBlocked(decision)
+        self._claim(action.call_id)
+        if self.observing or decision.mutated_arguments is None:
+            return action.arguments
+        return decision.mutated_arguments
+
+    def _stop_stream(self, action: ToolAction) -> None:
+        stop = self._emergency(action)
+        if stop:
+            decision = Decision(action=action, verdict=Verdict.BLOCK, risk_score=1.0, findings=stop)
+            self._after_decision(decision)
+            raise ActionBlocked(decision)
+
+    def _inspect_stream(self, action: ToolAction, stream: Any) -> Any:
+        """A streamed result: every chunk is inspected and sanitized before it is yielded;
+        an emergency stop ends the stream (the agent gets no further chunks)."""
+        for chunk in stream:
+            self._stop_stream(action)
+            yield self.inspect_output(action, chunk).sanitized_output
+
+    async def _ainspect_stream(self, action: ToolAction, stream: Any) -> Any:
+        async for chunk in stream:
+            self._stop_stream(action)
+            yield (await asyncio.to_thread(self.inspect_output, action, chunk)).sanitized_output
 
     def guard(
         self,
@@ -1121,6 +1256,7 @@ class ProtectionPipeline:
                 for s in self.sessions.values()
             ]
         return {
+            "mode": self.config.mode,
             "sessions": sessions,
             "registered_agents": sorted(self.registered_agents),
             "policy": self.policy.status(),

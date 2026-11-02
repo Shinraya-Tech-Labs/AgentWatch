@@ -1,0 +1,252 @@
+[
+  {
+    "step": 1,
+    "title": "An allowed tool call",
+    "events": [
+      {
+        "msg": "ok: the call ran and returned its result"
+      },
+      {
+        "msg": "decision recorded by the running API",
+        "verdict": "allow",
+        "tool": "read_file",
+        "reason": "[rbac:RBAC_ALLOWED] Role 'coder' allows 'read_file' (rule 'read_file')"
+      },
+      {
+        "msg": "ok: the API reports the decision as allow"
+      }
+    ]
+  },
+  {
+    "step": 2,
+    "title": "A dangerous action blocked before execution (side-effect marker)",
+    "events": [
+      {
+        "msg": "blocked",
+        "reason": "[threat:FS_DELETE_CRITICAL] Recursive/forced deletion of a system or home path: /"
+      },
+      {
+        "msg": "ok: the tool body never ran (no new line in the side-effect marker)"
+      }
+    ]
+  },
+  {
+    "step": 3,
+    "title": "A human-in-the-loop action that runs only after approval (through the API)",
+    "events": [
+      {
+        "msg": "ok: the escalated call is pending approval in the API"
+      },
+      {
+        "msg": "ok: nothing ran while the approval was pending"
+      },
+      {
+        "msg": "approval request",
+        "tool": "bash",
+        "arguments": {
+          "kwargs": {
+            "command": "git push --force origin release"
+          }
+        },
+        "digest": "sha256:ceeb6e067aa0cfa19e1038323428d48b32dad96dcaa0d5b80b4e706dda9ab7ae"
+      },
+      {
+        "msg": "ok: alice approved exactly that action through the API"
+      },
+      {
+        "msg": "ok: the tool ran exactly once, after the approval"
+      }
+    ]
+  },
+  {
+    "step": 4,
+    "title": "A malicious tool output sanitized before it reaches the agent",
+    "events": [
+      {
+        "msg": "what the agent received",
+        "text": "Release notes for v2.\n[AGENTWATCH: removed a line containing instructions addressed to the model (60 chars)]\nVersion 2 adds caching."
+      },
+      {
+        "msg": "ok: the injected line was removed and the rest kept"
+      }
+    ]
+  },
+  {
+    "step": 5,
+    "title": "A loop detected, then the circuit breaker opens",
+    "events": [
+      {
+        "msg": "outcomes of five identical calls",
+        "outcomes": [
+          "ran",
+          "ran",
+          "DUPLICATE_CALL_LOOP",
+          "DUPLICATE_CALL_LOOP",
+          "CIRCUIT_OPEN"
+        ]
+      },
+      {
+        "msg": "ok: the third identical call is a loop; repeated loops open the session's breaker"
+      }
+    ]
+  },
+  {
+    "step": 6,
+    "title": "An intent mismatch blocked",
+    "events": [
+      {
+        "msg": "refused",
+        "intent_findings": [
+          "GOAL_ACTION_MISMATCH",
+          "LOW_GOAL_OVERLAP"
+        ],
+        "reason": "[intent:GOAL_ACTION_MISMATCH] The task is read-only but 'bash' is destructive"
+      },
+      {
+        "msg": "ok: the intent stage reports GOAL_ACTION_MISMATCH"
+      }
+    ]
+  },
+  {
+    "step": 7,
+    "title": "An RBAC denial",
+    "events": [
+      {
+        "msg": "denied",
+        "reason": "[rbac:RBAC_TOOL_FORBIDDEN] Role 'researcher' forbids 'bash' (rule 'bash')"
+      },
+      {
+        "msg": "ok: RBAC_TOOL_FORBIDDEN"
+      },
+      {
+        "msg": "ok: the API's dry-run check explains the same denial"
+      }
+    ]
+  },
+  {
+    "step": 8,
+    "title": "An MCP tool call intercepted by the gateway",
+    "events": [
+      {
+        "msg": "MCP SDK client -> gateway -> MCP server",
+        "allowed": "hello through the gateway",
+        "blocked": "AgentWatch blocked this tool call: [threat:FS_DELETE_CRITICAL] Recursive/forced deletion of a system or home path: /",
+        "server_received": [
+          "echo",
+          "read_doc"
+        ]
+      },
+      {
+        "msg": "ok: the allowed call reached the server and returned"
+      },
+      {
+        "msg": "ok: the dangerous call was answered by the gateway and never reached the server"
+      },
+      {
+        "msg": "ok: the injected line in the server's result was removed before the client saw it"
+      }
+    ]
+  },
+  {
+    "step": 9,
+    "title": "Agent discovery: monitored vs unmonitored",
+    "events": [
+      {
+        "msg": "discovered",
+        "files": "UNMONITORED",
+        "guarded": "MONITORED",
+        "cursor": "UNSUPPORTED"
+      },
+      {
+        "msg": "ok: a server started directly is UNMONITORED; one behind the gateway is MONITORED"
+      },
+      {
+        "msg": "inventory recorded for the dashboard (before wrapping)"
+      },
+      {
+        "msg": "ok: after 'discover wrap --apply' it runs behind the gateway and is MONITORED"
+      }
+    ]
+  },
+  {
+    "step": 10,
+    "title": "Evidence verification and tamper rejection",
+    "events": [
+      {
+        "msg": "ok: the acme evidence chain verifies (1 segments, 29 records)"
+      },
+      {
+        "msg": "ok: the standalone verifier accepts the exported evidence"
+      },
+      {
+        "msg": "verification of the tampered copy",
+        "errors": [
+          "segment acme:00000001: merkle root mismatch",
+          "observation 01M6EHF62T0AJBAZRDB0738J0P: declared-id index does not match the record",
+          "observation 01M6EHF7989MTC7EBW64WBDE05: declared-id index does not match the record"
+        ]
+      },
+      {
+        "msg": "ok: rewriting 'block' verdicts to 'allow' in the database is detected"
+      }
+    ]
+  },
+  {
+    "step": 11,
+    "title": "Tenant isolation with two tenants",
+    "events": [
+      {
+        "msg": "decisions seen per tenant",
+        "acme_tools": [
+          "bash",
+          "echo",
+          "list_branches",
+          "read_doc",
+          "read_file"
+        ],
+        "globex": [
+          [
+            "read_file",
+            "allow"
+          ]
+        ]
+      },
+      {
+        "msg": "ok: globex sees only its own decision"
+      },
+      {
+        "msg": "ok: globex cannot see or decide acme's approval (404)"
+      },
+      {
+        "msg": "ok: a tenant key cannot trip the global emergency stop (403)"
+      }
+    ]
+  },
+  {
+    "step": 12,
+    "title": "Dashboard screenshots of this run",
+    "events": [
+      {
+        "msg": "captured overview.png"
+      },
+      {
+        "msg": "captured decisions.png"
+      },
+      {
+        "msg": "captured agents.png"
+      },
+      {
+        "msg": "captured approvals.png"
+      },
+      {
+        "msg": "captured mcp.png"
+      },
+      {
+        "msg": "captured evidence.png"
+      },
+      {
+        "msg": "captured controls.png"
+      }
+    ]
+  }
+]

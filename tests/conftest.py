@@ -2,6 +2,8 @@ import datetime
 import os
 import tempfile
 
+import pytest
+
 # v3 stores must never touch a developer's real ~/.agentwatch or ./data during tests
 _AW3_TMP = tempfile.mkdtemp(prefix="panoptis-tests-")
 os.environ["AGENTWATCH_HOME"] = _AW3_TMP
@@ -22,3 +24,21 @@ async def mock_load(self):
 
 
 panoptis.memory.engine.EmbeddingProvider._load = mock_load
+
+
+@pytest.fixture(autouse=True)
+def _isolated_evidence_anchors(tmp_path, monkeypatch):
+    """Evidence verification keeps the last verified head on disk; never in the real home."""
+    monkeypatch.setenv("AGENTWATCH_EVIDENCE_ANCHORS", str(tmp_path / "evidence-anchors"))
+
+
+@pytest.fixture(autouse=True)
+def _fresh_api_rate_limits():
+    """Rate-limit counters of the API module are process-global; tests must not inherit
+    another test's request budget (that made later tests fail with 429 by test order)."""
+    import sys
+
+    server = sys.modules.get("panoptis.api.server")
+    if server is not None:
+        server.reset_rate_limiter_for_tests()
+    yield

@@ -38,9 +38,12 @@ from panoptis.evidence.model import (
 )
 from panoptis.evidence.redaction import DEFAULT_POLICY, PayloadPolicy, redact_payload
 from panoptis.evidence.segments import (
+    ENVELOPE_FIELDS,
     GENESIS,
+    LEAF_VERSION,
     Segment,
     VerifyReport,
+    leaf_v2,
     merkle_proof,
     merkle_root,
     segment_hash,
@@ -461,29 +464,55 @@ class Store:
             )
         if not rows:
             return result
-        with self.engine.begin() as conn:
-            existing: dict[tuple[str, str], str] = {}
-            by_tenant: dict[str, list[str]] = {}
-            for r in rows:
-                by_tenant.setdefault(r["tenant_id"], []).append(r["idempotency_key"])
-            for tenant, idems in by_tenant.items():
-                for chunk in _chunks(idems, 500):
-                    q = select(s.observations.c.idempotency_key, s.observations.c.obs_id).where(
-                        s.observations.c.tenant_id == tenant,
-                        s.observations.c.idempotency_key.in_(chunk),
-                    )
-                    for idem, oid in conn.execute(q):
-                        existing[(tenant, idem)] = oid
-            fresh = [r for r in rows if (r["tenant_id"], r["idempotency_key"]) not in existing]
-            fresh_ids = {r["obs_id"] for r in fresh}
-            result.duplicates.extend(existing.values())
-            if fresh:
-                conn.execute(insert(s.observations), fresh)
-                ids = [r for r in id_rows if r["obs_id"] in fresh_ids]
-                if ids:
-                    conn.execute(insert(s.declared_ids), ids)
-            result.accepted.extend(r["obs_id"] for r in fresh)
-        return result
+        try:
+            with self.engine.begin() as conn:
+                existing: dict[tuple[str, str], str] = {}
+                by_tenant: dict[str, list[str]] = {}
+                for r in rows:
+                    by_tenant.setdefault(r["tenant_id"], []).append(r["idempotency_key"])
+                for tenant, idems in by_tenant.items():
+                    for chunk in _chunks(idems, 500):
+                        q = select(s.observations.c.idempotency_key, s.observations.c.obs_id).where(
+                            s.observations.c.tenant_id == tenant,
+                            s.observations.c.idempotency_key.in_(chunk),
+                        )
+                        for idem, oid in conn.execute(q):
+                            existing[(tenant, idem)] = oid
+                fresh = [r for r in rows if (r["tenant_id"], r["idempotency_key"]) not in existing]
+                fresh_ids = {r["obs_id"] for r in fresh}
+                result.duplicates.extend(existing.values())
+                if fresh:
+                    conn.execute(insert(s.observations), fresh)
+                    ids = [r for r in id_rows if r["obs_id"] in fresh_ids]
+                    if ids:
+                        conn.execute(insert(s.declared_ids), ids)
+                result.accepted.extend(r["obs_id"] for r in fresh)
+            return result
+        except IntegrityError:  # pragma: no cover - concurrent race on idempotency key
+            result = AppendResult()
+            with self.engine.connect() as conn:
+                existing = {}
+                for tenant, idems in by_tenant.items():
+                    for chunk in _chunks(idems, 500):
+                        q = select(s.observations.c.idempotency_key, s.observations.c.obs_id).where(
+                            s.observations.c.tenant_id == tenant,
+                            s.observations.c.idempotency_key.in_(chunk),
+                        )
+                        for idem, oid in conn.execute(q):
+                            existing[(tenant, idem)] = oid
+                result.duplicates.extend(existing.values())
+                rem = [
+                    d
+                    for i, d in enumerate(drafts)
+                    if i < len(rows)
+                    and (rows[i]["tenant_id"], rows[i]["idempotency_key"]) not in existing
+                ]
+                if rem:
+                    res = self.append(rem, policy=policy)
+                    result.accepted.extend(res.accepted)
+                    result.duplicates.extend(res.duplicates)
+                    result.rejected.extend(res.rejected)
+            return result
 
     def _obs_row(
         self,
@@ -651,11 +680,7 @@ class Store:
     def seal(self, tenant_id: str = "default", max_obs: int = 10_000) -> Segment | None:
         with self.engine.begin() as conn:
             rows = conn.execute(
-                select(
-                    s.observations.c.obs_id,
-                    s.observations.c.payload_sha256,
-                    s.observations.c.idempotency_key,
-                )
+                select(*[s.observations.c[k] for k in ENVELOPE_FIELDS])
                 .where(
                     s.observations.c.tenant_id == tenant_id, s.observations.c.segment_id.is_(None)
                 )
@@ -672,7 +697,7 @@ class Store:
             ).first()
             seq = (last.seq + 1) if last else 1
             prev = last.segment_hash if last else GENESIS
-            leaves = [_leaf(tenant_id, r) for r in rows]
+            leaves = [leaf_v2(r._mapping) for r in rows]
             root = merkle_root(leaves)
             seg = Segment(
                 segment_id=f"{tenant_id}:{seq:08d}",
@@ -683,12 +708,17 @@ class Store:
                 n_obs=len(rows),
                 merkle_root=root,
                 prev_segment_hash=prev,
-                segment_hash=segment_hash(tenant_id, seq, root, prev, len(rows)),
+                segment_hash=segment_hash(tenant_id, seq, root, prev, len(rows), LEAF_VERSION),
                 sealed_at=datetime.now(UTC),
             )
             conn.execute(
                 insert(s.segments).values(
                     **{**seg.to_dict(), "sealed_at": seg.sealed_at.isoformat(), "purged_at": None}
+                )
+            )
+            conn.execute(
+                insert(s.segment_versions).values(
+                    segment_id=seg.segment_id, leaf_version=LEAF_VERSION
                 )
             )
             for chunk in _chunks([r.obs_id for r in rows], 500):
@@ -716,19 +746,54 @@ class Store:
                 )
             ]
 
-    def verify(self, tenant_id: str = "default") -> VerifyReport:
+    def segment_leaf_versions(self, tenant_id: str = "default") -> dict[str, int]:
+        with self.engine.connect() as conn:
+            return {
+                r.segment_id: int(r.leaf_version)
+                for r in conn.execute(
+                    select(s.segment_versions).where(
+                        s.segment_versions.c.segment_id.like(f"{tenant_id}:%")
+                    )
+                )
+            }
+
+    def head(self, tenant_id: str = "default") -> dict[str, Any] | None:
+        """The last sealed segment: an anchor to keep outside the store (truncation check)."""
+        segs = self.segments(tenant_id)
+        if not segs:
+            return None
+        last = segs[-1]
+        return {"tenant_id": tenant_id, "seq": last["seq"], "segment_hash": last["segment_hash"]}
+
+    def verify(
+        self, tenant_id: str = "default", *, expected_head: dict[str, Any] | None = None
+    ) -> VerifyReport:
+        """Verify the tenant's chain, every sealed observation and the declared-id index.
+
+        ``expected_head`` (``{"seq", "segment_hash"}``, kept outside the store) detects a
+        chain that was cut back or rewritten below a previously seen head.
+        """
         errors: list[str] = []
+        warnings: list[str] = []
         n_obs = 0
         prev = GENESIS
         segs = self.segments(tenant_id)
+        versions = self.segment_leaf_versions(tenant_id)
+        purged = 0
+        used_versions: dict[str, int] = {}
         with self.engine.connect() as conn:
-            for seg in segs:
+            for i, seg in enumerate(segs, 1):
+                version = versions.get(seg["segment_id"], 1)
+                used_versions[str(version)] = used_versions.get(str(version), 0) + 1
+                if seg["seq"] != i:
+                    errors.append(f"segment {seg['segment_id']}: sequence gap (expected seq {i})")
                 expect = segment_hash(
                     tenant_id,
                     seg["seq"],
                     seg["merkle_root"],
                     seg["prev_segment_hash"],
                     seg["n_obs"],
+                    version,
                 )
                 if seg["prev_segment_hash"] != prev:
                     errors.append(f"segment {seg['segment_id']}: chain broken (prev hash mismatch)")
@@ -736,12 +801,11 @@ class Store:
                     errors.append(f"segment {seg['segment_id']}: segment hash mismatch")
                 prev = seg["segment_hash"]
                 if seg["purged_at"]:
+                    purged += 1
                     continue  # rows removed by authorized retention purge; chain still verifies
                 rows = conn.execute(
                     select(
-                        s.observations.c.obs_id,
-                        s.observations.c.payload_sha256,
-                        s.observations.c.idempotency_key,
+                        *[s.observations.c[k] for k in ENVELOPE_FIELDS],
                         s.observations.c.payload_json,
                         s.observations.c.payload_blob,
                     )
@@ -753,18 +817,34 @@ class Store:
                     errors.append(
                         f"segment {seg['segment_id']}: expected {seg['n_obs']} observations, found {len(rows)}"
                     )
+                if rows and (
+                    rows[0].obs_id != seg["first_obs"] or rows[-1].obs_id != seg["last_obs"]
+                ):
+                    errors.append(f"segment {seg['segment_id']}: first/last observation mismatch")
                 for r in rows:
-                    body = (
-                        r.payload_json
-                        if r.payload_json is not None
-                        else self.blobs.get(r.payload_blob).decode("utf-8")
-                    )
+                    if r.tenant_id != tenant_id:
+                        errors.append(f"observation {r.obs_id}: tenant mismatch")
+                    try:
+                        body = (
+                            r.payload_json
+                            if r.payload_json is not None
+                            else self.blobs.get(r.payload_blob).decode("utf-8")
+                        )
+                    except Exception as exc:  # noqa: BLE001 - a missing blob is an integrity error
+                        errors.append(
+                            f"observation {r.obs_id}: payload unavailable ({type(exc).__name__})"
+                        )
+                        continue
                     from panoptis.evidence.canonical import sha256_hex
 
                     if sha256_hex(body) != r.payload_sha256:
                         errors.append(f"observation {r.obs_id}: payload hash mismatch")
-                if merkle_root([_leaf(tenant_id, r) for r in rows]) != seg["merkle_root"]:
+                leaves = [
+                    leaf_v2(r._mapping) if version >= 2 else _leaf(tenant_id, r) for r in rows
+                ]
+                if merkle_root(leaves) != seg["merkle_root"]:
                     errors.append(f"segment {seg['segment_id']}: merkle root mismatch")
+                errors.extend(self._index_errors(conn, rows))
             unsealed = int(
                 conn.execute(
                     select(func.count())
@@ -775,13 +855,128 @@ class Store:
                     )
                 ).scalar_one()
             )
+            orphans = conn.execute(
+                select(s.observations.c.obs_id, s.observations.c.segment_id)
+                .where(
+                    s.observations.c.tenant_id == tenant_id,
+                    s.observations.c.segment_id.is_not(None),
+                    s.observations.c.segment_id.not_in([g["segment_id"] for g in segs] or [""]),
+                )
+                .limit(20)
+            ).all()
+            for o in orphans:
+                errors.append(f"observation {o.obs_id}: in unknown segment {o.segment_id}")
+            if segs and unsealed:
+                late = conn.execute(
+                    select(func.count())
+                    .select_from(s.observations)
+                    .where(
+                        s.observations.c.tenant_id == tenant_id,
+                        s.observations.c.segment_id.is_(None),
+                        s.observations.c.obs_id <= segs[-1]["last_obs"],
+                    )
+                ).scalar_one()
+                if late:
+                    warnings.append(
+                        f"{late} unsealed observation(s) are older than the last sealed one "
+                        "(a late write, or an insertion: they are not covered until sealed)"
+                    )
+            if unsealed:
+                warnings.append(
+                    f"{unsealed} observation(s) not yet sealed: not integrity-protected yet"
+                )
+        head = {"seq": segs[-1]["seq"], "segment_hash": segs[-1]["segment_hash"]} if segs else None
+        if expected_head:
+            want_seq, want_hash = int(expected_head["seq"]), expected_head["segment_hash"]
+            have = next((g for g in segs if g["seq"] == want_seq), None)
+            if have is None:
+                errors.append(
+                    f"chain truncated: the expected head segment {want_seq} is missing "
+                    f"(the chain ends at {head['seq'] if head else 0})"
+                )
+            elif have["segment_hash"] != want_hash:
+                errors.append(f"chain rewritten: segment {want_seq} differs from the expected head")
         return VerifyReport(
             ok=not errors,
             segments_checked=len(segs),
             observations_checked=n_obs,
             unsealed_observations=unsealed,
             errors=errors,
+            warnings=warnings,
+            head=head,
+            purged_segments=purged,
+            leaf_versions=used_versions,
         )
+
+    def _index_errors(self, conn: Any, rows: Sequence[Any]) -> list[str]:
+        """The declared-id search index must match each row's (hash-covered) declared ids."""
+        if not rows:
+            return []
+        stored: dict[str, set[tuple[str, str]]] = {}
+        for chunk in _chunks([r.obs_id for r in rows], 500):
+            for d in conn.execute(
+                select(s.declared_ids.c.obs_id, s.declared_ids.c.key, s.declared_ids.c.value).where(
+                    s.declared_ids.c.obs_id.in_(chunk)
+                )
+            ):
+                stored.setdefault(d.obs_id, set()).add((d.key, d.value))
+        out = []
+        for r in rows:
+            try:
+                declared = json.loads(r.declared_ids or "{}")
+            except ValueError:
+                out.append(f"observation {r.obs_id}: declared ids unreadable")
+                continue
+            items = declared.items() if isinstance(declared, dict) else declared
+            want = {(str(k), str(v)[:256]) for k, v in items if v is not None}
+            if stored.get(r.obs_id, set()) != want:
+                out.append(f"observation {r.obs_id}: declared-id index does not match the record")
+        return out
+
+    def export_bundle(self, tenant_id: str = "default") -> dict[str, Any]:
+        """A tenant's sealed segments and their observations exactly as stored, for the
+        independent verifier (:mod:`panoptis.evidence.verifier`). Payloads are exported in
+        their stored form (encrypted if the store encrypts them); nothing is decrypted."""
+        segs = self.segments(tenant_id)
+        versions = self.segment_leaf_versions(tenant_id)
+        observations: list[dict[str, Any]] = []
+        with self.engine.connect() as conn:
+            for seg in segs:
+                if seg["purged_at"]:
+                    continue
+                for r in conn.execute(
+                    select(
+                        *[s.observations.c[k] for k in ENVELOPE_FIELDS],
+                        s.observations.c.payload_json,
+                        s.observations.c.payload_blob,
+                        s.observations.c.segment_id,
+                    )
+                    .where(s.observations.c.segment_id == seg["segment_id"])
+                    .order_by(s.observations.c.obs_id)
+                ):
+                    m = r._mapping
+                    body = (
+                        m["payload_json"]
+                        if m["payload_json"] is not None
+                        else self.blobs.get(m["payload_blob"]).decode("utf-8")
+                    )
+                    observations.append(
+                        {
+                            **{k: m[k] for k in ENVELOPE_FIELDS},
+                            "segment_id": m["segment_id"],
+                            "payload": body,
+                        }
+                    )
+        return {
+            "format": "agentwatch.evidence.bundle/1",
+            "tenant_id": tenant_id,
+            "exported_at": _now(),
+            "segments": [{**g, "leaf_version": versions.get(g["segment_id"], 1)} for g in segs],
+            "observations": observations,
+            "head": {"seq": segs[-1]["seq"], "segment_hash": segs[-1]["segment_hash"]}
+            if segs
+            else None,
+        }
 
     def inclusion_proof(self, obs_id: str) -> dict[str, Any] | None:
         obs = self.get_observation(obs_id)
@@ -789,27 +984,40 @@ class Store:
             return None
         with self.engine.connect() as conn:
             rows = conn.execute(
-                select(
-                    s.observations.c.obs_id,
-                    s.observations.c.payload_sha256,
-                    s.observations.c.idempotency_key,
-                )
+                select(*[s.observations.c[k] for k in ENVELOPE_FIELDS])
                 .where(s.observations.c.segment_id == obs.segment_id)
                 .order_by(s.observations.c.obs_id)
             ).all()
             seg = conn.execute(
                 select(s.segments).where(s.segments.c.segment_id == obs.segment_id)
             ).first()
-        leaves = [_leaf(obs.tenant_id, r) for r in rows]
+        version = self.segment_leaf_versions(obs.tenant_id).get(obs.segment_id, 1)
+        leaves = [leaf_v2(r._mapping) if version >= 2 else _leaf(obs.tenant_id, r) for r in rows]
         idx = [r.obs_id for r in rows].index(obs_id)
-        return {
+        out = {
             "obs_id": obs_id,
             "segment_id": obs.segment_id,
+            "leaf_version": version,
             "leaf": leaves[idx],
             "proof": merkle_proof(leaves, idx),
             "merkle_root": seg.merkle_root if seg else None,
             "segment_hash": seg.segment_hash if seg else None,
         }
+        if seg is not None:
+            out["segment"] = {
+                k: seg._mapping[k]
+                for k in (
+                    "tenant_id",
+                    "seq",
+                    "n_obs",
+                    "prev_segment_hash",
+                    "merkle_root",
+                    "segment_hash",
+                )
+            }
+        if version >= 2:
+            out["envelope"] = {k: rows[idx]._mapping[k] for k in ENVELOPE_FIELDS}
+        return out
 
     # ── retention ──────────────────────────────────────────────────────────
     def purge_segment(self, segment_id: str, reason: str, actor: str | None = None) -> int:
