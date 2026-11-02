@@ -13,7 +13,13 @@ Quick start::
 See :mod:`panoptis.protect.pipeline` for the stage order and failure behaviour.
 """
 
-from panoptis.protect.approvals import ApprovalBroker, ApprovalOutcome, ApprovalRequest
+from panoptis.protect.approvals import (
+    ApprovalBroker,
+    ApprovalError,
+    ApprovalOutcome,
+    ApprovalRequest,
+    action_digest,
+)
 from panoptis.protect.control import ControlState
 from panoptis.protect.enforce import (
     aenforce_call,
@@ -46,6 +52,8 @@ from panoptis.protect.threats import ThreatAnalyzer
 __all__ = [
     "ActionBlocked",
     "ApprovalBroker",
+    "ApprovalError",
+    "action_digest",
     "ApprovalOutcome",
     "ApprovalRequest",
     "ControlState",

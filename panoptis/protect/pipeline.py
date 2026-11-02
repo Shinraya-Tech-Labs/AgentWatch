@@ -38,7 +38,7 @@ from typing import Any, TypeVar
 from panoptis.circuit_breaker.breaker import CircuitBreaker, CircuitState
 from panoptis.circuit_breaker.thresholds import CircuitThresholds
 from panoptis.core.schema import AgentEvent, AgentFramework, EventType, ExecutionStatus
-from panoptis.protect.approvals import ApprovalBroker
+from panoptis.protect.approvals import ApprovalBroker, action_digest
 from panoptis.protect.control import ControlState
 from panoptis.protect.intent import GroundingConfig, IntentGrounder
 from panoptis.protect.ledger import (
@@ -574,16 +574,37 @@ class ProtectionPipeline:
             "request_id": req.request_id,
             "state": "approved"
             if outcome.approved
-            else ("expired" if outcome.timed_out else "rejected"),
+            else (
+                "cancelled"
+                if outcome.cancelled
+                else ("expired" if outcome.timed_out else "rejected")
+            ),
             **outcome.to_dict(),
         }
+        if outcome.approved and action_digest(decision.action) != req.action_digest:
+            # the action changed after approval was requested: the approval does not cover it
+            decision.findings.append(
+                Finding(
+                    Stage.HITL,
+                    "APPROVAL_MISMATCH",
+                    Severity.CRITICAL,
+                    "The action changed after approval was requested; the approval does not cover it",
+                    {"request_id": req.request_id},
+                    None,
+                    Verdict.BLOCK,
+                )
+            )
+            decision.verdict = Verdict.BLOCK
+            return
         if not outcome.approved:
             decision.findings.append(
                 Finding(
                     Stage.HITL,
-                    "APPROVAL_TIMEOUT" if outcome.timed_out else "APPROVAL_REJECTED",
+                    "APPROVAL_CANCELLED"
+                    if outcome.cancelled
+                    else ("APPROVAL_TIMEOUT" if outcome.timed_out else "APPROVAL_REJECTED"),
                     Severity.HIGH,
-                    f"{'No decision before the deadline' if outcome.timed_out else 'Rejected'} by {outcome.decided_by}"
+                    f"{'Cancelled' if outcome.cancelled else ('No decision before the deadline' if outcome.timed_out else 'Rejected')} by {outcome.decided_by}"
                     + (f": {outcome.comment}" if outcome.comment else ""),
                     {"request_id": req.request_id},
                     None,
@@ -858,9 +879,15 @@ class ProtectionPipeline:
         *,
         call: Callable[[dict[str, Any]], Awaitable[Any]] | None = None,
     ) -> Any:
-        decision = await asyncio.to_thread(
-            functools.partial(self.evaluate, wait_for_approval=not self.observing), action
-        )
+        try:
+            decision = await asyncio.to_thread(
+                functools.partial(self.evaluate, wait_for_approval=not self.observing), action
+            )
+        except asyncio.CancelledError:
+            # the caller went away while a human was being asked: withdraw the request
+            if self.approvals is not None:
+                self.approvals.cancel_for_call(action.call_id)
+            raise
         args = self._admit(action, decision)
         try:
             started = time.perf_counter()
@@ -913,6 +940,11 @@ class ProtectionPipeline:
         """The arguments the tool runs with, or :class:`ActionBlocked`."""
         emergency = any(f.stage is Stage.KILLSWITCH for f in decision.findings)
         if not decision.allowed and (not self.observing or emergency):
+            raise ActionBlocked(decision)
+        approved_for = (decision.approval or {}).get("action_digest")
+        if approved_for and decision.allowed and approved_for != action_digest(action):
+            # the arguments were changed between the approval and the execution
+            decision.verdict = Verdict.BLOCK
             raise ActionBlocked(decision)
         self._claim(action.call_id)
         if self.observing or decision.mutated_arguments is None:
