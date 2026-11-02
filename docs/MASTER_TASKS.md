@@ -442,50 +442,50 @@ usable.
 **Acceptance evidence:** End-to-end tests prove execution occurs only
 after a valid approval for the exact requested action.
 
-## TO-020 --- Complete semantic loop and stuck-agent detection
+## TO-020 --- Complete semantic loop and stuck-agent detection — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-020)
 
--   [ ] Track the last 10 tool calls per session, with configurable
+-   [x] Track the last 10 tool calls per session, with configurable
     bounds.
--   [ ] Detect exact repeated tool/argument calls at the defined
+-   [x] Detect exact repeated tool/argument calls at the defined
     threshold (initial target: 3 repeats).
--   [ ] Detect oscillation patterns such as A→B→A→B across two or three
+-   [x] Detect oscillation patterns such as A→B→A→B across two or three
     tools.
--   [ ] Detect repeated failures with small argument/command edits using
+-   [x] Detect repeated failures with small argument/command edits using
     a documented similarity method and threshold (initial target:
     similarity \>0.80).
--   [ ] Integrate loop decisions with the circuit breaker and runtime
+-   [x] Integrate loop decisions with the circuit breaker and runtime
     control policy.
--   [ ] Distinguish productive polling from stuck polling using
+-   [x] Distinguish productive polling from stuck polling using
     observable state change or progress evidence.
--   [ ] Avoid treating different meaningful arguments as duplicates
+-   [x] Avoid treating different meaningful arguments as duplicates
     without supporting evidence.
--   [ ] Add synthetic tests for repeated identical calls, A/B
+-   [x] Add synthetic tests for repeated identical calls, A/B
     oscillation, edited failing retries, productive polling, and
     legitimate repeated operations.
--   [ ] Add session-isolation and memory-bound tests.
--   [ ] Document thresholds, limitations, and false-positive handling.
+-   [x] Add session-isolation and memory-bound tests.
+-   [x] Document thresholds, limitations, and false-positive handling.
 
 **Acceptance evidence:** The complete loop test matrix passes, including
 a productive-polling case that must not be flagged.
 
-## TO-021 --- Complete intent grounding
+## TO-021 --- Complete intent grounding — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-021)
 
--   [ ] Capture or accept the user's stated objective and relevant
+-   [x] Capture or accept the user's stated objective and relevant
     authorized context.
--   [ ] Compare each proposed tool/action and arguments against that
+-   [x] Compare each proposed tool/action and arguments against that
     objective.
--   [ ] Implement entity/token/operation matching as evidence, not as
+-   [x] Implement entity/token/operation matching as evidence, not as
     sole proof of intent.
--   [ ] Detect destructive actions under read-only objectives and
+-   [x] Detect destructive actions under read-only objectives and
     unrelated tool calls.
--   [ ] Support ambiguous objectives through escalation or explicit
+-   [x] Support ambiguous objectives through escalation or explicit
     policy behavior.
--   [ ] Use optional model verification only as a secondary signal with
+-   [x] Use optional model verification only as a secondary signal with
     bounded, explainable behavior.
--   [ ] Do not let similarity alone authorize a risky action.
--   [ ] Add tests for aligned, unrelated, destructive, ambiguous, and
+-   [x] Do not let similarity alone authorize a risky action.
+-   [x] Add tests for aligned, unrelated, destructive, ambiguous, and
     adversarially phrased actions.
--   [ ] Record grounding rationale and confidence in the evidence trail.
+-   [x] Record grounding rationale and confidence in the evidence trail.
 
 **Acceptance evidence:** Tests prove destructive actions inconsistent
 with read-only objectives are blocked/escalated while legitimate aligned

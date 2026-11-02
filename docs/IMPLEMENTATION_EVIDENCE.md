@@ -50,7 +50,9 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-017 threat analysis | DONE | [TO-017](#to-017) |
 | TO-018 output inspection | DONE | [TO-018](#to-018) |
 | TO-019 approvals | DONE (UI test in TO-028) | [TO-019](#to-019) |
-| TO-020 … TO-040 | NOT STARTED unless listed below | — |
+| TO-020 loop detection | DONE | [TO-020](#to-020) |
+| TO-021 intent grounding | DONE | [TO-021](#to-021) |
+| TO-022 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -863,3 +865,87 @@ The earlier approval tests in `tests/protect/test_enforce.py` and `tests/protect
 - `pytest tests/protect tests/v3/test_tenant_isolation_api.py tests/test_api*.py tests/contracts`: 503 passed
 
 **Commits:** `39ae369` `1457acd` `d4fcad9` `fadcdc8` and the docs commit, plus this ledger commit.
+
+### TO-020
+
+**Status:** DONE. The complete loop matrix passes, including productive polling that must not be flagged. Docs: [`docs/LOOP_DETECTION.md`](LOOP_DETECTION.md).
+
+**Defects found** (by a probe of the existing detector, which had no tests):
+
+| Defect | Fix |
+|---|---|
+| Productive polling flagged: a status poll whose output changed (`queued`, `queued`, `running`, …) was still flagged on every later call, because progress needed as many distinct outputs as repeats | progress is judged on the most recent identical calls; a changed result is progress |
+| Running the same test after *different* edits was flagged as a duplicate loop | a new mutating call resets the duplicate count; repeating the same edit does not |
+| Call ids were global: two sessions using `call_0` attached one session's result to the other's record | records keyed by (session, call id); `record_result(session_id=…)`; an ambiguous id without a session raises |
+| Unbounded memory: one window per session, never evicted (20 000 sessions → 20 000 windows); the call index was rebuilt in O(n) on every call past 50 000 | LRU `max_sessions` (default 10 000); evicted and aged-out records leave the index; pipeline loop counters bounded the same way |
+| Levenshtein on 600 chars cost ~76 ms per pair in Python (up to 9 pairs per call) | banded computation with the threshold as the bound, 256 chars by default, skipped when the token overlap already decides |
+| Thrashing flagged similar failing calls even when each failure differed | requires a repeating error; similarity must be strictly above the threshold (`> 0.80`) |
+| No config validation | `LoopConfig.__post_init__` rejects out-of-range values |
+
+**Tests:** `tests/protect/test_loop_detection.py` (36).
+
+- **Duplicates:** an identical call is flagged on the 3rd repeat, whether it succeeds with the same output or fails. Findings carry evidence and the configured verdict, and the threshold is configurable.
+- **Polling:** productive polling (10 changing states then done) is never flagged; polling recovers once the state changes; a stuck poll is flagged. Polling and status tools tolerate 9 repeats, and a stuck one is still caught.
+- **Legitimate repeats:** different edits followed by the same test are not a duplicate loop (the run is reported as `REPEATED_FAILURE` after 4 consecutive failures). Identical edits and test runs are a loop. Reading ten different files is not a loop, and similar commands that succeed are not thrashing.
+- **Oscillation:** A/B and A/B/C cycles are flagged; alternation whose results change is not.
+- **Thrashing:** edited failing retries with the same error are flagged, with similarity evidence above 0.80. Retries whose error changes, and dissimilar failing commands, are not. The similarity measures are checked, and 5 000-char commands are checked in under 0.5 s.
+- **Repeated failure, no progress:** repeated failure is detected, and no progress is informational (ALLOW).
+- **Isolation and bounds:** sessions are isolated, and call ids are per session. Old calls age out of the window. 5 000 sessions with `max_sessions=100` keep 100 windows, 100 records and 100 index entries. Recently used sessions survive eviction, and invalid config is rejected.
+- **Pipeline:** a loop escalates and, with no approver, is blocked before the tool runs; an approved loop call runs. Two loop decisions open the session breaker (`CIRCUIT_OPEN`), the session's other calls are blocked, and another session is unaffected. Loop findings are recorded in the decision ledger.
+
+**Commands and results:**
+
+- `pytest tests/protect/test_loop_detection.py`: 36 passed
+- `pytest tests/protect tests/circuit_breaker`: 279 passed
+
+**Baseline: the two animator failures.** `tests/test_cli_animator.py::test_animate_table_rows` and `::test_print_systematic_menu` failed with `AttributeError: … does not have the attribute 'Live'`.
+
+- **Root cause:** commit `ab3a0c0` (on `main`, by another contributor) removed `rich.live.Live` from `panoptis/cli/animator.py`, while the tests still patch it.
+- **Fix:** `main` already had it (`6281ce4`, which restores the `Live` context). I merged `origin/main` into this branch (a merge commit, no history rewrite), and both tests pass. The two failures were therefore the stale branch, not this work.
+- **Full suite before the merge, at `2726e39`:** 2647 passed, 11 skipped, 2 failed (exactly these two), coverage 82%.
+- **Full suite after the merge, at `a4588b4`:** 2696 passed, 11 skipped, 0 failed, coverage 82%. This is the reproducible baseline: `pytest tests/ --cov=panoptis`.
+
+**Commits:** the loop fix, the loop tests, the `origin/main` merge, docs and this ledger.
+
+### TO-021
+
+**Status:** DONE. Tests prove two things: destructive actions inconsistent with read-only objectives are blocked or escalated, and legitimate aligned actions stay usable. Docs: [`docs/INTENT_GROUNDING.md`](INTENT_GROUNDING.md).
+
+**Defects found** (by a probe of 26 objective/call pairs; the grounder had no tests):
+
+| Defect | Fix |
+|---|---|
+| Under an objective whose mode is unknown ("the orders table"), `DROP TABLE orders` was **allowed** (`GROUNDED`): high vocabulary overlap suppressed the only check, so similarity authorized a destructive call | `AMBIGUOUS_OBJECTIVE` escalates every high-risk call under an unknown mode, whatever the overlap (`ambiguous_high_risk`, configurable) |
+| "Summarize README.md and remove nothing" parsed as *destructive*, so `rm -rf build` was allowed | "remove nothing" / "change none" / "leave everything as is" are prohibitions |
+| "Don't just look at it, fix …" was read as the prohibition "just look", so the requested fix was **blocked** | negated "just look" is not a prohibition |
+| A destructive call on another table or path than the task names was allowed under a destructive task | `TARGET_NOT_REQUESTED` escalates it; relative paths (`build/`, `src/x.py`) are now extracted (only `/abs` and `./rel` were) |
+| The verifier had no time bound: a hung model hung the call | runs with `verifier_timeout_s` (5 s); a timeout or error keeps the heuristic result |
+| No confidence in the evidence | every intent finding records `confidence` |
+| No authorized context | `extract_objective(text, context)`; the pipeline passes `session.metadata["authorized_context"]` |
+| `set_objective` on an unknown session silently did nothing, and was not recorded | `KeyError`; `objective_set` recorded |
+| `start_session` was recorded in the **default** tenant whatever its tenant | recorded in the session's tenant |
+
+**Tests:** `tests/protect/test_intent_grounding.py` (49).
+
+- **Aligned (7):** reads, scoped SQL, fixes, a requested delete, a question, an "imperative after a negation" phrasing, and a post to the named host are all allowed and `GROUNDED`.
+- **Destructive vs read-only (5):** blocked, with mode and confidence in the evidence. A mutation under a read-only task escalates.
+- **Prohibitions (4):** blocked. Destruction under a mutating task escalates.
+- **Unrelated and mis-targeted:**
+  - a data send escalates;
+  - a sensitive read escalates;
+  - a harmless unrelated read is reported, not blocked;
+  - an entity mismatch on a write, an unrequested destination, and a destructive table or path outside the named targets all escalate, and the named target is allowed.
+- **Ambiguous (3 objectives):** escalates, or blocks under an explicit policy; a harmless call is allowed. A missing objective is skipped by default and escalates by policy.
+- **Similarity:** overlap never authorizes, whether under a read-only or an ambiguous task.
+- **Adversarial (4 phrasings, plus agent reasoning):** none unlocks destruction.
+- **Authorized context:** it widens the named targets, but not the mode.
+- **Verifier:** YES never overrides a block, and NO restricts. It is high-risk only by default. A failure or timeout (2 s verifier, 0.2 s bound, returns in under 1.5 s) falls back to the heuristic, and garbage answers count as unsure.
+- **Evidence:** every finding has a rationale and a confidence. Through the pipeline, the call is blocked before execution with the rationale and confidence in the ledger. Session authorized context is used. `set_objective` is recorded per tenant and requires a session.
+
+**Commands and results:**
+
+- `pytest tests/protect/test_intent_grounding.py`: 49 passed
+- `pytest tests/protect tests/test_core.py tests/v3/test_killswitch.py`: 360 passed, 1 skipped
+
+**Commits:** `a7cf32a` `e3b2021` `dafb9e8` `63f4491`, plus this ledger commit.
+
