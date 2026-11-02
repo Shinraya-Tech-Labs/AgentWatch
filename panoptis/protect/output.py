@@ -428,11 +428,22 @@ class OutputInspector:
 
     @staticmethod
     def _quarantine_lines(text: str, rules: list[_Rule]) -> tuple[str, int]:
+        removed = 0
+        # an HTML comment delimits itself: remove just the comment, so the legitimate
+        # content around it on the same line survives (found by the evaluation suite)
+        for r in rules:
+            if r.code == "HIDDEN_HTML_INSTRUCTION":
+                text, k = r.pattern.subn(
+                    "[AGENTWATCH: removed a hidden HTML comment]",
+                    text,
+                )
+                removed += k
+        line_rules = [r for r in rules if r.code != "HIDDEN_HTML_INSTRUCTION" or not removed]
         lines = text.split("\n")
-        kept, removed = [], 0
+        kept = []
         for line in lines:
             norm = _normalize(line)
-            if any(r.pattern.search(norm) for r in rules):
+            if any(r.pattern.search(norm) for r in line_rules):
                 removed += 1
                 kept.append(
                     f"[AGENTWATCH: removed a line containing instructions addressed to the model ({len(line)} chars)]"
