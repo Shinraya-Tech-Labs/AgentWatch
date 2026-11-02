@@ -189,7 +189,7 @@ class ProtectionPipeline:
         self.sessions: dict[str, SessionInfo] = {}
         self.registered_agents: set[str] = set()
         self._breakers: dict[str, CircuitBreaker] = {}
-        self._loop_hits: dict[str, int] = {}
+        self._loop_hits: OrderedDict[str, int] = OrderedDict()
         self._executed: OrderedDict[str, float] = OrderedDict()
         self._lock = threading.RLock()
 
@@ -662,12 +662,16 @@ class ProtectionPipeline:
                 s.escalated += any(f.recommends is Verdict.ESCALATE_HITL for f in decision.findings)
                 s.loops += bool(loop_findings)
             if loop_findings:
-                n = self._loop_hits.get(a.scope, 0) + 1
+                n = self._loop_hits.pop(a.scope, 0) + 1
                 self._loop_hits[a.scope] = n
+                while len(self._loop_hits) > self.loops.config.max_sessions:
+                    self._loop_hits.popitem(last=False)
                 if n >= self.config.trip_breaker_after_loops:
                     self.breaker(a.scope).trip(f"loop:{loop_findings[0].code}")
         if not decision.allowed:
-            self.loops.record_result(a.call_id, success=False, output={"blocked": decision.reason})
+            self.loops.record_result(
+                a.call_id, success=False, output={"blocked": decision.reason}, session_id=a.scope
+            )
         if decision.allowed and not self.config.record_allowed:
             self.telemetry.emit(_summary(decision))
             return
@@ -816,7 +820,9 @@ class ProtectionPipeline:
             },
             tenant_id=action.tenant_id,
         )
-        self.loops.record_result(action.call_id, success=success, output=result)
+        self.loops.record_result(
+            action.call_id, success=success, output=result, session_id=action.scope
+        )
         b = self.breaker(action.scope)
         b.observe(
             AgentEvent(
