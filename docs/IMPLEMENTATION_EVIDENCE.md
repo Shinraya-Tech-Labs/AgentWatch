@@ -49,7 +49,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-016 generic and direct tools | DONE | [TO-016](#to-016) |
 | TO-017 threat analysis | DONE | [TO-017](#to-017) |
 | TO-018 output inspection | DONE | [TO-018](#to-018) |
-| TO-019 … TO-040 | NOT STARTED unless listed below | — |
+| TO-019 approvals | DONE (UI test in TO-028) | [TO-019](#to-019) |
+| TO-020 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -826,3 +827,39 @@ pytest tests/e2e_claude -m external -v
 - `pytest tests/contracts tests/test_safety.py tests/test_observability.py tests/v3/test_attestation.py tests/test_counterfactual_l3_replay.py`: 398 passed (other users of `_normalize`)
 
 **Commits:** `e7d000a` `79ff7a9` `5597c25` and the docs commit, plus this ledger commit.
+
+### TO-019
+
+**Status:** DONE. The acceptance criterion passes: end-to-end tests prove a tool runs only after a valid approval for the exact requested action. The dashboard approvals view and its UI test belong to TO-028, and that checklist item stays open until then. Docs: [`docs/APPROVALS.md`](APPROVALS.md).
+
+**Defects found and fixed:**
+
+| Defect | Fix |
+|---|---|
+| Approval requests and decisions were written to the ledger's **default tenant**, whatever the action's tenant | written to and read from the requesting tenant (ledger `query`/`find` gain `tenant_id`) |
+| Nothing tied a decision to the action it was made for | `action_digest`; a decision with another digest is refused (`ApprovalError`, 409) |
+| Arguments changed after the request were still covered by the approval | digest re-checked after approval and just before execution (`APPROVAL_MISMATCH`) |
+| A request whose async caller was cancelled stayed pending and could still be "approved" | `cancel_for_call` on `CancelledError`; state `cancelled`; a later approval cannot revive it |
+| An approval arriving after expiry was accepted if it landed first | it records the timeout |
+| Decisions had no timestamp | `decided_at` and the covered digest are recorded |
+| No API for the protect broker | `GET/POST /api/v1/protect/approvals[/{id}]`, tenant-scoped |
+
+**Tests:** `tests/protect/test_approvals_lifecycle.py` (16).
+
+- The request is bound to the exact action and recorded in its tenant; every bound field changes the digest.
+- Reject, timeout, no channel, a failing approver and cancellation never run the tool.
+- A changed action, a wrong digest, expiry, first-decision-wins, replay, an unknown request, and edits re-inspected against hard blocks.
+- **API with a real waiting agent thread:**
+  - nothing runs while the request is pending;
+  - approval via POST runs the tool exactly once, and the decider is recorded as `acme:alice` with `decided_at`;
+  - rejection never runs it;
+  - another tenant gets 404 on read and decide, and an empty list;
+  - a wrong digest gets 409, and no key gets 401.
+
+The earlier approval tests in `tests/protect/test_enforce.py` and `tests/protect/test_framework_integrations.py` still pass.
+
+**Commands and results:**
+
+- `pytest tests/protect tests/v3/test_tenant_isolation_api.py tests/test_api*.py tests/contracts`: 503 passed
+
+**Commits:** `39ae369` `1457acd` `d4fcad9` `fadcdc8` and the docs commit, plus this ledger commit.

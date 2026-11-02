@@ -424,20 +424,20 @@ false-positive behavior.
 removed/withheld before reaching the agent and benign content remains
 usable.
 
-## TO-019 --- Complete human-in-the-loop approvals
+## TO-019 --- Complete human-in-the-loop approvals — **DONE** (acceptance met; the dashboard approvals view and its UI test are TO-028; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-019)
 
--   [ ] Define approval request identity, context, expiry, and one-time
+-   [x] Define approval request identity, context, expiry, and one-time
     use.
--   [ ] Bind approvals to the exact agent, session, tool, arguments, and
+-   [x] Bind approvals to the exact agent, session, tool, arguments, and
     policy decision.
--   [ ] Prevent approval replay or reuse after arguments change.
--   [ ] Support approve, reject, timeout, cancellation, and
+-   [x] Prevent approval replay or reuse after arguments change.
+-   [x] Support approve, reject, timeout, cancellation, and
     unavailable-approver outcomes.
--   [ ] Ensure no tool executes before a valid approval.
--   [ ] Record approval actor, timestamp, decision, and bound action in
+-   [x] Ensure no tool executes before a valid approval.
+-   [x] Record approval actor, timestamp, decision, and bound action in
     evidence.
 -   [ ] Add API/UI and integration tests for the full approval
-    lifecycle.
+    lifecycle. *(API and integration done; UI in TO-028)*
 
 **Acceptance evidence:** End-to-end tests prove execution occurs only
 after a valid approval for the exact requested action.
