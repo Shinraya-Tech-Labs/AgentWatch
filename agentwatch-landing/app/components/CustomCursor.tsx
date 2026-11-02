@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 
 export default function CustomCursor() {
   const [mousePosition, setMousePosition] = useState({ x: -100, y: -100 });
@@ -11,7 +11,7 @@ export default function CustomCursor() {
 
   useEffect(() => {
     // Only run on non-touch devices
-    if (window.matchMedia("(pointer: coarse)").matches) return;
+    if (window.matchMedia('(pointer: coarse)').matches) return;
 
     const updateMousePosition = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
@@ -23,12 +23,12 @@ export default function CustomCursor() {
       // Traverse up to check if a parent is clickable
       let current: HTMLElement | null = target;
       let clickable = false;
-      
+
       while (current && current !== document.body) {
         if (
-          window.getComputedStyle(current).cursor === "pointer" ||
-          current.tagName.toLowerCase() === "a" ||
-          current.tagName.toLowerCase() === "button" ||
+          window.getComputedStyle(current).cursor === 'pointer' ||
+          current.tagName.toLowerCase() === 'a' ||
+          current.tagName.toLowerCase() === 'button' ||
           current.onclick !== null
         ) {
           clickable = true;
@@ -36,7 +36,7 @@ export default function CustomCursor() {
         }
         current = current.parentElement;
       }
-      
+
       setIsHovering(clickable);
     };
 
@@ -45,33 +45,33 @@ export default function CustomCursor() {
     const handleMouseLeave = () => setIsVisible(false);
     const handleMouseEnter = () => setIsVisible(true);
 
-    window.addEventListener("mousemove", updateMousePosition);
-    window.addEventListener("mouseover", handleMouseOver);
-    window.addEventListener("mousedown", handleMouseDown);
-    window.addEventListener("mouseup", handleMouseUp);
-    document.body.addEventListener("mouseleave", handleMouseLeave);
-    document.body.addEventListener("mouseenter", handleMouseEnter);
+    window.addEventListener('mousemove', updateMousePosition);
+    window.addEventListener('mouseover', handleMouseOver);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+    document.body.addEventListener('mouseleave', handleMouseLeave);
+    document.body.addEventListener('mouseenter', handleMouseEnter);
 
     // Hide default cursor globally
-    const style = document.createElement("style");
+    const style = document.createElement('style');
     style.innerHTML = `
       * { cursor: none !important; }
     `;
     document.head.appendChild(style);
 
     return () => {
-      window.removeEventListener("mousemove", updateMousePosition);
-      window.removeEventListener("mouseover", handleMouseOver);
-      window.removeEventListener("mousedown", handleMouseDown);
-      window.removeEventListener("mouseup", handleMouseUp);
-      document.body.removeEventListener("mouseleave", handleMouseLeave);
-      document.body.removeEventListener("mouseenter", handleMouseEnter);
+      window.removeEventListener('mousemove', updateMousePosition);
+      window.removeEventListener('mouseover', handleMouseOver);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+      document.body.removeEventListener('mouseleave', handleMouseLeave);
+      document.body.removeEventListener('mouseenter', handleMouseEnter);
       document.head.removeChild(style);
     };
   }, [isVisible]);
 
   // Hide on mobile/touch devices entirely
-  if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) {
+  if (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches) {
     return null;
   }
 
@@ -85,10 +85,10 @@ export default function CustomCursor() {
           y: mousePosition.y - 24,
           scale: isClicking ? 0.8 : isHovering ? 1.5 : 1,
           opacity: isVisible ? 1 : 0,
-          backgroundColor: isHovering ? "rgba(0, 240, 255, 0.05)" : "rgba(0,0,0,0)",
-          borderColor: isHovering ? "rgba(232, 255, 71, 0.6)" : "rgba(0, 240, 255, 0.4)",
+          backgroundColor: isHovering ? 'rgba(0, 240, 255, 0.05)' : 'rgba(0,0,0,0)',
+          borderColor: isHovering ? 'rgba(232, 255, 71, 0.6)' : 'rgba(0, 240, 255, 0.4)',
         }}
-        transition={{ type: "spring", stiffness: 100, damping: 20, mass: 0.5 }}
+        transition={{ type: 'spring', stiffness: 100, damping: 20, mass: 0.5 }}
       />
 
       {/* Generated Cursor Image (Center Pointer) */}
@@ -103,7 +103,7 @@ export default function CustomCursor() {
           opacity: isVisible ? 1 : 0,
           rotate: isHovering ? 45 : 0,
         }}
-        transition={{ type: "spring", stiffness: 500, damping: 28, mass: 0.1 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 28, mass: 0.1 }}
       />
     </>
   );

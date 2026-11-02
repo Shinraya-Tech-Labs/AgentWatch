@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 try:
     from panoptis.core.watcher import AgentWatchBlockedError
 except (ImportError, ModuleNotFoundError):
+
     class AgentWatchBlockedError(Exception):  # type: ignore[no-redef]
         def __init__(
             self,
@@ -21,6 +21,7 @@ except (ImportError, ModuleNotFoundError):
             super().__init__(message)
             self.tool_name = tool_name
             self.reasons = reasons or [message]
+
 
 logger = logging.getLogger("panopti.contracts")
 
@@ -210,7 +211,9 @@ class ContractRegistry:
             )
         )
 
-    def evaluate(self, tool_name: str, arguments: dict[str, Any] | None = None) -> tuple[bool, str | None]:
+    def evaluate(
+        self, tool_name: str, arguments: dict[str, Any] | None = None
+    ) -> tuple[bool, str | None]:
         """Check all registered contracts against a proposed tool invocation."""
         args = arguments or {}
         for contract in self._contracts:

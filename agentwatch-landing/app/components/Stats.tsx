@@ -1,27 +1,27 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import gsap from "gsap";
-import ScrollTrigger from "gsap/ScrollTrigger";
+import { useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
 const stats = [
   {
-    value: "1 in 20",
+    value: '1 in 20',
     raw: null,
-    label: "Agent requests fail silently",
+    label: 'Agent requests fail silently',
   },
   {
-    value: "40%",
+    value: '40%',
     raw: 40,
-    label: "Enterprise AI projects cancelled by 2027",
-    source: "Gartner",
+    label: 'Enterprise AI projects cancelled by 2027',
+    source: 'Gartner',
   },
   {
-    value: "76%",
+    value: '76%',
     raw: 76,
-    label: "Agent deployments fail within 90 days",
+    label: 'Agent deployments fail within 90 days',
   },
 ];
 
@@ -30,24 +30,25 @@ export default function Stats() {
   const numRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   useEffect(() => {
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) return;
 
     const ctx = gsap.context(() => {
-      gsap.fromTo(".stat-card", 
+      gsap.fromTo(
+        '.stat-card',
         { y: 50, opacity: 0 },
         {
           y: 0,
           opacity: 1,
           duration: 0.8,
           stagger: 0.15,
-          ease: "power3.out",
+          ease: 'power3.out',
           scrollTrigger: {
             trigger: sectionRef.current,
-            start: "top 80%",
+            start: 'top 80%',
             once: true,
           },
-        }
+        },
       );
 
       // Counter animations
@@ -55,18 +56,18 @@ export default function Stats() {
         if (stat.raw === null) return;
         const numEl = numRefs.current[i];
         if (!numEl) return;
-        const suffix = stat.value.replace(`${stat.raw}`, "");
+        const suffix = stat.value.replace(`${stat.raw}`, '');
         const counter = { val: 0 };
 
         ScrollTrigger.create({
           trigger: sectionRef.current,
-          start: "top 80%",
+          start: 'top 80%',
           once: true,
           onEnter: () => {
             gsap.to(counter, {
               val: stat.raw!,
               duration: 1.5,
-              ease: "power2.out",
+              ease: 'power2.out',
               onUpdate: () => {
                 numEl.textContent = `${Math.round(counter.val)}${suffix}`;
               },
@@ -86,7 +87,7 @@ export default function Stats() {
       className="relative py-16 px-6 dot-grid"
       style={{
         background:
-          "radial-gradient(ellipse 62% 70% at 50% 50%, rgba(10,10,10,0.82) 0%, rgba(10,10,10,0.4) 55%, transparent 92%), radial-gradient(ellipse 60% 40% at 50% 50%, rgba(232,255,71,0.04) 0%, transparent 70%)",
+          'radial-gradient(ellipse 62% 70% at 50% 50%, rgba(10,10,10,0.82) 0%, rgba(10,10,10,0.4) 55%, transparent 92%), radial-gradient(ellipse 60% 40% at 50% 50%, rgba(232,255,71,0.04) 0%, transparent 70%)',
       }}
     >
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -98,13 +99,17 @@ export default function Stats() {
             <div
               className="font-bold mb-3"
               style={{
-                fontFamily: "var(--font-syne)",
-                fontSize: "clamp(2rem, 4vw, 3rem)",
-                color: "#e8ff47",
+                fontFamily: 'var(--font-syne)',
+                fontSize: 'clamp(2rem, 4vw, 3rem)',
+                color: '#e8ff47',
               }}
             >
               {stat.raw !== null ? (
-                <span ref={(el) => { numRefs.current[i] = el; }}>
+                <span
+                  ref={(el) => {
+                    numRefs.current[i] = el;
+                  }}
+                >
                   {stat.value}
                 </span>
               ) : (
@@ -114,9 +119,7 @@ export default function Stats() {
             <p className="text-[#c0c0c0] text-sm leading-relaxed">
               {stat.label}
               {stat.source && (
-                <span className="block mt-1 text-xs text-[#7a7a7a]">
-                  Source: {stat.source}
-                </span>
+                <span className="block mt-1 text-xs text-[#7a7a7a]">Source: {stat.source}</span>
               )}
             </p>
           </div>

@@ -53,9 +53,9 @@ The engine supports four temporal modes for debugging and automated testing:
 ```python
 class ReplaySpeed(str, Enum):
     INSTANT = "instant"  # Zero delay; maximum throughput batch replay
-    FAST    = "fast"     # Fixed 10ms artificial delay between events
-    NORMAL  = "normal"   # Exact wall-clock pacing proportional to original run
-    SLOW    = "slow"     # 2.0x slowed down for human live visual inspection
+    FAST = "fast"  # Fixed 10ms artificial delay between events
+    NORMAL = "normal"  # Exact wall-clock pacing proportional to original run
+    SLOW = "slow"  # 2.0x slowed down for human live visual inspection
 ```
 
 ### 2.2 Automated Divergence Detection
@@ -130,10 +130,12 @@ The Counterfactual Engine implements **Rung 3 of Pearl's Causal Ladder**: retros
 @dataclass
 class CounterfactualScenario:
     """A formal what-if intervention scenario."""
+
     rewind_to_step: int
     tool_id: str | None = None
     replacement: Any = None
     notes: str = ""
+
 
 @dataclass
 class CounterfactualResult:
@@ -161,23 +163,30 @@ Consider a security triage engineer investigating whether an agent's failure to 
 from panoptis.replay.counterfactual import CounterfactualEngine, CounterfactualScenario
 from panoptis.core.schema import AgentEvent, EventType, ToolResultData
 
-def step_simulator(prior_events: list[AgentEvent], substituted_event: AgentEvent) -> AgentEvent | None:
+
+def step_simulator(
+    prior_events: list[AgentEvent], substituted_event: AgentEvent
+) -> AgentEvent | None:
     """Simulates next step given the substituted observation."""
     if "syntax error near constraint" in str(substituted_event.tool_result.output):
         return AgentEvent(
             session_id=substituted_event.session_id,
             agent_id=substituted_event.agent_id,
             event_type=EventType.TOOL_CALL,
-            tool_call={"tool_name": "fix_schema", "raw_command": "ALTER TABLE orders DROP CONSTRAINT fk_user"}
+            tool_call={
+                "tool_name": "fix_schema",
+                "raw_command": "ALTER TABLE orders DROP CONSTRAINT fk_user",
+            },
         )
     return None
+
 
 engine = CounterfactualEngine(step_fn=step_simulator)
 scenario = CounterfactualScenario(
     rewind_to_step=4,
     tool_id="sql_client",
     replacement={"status": "error", "message": "syntax error near constraint fk_user on line 1"},
-    notes="Testing whether specific constraint hints prevent retry thrashing."
+    notes="Testing whether specific constraint hints prevent retry thrashing.",
 )
 
 result = engine.run(original_session_id="sess_failing_migration_09", scenario=scenario)
@@ -199,9 +208,9 @@ AgentWatch implements four distinct checkpointing modalities:
 ```python
 class CheckpointType(str, Enum):
     FILESYSTEM = "filesystem"  # Compressed gzip tarball of project directory
-    GIT        = "git"         # Ephemeral git stash ref or lightweight commit hash
-    MEMORY     = "memory"      # Serialized agent memory and scratchpad dictionary
-    COMPOSITE  = "composite"   # Atomic combination of git working tree + memory
+    GIT = "git"  # Ephemeral git stash ref or lightweight commit hash
+    MEMORY = "memory"  # Serialized agent memory and scratchpad dictionary
+    COMPOSITE = "composite"  # Atomic combination of git working tree + memory
 ```
 
 ### 4.2 State Restoration Workflow
@@ -290,15 +299,23 @@ class FilesystemSnapshot:
                         member.name,
                         target_dir,
                     )
-                    raise SecurityException(f"Path traversal detected in archive member: {member.name}")
+                    raise SecurityException(
+                        f"Path traversal detected in archive member: {member.name}"
+                    )
 
                 # Reject dangerous symlinks pointing outside target directory
                 if member.issym() or member.islnk():
                     link_target = (target_dir / member.linkname).resolve()
                     if not link_target.is_relative_to(target_dir):
-                        raise SecurityException(f"Symlink traversal detected: {member.name} -> {member.linkname}")
+                        raise SecurityException(
+                            f"Symlink traversal detected: {member.name} -> {member.linkname}"
+                        )
 
-                tar.extract(member, path=target_dir, filter="data" if hasattr(tarfile, "data_filter") else None)
+                tar.extract(
+                    member,
+                    path=target_dir,
+                    filter="data" if hasattr(tarfile, "data_filter") else None,
+                )
                 restored_files.append(member.name)
 
         return restored_files
@@ -348,6 +365,7 @@ import asyncio
 from pathlib import Path
 from panoptis.rollback.engine import RollbackEngine, CheckpointType
 
+
 async def run_guarded_agent_step():
     rollback = RollbackEngine(storage_dir=Path(".agentwatch/checkpoints"))
     session_id = "agent_run_prod_992"
@@ -358,7 +376,7 @@ async def run_guarded_agent_step():
         step_number=12,
         checkpoint_type=CheckpointType.COMPOSITE,
         working_dir=Path("./project_repo"),
-        memory={"active_goal": "refactor_database", "retry_count": 0}
+        memory={"active_goal": "refactor_database", "retry_count": 0},
     )
     print(f"Checkpoint created: {ckpt.checkpoint_id}")
 
@@ -369,7 +387,10 @@ async def run_guarded_agent_step():
         print(f"Operation failed with error: {exc}. Initiating rollback...")
         # 3. Emergency atomic rollback
         result = await rollback.rollback_session(session_id=session_id, to_step=12)
-        print(f"Rollback status: {result.status.value}. Restored {len(result.rolled_back_files)} files.")
+        print(
+            f"Rollback status: {result.status.value}. Restored {len(result.rolled_back_files)} files."
+        )
+
 
 asyncio.run(run_guarded_agent_step())
 ```
