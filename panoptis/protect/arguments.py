@@ -497,11 +497,21 @@ def is_system_path(p: str) -> bool:
     return bool(SYSTEM_PATHS.match(p.rstrip("*")))
 
 
+_CLIMB = re.compile(r"^(?:\.{1,2}[/\\])*\.\.[/\\]")
+
+
 def sensitive_path(p: str) -> str | None:
     norm = p.strip().strip("'\"").replace("\\\\", "\\")
-    for pat, label in SENSITIVE_PATHS:
-        if pat.search(norm):
-            return label
+    candidates = [norm]
+    if _CLIMB.match(norm):
+        # ../../../../etc/shadow climbs out of the working directory towards the root:
+        # judge where it lands as an absolute path too (/etc/shadow)
+        rest = re.sub(r"^(?:\.{1,2}[/\\])+", "", norm)
+        candidates.append("/" + rest.replace("\\", "/"))
+    for candidate in candidates:
+        for pat, label in SENSITIVE_PATHS:
+            if pat.search(candidate):
+                return label
     return None
 
 

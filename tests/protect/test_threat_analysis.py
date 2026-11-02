@@ -265,3 +265,18 @@ def test_a_crashing_detector_fails_closed():
     codes_ = {f.code: f.recommends for f in d.findings}
     assert codes_["STAGE_ERROR"] is Verdict.ALLOW and codes_["NO_PROFILE"] is Verdict.BLOCK
     assert d.verdict is Verdict.BLOCK
+
+
+@pytest.mark.parametrize("path", ["../../../../etc/shadow", "../../etc/passwd", "..\..\etc\shadow"])
+def test_relative_traversal_into_a_sensitive_system_file_escalates(path):
+    # found by the evaluation suite (TO-036): only the absolute form was recognised
+    codes = {f.code: f for f in ThreatAnalyzer().analyze("read_file", {"path": path}).findings}
+    assert "SENSITIVE_PATH" in codes and codes["SENSITIVE_PATH"].recommends.value == "escalate_hitl"
+
+
+@pytest.mark.parametrize(
+    "path", ["../docs/readme.md", "../../src/etc/shadow_notes.md", "./etc/shadow"]
+)
+def test_ordinary_relative_paths_are_not_sensitive(path):
+    codes = {f.code for f in ThreatAnalyzer().analyze("read_file", {"path": path}).findings}
+    assert "SENSITIVE_PATH" not in codes
