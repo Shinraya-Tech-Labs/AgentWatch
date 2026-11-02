@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import platform
 import sys
@@ -2731,6 +2732,21 @@ def doctor() -> None:
             table.add_row("Docker", "[red]Not installed[/red]")
     except Exception:
         table.add_row("Docker", "[red]Not installed[/red]")
+
+    try:
+        from panoptis.storage.migration import get_migration_status
+        from panoptis.storage.store import Store
+
+        store = Store()
+        mig = get_migration_status(store.engine)
+        mig_status = (
+            f"[green]Up to date (v{mig.installed_version})[/green]"
+            if mig.is_up_to_date
+            else f"[yellow]v{mig.installed_version} (target v{mig.target_version})[/yellow]"
+        )
+        table.add_row("Schema Migration", mig_status)
+    except Exception as exc:
+        logging.getLogger(__name__).debug("Could not inspect schema migration status: %s", exc)
 
     from panoptis.cli.v3 import v3_health
 
