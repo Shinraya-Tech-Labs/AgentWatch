@@ -362,6 +362,16 @@ command: panoptis protect evidence verify
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
 
+command: panoptis protect mcp-gateway
+    help: Run the enforcing MCP gateway: stdio | http | config | status (see --help of each).
+
+
+panoptis protect mcp-gateway stdio --server-name fs -- npx -y @modelcontextprotocol/server-filesystem .
+panoptis protect mcp-gateway http --upstream http://127.0.0.1:9000/mcp --port 8765
+panoptis protect mcp-gateway config --server-name fs -- npx -y @modelcontextprotocol/server-filesystem .
+panoptis protect mcp-gateway status
+    short_help: 
+
 command: panoptis protect policies
     help: Inspect the effective safety policy set.
     short_help: 
