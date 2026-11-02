@@ -65,8 +65,6 @@ Not removed: experimental and legacy modules are tested and may be imported by u
 | `panoptis.cost.predictor` | 97 | 1 | experimental | cost analytics and routing; no runtime entry point |
 | `panoptis.cost.roi` | 100 | 1 | experimental | cost analytics and routing; no runtime entry point |
 | `panoptis.cost.router` | 16 | 1 | deprecated shim | alias of `infrastructure.router`; warns on import |
-| `panoptis.evidence.attestation` | 465 | 2 | library API (documented) | signed audit tokens, commitments: docs/v3/WITNESS_ATTESTATION.md, EVIDENCE_INTEGRITY.md |
-| `panoptis.evidence.merkle` | 186 | 3 | library API (documented) | RFC 6962 Merkle tree and proofs: docs/v3/WITNESS_ATTESTATION.md |
 | `panoptis.evidence.shredding` | 169 | 1 | library API (documented) | per-subject encrypted witnesses: docs/v3/WITNESS_ATTESTATION.md |
 | `panoptis.governance.causal` | 108 | 2 | experimental | governance reports; not exposed by API/CLI |
 | `panoptis.governance.iso42001` | 131 | 1 | experimental | governance reports; not exposed by API/CLI |

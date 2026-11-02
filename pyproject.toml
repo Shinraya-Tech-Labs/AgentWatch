@@ -55,6 +55,7 @@ embeddings = [
   "numpy>=1.26.0",
 ]
 otel = [
+  "opentelemetry-api>=1.27.0",
   "opentelemetry-proto>=1.27.0",
   "protobuf>=5.26.0",  # google.protobuf, used to decode OTLP/protobuf
   "opentelemetry-sdk>=1.27.0",
