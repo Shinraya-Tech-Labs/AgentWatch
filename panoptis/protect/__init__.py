@@ -90,6 +90,15 @@ from panoptis.protect.rag_sanitizer import (
 )
 from panoptis.protect.rbac import PolicyError, PolicyStore, RBACEngine, parse_policy
 from panoptis.protect.taint_tracker import DynamicTaintTracker
+from panoptis.protect.temporal_simulator import (
+    CounterfactualHazardProof,
+    DownstreamBlastRadiusEvaluator,
+    FastForwardSimulationEngine,
+    SimulatedStep,
+    SimulationConfig,
+    TemporalSimulationResult,
+    TrajectoryBranch,
+)
 from panoptis.protect.threats import ThreatAnalyzer
 from panoptis.protect.transactor import SpeculativeSideEffect, SpeculativeTransactor
 from panoptis.protect.wasi_sandbox import (
@@ -110,10 +119,12 @@ __all__ = [
     "ConversationTurn",
     "CounterfactualConfig",
     "CounterfactualEngine",
+    "CounterfactualHazardProof",
     "CounterfactualResult",
     "CrescendoDriftMonitor",
     "DEFAULT_SINK_CLEARANCES",
     "Decision",
+    "DownstreamBlastRadiusEvaluator",
     "DriftAssessment",
     "DriftStatus",
     "DynamicTaintTracker",
@@ -122,6 +133,7 @@ __all__ = [
     "EnclavePlatform",
     "EnclaveVerificationConfig",
     "EnclaveVerificationResult",
+    "FastForwardSimulationEngine",
     "Finding",
     "FormalFinding",
     "FormalVerificationCertificate",
@@ -155,14 +167,18 @@ __all__ = [
     "SandboxExecutionError",
     "SandboxResult",
     "SecurityLabel",
+    "SimulatedStep",
+    "SimulationConfig",
     "SnapshotDiff",
     "Severity",
     "SpeculativeSideEffect",
     "SpeculativeTransactor",
     "Stage",
     "TaintContext",
+    "TemporalSimulationResult",
     "ThreatAnalyzer",
     "ToolAction",
+    "TrajectoryBranch",
     "TrajectoryStep",
     "Verdict",
     "VerificationStatus",

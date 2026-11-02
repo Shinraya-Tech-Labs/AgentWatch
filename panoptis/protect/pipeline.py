@@ -94,6 +94,8 @@ class ProtectionConfig:
     enable_ifc: bool = False
     enable_ltl_trajectory: bool = False
     enable_integrity_guard: bool = False
+    enable_temporal_simulation: bool = False
+    temporal_simulation_config: Any = None
 
 
 @dataclass
@@ -174,6 +176,7 @@ class ProtectionPipeline:
         ifc: Any = None,
         ltl: Any = None,
         integrity: Any = None,
+        temporal_simulator: Any = None,
     ) -> None:
         self.config = config or ProtectionConfig()
         self.policy = policy or PolicyStore()
@@ -233,6 +236,19 @@ class ProtectionPipeline:
             self.integrity.seal_function("rbac_authorize", self.rbac, "authorize")
         else:
             self.integrity = None
+        if temporal_simulator is not None:
+            self.temporal_simulator = temporal_simulator
+        elif self.config.enable_temporal_simulation:
+            from panoptis.protect.temporal_simulator import (
+                FastForwardSimulationEngine,
+                SimulationConfig,
+            )
+
+            self.temporal_simulator = FastForwardSimulationEngine(
+                self.config.temporal_simulation_config or SimulationConfig()
+            )
+        else:
+            self.temporal_simulator = None
         self.telemetry = Telemetry()
         self.sessions: dict[str, SessionInfo] = {}
         self.registered_agents: set[str] = set()
@@ -404,6 +420,34 @@ class ProtectionPipeline:
                         None,
                         Verdict.BLOCK,
                     )
+                )
+
+            if (
+                self.config.enable_temporal_simulation
+                and self.temporal_simulator is not None
+                and not _blocked(findings)
+            ):
+                session_ctx = {
+                    "has_read_sensitive": (
+                        any(
+                            s.reads_sensitive
+                            for s in getattr(self.ltl, "traces", {}).get(action.session_id, [])
+                        )
+                        if self.ltl is not None
+                        else False
+                    ),
+                    "has_untrusted_ingest": (
+                        any(
+                            s.untrusted_ingest
+                            for s in getattr(self.ltl, "traces", {}).get(action.session_id, [])
+                        )
+                        if self.ltl is not None
+                        else False
+                    ),
+                }
+                findings += timed(
+                    "temporal_simulation",
+                    lambda: self.temporal_simulator.simulate_action(action, session_ctx).findings,
                 )
 
         verdict = strongest([f.recommends for f in findings])
