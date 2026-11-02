@@ -473,6 +473,19 @@ def _require_operator(
     """
     if not _CLOUD_MODE:
         _require_api_key(x_api_key)
+        # a tenant key (AGENTWATCH_TENANT_KEYS) authenticates a tenant, not the operator
+        if (
+            x_api_key is not None
+            and _tenancy.match_key(x_api_key, _tenant_keys()) is not None
+            and not (
+                _API_KEY is not None
+                and hmac.compare_digest(x_api_key.encode("utf-8"), _API_KEY.encode("utf-8"))
+            )
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Operator credential required for this route.",
+            )
         return
     admin = os.environ.get("AGENTWATCH_ADMIN_KEY")
     if (
@@ -904,6 +917,13 @@ app.include_router(_build_approvals_router(_require_api_key_or_operator, _v3_ten
 from panoptis.api.protect_rbac import build_router as _build_rbac_router  # noqa: E402
 
 app.include_router(_build_rbac_router(_require_api_key_or_operator, _v3_tenant))
+
+# Emergency stop and suspensions (TO-025): global controls are operator-only.
+from panoptis.api.protect_control import build_router as _build_control_router  # noqa: E402
+
+app.include_router(
+    _build_control_router(_require_api_key_or_operator, _require_operator, _v3_tenant)
+)
 
 
 @app.exception_handler(HTTPException)
