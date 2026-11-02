@@ -3180,5 +3180,11 @@ for _kind in ("agent", "session"):
         control_app.command(f"{_op}-{_kind}")(_make_scoped(_op, _kind))
 
 
+# ── status, decisions, agents, approvals, rbac, doctor (TO-028) ───────────────────────
+from panoptis.cli import protect_ops as _protect_ops  # noqa: E402
+
+_protect_ops.register(protect_app)
+
+
 if __name__ == "__main__":
     main()

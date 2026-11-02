@@ -285,6 +285,51 @@ command: panoptis protect
     help: AgentWatch security engine, guardrails, compliance, and evidence.
     short_help: 
 
+command: panoptis protect agents
+    help: Agents and sessions seen, with counts and suspension state (seen is not protected: see 'discover').
+    short_help: 
+    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store for local mode (default: AGENTWATCH_STORE).'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
+
+command: panoptis protect approvals
+    help: List and decide escalated tool calls.
+    short_help: 
+
+command: panoptis protect approvals approve
+    help: Approve exactly the action with this digest.
+    short_help: 
+    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param by kind=TyperOption type=str required=False default=None flags=--by help=''
+    param comment kind=TyperOption type=str required=False default=None flags=--comment help=''
+    param digest kind=TyperOption type=str required=True default=None flags=--digest help="the action_digest shown by 'approvals list' (what you approve)"
+    param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
+    param request_id kind=TyperArgument type=str required=True default=None flags=request_id help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store for local mode (default: AGENTWATCH_STORE).'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
+
+command: panoptis protect approvals list
+    help: Approval requests of the tenant.
+    short_help: 
+    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
+    param state kind=TyperOption type=str required=False default='pending' flags=--state help='pending | approved | rejected | expired | cancelled | all'
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store for local mode (default: AGENTWATCH_STORE).'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
+
+command: panoptis protect approvals reject
+    help: Reject the escalated call; it never runs.
+    short_help: 
+    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param by kind=TyperOption type=str required=False default=None flags=--by help=''
+    param comment kind=TyperOption type=str required=False default=None flags=--comment help=''
+    param digest kind=TyperOption type=str required=True default=None flags=--digest help=''
+    param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
+    param request_id kind=TyperArgument type=str required=True default=None flags=request_id help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store for local mode (default: AGENTWATCH_STORE).'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
+
 command: panoptis protect check
     help: [bold]Score[/bold] the risk level of a shell command.
 
@@ -410,6 +455,19 @@ command: panoptis protect control suspend-session
     param target kind=TyperArgument type=str required=True default=None flags=target help='The session id.'
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
 
+command: panoptis protect decisions
+    help: Recent protection decisions, newest first.
+    short_help: 
+    param agent kind=TyperOption type=str required=False default=None flags=--agent help=''
+    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
+    param limit kind=TyperOption type=int required=False default=20 flags=--limit help=''
+    param stage kind=TyperOption type=str required=False default=None flags=--stage help='threat | rbac | loop | intent | hitl | killswitch | …'
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store for local mode (default: AGENTWATCH_STORE).'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
+    param tool kind=TyperOption type=str required=False default=None flags=--tool help=''
+    param verdict kind=TyperOption type=str required=False default=None flags=--verdict help='allow | block | escalate_hitl | mutate_and_allow'
+
 command: panoptis protect discover
     help: Find local agent runtimes and MCP servers, and whether AgentWatch enforces on them.
     short_help: 
@@ -426,6 +484,13 @@ command: panoptis protect discover wrap
     param apply kind=TyperOption type=boolean required=False default=False flags=--apply help='Write the change (a .agentwatch.bak backup is kept). Without it, only show it.'
     param config kind=TyperOption type=path required=True default=None flags=--config help='The MCP config file (mcpServers).'
     param server kind=TyperOption type=str required=True default=None flags=--server help='The server entry to put behind the gateway.'
+
+command: panoptis protect doctor
+    help: Diagnose the protection setup (store, evidence, policy, kill switch, hook). Exit 1 on a failure.
+    short_help: 
+    param policy kind=TyperOption type=path required=False default=None flags=--policy help='default: AGENTWATCH_POLICY_FILE'
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store for local mode (default: AGENTWATCH_STORE).'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
 
 command: panoptis protect evidence
     help: Verify, seal and manage immutable evidence.
@@ -509,10 +574,47 @@ command: panoptis protect policies list
     help: [bold]List[/bold] the effective safety policy set: builtin patterns + local rules.
     short_help: 
 
+command: panoptis protect rbac
+    help: Validate RBAC policies and explain effective permissions.
+    short_help: 
+
+command: panoptis protect rbac check
+    help: Would this call be authorized? Exit 1 if not (a dry run: no rate budget used).
+    short_help: 
+    param agent kind=TyperArgument type=str required=True default=None flags=agent help=''
+    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param arguments kind=TyperOption type=str required=False default='{}' flags=--args help='tool arguments as JSON'
+    param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
+    param policy kind=TyperOption type=path required=False default=None flags=--policy help=''
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
+    param tool kind=TyperArgument type=str required=True default=None flags=tool help=''
+
+command: panoptis protect rbac permissions
+    help: What an agent may do (roles, tools, restrictions, rate limits).
+    short_help: 
+    param agent kind=TyperArgument type=str required=True default=None flags=agent help=''
+    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
+    param policy kind=TyperOption type=path required=False default=None flags=--policy help=''
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
+
+command: panoptis protect rbac validate
+    help: Validate a policy file; lists every problem. Exit 1 if invalid.
+    short_help: 
+    param file kind=TyperArgument type=path required=True default=None flags=file help='policy YAML/JSON'
+
 command: panoptis protect redteam
     help: [bold]Red-team[/bold] the safety engine with simulated attacks and score resilience.
     short_help: 
     param json_output kind=TyperOption type=boolean required=False default=False flags=--json help='Emit the report as JSON'
+
+command: panoptis protect status
+    help: Protection summary: verdicts, kill switch, suspensions, policy, evidence head.
+    short_help: 
+    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store for local mode (default: AGENTWATCH_STORE).'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
 
 command: panoptis provenance
     help: [bold]Provenance[/bold]: where did this information come from?
