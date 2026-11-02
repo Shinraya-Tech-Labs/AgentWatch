@@ -9,12 +9,7 @@ from unittest.mock import patch
 from panopti.cli import main
 from panopti.demo import run_interactive_demo
 from panopti.themes import (
-    AMBER,
-    CYBERPUNK,
-    MATRIX,
-    PLAIN,
     ThemeManager,
-    ThemePalette,
     should_disable_color,
 )
 

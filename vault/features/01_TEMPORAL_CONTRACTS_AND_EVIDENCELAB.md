@@ -155,13 +155,13 @@ In [`panoptis/contracts/evaluator.py`](file:///data/data/com.termux/files/home/A
 ```python
 # Minimal Witness Construction for SUPPORTED verdict:
 witness_events = [
-    target_event,    # e_q: The event requiring qualification
+    target_event,  # e_q: The event requiring qualification
     matching_event,  # e_p: The fulfilling preceding event
 ]
 
 # Minimal Witness Construction for REFUTED verdict:
 witness_events = [
-    target_event,    # e_q: The event that occurred without qualification
+    target_event,  # e_q: The event that occurred without qualification
     # Telemetry coverage proof snapshots proving sensor was healthy
 ]
 ```
@@ -246,11 +246,11 @@ Defined in [`panoptis/contracts/remedies.py`](file:///data/data/com.termux/files
 ```python
 @dataclass(frozen=True)
 class RemediationRecommendation:
-    remedy_type: str                   # "CONFIG_CHANGE", "INSTRUMENTATION_REQUIRED", "NETWORK_FIX"
-    target_component: str              # Affected library or module
-    missing_reason: MissingReason      # The triggering gap code
-    suggestion: str                    # Actionable instruction
-    documentation_url: str             # Link to docs
+    remedy_type: str  # "CONFIG_CHANGE", "INSTRUMENTATION_REQUIRED", "NETWORK_FIX"
+    target_component: str  # Affected library or module
+    missing_reason: MissingReason  # The triggering gap code
+    suggestion: str  # Actionable instruction
+    documentation_url: str  # Link to docs
 ```
 
 ### 6.1 Algorithmic Remediation Mapping

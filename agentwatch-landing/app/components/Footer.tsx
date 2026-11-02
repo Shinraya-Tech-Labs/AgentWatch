@@ -3,27 +3,21 @@ export default function Footer() {
     <footer
       className="relative pt-px pb-10"
       style={{
-        background:
-          "linear-gradient(180deg, transparent 0%, rgba(10,10,10,0.7) 40%, #0a0a0a 100%)",
+        background: 'linear-gradient(180deg, transparent 0%, rgba(10,10,10,0.7) 40%, #0a0a0a 100%)',
       }}
     >
       {/* Gradient divider */}
       <div
         className="w-full h-px mb-10"
         style={{
-          background:
-            "linear-gradient(90deg, transparent 0%, #e8ff47 50%, transparent 100%)",
+          background: 'linear-gradient(90deg, transparent 0%, #e8ff47 50%, transparent 100%)',
         }}
       />
 
       <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         {/* Left */}
         <div className="flex items-center gap-2 text-sm text-[#555]">
-          <svg
-            viewBox="0 0 32 32"
-            fill="none"
-            className="w-5 h-5 flex-shrink-0"
-          >
+          <svg viewBox="0 0 32 32" fill="none" className="w-5 h-5 flex-shrink-0">
             <defs>
               <linearGradient id="footer-grad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#e8ff47" />
@@ -40,9 +34,12 @@ export default function Footer() {
             <circle cx="16" cy="16" r="1.8" fill="url(#footer-grad)" />
           </svg>
           <span>
-            <span className="gradient-text font-semibold" style={{ fontFamily: "var(--font-syne)" }}>
+            <span
+              className="gradient-text font-semibold"
+              style={{ fontFamily: 'var(--font-syne)' }}
+            >
               AgentWatch
-            </span>{" "}
+            </span>{' '}
             · © 2026 Apache 2.0 · Built by sreerevanth
           </span>
         </div>

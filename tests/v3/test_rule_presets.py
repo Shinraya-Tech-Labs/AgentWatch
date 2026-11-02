@@ -6,8 +6,6 @@ import re
 
 import pytest
 
-from panoptis.core.safety import BUILTIN_RISK_PATTERNS, RiskScorer, SafetyEngine, SafetyPolicy
-from panoptis.core.schema import RiskLevel, ToolCallData
 from panopti.guard import PanoptiGuard
 from panopti.presets import (
     CLOUD_DESTRUCTIVE,
@@ -17,6 +15,8 @@ from panopti.presets import (
     SQL_DESTRUCTIVE,
     get_preset_patterns,
 )
+from panoptis.core.safety import BUILTIN_RISK_PATTERNS, RiskScorer, SafetyEngine, SafetyPolicy
+from panoptis.core.schema import RiskLevel, ToolCallData
 
 
 def _score(command: str, *categories: str) -> tuple[RiskLevel, list[str]]:

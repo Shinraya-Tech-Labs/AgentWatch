@@ -87,9 +87,9 @@ Any transition outside the formal state matrix raises an explicit `InvalidTransi
 
 ```python
 VALID_TRANSITIONS: dict[CircuitState, set[CircuitState]] = {
-    CircuitState.CLOSED:    {CircuitState.OPEN},
-    CircuitState.OPEN:      {CircuitState.PAUSED, CircuitState.HALF_OPEN, CircuitState.CLOSED},
-    CircuitState.PAUSED:    {CircuitState.HALF_OPEN, CircuitState.CLOSED},
+    CircuitState.CLOSED: {CircuitState.OPEN},
+    CircuitState.OPEN: {CircuitState.PAUSED, CircuitState.HALF_OPEN, CircuitState.CLOSED},
+    CircuitState.PAUSED: {CircuitState.HALF_OPEN, CircuitState.CLOSED},
     CircuitState.HALF_OPEN: {CircuitState.CLOSED, CircuitState.OPEN},
 }
 ```
@@ -99,31 +99,36 @@ The breaker monitors six distinct trip conditions:
 
 ```python
 class TripReason(str, Enum):
-    TOKEN_BUDGET       = "token_budget_exceeded"        # Total session tokens exceeded cap
+    TOKEN_BUDGET = "token_budget_exceeded"  # Total session tokens exceeded cap
     CONSECUTIVE_ERRORS = "consecutive_errors_exceeded"  # N tool errors in immediate succession
-    TOTAL_ERRORS       = "total_errors_exceeded"        # Total errors throughout session
-    HALLUCINATIONS     = "hallucination_threshold_exceeded" # Anomaly score > confidence threshold
-    PROBE_FAILED       = "half_open_probe_failed"       # Failure during recovery probe
-    MANUAL             = "manual_trip"                  # Operator hit emergency stop
+    TOTAL_ERRORS = "total_errors_exceeded"  # Total errors throughout session
+    HALLUCINATIONS = "hallucination_threshold_exceeded"  # Anomaly score > confidence threshold
+    PROBE_FAILED = "half_open_probe_failed"  # Failure during recovery probe
+    MANUAL = "manual_trip"  # Operator hit emergency stop
 ```
 
 #### Default Enterprise Threshold Profile
 ```python
 @dataclass
 class CircuitThresholds:
-    max_tokens: int = 150_000               # Absolute token ceiling per session
-    max_consecutive_errors: int = 3         # Detects tool thrashing / bad syntax loops
-    max_total_errors: int = 8               # Cumulative session error budget
-    min_confidence_score: float = 0.40      # Hallucination detector confidence floor
-    half_open_probes_required: int = 2     # Consecutive successes needed to close
-    half_open_max_probes: int = 3          # Maximum probes before evaluation
+    max_tokens: int = 150_000  # Absolute token ceiling per session
+    max_consecutive_errors: int = 3  # Detects tool thrashing / bad syntax loops
+    max_total_errors: int = 8  # Cumulative session error budget
+    min_confidence_score: float = 0.40  # Hallucination detector confidence floor
+    half_open_probes_required: int = 2  # Consecutive successes needed to close
+    half_open_max_probes: int = 3  # Maximum probes before evaluation
 ```
 
 ### 2.4 Core Breaker Implementation & Event Ingestion Logic
 
 ```python
 class CircuitBreaker:
-    def __init__(self, session_id: str, thresholds: CircuitThresholds | None = None, rollback_engine: Any = None):
+    def __init__(
+        self,
+        session_id: str,
+        thresholds: CircuitThresholds | None = None,
+        rollback_engine: Any = None,
+    ):
         self.session_id = session_id
         self.thresholds = thresholds or CircuitThresholds()
         self.rollback_engine = rollback_engine
@@ -168,7 +173,10 @@ class CircuitBreaker:
                     self.probes_passed = 0
 
         # 3. Anomaly & Confidence Degradation Check
-        if event.confidence and event.confidence.overall_score < self.thresholds.min_confidence_score:
+        if (
+            event.confidence
+            and event.confidence.overall_score < self.thresholds.min_confidence_score
+        ):
             self._trip(TripReason.HALLUCINATIONS)
 
     def _trip(self, reason: TripReason) -> None:
@@ -185,7 +193,7 @@ class CircuitBreaker:
                 step_number=self.total_errors + 1,
                 checkpoint_type=CheckpointType.COMPOSITE,
                 working_dir=working_dir,
-                metadata={"trip_reason": self.trip_reason.value if self.trip_reason else None}
+                metadata={"trip_reason": self.trip_reason.value if self.trip_reason else None},
             )
 ```
 
@@ -206,13 +214,13 @@ Every interaction request traverses a strict state lifecycle:
 
 ```python
 class RequestState(str, Enum):
-    PENDING       = "pending"       # Awaiting human decision
-    ANSWERED      = "answered"      # QUESTION received text input
-    APPROVED      = "approved"      # REVIEW was approved unchanged
-    REJECTED      = "rejected"      # REVIEW was rejected; agent must halt/re-plan
-    EDITED        = "edited"        # REVIEW was approved with modified arguments
-    AUTO_APPROVED = "auto_approved" # Evaluated below risk threshold; passed through
-    EXPIRED       = "expired"       # Reached timeout without operator response
+    PENDING = "pending"  # Awaiting human decision
+    ANSWERED = "answered"  # QUESTION received text input
+    APPROVED = "approved"  # REVIEW was approved unchanged
+    REJECTED = "rejected"  # REVIEW was rejected; agent must halt/re-plan
+    EDITED = "edited"  # REVIEW was approved with modified arguments
+    AUTO_APPROVED = "auto_approved"  # Evaluated below risk threshold; passed through
+    EXPIRED = "expired"  # Reached timeout without operator response
 ```
 
 ### 3.3 Decision Outcomes & Operator Modifications
@@ -237,12 +245,14 @@ class HITLOrchestrator:
         """Evaluates whether an incoming agent action requires human sign-off."""
         req_id = f"req_{uuid.uuid4().hex[:12]}"
         risk = event.safety.risk_level if event.safety else RiskLevel.LOW
-        
+
         # Determine whether action exceeds escalation boundary
         if risk in (RiskLevel.HIGH, RiskLevel.CRITICAL):
             pattern = InteractionPattern.REVIEW
             state = RequestState.PENDING
-            summary = f"High-risk {event.event_type.value} requires explicit operator authorization."
+            summary = (
+                f"High-risk {event.event_type.value} requires explicit operator authorization."
+            )
         else:
             pattern = InteractionPattern.NOTIFY
             state = RequestState.AUTO_APPROVED
@@ -275,7 +285,9 @@ class HITLOrchestrator:
         if not req:
             raise KeyError(f"HITL request '{request_id}' not found.")
         if req.is_resolved:
-            raise RuntimeError(f"HITL request '{request_id}' already resolved as {req.state.value}.")
+            raise RuntimeError(
+                f"HITL request '{request_id}' already resolved as {req.state.value}."
+            )
 
         # Update state machine
         if outcome == DecisionOutcome.APPROVE:
@@ -392,6 +404,7 @@ from panoptis.circuit_breaker import CircuitBreaker, CircuitThresholds, CircuitS
 from panoptis.hitl import HITLOrchestrator, HITLThresholds, DecisionOutcome
 from panoptis.core.schema import AgentEvent, EventType, ToolCallData, RiskLevel
 
+
 async def guarded_agent_execution_cycle(session_id: str):
     breaker = CircuitBreaker(session_id=session_id, thresholds=CircuitThresholds(max_tokens=50_000))
     hitl = HITLOrchestrator(thresholds=HITLThresholds(escalation_risk=RiskLevel.HIGH))
@@ -401,7 +414,7 @@ async def guarded_agent_execution_cycle(session_id: str):
         session_id=session_id,
         agent_id="code_assistant",
         event_type=EventType.TOOL_CALL,
-        tool_call=ToolCallData(tool_name="bash", raw_command="rm -rf ./build")
+        tool_call=ToolCallData(tool_name="bash", raw_command="rm -rf ./build"),
     )
 
     # 1. Check Circuit Breaker Gate
@@ -411,7 +424,9 @@ async def guarded_agent_execution_cycle(session_id: str):
     # 2. Check Ambient HITL Gate
     req = hitl.triage(tool_event)
     if not req.is_actionable:
-        print(f"Action suspended. Surfaced to human: {req.request_id} (Risk: {req.risk_level.value})")
+        print(
+            f"Action suspended. Surfaced to human: {req.request_id} (Risk: {req.risk_level.value})"
+        )
         # Await async decision via webhook or operator CLI
         decision = await hitl.wait_for_decision(req.request_id, timeout_seconds=300)
         if decision.outcome == DecisionOutcome.REJECT:
@@ -421,9 +436,13 @@ async def guarded_agent_execution_cycle(session_id: str):
     # 3. Dispatch Tool & Update Breaker Telemetry
     try:
         result = execute_tool(tool_event.tool_call)
-        breaker.record_event(AgentEvent(session_id=session_id, event_type=EventType.TOOL_RESULT, status="success"))
+        breaker.record_event(
+            AgentEvent(session_id=session_id, event_type=EventType.TOOL_RESULT, status="success")
+        )
     except Exception as exc:
-        breaker.record_event(AgentEvent(session_id=session_id, event_type=EventType.TOOL_RESULT, status="error"))
+        breaker.record_event(
+            AgentEvent(session_id=session_id, event_type=EventType.TOOL_RESULT, status="error")
+        )
         if breaker.state == CircuitState.OPEN:
             print(f"🚨 Circuit Breaker TRIPPED: {breaker.trip_reason.value}!")
 ```

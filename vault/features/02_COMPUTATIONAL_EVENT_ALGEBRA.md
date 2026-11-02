@@ -70,18 +70,18 @@ In [`panoptis/events/model.py`](file:///data/data/com.termux/files/home/AgentWat
 ```python
 @dataclass(frozen=True)
 class ComputationalEvent:
-    event_id: str                      # Deterministic content-addressed identifier
-    tenant_id: str                     # Multi-tenant isolation boundary
-    interp_id: str                     # Normalizer run identifier
-    normalizer: str                    # Normalizer name & semantic version
-    derived_from: tuple[str, ...]      # List of RawObservation SHA-256 IDs
-    kind: EventKind                    # High-level taxonomy of computation
-    operation: str                     # Concrete semantic operation
-    time: TemporalInfo                 # Start, end, and clock uncertainty bound
-    status: EventStatus                # Execution health status
-    attributes_json: str               # Canonical JSON serialized attributes
-    actor: str | None = None           # Resolved identity (Agent ID or Human ID)
-    links: tuple[DeclaredLink, ...] = () # Declared causal & parent-child relationships
+    event_id: str  # Deterministic content-addressed identifier
+    tenant_id: str  # Multi-tenant isolation boundary
+    interp_id: str  # Normalizer run identifier
+    normalizer: str  # Normalizer name & semantic version
+    derived_from: tuple[str, ...]  # List of RawObservation SHA-256 IDs
+    kind: EventKind  # High-level taxonomy of computation
+    operation: str  # Concrete semantic operation
+    time: TemporalInfo  # Start, end, and clock uncertainty bound
+    status: EventStatus  # Execution health status
+    attributes_json: str  # Canonical JSON serialized attributes
+    actor: str | None = None  # Resolved identity (Agent ID or Human ID)
+    links: tuple[DeclaredLink, ...] = ()  # Declared causal & parent-child relationships
 ```
 
 ### 3.1 Field-by-Field Architectural Specification
@@ -184,10 +184,11 @@ Events record relationships declared explicitly by the source framework or telem
 
 ```python
 class LinkKind(StrEnum):
-    PARENT = "parent"           # Hierarchical containment (e.g., span parent)
-    FOLLOWS = "follows"         # Sequential execution ordering
-    RESPONDS_TO = "responds_to" # Request-reply pairing (e.g., tool response to call)
-    CAUSAL = "causal"           # Explicit data dependency or state derivation
+    PARENT = "parent"  # Hierarchical containment (e.g., span parent)
+    FOLLOWS = "follows"  # Sequential execution ordering
+    RESPONDS_TO = "responds_to"  # Request-reply pairing (e.g., tool response to call)
+    CAUSAL = "causal"  # Explicit data dependency or state derivation
+
 
 @dataclass(frozen=True)
 class DeclaredLink:
@@ -289,12 +290,13 @@ def encode_event(event: ComputationalEvent) -> bytes:
     }
     return canonical_json(payload).encode("utf-8")
 
+
 def decode_event(raw_bytes: bytes) -> ComputationalEvent:
     """Parse and validate canonical bytes into an immutable ComputationalEvent."""
     data = json.loads(raw_bytes.decode("utf-8"))
     start_dt = datetime.fromisoformat(data["time"]["start"])
     end_dt = datetime.fromisoformat(data["time"]["end"]) if data["time"]["end"] else None
-    
+
     return ComputationalEvent(
         event_id=data["event_id"],
         tenant_id=data["tenant_id"],
@@ -303,11 +305,16 @@ def decode_event(raw_bytes: bytes) -> ComputationalEvent:
         derived_from=tuple(data["derived_from"]),
         kind=EventKind(data["kind"]),
         operation=data["operation"],
-        time=TemporalInfo(start=start_dt, end=end_dt, uncertainty_ms=data["time"]["uncertainty_ms"]),
+        time=TemporalInfo(
+            start=start_dt, end=end_dt, uncertainty_ms=data["time"]["uncertainty_ms"]
+        ),
         status=EventStatus(data["status"]),
         attributes_json=data["attributes_json"],
         actor=data.get("actor"),
-        links=tuple(DeclaredLink(target_event_id=l["target_event_id"], kind=LinkKind(l["kind"])) for l in data.get("links", ())),
+        links=tuple(
+            DeclaredLink(target_event_id=l["target_event_id"], kind=LinkKind(l["kind"]))
+            for l in data.get("links", ())
+        ),
     )
 ```
 

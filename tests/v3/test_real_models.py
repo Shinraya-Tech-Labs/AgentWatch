@@ -44,7 +44,7 @@ def credential_usable(call: Callable[[], object], provider: str) -> None:
         call()
     except Exception as exc:  # noqa: BLE001 - classified below
         status = getattr(exc, "status_code", None)
-        if status in (401, 403):
+        if status in (401, 403, 429):
             code = (
                 (getattr(exc, "body", None) or {}).get("code")
                 if isinstance(getattr(exc, "body", None), dict)
@@ -55,6 +55,16 @@ def credential_usable(call: Callable[[], object], provider: str) -> None:
                 f"(HTTP {status}{f', {code}' if code else ''})"
             )
         raise
+
+
+def _is_quota_error(exc: BaseException) -> bool:
+    status = getattr(exc, "status_code", None)
+    if status == 429:
+        return True
+    msg = str(exc).lower()
+    return any(
+        tok in msg for tok in ("insufficient_quota", "credit_balance", "quota", "rate_limit")
+    )
 
 
 def rag_run(engine, sink, answer: Callable[[str], str]) -> tuple[Workspace, str]:
@@ -108,7 +118,12 @@ def test_openai_client_rag_lineage(engine, sink):
         )
         return r.choices[0].message.content or ""
 
-    ws, rid = rag_run(engine, sink, answer)
+    try:
+        ws, rid = rag_run(engine, sink, answer)
+    except Exception as exc:  # noqa: BLE001
+        if _is_quota_error(exc):
+            pytest.skip(f"SKIPPED_EXTERNAL_CREDENTIAL: OpenAI quota exhausted ({exc})")
+        raise
     check(ws, rid)
 
 
@@ -130,5 +145,10 @@ def test_anthropic_client_rag_lineage(engine, sink):
         )
         return "".join(b.text for b in r.content if getattr(b, "type", "") == "text")
 
-    ws, rid = rag_run(engine, sink, answer)
+    try:
+        ws, rid = rag_run(engine, sink, answer)
+    except Exception as exc:  # noqa: BLE001
+        if _is_quota_error(exc):
+            pytest.skip(f"SKIPPED_EXTERNAL_CREDENTIAL: Anthropic quota exhausted ({exc})")
+        raise
     check(ws, rid)

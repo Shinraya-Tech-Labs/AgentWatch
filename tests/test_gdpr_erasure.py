@@ -1,4 +1,4 @@
-﻿"""Tests for GDPR cross-session erasure (CMP-002).
+"""Tests for GDPR cross-session erasure (CMP-002).
 
 Covers:
 - ErasureRequest / ErasureReceipt / ErasureScope schema models.
