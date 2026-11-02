@@ -5,9 +5,9 @@ from __future__ import annotations
 import os
 import unittest
 
+from panopti.shield import AntiTamperShield, TamperAttemptBlocked
 from panoptis.security import AntiTamperShield as AWShield
 from panoptis.security import TamperAttemptBlocked as AWTamperAttemptBlocked
-from panopti.shield import AntiTamperShield, TamperAttemptBlocked
 
 
 class TestAntiTamperShield(unittest.TestCase):

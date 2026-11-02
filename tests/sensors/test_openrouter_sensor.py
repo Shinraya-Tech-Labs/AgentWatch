@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-import asyncio
 from types import SimpleNamespace
 
 import pytest
 
 from panoptis.core.event_bus import EventBus
-from panoptis.core.schema import AgentFramework, EventType, ExecutionStatus
-from panoptis.sensors.openrouter_sensor import OpenRouterSensor, instrument_openrouter, _is_openrouter_client
+from panoptis.core.schema import EventType, ExecutionStatus
+from panoptis.sensors.openrouter_sensor import (
+    OpenRouterSensor,
+    _is_openrouter_client,
+    instrument_openrouter,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -69,14 +72,18 @@ class _MockOpenAICompletions:
         return self._response
 
 
-def _make_mock_openrouter_client(response: _MockOpenAIResponse | None = None, should_fail: bool = False):
+def _make_mock_openrouter_client(
+    response: _MockOpenAIResponse | None = None, should_fail: bool = False
+):
     completions = _MockOpenAICompletions(response, should_fail)
     chat = SimpleNamespace(completions=completions)
     client = SimpleNamespace(chat=chat, base_url="https://openrouter.ai/api/v1")
     return client, completions
 
 
-def _make_mock_regular_openai_client(response: _MockOpenAIResponse | None = None, should_fail: bool = False):
+def _make_mock_regular_openai_client(
+    response: _MockOpenAIResponse | None = None, should_fail: bool = False
+):
     completions = _MockOpenAICompletions(response, should_fail)
     chat = SimpleNamespace(completions=completions)
     client = SimpleNamespace(chat=chat, base_url="https://api.openai.com/v1")
@@ -111,7 +118,9 @@ def test_is_openrouter_client_false():
 def test_openrouter_sensor_missing_sdk(monkeypatch):
     """Test that OpenRouterSensor raises RuntimeError when OpenAI SDK is not available."""
     monkeypatch.setattr("panoptis.sensors.openrouter_sensor._OPENAI_AVAILABLE", False)
-    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace()), base_url="https://openrouter.ai/api/v1")
+    client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace()), base_url="https://openrouter.ai/api/v1"
+    )
     with pytest.raises(RuntimeError, match="OpenAI SDK not installed"):
         OpenRouterSensor(client, "sess1", "agent1")
 
@@ -141,7 +150,11 @@ def test_openrouter_sensor_sync_call_emits_events():
     event_types = [e.event_type for e in captured]
     assert EventType.AGENT_INTENT in event_types
 
-    start_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.RUNNING]
+    start_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.RUNNING
+    ]
     assert len(start_events) == 1
     assert start_events[0].session_id == "sess1"
     assert start_events[0].agent_id == "agent1"
@@ -151,7 +164,11 @@ def test_openrouter_sensor_sync_call_emits_events():
     assert start_events[0].metadata["provider"] == "openrouter"
     assert start_events[0].prompt_preview == "Hello"
 
-    completion_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS]
+    completion_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS
+    ]
     assert len(completion_events) == 1
     assert completion_events[0].duration_ms is not None
     assert completion_events[0].duration_ms > 0
@@ -225,11 +242,19 @@ async def test_openrouter_sensor_async_call_emits_events():
     event_types = [e.event_type for e in captured]
     assert EventType.AGENT_INTENT in event_types
 
-    start_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.RUNNING]
+    start_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.RUNNING
+    ]
     assert len(start_events) == 1
     assert start_events[0].prompt_preview == "Hello async"
 
-    completion_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS]
+    completion_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS
+    ]
     assert len(completion_events) == 1
     assert completion_events[0].duration_ms is not None
     assert completion_events[0].duration_ms > 0
@@ -290,7 +315,11 @@ def test_openrouter_sensor_no_usage_in_response():
 
     client.chat.completions.create(model="openrouter/llama-3.1-70b", messages=[])
 
-    completion_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS]
+    completion_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS
+    ]
     assert len(completion_events) == 1
     assert completion_events[0].token_usage is None
 
@@ -306,11 +335,14 @@ def test_openrouter_sensor_no_choices_in_response():
 
     client.chat.completions.create(model="openrouter/llama-3.1-70b", messages=[])
 
-    completion_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS]
+    completion_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS
+    ]
     assert len(completion_events) == 1
 
 
 def test_instrument_openrouter_returns_sensor():
     """Test that instrument_openrouter function exists."""
-    from panoptis.sensors.openrouter_sensor import instrument_openrouter
     assert callable(instrument_openrouter)

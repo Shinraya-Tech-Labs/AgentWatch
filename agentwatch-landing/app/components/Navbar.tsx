@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
-import gsap from "gsap";
+import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import gsap from 'gsap';
 
 const LINKS = [
-  { label: "Features",     href: "#features",     section: "features" },
-  { label: "How it works", href: "#how-it-works", section: "how-it-works" },
-  { label: "Playground",   href: "/playground",   page: true },
-  { label: "About",        href: "/about",        page: true },
-  { label: "Contributors", href: "/contributors", page: true },
-  { label: "GitHub",       href: "https://github.com/Shinraya-Tech-Labs/AgentWatch", external: true },
-  { label: "Discord",      href: "https://discord.gg/UT9uaeY46e", external: true },
+  { label: 'Features', href: '#features', section: 'features' },
+  { label: 'How it works', href: '#how-it-works', section: 'how-it-works' },
+  { label: 'Playground', href: '/playground', page: true },
+  { label: 'About', href: '/about', page: true },
+  { label: 'Contributors', href: '/contributors', page: true },
+  { label: 'GitHub', href: 'https://github.com/Shinraya-Tech-Labs/AgentWatch', external: true },
+  { label: 'Discord', href: 'https://discord.gg/UT9uaeY46e', external: true },
 ];
 
 export default function Navbar() {
@@ -24,7 +24,7 @@ export default function Navbar() {
     const onScroll = () => {
       setScrolled(window.scrollY > 40);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
     // Run once on mount to catch initial scroll state
     onScroll();
 
@@ -42,20 +42,20 @@ export default function Navbar() {
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (visible?.target?.id) setActive(visible.target.id);
       },
-      { rootMargin: "-30% 0px -55% 0px", threshold: 0 }
+      { rootMargin: '-30% 0px -55% 0px', threshold: 0 },
     );
     els.forEach((el) => obs.observe(el));
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener('scroll', onScroll);
       obs.disconnect();
     };
   }, []);
 
   const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    if (!href.startsWith("#")) return;
+    if (!href.startsWith('#')) return;
     // On non-home pages, hash links should route back to the home section
-    if (typeof window !== "undefined" && window.location.pathname !== "/") {
+    if (typeof window !== 'undefined' && window.location.pathname !== '/') {
       e.preventDefault();
       window.location.href = `/${href}`;
       return;
@@ -63,30 +63,28 @@ export default function Navbar() {
     e.preventDefault();
     const el = document.querySelector(href);
     if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
   // Magnetic glow for "Get Started"
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
-      document.querySelectorAll<HTMLElement>("[data-nav-magnetic]").forEach((el) => {
+      document.querySelectorAll<HTMLElement>('[data-nav-magnetic]').forEach((el) => {
         const r = el.getBoundingClientRect();
-        el.style.setProperty("--mx", `${e.clientX - r.left}px`);
-        el.style.setProperty("--my", `${e.clientY - r.top}px`);
+        el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+        el.style.setProperty('--my', `${e.clientY - r.top}px`);
       });
     };
-    window.addEventListener("pointermove", onMove, { passive: true });
-    return () => window.removeEventListener("pointermove", onMove);
+    window.addEventListener('pointermove', onMove, { passive: true });
+    return () => window.removeEventListener('pointermove', onMove);
   }, []);
 
   return (
     <nav
       ref={navRef}
       className={`fixed top-0 left-0 right-0 z-[999] transition-all duration-300 ${
-        scrolled
-          ? "bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/5"
-          : "bg-transparent"
+        scrolled ? 'bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/5' : 'bg-transparent'
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -96,7 +94,7 @@ export default function Navbar() {
           className="flex items-center gap-2.5 group"
           onClick={(e) => {
             e.preventDefault();
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         >
           <div className="relative w-8 h-8 flex items-center justify-center">
@@ -128,7 +126,7 @@ export default function Navbar() {
           </div>
           <span
             className="font-bold text-lg tracking-tight gradient-text"
-            style={{ fontFamily: "var(--font-syne)" }}
+            style={{ fontFamily: 'var(--font-syne)' }}
           >
             AgentWatch
           </span>
@@ -157,7 +155,7 @@ export default function Navbar() {
                 <a
                   key={item.label}
                   href={item.href}
-                  data-active={isActive ? "true" : "false"}
+                  data-active={isActive ? 'true' : 'false'}
                   className="nav-link text-sm text-[#a8a8a8] hover:text-[#e5e2e1] transition-colors duration-200"
                 >
                   {item.label}
@@ -168,7 +166,7 @@ export default function Navbar() {
               <a
                 key={item.label}
                 href={item.href}
-                data-active={active === item.section ? "true" : "false"}
+                data-active={active === item.section ? 'true' : 'false'}
                 onClick={(e) => handleAnchorClick(e, item.href)}
                 className="nav-link text-sm text-[#a8a8a8] hover:text-[#e5e2e1] transition-colors duration-200"
               >
@@ -183,14 +181,23 @@ export default function Navbar() {
             rel="noreferrer"
             data-nav-magnetic
             className="btn-magnetic relative overflow-hidden px-4 py-2 rounded-lg text-sm font-semibold text-[#0a0a0a] bg-[#e8ff47] hover:bg-[#bcd20e]"
-            style={{ boxShadow: "0 0 14px rgba(232,255,71,0.18)" }}
+            style={{ boxShadow: '0 0 14px rgba(232,255,71,0.18)' }}
           >
             <span className="relative z-10">Get Started</span>
           </a>
         </div>
 
-        <button aria-label="Toggle menu" className="md:hidden text-[#888] hover:text-white transition-colors">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
+        <button
+          aria-label="Toggle menu"
+          className="md:hidden text-[#888] hover:text-white transition-colors"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="w-6 h-6"
+          >
             <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>

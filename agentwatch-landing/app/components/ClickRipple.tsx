@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
+import { useEffect } from 'react';
 
 /**
  * Global click ripple — a soft cybernetic pulse at each pointerdown.
@@ -12,8 +12,8 @@ export default function ClickRipple() {
       const t = e.target as HTMLElement | null;
       if (t && t.closest("input,textarea,[contenteditable='true']")) return;
 
-      const ripple = document.createElement("span");
-      ripple.className = "click-ripple";
+      const ripple = document.createElement('span');
+      ripple.className = 'click-ripple';
       ripple.style.left = `${e.clientX}px`;
       ripple.style.top = `${e.clientY}px`;
       document.body.appendChild(ripple);
@@ -21,8 +21,8 @@ export default function ClickRipple() {
       setTimeout(() => ripple.remove(), 900);
     };
 
-    window.addEventListener("pointerdown", onPointerDown, { passive: true });
-    return () => window.removeEventListener("pointerdown", onPointerDown);
+    window.addEventListener('pointerdown', onPointerDown, { passive: true });
+    return () => window.removeEventListener('pointerdown', onPointerDown);
   }, []);
 
   return null;

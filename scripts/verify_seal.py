@@ -54,10 +54,17 @@ def main(argv: list[str] | None = None) -> int:
             with open(args.key_file, encoding="utf-8") as f:
                 key = _key(f.read())
         else:
-            keys = dict(p.strip().split("=", 1) for p in re.split(r"[,\n]", os.environ.get("AGENTWATCH_ATTEST_KEYS", "")) if "=" in p)
+            keys = dict(
+                p.strip().split("=", 1)
+                for p in re.split(r"[,\n]", os.environ.get("AGENTWATCH_ATTEST_KEYS", ""))
+                if "=" in p
+            )
             kid = seal.get("key_id")
             if kid not in keys:
-                print(f"no key for key_id {kid!r} (use --key-file or AGENTWATCH_ATTEST_KEYS)", file=sys.stderr)
+                print(
+                    f"no key for key_id {kid!r} (use --key-file or AGENTWATCH_ATTEST_KEYS)",
+                    file=sys.stderr,
+                )
                 return 2
             key = _key(keys[kid])
     except (OSError, ValueError, binascii.Error, json.JSONDecodeError) as exc:
