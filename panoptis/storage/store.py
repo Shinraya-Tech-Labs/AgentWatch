@@ -464,29 +464,55 @@ class Store:
             )
         if not rows:
             return result
-        with self.engine.begin() as conn:
-            existing: dict[tuple[str, str], str] = {}
-            by_tenant: dict[str, list[str]] = {}
-            for r in rows:
-                by_tenant.setdefault(r["tenant_id"], []).append(r["idempotency_key"])
-            for tenant, idems in by_tenant.items():
-                for chunk in _chunks(idems, 500):
-                    q = select(s.observations.c.idempotency_key, s.observations.c.obs_id).where(
-                        s.observations.c.tenant_id == tenant,
-                        s.observations.c.idempotency_key.in_(chunk),
-                    )
-                    for idem, oid in conn.execute(q):
-                        existing[(tenant, idem)] = oid
-            fresh = [r for r in rows if (r["tenant_id"], r["idempotency_key"]) not in existing]
-            fresh_ids = {r["obs_id"] for r in fresh}
-            result.duplicates.extend(existing.values())
-            if fresh:
-                conn.execute(insert(s.observations), fresh)
-                ids = [r for r in id_rows if r["obs_id"] in fresh_ids]
-                if ids:
-                    conn.execute(insert(s.declared_ids), ids)
-            result.accepted.extend(r["obs_id"] for r in fresh)
-        return result
+        try:
+            with self.engine.begin() as conn:
+                existing: dict[tuple[str, str], str] = {}
+                by_tenant: dict[str, list[str]] = {}
+                for r in rows:
+                    by_tenant.setdefault(r["tenant_id"], []).append(r["idempotency_key"])
+                for tenant, idems in by_tenant.items():
+                    for chunk in _chunks(idems, 500):
+                        q = select(s.observations.c.idempotency_key, s.observations.c.obs_id).where(
+                            s.observations.c.tenant_id == tenant,
+                            s.observations.c.idempotency_key.in_(chunk),
+                        )
+                        for idem, oid in conn.execute(q):
+                            existing[(tenant, idem)] = oid
+                fresh = [r for r in rows if (r["tenant_id"], r["idempotency_key"]) not in existing]
+                fresh_ids = {r["obs_id"] for r in fresh}
+                result.duplicates.extend(existing.values())
+                if fresh:
+                    conn.execute(insert(s.observations), fresh)
+                    ids = [r for r in id_rows if r["obs_id"] in fresh_ids]
+                    if ids:
+                        conn.execute(insert(s.declared_ids), ids)
+                result.accepted.extend(r["obs_id"] for r in fresh)
+            return result
+        except IntegrityError:  # pragma: no cover - concurrent race on idempotency key
+            result = AppendResult()
+            with self.engine.connect() as conn:
+                existing = {}
+                for tenant, idems in by_tenant.items():
+                    for chunk in _chunks(idems, 500):
+                        q = select(s.observations.c.idempotency_key, s.observations.c.obs_id).where(
+                            s.observations.c.tenant_id == tenant,
+                            s.observations.c.idempotency_key.in_(chunk),
+                        )
+                        for idem, oid in conn.execute(q):
+                            existing[(tenant, idem)] = oid
+                result.duplicates.extend(existing.values())
+                rem = [
+                    d
+                    for i, d in enumerate(drafts)
+                    if i < len(rows)
+                    and (rows[i]["tenant_id"], rows[i]["idempotency_key"]) not in existing
+                ]
+                if rem:
+                    res = self.append(rem, policy=policy)
+                    result.accepted.extend(res.accepted)
+                    result.duplicates.extend(res.duplicates)
+                    result.rejected.extend(res.rejected)
+            return result
 
     def _obs_row(
         self,
