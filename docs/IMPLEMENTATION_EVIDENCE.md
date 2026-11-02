@@ -57,7 +57,9 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-024 discovery | DONE (dashboard view in TO-029) | [TO-024](#to-024) |
 | TO-025 emergency controls | DONE (dashboard view in TO-029) | [TO-025](#to-025) |
 | TO-026 evidence integrity | DONE | [TO-026](#to-026) |
-| TO-027 … TO-040 | NOT STARTED unless listed below | — |
+| TO-027 API | DONE | [TO-027](#to-027) |
+| TO-028 CLI | DONE | [TO-028](#to-028) |
+| TO-029 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -1163,4 +1165,43 @@ Forged unsealed rows went unreported. The update trigger also left sensor, seque
 - `pytest tests/v3 tests/test_cli*.py tests/test_server.py tests/test_tenant_store_sql.py`: 616 passed (after keeping the `evidence verify` output keys backward compatible)
 
 **Commits:** `57930b8` `cd114e3` `37c1001` `270458e`, plus the PostgreSQL test and this ledger.
+
+### TO-027
+
+**Status:** DONE. The API integration tests exercise the real protection pipeline and verify tenant isolation. Docs: [`docs/PROTECT_API.md`](PROTECT_API.md).
+
+- **Implementation:** `panoptis/api/protect_api.py`. It is versioned under `/api/v1/protect`, authenticated, and tenant-scoped:
+  - `status` and `decisions` (filters for verdict, tool, agent, session, stage and code; an `after` cursor for polling);
+  - `decisions/{call_id}` (decision, approval, execution and output records);
+  - `loops`, `intent`, `agents` (with suspension state), `mcp`, `discovery`;
+  - `evidence/verify|head|proof/{obs_id}`.
+  These sit alongside the approvals, RBAC and control routers from TO-019, TO-022 and TO-025.
+- **Response schemas:** Pydantic models `DecisionOut` and `FindingOut`. Internal rule keys are stripped, and arguments are not returned in lists.
+- **Request validation:** verdict pattern, limit bounds and cursor length.
+- **Shared middleware:** the existing auth, rate limits, body-size limit and generic 500 handler apply.
+- **Tests:** `tests/protect/test_protect_api.py` (15). Two tenants' agents make real calls into one store: allowed, blocked, mutated with a secret, escalated and approved, a loop, an intent mismatch, an MCP gateway call, and a discovery record.
+  - **Isolation:** decisions, filters and the call detail are tenant-scoped; another tenant gets 404.
+  - **Redaction:** responses carry no secret and no rule text.
+  - **Pages:** loops and intent events; agents with objectives and suspension; MCP per server; discovery; status; controls reflected in status and agents.
+  - **Evidence:** verify, head and an independently verifiable proof; another tenant gets 404, and an unsealed record 409.
+  - **Errors:** 5 malformed inputs give 422; 8 routes need auth (401); the cursor works; a store failure is a generic 500, with no path leaked.
+
+### TO-028
+
+**Status:** DONE. CLI smoke tests run against a real local deployment and verify the returned state: a uvicorn API server in its own process, plus a real protected agent sharing the store. Docs: [`docs/PROTECT_CLI.md`](PROTECT_CLI.md).
+
+- **Implementation:** `panoptis/cli/protect_ops.py`:
+  - `protect status | decisions | agents | approvals list|approve|reject | rbac validate|permissions|check | doctor`;
+  - **API mode** (`--api`/`AGENTWATCH_API_URL`, `--key`): authorized by the server, the same rules as the API;
+  - **local mode:** operator access to the store;
+  - fixed exit codes (1 invalid, 2 tampered, 3 not authorized, 4 unavailable); one-line errors; keys never printed.
+- **Existing groups** cover the rest: `control`, `discover`, `evidence` (now with `export`, `verify-bundle`, `proof`), `mcp-gateway`, `claude-hook`.
+- **Tests:** `tests/protect/test_cli_deployment.py` (7, about 90 s):
+  - status, decisions and agents in API mode reflect the agent's real calls and are scoped to each tenant's key; local mode agrees;
+  - **approvals:** a CLI approval releases a waiting agent thread, so the tool runs once; another tenant's key and a wrong digest are refused;
+  - **controls:** `kill` with a tenant key gets 403; the CLI kill blocks the agent, and reset resumes it;
+  - **RBAC:** `rbac check` / `permissions` through the API;
+  - **evidence:** `evidence verify` against the real store;
+  - **configuration:** an invalid policy gives `validate` exit 1 with all errors, and `doctor` fails;
+  - **failures:** a wrong or missing key exits 3 and the key is not echoed; an unreachable server exits 4 with no traceback.
 

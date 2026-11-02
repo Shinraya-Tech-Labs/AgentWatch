@@ -611,38 +611,38 @@ new tool execution across the supported runtime topology.
 **Acceptance evidence:** An independent verifier accepts valid evidence
 and rejects tampered or incomplete evidence.
 
-## TO-027 --- Complete API integration
+## TO-027 --- Complete API integration — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-027)
 
--   [ ] Expose the authoritative protection decisions and runtime events
+-   [x] Expose the authoritative protection decisions and runtime events
     through versioned API routes.
--   [ ] Implement authenticated, tenant-scoped endpoints for agents,
+-   [x] Implement authenticated, tenant-scoped endpoints for agents,
     policies, approvals, loops, intent decisions, MCP, discovery,
     evidence, and emergency controls as applicable.
--   [ ] Validate request and response schemas.
--   [ ] Apply authorization, rate limits, request-size limits, and safe
+-   [x] Validate request and response schemas.
+-   [x] Apply authorization, rate limits, request-size limits, and safe
     error handling consistently.
--   [ ] Ensure API responses do not expose secrets, internal regexes, or
+-   [x] Ensure API responses do not expose secrets, internal regexes, or
     other tenants' information.
--   [ ] Add API integration tests for success, denial, malformed input,
+-   [x] Add API integration tests for success, denial, malformed input,
     tenant isolation, and service failure.
--   [ ] Document endpoint contracts and authentication.
+-   [x] Document endpoint contracts and authentication.
 
 **Acceptance evidence:** API integration tests exercise the real
 protection pipeline and verify tenant isolation.
 
-## TO-028 --- Complete CLI
+## TO-028 --- Complete CLI — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-028)
 
--   [ ] Provide commands to inspect status, agents, policies, approvals,
+-   [x] Provide commands to inspect status, agents, policies, approvals,
     evidence, MCP gateway, discovery, and emergency controls.
--   [ ] Provide a command to run evidence verification.
--   [ ] Provide safe configuration validation and diagnostics.
--   [ ] Ensure commands use the same authorization and policy rules as
+-   [x] Provide a command to run evidence verification.
+-   [x] Provide safe configuration validation and diagnostics.
+-   [x] Ensure commands use the same authorization and policy rules as
     the API.
--   [ ] Avoid printing secrets or claiming a runtime is protected when
+-   [x] Avoid printing secrets or claiming a runtime is protected when
     it is only discovered.
--   [ ] Add CLI tests for valid use, invalid configuration,
+-   [x] Add CLI tests for valid use, invalid configuration,
     authorization failure, and service unavailability.
--   [ ] Document installation and command examples.
+-   [x] Document installation and command examples.
 
 **Acceptance evidence:** CLI smoke tests run against a real local test
 deployment and verify returned state.
