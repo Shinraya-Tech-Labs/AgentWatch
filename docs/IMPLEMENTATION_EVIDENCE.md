@@ -33,7 +33,7 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | CTRL-003 ledger | IN PROGRESS | this file, kept current per task |
 | CTRL-004 … CTRL-008 | IN PROGRESS | rules applied throughout; CTRL-008 runs at the end |
 | TO-001 fail-open execution | DONE | [TO-001](#to-001) |
-| TO-002 enforcement pipeline | IN PROGRESS | [TO-002](#to-002) |
+| TO-002 enforcement pipeline | DONE | [TO-002](#to-002) |
 | TO-003 tenant identity | DONE | [TO-003](#to-003) |
 | Port onto `panoptis` layout | DONE | merge `4c2025d` (see below) |
 | TO-004 tenant-safe erasure | DONE | [TO-004](#to-004) |
@@ -49,11 +49,14 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-016 generic and direct tools | DONE | [TO-016](#to-016) |
 | TO-017 threat analysis | DONE | [TO-017](#to-017) |
 | TO-018 output inspection | DONE | [TO-018](#to-018) |
-| TO-019 approvals | DONE (UI test in TO-028) | [TO-019](#to-019) |
+| TO-019 approvals | DONE (UI test in TO-029) | [TO-019](#to-019) |
 | TO-020 loop detection | DONE | [TO-020](#to-020) |
 | TO-021 intent grounding | DONE | [TO-021](#to-021) |
-| TO-022 RBAC | DONE (dashboard view in TO-028) | [TO-022](#to-022) |
-| TO-023 … TO-040 | NOT STARTED unless listed below | — |
+| TO-022 RBAC | DONE (dashboard view in TO-029) | [TO-022](#to-022) |
+| TO-023 MCP gateway | DONE | [TO-023](#to-023) |
+| TO-024 discovery | DONE (dashboard view in TO-029) | [TO-024](#to-024) |
+| TO-025 emergency controls | DONE (dashboard view in TO-029) | [TO-025](#to-025) |
+| TO-026 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -112,7 +115,7 @@ The original bug was reproduced first: with the old `watcher.py` stashed, the ex
 
 ### TO-002
 
-**Status:** IN PROGRESS. The boundary is complete and tested. The last open requirement is "all integrations call this shared pipeline"; it is met as each integration adopts it (TO-011–016 framework adapters, TO-023 MCP gateway).
+**Status:** DONE (closed with TO-023). Every enforcing integration now calls the one pipeline; see **TO-002 closure** below the TO-023 entry. The boundary itself is complete and tested.
 
 **Changes:**
 
@@ -833,7 +836,7 @@ pytest tests/e2e_claude -m external -v
 
 ### TO-019
 
-**Status:** DONE. The acceptance criterion passes: end-to-end tests prove a tool runs only after a valid approval for the exact requested action. The dashboard approvals view and its UI test belong to TO-028, and that checklist item stays open until then. Docs: [`docs/APPROVALS.md`](APPROVALS.md).
+**Status:** DONE. The acceptance criterion passes: end-to-end tests prove a tool runs only after a valid approval for the exact requested action. The dashboard approvals view and its UI test belong to TO-029, and that checklist item stays open until then. Docs: [`docs/APPROVALS.md`](APPROVALS.md).
 
 **Defects found and fixed:**
 
@@ -952,7 +955,7 @@ The earlier approval tests in `tests/protect/test_enforce.py` and `tests/protect
 
 ### TO-022
 
-**Status:** DONE. RBAC integration tests prove unauthorized tool names and arguments are rejected before execution. The dashboard view of effective permissions belongs to TO-028; the API exists. Docs: [`docs/RBAC.md`](RBAC.md).
+**Status:** DONE. RBAC integration tests prove unauthorized tool names and arguments are rejected before execution. The dashboard view of effective permissions belongs to TO-029; the API exists. Docs: [`docs/RBAC.md`](RBAC.md).
 
 **Defects found and fixed:**
 
@@ -993,4 +996,116 @@ The earlier approval tests in `tests/protect/test_enforce.py` and `tests/protect
 - `pytest tests/protect tests/test_api*.py tests/v3/test_tenant_isolation_api.py tests/contracts`: 639 passed
 
 **Commits:** `fffc83b` `7401e53` `c8f6a64` `a927d19`, plus this ledger commit.
+
+### TO-023
+
+**Status:** DONE. In an end-to-end test, the official MCP SDK client talks to the AgentWatch gateway (started through its real CLI), which talks to an MCP SDK server. It runs over stdio and over Streamable HTTP. The scenario proves a blocked `tools/call` never reaches the upstream server (the server's own call log has no entry), and unsafe output (a synthetic injection) is sanitized before it returns. Docs: [`docs/MCP_GATEWAY.md`](MCP_GATEWAY.md).
+
+**Implementation:**
+
+- `panoptis/protect/mcp_gateway.py`:
+  - **Message proxy:** `MCPGateway` passes every message unchanged except `tools/call`.
+  - **`ToolCallGuard`,** shared by both transports: validates the call and routes it through `aenforce_call`. It forwards only admitted calls, with the admitted (possibly redacted) arguments, and returns the sanitized result. A refused call gets an `isError` result with `_meta.agentwatch`.
+  - **Transports:** `run_stdio` (spawns the server) and `build_http_app` (Streamable HTTP; tenant from `X-AgentWatch-Key`, never forwarded; refuses a public bind without keys).
+  - `build_pipeline`, which uses the approvals broker on the shared store; `client_config`; `gateway_status`.
+- **CLI:** `panoptis protect mcp-gateway stdio|http|config|status`.
+- **Support matrix:** two PRE rows (stdio, HTTP) and the MCP tap as observation only.
+
+**Defect found on the way:** an upstream result containing `aws_secret_access_key=<40 chars>` reached the client unredacted. No secret pattern covered credential assignments. Added `secret.credential_assignment` (arguments, output and evidence), and the redaction rules are now part of `THREAT_RULES_VERSION`.
+
+**Tests:** `tests/protect/test_mcp_gateway.py` (30).
+
+- **Protocol-level:**
+  - malformed messages (7 kinds, none forwarded) and oversized messages;
+  - passthrough of `initialize`, notifications, lists, error responses and server requests, preserved exactly, with tool schemas intact;
+  - the session is recorded with server info.
+- **Calls:**
+  - an allowed call keeps its id;
+  - a blocked call is never forwarded, and is recorded with source `mcp:fake`;
+  - mutated arguments are what the server receives;
+  - injection is quarantined and secrets in the output are redacted;
+  - invalid params, duplicate in-flight ids, preserved upstream errors (recorded as failures), and too many in flight.
+- **Failure handling:** a timeout returns `-32001` and sends `notifications/cancelled` upstream; a disconnect returns `-32000` for pending and later calls.
+- **Approvals:**
+  - forwarded only after approval;
+  - a rejected call is never forwarded;
+  - a client cancel during an approval wait means it never runs, and the request is cancelled.
+- **RBAC and tenant binding.**
+- **E2E (SDK client → gateway → SDK server):**
+  - stdio, through the real CLI entry point;
+  - Streamable HTTP with a tenant key;
+  - the key is required (401/400), a public bind without keys is refused, and `client_config` is checked.
+
+**Commands and results:**
+
+- `pytest tests/protect/test_mcp_gateway.py`: 30 passed
+- Full suite at `37a96e4` (gateway + TO-002 closure): **2840 passed, 11 skipped, 0 failed**, coverage 82%.
+
+**Commits:** `3295893` `720c462` `60679d6` `a36de1a` `37a96e4`, plus the TO-002 refactor below.
+
+### TO-002 closure
+
+The last open item was "all integrations call this shared pipeline". One enforcing integration still decided on its own: `watch(agent)` without `protection=`, through its SafetyEngine gate.
+
+- **The gate is now a pipeline stage.** It runs as the **threat stage of a `ProtectionPipeline`** (`_LegacyGateThreats`). The pipeline therefore supplies the decision flow: fail closed, execute at most once, and the kill switch and suspensions.
+- **Legacy behaviour is unchanged.** Errors, messages, published events and policies stay the same; output rewriting and loop and intent blocking are not enabled on this path.
+- **An architectural test guards it.** `tests/protect/test_single_boundary.py` checks every `PRE_EXECUTION_ENFORCEMENT` row of the support matrix for a call into the pipeline. It also proves the legacy path decides inside the pipeline (sync and async) and now honours the kill switch. A full-suite experiment that instead replaced the gate with the default pipeline broke 5 legacy tests, and would have dropped user SafetyEngine policies. It was rejected for that reason.
+
+**Commit:** `f2327d8`, with `tests/protect/test_single_boundary.py` (14).
+
+### TO-024
+
+**Status:** DONE. Discovery tests prove supported agents are identified accurately, and unmonitored agents are never represented as protected. The dashboard view belongs to TO-029; the CLI/JSON output and the `protect.discovery` evidence record exist. Docs: [`docs/DISCOVERY.md`](DISCOVERY.md).
+
+- **Implementation:** `panoptis/protect/discovery.py`:
+  - config scan (Claude Desktop, Claude Code `~/.claude.json` / `.mcp.json` / settings, Cursor, VS Code, Windsurf);
+  - process scan (psutil, optional extra `panoptis[discovery]`) with the listening ports of recognised processes;
+  - evidence-based `MONITORED` / `UNMONITORED` / `UNKNOWN` / `UNSUPPORTED`, with source, timestamp, confidence and reason;
+  - secrets never collected: argument, URL and env redaction; env var names only;
+  - `wrap_server(apply=)`, a dry run by default, which writes a backup and replaces the file atomically.
+- **CLI:** `panoptis protect discover [--json|--record]`, `discover wrap [--apply]`.
+- **Defect caught on a real machine:** the first scan reported 13 "Claude Code" processes. They were Claude Desktop's Electron renderer and utility helpers. Helpers (`--type=`) are now skipped, and the desktop app is told apart from Claude Code by path. The real scan of this machine now reports 2 Claude Code sessions as `UNMONITORED` (correct: neither has the hook) and Claude Desktop as `UNSUPPORTED`.
+- **Tests:** `tests/protect/test_discovery.py` (17 passed, 1 skipped on Windows: POSIX permissions).
+  - **Configs:** classification by evidence; secrets never collected; editor runtimes `UNSUPPORTED` while their servers are classified; Claude Code `MONITORED` only with the hook, and a look-alike hook is not protection.
+  - **Bad sources:** malformed, unreadable and oversized files are `UNKNOWN`.
+  - **Fake processes:** classification, with helpers, unrelated and inaccessible processes skipped, and a secret in argv redacted. The scan is bounded, and missing psutil is reported.
+  - **Rest:** a real-machine smoke test; wrap as a dry run then apply (backup, idempotent); refusals; the ledger record; the CLI JSON.
+
+### TO-025
+
+**Status:** DONE. Integration tests prove the kill switch blocks new tool execution across the supported runtime topology:
+
+- every execution path, including the MCP gateway and the legacy `watch()`;
+- another process on the same host, through the kill file;
+- another process sharing only the store, through the ledger;
+- a restart.
+
+API and CLI exist; the dashboard view belongs to TO-029. Docs: [`docs/EMERGENCY_CONTROLS.md`](EMERGENCY_CONTROLS.md).
+
+**Defects found and fixed:**
+
+| Defect | Fix |
+|---|---|
+| A trip or suspension while a call **waited for approval** did not stop it: approval → the call ran | the approval wait is aborted and the request cancelled (`system:emergency-stop`); `_admit` re-checks immediately before execution |
+| A trip between the decision and the run did not stop the call | the same pre-execution re-check |
+| A streamed result kept flowing after a trip | the stream ends; chunks produced after the stop are not delivered |
+| A reset in one process **did not resume the others**: each process latched the kill in memory once it had seen the file | `local_kill` reads the kill file (written atomically); an uncheckable location blocks |
+| Suspending agent `coder` in one tenant suspended `coder` in **every tenant** | records and checks keyed `<tenant>/<id>` |
+| Control actions accepted an empty reason | rejected |
+| **Self-hosted with `AGENTWATCH_TENANT_KEYS`: any tenant key passed `_require_operator`**, so a tenant could reach operator-only, cross-tenant routes | a tenant key gets 403 on operator routes |
+| No API/CLI for the protect controls | `/api/v1/protect/control…` (global switch operator-only; suspensions tenant-scoped); `panoptis protect control …` |
+
+**Tests:** `tests/protect/test_emergency_controls.py` (16, run 3 times in a row: stable).
+
+- **Paths:** `protect_tool`, sync, async, protected and legacy `watch()`, and the gateway.
+- **Processes:**
+  - **Kill file:** a real subprocess is stopped and then resumed by another process's reset.
+  - **Ledger:** a real subprocess with a different kill file (another host) is stopped through the store, then suspended, then resumed.
+  - **Restart, and an uncheckable kill file:** state survives a restart, and an uncheckable kill file fails closed.
+- **Concurrency:** 8 threads; no call that began after the trip ran.
+- **In-flight and approvals:** an in-flight call finishes and later calls are blocked. A trip during an approval wait cancels it, and a late approval cannot revive it. A trip after approval but before execution blocks.
+- **Streams:** a stream ends at the trip.
+- **Suspensions:** tenant-scoped, and they need a reason (audited).
+- **API:** the kill switch is operator-only (a tenant key gets 403, no key 401). Tenants see the state but not the server path. History is operator-only. Suspensions are scoped to the caller's tenant, and an empty reason gets 422.
+- **CLI:** kill, status, suspend, reset, history.
 

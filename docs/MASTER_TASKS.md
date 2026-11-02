@@ -73,7 +73,7 @@
 enforcement failure blocks execution and that allowed calls execute
 exactly once.
 
-## TO-002 --- Establish one authoritative enforcement pipeline — **IN PROGRESS** (boundary done; framework adapters and the MCP gateway adopt it in TO-011–016 and TO-023)
+## TO-002 --- Establish one authoritative enforcement pipeline — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-002)
 
 -   [x] Implement or complete the shared enforcement module under
     `agentwatch/protect/` (planned path:
@@ -96,7 +96,7 @@ exactly once.
     reject mismatched or missing context according to policy.
 -   [x] Expose a documented public `protect_tool()` API for protecting
     individual tools.
--   [ ] Ensure all integrations call this shared pipeline rather than
+-   [x] Ensure all integrations call this shared pipeline rather than
     reimplementing security decisions.
 -   [x] Add unit, integration, sync, async, exception-path, and
     side-effect-count tests.
@@ -424,7 +424,7 @@ false-positive behavior.
 removed/withheld before reaching the agent and benign content remains
 usable.
 
-## TO-019 --- Complete human-in-the-loop approvals — **DONE** (acceptance met; the dashboard approvals view and its UI test are TO-028; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-019)
+## TO-019 --- Complete human-in-the-loop approvals — **DONE** (acceptance met; the dashboard approvals view and its UI test are TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-019)
 
 -   [x] Define approval request identity, context, expiry, and one-time
     use.
@@ -437,7 +437,7 @@ usable.
 -   [x] Record approval actor, timestamp, decision, and bound action in
     evidence.
 -   [ ] Add API/UI and integration tests for the full approval
-    lifecycle. *(API and integration done; UI in TO-028)*
+    lifecycle. *(API and integration done; UI in TO-029)*
 
 **Acceptance evidence:** End-to-end tests prove execution occurs only
 after a valid approval for the exact requested action.
@@ -491,7 +491,7 @@ a productive-polling case that must not be flagged.
 with read-only objectives are blocked/escalated while legitimate aligned
 actions remain usable.
 
-## TO-022 --- Complete per-agent RBAC — **DONE** (acceptance met; the dashboard permissions view is TO-028; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-022)
+## TO-022 --- Complete per-agent RBAC — **DONE** (acceptance met; the dashboard permissions view is TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-022)
 
 -   [x] Define agent roles and an explicit allowed/forbidden tool
     matrix.
@@ -509,78 +509,78 @@ actions remain usable.
     rate limits, default deny, invalid policy, reload, and tenant
     boundaries.
 -   [x] Expose effective permissions and denial reasons in the
-    dashboard/API. *(API done; dashboard view in TO-028)*
+    dashboard/API. *(API done; dashboard view in TO-029)*
 
 **Acceptance evidence:** RBAC integration tests prove unauthorized tool
 names and arguments are rejected before execution.
 
-## TO-023 --- Build standalone MCP gateway/proxy
+## TO-023 --- Build standalone MCP gateway/proxy — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-023)
 
--   [ ] Implement a standalone MCP gateway/proxy using the supported
+-   [x] Implement a standalone MCP gateway/proxy using the supported
     project architecture.
--   [ ] Support stdio transport.
--   [ ] Support the relevant HTTP transport(s) required by the supported
+-   [x] Support stdio transport.
+-   [x] Support the relevant HTTP transport(s) required by the supported
     MCP protocol/version.
--   [ ] Correctly parse and preserve JSON-RPC messages, IDs, errors,
+-   [x] Correctly parse and preserve JSON-RPC messages, IDs, errors,
     notifications, initialization, capabilities, and tool schemas.
--   [ ] Intercept `tools/call` before forwarding it upstream.
--   [ ] Route tool name and arguments through TO-002.
--   [ ] Forward only allowed/approved/mutated calls.
--   [ ] Inspect and sanitize tool responses before returning them to the
+-   [x] Intercept `tools/call` before forwarding it upstream.
+-   [x] Route tool name and arguments through TO-002.
+-   [x] Forward only allowed/approved/mutated calls.
+-   [x] Inspect and sanitize tool responses before returning them to the
     client.
--   [ ] Handle malformed messages, oversized payloads, disconnects,
+-   [x] Handle malformed messages, oversized payloads, disconnects,
     timeouts, and upstream failures safely.
--   [ ] Add redaction, tenant/session binding, rate limits, and evidence
+-   [x] Add redaction, tenant/session binding, rate limits, and evidence
     recording.
--   [ ] Provide CLI commands/configuration for starting and inspecting
+-   [x] Provide CLI commands/configuration for starting and inspecting
     the gateway.
--   [ ] Add protocol-level unit tests and end-to-end tests with a local
+-   [x] Add protocol-level unit tests and end-to-end tests with a local
     fake MCP server/client.
--   [ ] Document setup, transport support, security model, and
+-   [x] Document setup, transport support, security model, and
     limitations.
 
 **Acceptance evidence:** An end-to-end MCP client → AgentWatch gateway →
 test server scenario proves a blocked `tools/call` never reaches the
 upstream server and unsafe output is sanitized before returning.
 
-## TO-024 --- Build local agent and MCP discovery
+## TO-024 --- Build local agent and MCP discovery — **DONE** (dashboard view in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-024)
 
--   [ ] Discover supported local agent runtimes using documented process
+-   [x] Discover supported local agent runtimes using documented process
     and configuration inspection.
--   [ ] Discover relevant MCP configuration files, sockets, and
+-   [x] Discover relevant MCP configuration files, sockets, and
     listening ports using safe, bounded methods.
--   [ ] Identify known runtimes and distinguish `MONITORED`,
+-   [x] Identify known runtimes and distinguish `MONITORED`,
     `UNMONITORED`, `UNKNOWN`, and `UNSUPPORTED`.
--   [ ] Avoid assuming that a discovered process is protected merely
+-   [x] Avoid assuming that a discovered process is protected merely
     because it is detected.
--   [ ] Show discovery source, timestamp, confidence, and monitoring
-    status.
--   [ ] Define permission boundaries and avoid collecting unrelated
+-   [x] Show discovery source, timestamp, confidence, and monitoring
+    status. *(CLI/JSON and evidence record; dashboard view in TO-029)*
+-   [x] Define permission boundaries and avoid collecting unrelated
     process data or secrets.
--   [ ] Do not automatically kill or modify discovered processes.
--   [ ] Add safe lifecycle controls only where explicitly supported and
+-   [x] Do not automatically kill or modify discovered processes.
+-   [x] Add safe lifecycle controls only where explicitly supported and
     authorized.
--   [ ] Add tests using fixture processes/configurations and tests for
+-   [x] Add tests using fixture processes/configurations and tests for
     malformed or inaccessible sources.
--   [ ] Document platform-specific support and limitations.
+-   [x] Document platform-specific support and limitations.
 
 **Acceptance evidence:** Discovery tests prove supported agents are
 identified accurately and unmonitored agents are never represented as
 protected.
 
-## TO-025 --- Complete runtime controls and emergency stop
+## TO-025 --- Complete runtime controls and emergency stop — **DONE** (API/CLI done; dashboard view in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-025)
 
--   [ ] Verify kill switch behavior across all supported execution
+-   [x] Verify kill switch behavior across all supported execution
     paths.
--   [ ] Ensure kill switch state is shared correctly across
+-   [x] Ensure kill switch state is shared correctly across
     processes/instances where required.
--   [ ] Ensure suspension and resume operations are authorized,
+-   [x] Ensure suspension and resume operations are authorized,
     auditable, and race-safe.
--   [ ] Define behavior for in-flight calls and pending approvals during
+-   [x] Define behavior for in-flight calls and pending approvals during
     emergency stop.
--   [ ] Ensure emergency stop blocks new actions before tool execution.
--   [ ] Add concurrency, restart, multi-process, and failure-path tests.
--   [ ] Expose status and authorized controls through API/CLI/dashboard.
+-   [x] Ensure emergency stop blocks new actions before tool execution.
+-   [x] Add concurrency, restart, multi-process, and failure-path tests.
+-   [x] Expose status and authorized controls through API/CLI/dashboard. *(API and CLI done; dashboard in TO-029)*
 
 **Acceptance evidence:** Integration tests prove the kill switch blocks
 new tool execution across the supported runtime topology.

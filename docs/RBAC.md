@@ -95,7 +95,7 @@ POST /api/v1/protect/rbac/check  {"agent_id", "tool", "arguments", "session_id"?
      → {"verdict", "authorized", "reasons": [...], "findings": [...]}   a dry run: no rate budget used
 ```
 
-The API reads `AGENTWATCH_POLICY_FILE`, the file agents enforce. The dashboard's permissions view is TO-028.
+The API reads `AGENTWATCH_POLICY_FILE`, the file agents enforce. The dashboard's permissions view is TO-029.
 
 ## Limitations
 

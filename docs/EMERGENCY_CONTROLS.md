@@ -77,7 +77,7 @@ panoptis protect control reset --reason "resolved"
 panoptis protect control history
 ```
 
-The dashboard view is TO-028.
+The dashboard view is TO-029.
 
 ## Limitations
 
