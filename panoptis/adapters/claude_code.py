@@ -383,28 +383,41 @@ class ClaudeCodeAdapter:
             if event is None:
                 continue
 
-            # Run safety check on tool calls
+            # The CLI runs a tool as soon as it emits the call, so by the time this
+            # event is read the tool has already run. A policy violation found here is
+            # recorded as a detection, never as a block; enforcement is the PreToolUse
+            # hook (panoptis.protect.claude_hook).
             if event.event_type == EventType.TOOL_CALL:
+                status_before = event.status
                 event = await self._safety.check_event(event)
 
                 if event.is_blocked:
-                    # Emit blocked event and skip execution
+                    event.status = status_before
+                    if event.safety is not None:
+                        event.safety = event.safety.model_copy(update={"blocked": False})
+                    event.metadata = {
+                        **(event.metadata or {}),
+                        "policy_violation": True,
+                        "enforcement": "observation_only",
+                    }
                     await self._emit(event)
-                    # Also emit a safety block event
-                    block_event = AgentEvent(
-                        session_id=self.session_id,
-                        agent_id=self.agent_id,
-                        framework=AgentFramework.CLAUDE_CODE,
-                        event_type=EventType.SAFETY_BLOCK,
-                        status=ExecutionStatus.BLOCKED,
-                        safety=event.safety,
-                        metadata={
-                            "blocked_tool": event.tool_call.tool_name
-                            if event.tool_call
-                            else "unknown"
-                        },
+                    await self._emit(
+                        AgentEvent(
+                            session_id=self.session_id,
+                            agent_id=self.agent_id,
+                            framework=AgentFramework.CLAUDE_CODE,
+                            event_type=EventType.SAFETY_CHECK,
+                            status=ExecutionStatus.FAILURE,
+                            safety=event.safety,
+                            metadata={
+                                "violating_tool": event.tool_call.tool_name
+                                if event.tool_call
+                                else "unknown",
+                                "detected_after_execution": True,
+                                "enforcement": "observation_only",
+                            },
+                        )
                     )
-                    await self._emit(block_event)
                     continue
 
             await self._emit(event)
