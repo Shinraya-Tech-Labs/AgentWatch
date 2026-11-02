@@ -74,6 +74,11 @@ _AGENT_ID = re.compile(r"^[A-Za-z0-9_.:@/\-]{1,128}$")
 @dataclass
 class ProtectionConfig:
     fail_closed: bool = True
+    # "enforce" (default) blocks, mutates and sanitizes. "observe" is a compatibility mode:
+    # every call is decided and recorded (mode="observe", would_block) but still runs with
+    # its original arguments and unsanitized output. The kill switch and suspensions are
+    # enforced in both modes.
+    mode: str = "enforce"
     # what to do when a finding asks for human approval but no approval channel exists
     escalate_without_approver: Verdict = Verdict.BLOCK
     approval_timeout_s: float = 120.0
@@ -164,6 +169,13 @@ class ProtectionPipeline:
         config: ProtectionConfig | None = None,
     ) -> None:
         self.config = config or ProtectionConfig()
+        if self.config.mode not in ("enforce", "observe"):
+            raise ValueError(f"mode must be 'enforce' or 'observe', not {self.config.mode!r}")
+        if self.config.mode == "observe":
+            logger.warning(
+                "AgentWatch protection is in OBSERVE mode: calls are recorded, nothing is "
+                "blocked, rewritten or sanitized (except by the kill switch)"
+            )
         self.policy = policy or PolicyStore()
         self.rbac = RBACEngine(self.policy)
         self.ledger = ledger
@@ -639,6 +651,9 @@ class ProtectionPipeline:
             return
         doc = decision.to_dict()
         doc["arguments_mutated"] = decision.mutated_arguments is not None
+        doc["mode"] = self.config.mode
+        if self.config.mode == "observe":
+            doc["would_block"] = not decision.allowed
         self._record(
             KIND_DECISION,
             doc,
@@ -803,15 +818,8 @@ class ProtectionPipeline:
         Raises :class:`ActionBlocked` when the verdict does not allow the call; ``fn`` is
         then never invoked.
         """
-        decision = self.evaluate(action)
-        if not decision.allowed:
-            raise ActionBlocked(decision)
-        self._claim(action.call_id)
-        args = (
-            decision.mutated_arguments
-            if decision.mutated_arguments is not None
-            else action.arguments
-        )
+        decision = self.evaluate(action, wait_for_approval=not self.observing)
+        args = self._admit(action, decision)
         try:
             started = time.perf_counter()
             result = call(args) if call is not None else fn(**args)
@@ -822,7 +830,7 @@ class ProtectionPipeline:
                 result=repr(exc),
                 started=started,
                 error=exc,
-                mutated=decision.mutated_arguments is not None,
+                mutated=args is not action.arguments,
             )
             raise
         self._finish(
@@ -830,9 +838,13 @@ class ProtectionPipeline:
             success=_looks_successful(result),
             result=result,
             started=started,
-            mutated=decision.mutated_arguments is not None,
+            mutated=args is not action.arguments,
         )
         if not self.config.output_inspection:
+            return result
+        if self.observing:
+            if not (inspect.isgenerator(result) or inspect.isasyncgen(result)):
+                self.inspect_output(action, result)  # recorded, not applied
             return result
         if inspect.isgenerator(result):
             return self._inspect_stream(action, result)
@@ -845,15 +857,10 @@ class ProtectionPipeline:
         *,
         call: Callable[[dict[str, Any]], Awaitable[Any]] | None = None,
     ) -> Any:
-        decision = await asyncio.to_thread(self.evaluate, action)
-        if not decision.allowed:
-            raise ActionBlocked(decision)
-        self._claim(action.call_id)
-        args = (
-            decision.mutated_arguments
-            if decision.mutated_arguments is not None
-            else action.arguments
+        decision = await asyncio.to_thread(
+            functools.partial(self.evaluate, wait_for_approval=not self.observing), action
         )
+        args = self._admit(action, decision)
         try:
             started = time.perf_counter()
             result = await (call(args) if call is not None else fn(**args))
@@ -865,7 +872,7 @@ class ProtectionPipeline:
                 result="cancelled",
                 started=started,
                 error=exc,
-                mutated=decision.mutated_arguments is not None,
+                mutated=args is not action.arguments,
             )
             raise
         except Exception as exc:
@@ -875,7 +882,7 @@ class ProtectionPipeline:
                 result=repr(exc),
                 started=started,
                 error=exc,
-                mutated=decision.mutated_arguments is not None,
+                mutated=args is not action.arguments,
             )
             raise
         self._finish(
@@ -883,15 +890,33 @@ class ProtectionPipeline:
             success=_looks_successful(result),
             result=result,
             started=started,
-            mutated=decision.mutated_arguments is not None,
+            mutated=args is not action.arguments,
         )
         if not self.config.output_inspection:
+            return result
+        if self.observing:
+            if not (inspect.isgenerator(result) or inspect.isasyncgen(result)):
+                await asyncio.to_thread(self.inspect_output, action, result)
             return result
         if inspect.isasyncgen(result):
             return self._ainspect_stream(action, result)
         if inspect.isgenerator(result):
             return self._inspect_stream(action, result)
         return (await asyncio.to_thread(self.inspect_output, action, result)).sanitized_output
+
+    @property
+    def observing(self) -> bool:
+        return self.config.mode == "observe"
+
+    def _admit(self, action: ToolAction, decision: Decision) -> dict[str, Any]:
+        """The arguments the tool runs with, or :class:`ActionBlocked`."""
+        emergency = any(f.stage is Stage.KILLSWITCH for f in decision.findings)
+        if not decision.allowed and (not self.observing or emergency):
+            raise ActionBlocked(decision)
+        self._claim(action.call_id)
+        if self.observing or decision.mutated_arguments is None:
+            return action.arguments
+        return decision.mutated_arguments
 
     def _inspect_stream(self, action: ToolAction, stream: Any) -> Any:
         """A streamed result: every chunk is inspected and sanitized before it is yielded."""
@@ -1011,6 +1036,7 @@ class ProtectionPipeline:
                 for s in self.sessions.values()
             ]
         return {
+            "mode": self.config.mode,
             "sessions": sessions,
             "registered_agents": sorted(self.registered_agents),
             "policy": self.policy.status(),
