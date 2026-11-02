@@ -589,23 +589,23 @@ new tool execution across the supported runtime topology.
 
 # P2 --- Evidence, API, dashboard, and operational platform
 
-## TO-026 --- Verify append-only evidence and Merkle integrity
+## TO-026 --- Verify append-only evidence and Merkle integrity — **DONE** (dashboard verification view in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-026)
 
--   [ ] Audit the existing v3 evidence store and all write/read paths.
--   [ ] Verify append-only behavior and detect unauthorized mutation,
+-   [x] Audit the existing v3 evidence store and all write/read paths.
+-   [x] Verify append-only behavior and detect unauthorized mutation,
     deletion, reordering, or truncation.
--   [ ] Verify Merkle proof/root generation and independent
+-   [x] Verify Merkle proof/root generation and independent
     verification.
--   [ ] Bind evidence to tenant, agent, session, action, policy version,
+-   [x] Bind evidence to tenant, agent, session, action, policy version,
     and relevant timestamps.
--   [ ] Ensure evidence records distinguish observed, allowed, blocked,
+-   [x] Ensure evidence records distinguish observed, allowed, blocked,
     escalated, mutated, executed, and sanitized events.
--   [ ] Define retention, export, and tenant-scoped erasure behavior
+-   [x] Define retention, export, and tenant-scoped erasure behavior
     without silently breaking integrity guarantees.
--   [ ] Add tampering tests for modified payloads, missing entries,
+-   [x] Add tampering tests for modified payloads, missing entries,
     reordered entries, and invalid proofs.
--   [ ] Add an independent verification command or documented verifier.
--   [ ] Avoid recording plaintext secrets or unnecessary sensitive
+-   [x] Add an independent verification command or documented verifier.
+-   [x] Avoid recording plaintext secrets or unnecessary sensitive
     content.
 
 **Acceptance evidence:** An independent verifier accepts valid evidence

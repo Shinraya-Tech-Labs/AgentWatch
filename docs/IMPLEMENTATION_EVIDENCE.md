@@ -56,7 +56,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-023 MCP gateway | DONE | [TO-023](#to-023) |
 | TO-024 discovery | DONE (dashboard view in TO-029) | [TO-024](#to-024) |
 | TO-025 emergency controls | DONE (dashboard view in TO-029) | [TO-025](#to-025) |
-| TO-026 … TO-040 | NOT STARTED unless listed below | — |
+| TO-026 evidence integrity | DONE | [TO-026](#to-026) |
+| TO-027 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -1108,4 +1109,58 @@ API and CLI exist; the dashboard view belongs to TO-029. Docs: [`docs/EMERGENCY_
 - **Suspensions:** tenant-scoped, and they need a reason (audited).
 - **API:** the kill switch is operator-only (a tenant key gets 403, no key 401). Tenants see the state but not the server path. History is operator-only. Suspensions are scoped to the caller's tenant, and an empty reason gets 422.
 - **CLI:** kill, status, suspend, reset, history.
+
+### TO-026
+
+**Status:** DONE. An independent verifier (`panoptis/evidence/verifier.py`) accepts valid evidence and rejects tampered or incomplete evidence. It uses the standard library only, imports nothing from AgentWatch, and the tests run it with `python -I` as a lone copied file. Docs: [`docs/EVIDENCE_INTEGRITY.md`](EVIDENCE_INTEGRITY.md).
+
+**Audit (tamper probe on a real store, triggers dropped).** These 5 modifications were accepted as intact:
+
+- a record's kind;
+- its declared ids (agent, session, **verdict**);
+- its timestamp;
+- the declared-id search index;
+- cutting off the newest segment.
+
+Forged unsealed rows went unreported. The update trigger also left sensor, sequence, timestamps, clock, content type, redaction and sampling writable. Finally, the protect ledger never sealed records unless someone ran verify, so pipeline evidence was not integrity-protected at all.
+
+**Fixes:**
+
+- **Version-2 leaves** hash the whole stored envelope, and the segment hash binds the leaf version, so there is no downgrade. Version-1 segments keep verifying.
+- **`verify` checks more:** the declared-id index, first/last ids, sequence gaps, orphan rows, missing blobs and an expected head. It warns about unsealed and late records.
+- **Triggers** guard every envelope column (SQLite and PostgreSQL), are recreated on init, and make `aw3_segment_versions` append-only.
+- **The ledger seals automatically,** every 200 records or 30 s per tenant.
+- **Verification is anchored:** the last verified head is kept outside the store, and `--expect-head` is supported.
+- **New commands:** `export_bundle` and `evidence export | verify-bundle | proof`.
+
+**Tests:** `tests/protect/test_evidence_integrity.py` (25; the PostgreSQL test runs with `AGENTWATCH_TEST_PG_URL` and passed against the local `aw-test-pg` container).
+
+- **Accepted:** valid evidence passes in the store and in the independent verifier.
+- **12 tamperings rejected by both:**
+  - a payload changed, or a payload changed together with its hash;
+  - kind, declared ids, timestamp or sensor changed;
+  - a missing entry, reordered entries, or a row moved to another segment;
+  - a middle segment removed, a segment hash changed, or the leaf version downgraded.
+- **Store-only checks:**
+  - index tampering is rejected by the store;
+  - truncation is caught by the anchor, and by the independent verifier with `--expect-head`;
+  - a rewritten chain is caught;
+  - forged unsealed rows are reported.
+- **Proofs:** inclusion proofs verify independently, and 4 kinds of proof tampering are rejected. Malformed bundles are rejected.
+- **Compatibility and coverage:**
+  - version-1 segments still verify, with a version-2 segment chained on;
+  - records distinguish allow, block, approved escalation, mutation, execution and output sanitization;
+  - every record binds tenant, agent, session, call, policy and rules version, and time;
+  - no plaintext secret is stored.
+- **Operations:** auto-sealing; an authorized purge keeps the chain verifiable; CLI export, verify and verify-bundle (exit 2 on tampering); PostgreSQL triggers.
+
+**Also fixed:** the per-user middleware rate limiter was not reset between tests, so 3 API tests failed with 429 by test order in the full run at `374d969`.
+
+**Commands and results:**
+
+- `pytest tests/protect/test_evidence_integrity.py`: 24 passed, 1 skipped
+- with the PostgreSQL URL set, that test passes too
+- `pytest tests/v3 tests/test_cli*.py tests/test_server.py tests/test_tenant_store_sql.py`: 616 passed (after keeping the `evidence verify` output keys backward compatible)
+
+**Commits:** `57930b8` `cd114e3` `37c1001` `270458e`, plus the PostgreSQL test and this ledger.
 
