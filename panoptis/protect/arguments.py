@@ -97,6 +97,11 @@ SYSTEM_PATHS = re.compile(
     r"[A-Za-z]:\\?|[A-Za-z]:\\(Windows|Program Files|Users))(/|\\)?$",
     re.I,
 )
+# anything under a system directory (SYSTEM_PATHS only matches the directories themselves)
+SYSTEM_PREFIX = re.compile(
+    r"^(/etc|/usr|/bin|/sbin|/boot|/lib|/lib64|/root|/sys|/proc|/dev|[A-Za-z]:[\\/](Windows|Program Files))[\\/]",
+    re.I,
+)
 EXFIL_HOSTS = re.compile(
     r"(?i)(pastebin\.com|paste\.ee|hastebin|transfer\.sh|file\.io|0x0\.st|ngrok(-free)?\.(io|app)|"
     r"webhook\.site|requestbin|pipedream\.net|interact\.sh|oast\.(fun|me|pro|live|site|online)|burpcollaborator|"
@@ -367,6 +372,7 @@ def split_command_line(line: str, depth: int = 0) -> list[ShellCommand]:
         commands.extend(split_command_line(inner or "", depth + 1))
     flat = _SUBST.sub(" SUBST ", line)
     pipe_source: str | None = None
+    assigned: dict[str, str] = {}  # x=rm; $x -rf /   (simple same-line assignments)
     for segment, sep in _split_segments(flat):
         segment = segment.strip()
         if not segment:
@@ -377,6 +383,8 @@ def split_command_line(line: str, depth: int = 0) -> list[ShellCommand]:
         except ValueError:
             argv = segment.split()
         privileged = False
+        last_wrapper: str | None = None
+        only_assignments = all(re.match(r"^[A-Za-z_]\w*=", a) for a in argv)
         # unwrap leading env assignments and wrappers (sudo -u x, env A=B, timeout 5, xargs -0)
         while argv:
             head = argv[0].rsplit("/", 1)[-1].lower()
@@ -385,10 +393,14 @@ def split_command_line(line: str, depth: int = 0) -> list[ShellCommand]:
                 and not argv[0].startswith("-")
                 and re.match(r"^[A-Za-z_]\w*=", argv[0])
             ):
+                if only_assignments:
+                    k, _, v = argv[0].partition("=")
+                    assigned[k] = v
                 argv = argv[1:]
                 continue
             if head in WRAPPERS:
                 privileged = privileged or head in PRIVILEGE
+                last_wrapper = head
                 argv = argv[1:]
                 while argv and (argv[0].startswith("-") or re.match(r"^\d+[smhd]?$", argv[0])):
                     flag = argv[0]
@@ -397,9 +409,16 @@ def split_command_line(line: str, depth: int = 0) -> list[ShellCommand]:
                         argv = argv[1:]
                 continue
             break
+        if not argv and last_wrapper is not None:
+            # a wrapper with nothing after it is a command itself: `sudo su -`, `sudo -i`
+            # (an interactive root shell), a bare `env` (prints the environment)
+            argv = [last_wrapper]
         if not argv:
             pipe_source = None
             continue
+        var = re.match(r"^\$\{?([A-Za-z_]\w*)\}?$", argv[0])
+        if var and var.group(1) in assigned:
+            argv = [assigned[var.group(1)], *argv[1:]]
         name = argv[0].rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
         if name.endswith(".exe"):
             name = name[:-4]
@@ -411,6 +430,15 @@ def split_command_line(line: str, depth: int = 0) -> list[ShellCommand]:
         # text piped into an interpreter is code: echo '...' | sh
         if pipe_source is not None and name in SHELLS and len(argv) == 1:
             commands.extend(split_command_line(pipe_source, depth + 1))
+        if name == "base64" and pipe_source is not None and {"-d", "--decode", "-D"} & set(argv):
+            # echo <b64> | base64 -d | sh: what reaches the shell is the decoded text
+            try:
+                pipe_source = base64.b64decode(pipe_source.strip(), validate=True).decode()
+            except (binascii.Error, UnicodeDecodeError, ValueError):
+                pipe_source = None
+            if sep != "|":
+                pipe_source = None
+            continue
         pipe_source = " ".join(argv[1:]) if name in ("echo", "printf") and sep == "|" else None
         # find ... -exec CMD {} ;   (the executed command is a command too)
         if name == "find":
@@ -437,6 +465,14 @@ def split_command_line(line: str, depth: int = 0) -> list[ShellCommand]:
                 commands.extend(split_command_line(payload, depth + 1))
                 break
     return commands
+
+
+def _sets_setuid(mode: str) -> bool:
+    """chmod mode that sets setuid (4xxx) or setgid (2xxx), numerically or as +s."""
+    m = re.fullmatch(r"0?([0-7])[0-7]{3}", mode)
+    if m:
+        return bool(int(m.group(1)) & 6)
+    return bool(re.fullmatch(r"[ugoa]*[+=][rwxXst]*s[rwxXst]*", mode))
 
 
 def _flags(argv: list[str]) -> set[str]:
@@ -477,11 +513,49 @@ def _host_of(url: str) -> str | None:
         return None
 
 
+def _parse_ipv4_part(part: str) -> int:
+    if part.lower().startswith("0x"):
+        return int(part, 16)
+    if len(part) > 1 and part.startswith("0"):
+        return int(part, 8)
+    return int(part, 10)
+
+
+def canonical_host(host: str) -> str:
+    """The address a host string really names, the way resolvers read it.
+
+    ``2852039166``, ``0xa9fea9fe``, ``0251.0376.0251.0376`` and
+    ``::ffff:169.254.169.254`` are all 169.254.169.254.
+    """
+    h = host.strip("[]").lower()
+    try:
+        ip = ipaddress.ip_address(h)
+        mapped = getattr(ip, "ipv4_mapped", None)
+        return str(mapped or ip)
+    except ValueError:
+        pass
+    parts = h.split(".")
+    if 1 <= len(parts) <= 4 and all(re.fullmatch(r"0x[0-9a-f]+|[0-9]+", p) for p in parts):
+        try:
+            nums = [_parse_ipv4_part(p) for p in parts]
+            value = 0
+            for n in nums[:-1]:
+                if n > 255:
+                    return h
+                value = value * 256 + n
+            value = value * 256 ** (4 - len(parts) + 1) + nums[-1]
+            if 0 <= value < 2**32:
+                return str(ipaddress.IPv4Address(value))
+        except ValueError:
+            pass
+    return h
+
+
 def _is_private_host(host: str) -> bool:
     if host in ("localhost", "localhost.localdomain") or host.endswith(".internal"):
         return True
     try:
-        ip = ipaddress.ip_address(host)
+        ip = ipaddress.ip_address(canonical_host(host))
     except ValueError:
         return False
     return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
@@ -562,6 +636,21 @@ class ArgumentAnalyzer:
         names = [c.name for c in cmds]
         for c in cmds:
             findings.extend(self._classify_command(path, c, profile))
+        # the environment (where credentials live) piped to a network command
+        for i, c in enumerate(cmds[:-1]):
+            dumps_env = c.name in ("env", "printenv", "set", "export") and len(c.argv) == 1
+            if dumps_env and c.piped_to_next and any(d.name in NETWORK_CMDS for d in cmds[i + 1 :]):
+                findings.append(
+                    Finding(
+                        Stage.THREAT,
+                        "EXFIL_ENVIRONMENT",
+                        Severity.CRITICAL,
+                        "Sends the process environment (credentials, tokens) over the network",
+                        {"path": path, "command": text[:300]},
+                        OwaspVector.DATA_EXFILTRATION.value,
+                        Verdict.BLOCK,
+                    )
+                )
         # downloader piped into an interpreter: curl ... | sh
         for i, c in enumerate(cmds[:-1]):
             nxt = cmds[i + 1]
@@ -663,6 +752,38 @@ class ArgumentAnalyzer:
                 "PRIVILEGE_ESCALATION",
                 Severity.HIGH,
                 "Runs with elevated privileges (sudo/doas/su)",
+                OwaspVector.EXCESSIVE_PERMISSIONS,
+                Verdict.ESCALATE_HITL,
+            )
+        if n.startswith("$"):
+            add(
+                "DYNAMIC_COMMAND",
+                Severity.HIGH,
+                f"The command to run comes from a variable ({c.argv[0]}); it cannot be checked",
+                OwaspVector.UNSAFE_CODE_EXEC,
+                Verdict.ESCALATE_HITL,
+            )
+        if n == "chmod" and any(_sets_setuid(a) for a in c.argv[1:]):
+            add(
+                "SETUID_BIT",
+                Severity.CRITICAL,
+                "Sets the setuid/setgid bit, a privilege-escalation primitive",
+                OwaspVector.EXCESSIVE_PERMISSIONS,
+                Verdict.BLOCK,
+            )
+        if (
+            (
+                n in ("usermod", "gpasswd", "adduser", "addgroup", "dseditgroup")
+                and re.search(r"\b(sudo|wheel|admin|root|administrators)\b", c.text, re.I)
+            )
+            or (n == "net" and re.search(r"(?i)localgroup\s+administrators\b.*/add", c.text))
+            or n == "visudo"
+            or (n == "tee" and any("sudoers" in o for o in ops))
+        ):
+            add(
+                "PRIVILEGE_GRANT",
+                Severity.HIGH,
+                "Grants administrative privileges (admin group membership or sudoers)",
                 OwaspVector.EXCESSIVE_PERMISSIONS,
                 Verdict.ESCALATE_HITL,
             )
@@ -1182,7 +1303,16 @@ class ArgumentAnalyzer:
                         "PY_RMTREE_CRITICAL",
                         f"rmtree of a system path {literal_args}",
                     )
-                if code in ("PY_RMTREE", "PY_RMTREE_CRITICAL", "PY_DELETE"):
+                if code == "PY_DELETE" and any(
+                    SYSTEM_PREFIX.match(s) or sensitive_path(s) for s in literal_args
+                ):
+                    sev, rec, code, msg = (
+                        Severity.HIGH,
+                        Verdict.ESCALATE_HITL,
+                        "PY_DELETE_SYSTEM",
+                        f"Deletes a system or sensitive file {literal_args}",
+                    )
+                if code in ("PY_RMTREE", "PY_RMTREE_CRITICAL", "PY_DELETE", "PY_DELETE_SYSTEM"):
                     profile.destructive = profile.mutating = True
                 out.append(
                     Finding(
@@ -1432,10 +1562,27 @@ class ArgumentAnalyzer:
                     )
                 )
         for u in profile.urls:
+            if u.lower().startswith("file://"):
+                local = urllib.parse.unquote(u[7:])
+                label = sensitive_path(local)
+                if label:
+                    profile.reads_sensitive = True
+                if profile.network:
+                    out.append(
+                        Finding(
+                            Stage.THREAT,
+                            "LOCAL_FILE_URL",
+                            Severity.HIGH,
+                            f"A network tool is asked to read a local file ({local})",
+                            {"url": u},
+                            OwaspVector.TRUST_BOUNDARY.value,
+                            Verdict.ESCALATE_HITL,
+                        )
+                    )
             host = _host_of(u)
             if not host:
                 continue
-            if host in METADATA_HOSTS:
+            if host in METADATA_HOSTS or canonical_host(host) in METADATA_HOSTS:
                 out.append(
                     Finding(
                         Stage.THREAT,
@@ -1472,10 +1619,6 @@ class ArgumentAnalyzer:
                         Verdict.ESCALATE_HITL,
                     )
                 )
-            if u.lower().startswith("file://"):
-                label = sensitive_path(u[7:])
-                if label:
-                    profile.reads_sensitive = True
         return out
 
 
