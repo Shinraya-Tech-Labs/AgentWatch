@@ -88,8 +88,11 @@ SENSITIVE_PATHS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(^|[/\\])\.(netrc|pgpass|git-credentials|npmrc|pypirc)\b"), "credential file"),
     (re.compile(r"(^|[/\\])\.(kube|docker)[/\\]config\b"), "cluster/registry credentials"),
     (re.compile(r"(^|[/\\])\.gnupg([/\\]|$)"), "GPG keyring"),
-    (re.compile(r"^/etc/(shadow|gshadow|sudoers)\b|^/etc/passwd\b"), "system account database"),
-    (re.compile(r"(?i)\\windows\\system32\\config\\(sam|system|security)\b"), "Windows SAM hive"),
+    (
+        re.compile(r"(^|[/\\])etc/(shadow|gshadow|sudoers)\b|(^|[/\\])etc/passwd\b"),
+        "system account database",
+    ),
+    (re.compile(r"(?i)[/\\]system32[/\\]config[/\\](sam|system|security)\b"), "Windows SAM hive"),
     (re.compile(r"(?i)(^|[/\\])(credentials|secrets?)\.(json|ya?ml|toml|txt)$"), "secrets file"),
 )
 SYSTEM_PATHS = re.compile(
@@ -697,6 +700,42 @@ class ArgumentAnalyzer:
                     "RCE_POWERSHELL_IEX",
                     Severity.CRITICAL,
                     "Downloads and evaluates a remote PowerShell script",
+                    {"path": path, "command": text[:300]},
+                    OwaspVector.UNSAFE_CODE_EXEC.value,
+                    Verdict.BLOCK,
+                )
+            )
+        if re.search(r"(?i)\bbase64\s+(-d|--decode)\s*\|\s*(sh|bash|zsh|dash)\b", text):
+            findings.append(
+                Finding(
+                    Stage.THREAT,
+                    "OBFUSCATED_PIPE_SHELL",
+                    Severity.CRITICAL,
+                    "Decodes base64 payload and pipes directly into shell",
+                    {"path": path, "command": text[:300]},
+                    OwaspVector.UNSAFE_CODE_EXEC.value,
+                    Verdict.BLOCK,
+                )
+            )
+        if re.search(r"(?i)\bpowershell\b.*-(enc|encodedcommand)\b", text):
+            findings.append(
+                Finding(
+                    Stage.THREAT,
+                    "RCE_POWERSHELL_ENCODED",
+                    Severity.CRITICAL,
+                    "Executes base64-encoded command in PowerShell",
+                    {"path": path, "command": text[:300]},
+                    OwaspVector.UNSAFE_CODE_EXEC.value,
+                    Verdict.BLOCK,
+                )
+            )
+        if re.search(r"(?i)\beval\s+\$\(curl\b|\beval\s+`curl\b", text):
+            findings.append(
+                Finding(
+                    Stage.THREAT,
+                    "RCE_DOWNLOAD_EVAL",
+                    Severity.CRITICAL,
+                    "Downloads and evaluates remote payload via eval",
                     {"path": path, "command": text[:300]},
                     OwaspVector.UNSAFE_CODE_EXEC.value,
                     Verdict.BLOCK,
@@ -1378,11 +1417,11 @@ class ArgumentAnalyzer:
                 Finding(
                     Stage.THREAT,
                     "SQL_STACKED",
-                    Severity.MEDIUM,
+                    Severity.HIGH,
                     "Several stacked SQL statements in one call",
                     ev,
                     OwaspVector.TOOL_ABUSE.value,
-                    Verdict.ALLOW,
+                    Verdict.ESCALATE_HITL,
                 )
             )
         for s in statements:
@@ -1501,11 +1540,26 @@ class ArgumentAnalyzer:
                     Finding(
                         Stage.THREAT,
                         "SQL_TAUTOLOGY",
-                        Severity.MEDIUM,
+                        Severity.HIGH,
                         "SELECT with a tautological WHERE (possible injection)",
                         ev,
-                        OwaspVector.PROMPT_INJECTION.value,
-                        Verdict.ALLOW,
+                        OwaspVector.TOOL_ABUSE.value,
+                        Verdict.ESCALATE_HITL,
+                    )
+                )
+            if re.search(
+                r"(?i)\bunion\s+(all\s+)?select\b|\b(sleep|benchmark)\s*\(|@@version\b|\binformation_schema\b|\bor\s*\(?\s*select\b",
+                text,
+            ):
+                out.append(
+                    Finding(
+                        Stage.THREAT,
+                        "SQL_INJECTION",
+                        Severity.HIGH,
+                        "SQL query contains common injection signature (UNION / SLEEP / metadata extraction)",
+                        ev,
+                        OwaspVector.TOOL_ABUSE.value,
+                        Verdict.ESCALATE_HITL,
                     )
                 )
             if re.search(r"\b(xp_cmdshell|load_file|into\s+outfile|pg_read_file|lo_import)\b", low):
@@ -1564,11 +1618,11 @@ class ArgumentAnalyzer:
                     Finding(
                         Stage.THREAT,
                         "PATH_TRAVERSAL",
-                        Severity.MEDIUM,
+                        Severity.HIGH,
                         f"Deep parent-directory traversal: {p}",
                         {"target": p},
                         OwaspVector.TRUST_BOUNDARY.value,
-                        Verdict.ALLOW,
+                        Verdict.ESCALATE_HITL,
                     )
                 )
         for u in profile.urls:
@@ -1609,11 +1663,11 @@ class ArgumentAnalyzer:
                     Finding(
                         Stage.THREAT,
                         "SSRF_PRIVATE",
-                        Severity.MEDIUM,
+                        Severity.HIGH,
                         f"Requests a private/loopback address ({host})",
                         {"url": u},
                         OwaspVector.TRUST_BOUNDARY.value,
-                        Verdict.ALLOW,
+                        Verdict.ESCALATE_HITL,
                     )
                 )
             if EXFIL_HOSTS.search(u):

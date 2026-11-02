@@ -67,6 +67,7 @@ class Stage(str, Enum):
     LOOP = "loop"
     INTENT = "intent"
     HITL = "hitl"
+    COUNTERFACTUAL = "counterfactual"
     EXECUTION = "execution"
     OUTPUT = "output"
     PIPELINE = "pipeline"

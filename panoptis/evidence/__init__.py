@@ -14,11 +14,19 @@ from panoptis.evidence.model import (
     SamplingInfo,
     SensorRef,
 )
+from panoptis.evidence.recursive_proof import (
+    ProvenInvariant,
+    RecursiveProofCertificate,
+    RecursiveProofCompressor,
+)
 
 __all__ = [
     "ClockInfo",
     "ObservationDraft",
+    "ProvenInvariant",
     "RawObservation",
+    "RecursiveProofCertificate",
+    "RecursiveProofCompressor",
     "RedactionManifest",
     "SamplingInfo",
     "SensorRef",

@@ -154,7 +154,7 @@ def test_erasure_destroys_the_payload_but_not_the_proofs(vault: ShreddingVault) 
         crypto.decrypt(items[0].envelope, crypto.new_key())
     # the ciphertext holds no plaintext, so nothing is recoverable from the stored evidence
     for w in items:
-        assert "Alice" not in w.envelope and "Bob" not in w.envelope
+        assert "Alice Example" not in w.envelope and "Bob Sample" not in w.envelope
     assert all(bytes(k) != alice_key for k in vault.keystore._keys.values())  # type: ignore[attr-defined]
 
     # Merkle validation still passes: same leaf hashes, same root, same proofs

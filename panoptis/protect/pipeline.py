@@ -92,6 +92,15 @@ class ProtectionConfig:
     trip_breaker_after_loops: int = 2  # confirmed loops in a session before the breaker opens
     breaker_cooldown_s: float = 30.0
     breaker_consecutive_errors: int = 5
+    enable_wasi_sandbox: bool = False
+    sandbox_config: Any = None
+    enable_counterfactual_forking: bool = False
+    counterfactual_config: Any = None
+    enable_ifc: bool = False
+    enable_ltl_trajectory: bool = False
+    enable_integrity_guard: bool = False
+    enable_temporal_simulation: bool = False
+    temporal_simulation_config: Any = None
 
 
 @dataclass
@@ -167,6 +176,12 @@ class ProtectionPipeline:
         intent: IntentGrounder | None = None,
         output: OutputInspector | None = None,
         config: ProtectionConfig | None = None,
+        sandbox: Any = None,
+        counterfactual: Any = None,
+        ifc: Any = None,
+        ltl: Any = None,
+        integrity: Any = None,
+        temporal_simulator: Any = None,
     ) -> None:
         self.config = config or ProtectionConfig()
         if self.config.mode not in ("enforce", "observe"):
@@ -185,6 +200,67 @@ class ProtectionPipeline:
         self.loops = loops or LoopDetector(LoopConfig())
         self.intent = intent or IntentGrounder(GroundingConfig())
         self.output = output or OutputInspector(on_injection=self.config.on_injection)
+        if sandbox is not None:
+            self.sandbox = sandbox
+        elif self.config.enable_wasi_sandbox:
+            from panoptis.protect.wasi_sandbox import WasiSandbox, WasiSandboxConfig
+
+            self.sandbox = WasiSandbox(self.config.sandbox_config or WasiSandboxConfig())
+        else:
+            self.sandbox = None
+        if counterfactual is not None:
+            self.counterfactual = counterfactual
+        elif self.config.enable_counterfactual_forking:
+            from panoptis.protect.counterfactual import (
+                CounterfactualConfig,
+                CounterfactualEngine,
+            )
+
+            self.counterfactual = CounterfactualEngine(
+                self.config.counterfactual_config or CounterfactualConfig()
+            )
+        else:
+            self.counterfactual = None
+        if ifc is not None:
+            self.ifc = ifc
+        elif self.config.enable_ifc:
+            from panoptis.protect.ifc_lattice import InformationFlowEngine
+
+            self.ifc = InformationFlowEngine()
+        else:
+            self.ifc = None
+        if ltl is not None:
+            self.ltl = ltl
+        elif self.config.enable_ltl_trajectory:
+            from panoptis.protect.ltl_trajectory import LTLTrajectoryVerifier
+
+            self.ltl = LTLTrajectoryVerifier()
+        else:
+            self.ltl = None
+        if integrity is not None:
+            self.integrity = integrity
+        elif self.config.enable_integrity_guard:
+            from panoptis.protect.integrity import RuntimeIntegrityGuard
+
+            self.integrity = RuntimeIntegrityGuard()
+            self.integrity.seal_function("evaluate", self, "evaluate")
+            self.integrity.seal_function("execute", self, "execute")
+            self.integrity.seal_function("rbac_authorize", self.rbac, "authorize")
+        else:
+            self.integrity = None
+        if temporal_simulator is not None:
+            self.temporal_simulator = temporal_simulator
+        elif self.config.enable_temporal_simulation:
+            from panoptis.protect.temporal_simulator import (
+                FastForwardSimulationEngine,
+                SimulationConfig,
+            )
+
+            self.temporal_simulator = FastForwardSimulationEngine(
+                self.config.temporal_simulation_config or SimulationConfig()
+            )
+        else:
+            self.temporal_simulator = None
         self.telemetry = Telemetry()
         self.sessions: dict[str, SessionInfo] = {}
         self.registered_agents: set[str] = set()
@@ -316,6 +392,10 @@ class ProtectionPipeline:
 
         findings += timed("identity", lambda: self._identity(action))
         findings += timed("control", lambda: self._control(action))
+        if self.config.enable_integrity_guard and self.integrity is not None:
+            findings += timed("integrity", lambda: self.integrity.verify_integrity()[1])
+        if self.config.enable_ltl_trajectory and self.ltl is not None:
+            findings += timed("ltl", lambda: self.ltl.verify_action(action))
         if not _blocked(findings):
             profile_box: list[Any] = []
 
@@ -327,6 +407,11 @@ class ProtectionPipeline:
                 return report.findings
 
             findings += timed("threat", threat)
+            if self.config.enable_ifc and self.ifc is not None:
+                findings += timed(
+                    "ifc",
+                    lambda: self.ifc.audit_tool_call(action.tool, action.arguments)[1],
+                )
             profile = profile_box[0] if profile_box else None
             if profile is not None:
                 findings += timed(
@@ -368,6 +453,34 @@ class ProtectionPipeline:
                         None,
                         Verdict.BLOCK,
                     )
+                )
+
+            if (
+                self.config.enable_temporal_simulation
+                and self.temporal_simulator is not None
+                and not _blocked(findings)
+            ):
+                session_ctx = {
+                    "has_read_sensitive": (
+                        any(
+                            s.reads_sensitive
+                            for s in getattr(self.ltl, "traces", {}).get(action.session_id, [])
+                        )
+                        if self.ltl is not None
+                        else False
+                    ),
+                    "has_untrusted_ingest": (
+                        any(
+                            s.untrusted_ingest
+                            for s in getattr(self.ltl, "traces", {}).get(action.session_id, [])
+                        )
+                        if self.ltl is not None
+                        else False
+                    ),
+                }
+                findings += timed(
+                    "temporal_simulation",
+                    lambda: self.temporal_simulator.simulate_action(action, session_ctx).findings,
                 )
 
         verdict = strongest([f.recommends for f in findings])
@@ -830,6 +943,8 @@ class ProtectionPipeline:
         self.loops.record_result(
             action.call_id, success=success, output=result, session_id=action.scope
         )
+        if self.ltl is not None and success:
+            self.ltl.record_step(action, result=result)
         b = self.breaker(action.scope)
         b.observe(
             AgentEvent(
@@ -857,7 +972,49 @@ class ProtectionPipeline:
         args = self._admit(action, decision)
         try:
             started = time.perf_counter()
-            result = call(args) if call is not None else fn(**args)
+            if self.counterfactual is not None:
+                cf_res = self.counterfactual.fork_and_evaluate(
+                    action,
+                    lambda **kw: call(kw) if call is not None else fn(**kw),
+                    args,
+                )
+                if not cf_res.is_safe:
+                    finding = (
+                        cf_res.findings[0]
+                        if cf_res.findings
+                        else Finding(
+                            Stage.COUNTERFACTUAL,
+                            "COUNTERFACTUAL_BLOCKED",
+                            Severity.CRITICAL,
+                            "Speculative counterfactual execution violated invariants",
+                            recommends=Verdict.BLOCK,
+                        )
+                    )
+                    block_decision = Decision(
+                        action=action,
+                        verdict=Verdict.BLOCK,
+                        risk_score=1.0,
+                        findings=[finding],
+                    )
+                    raise ActionBlocked(block_decision)
+                if cf_res.promoted:
+                    result = cf_res.output
+                elif self.sandbox is not None:
+                    sandbox_res = self.sandbox.run_function(
+                        lambda: call(args) if call is not None else fn(**args),
+                        rollback_on_error=True,
+                    )
+                    result = sandbox_res.output
+                else:
+                    result = call(args) if call is not None else fn(**args)
+            elif self.sandbox is not None:
+                sandbox_res = self.sandbox.run_function(
+                    lambda: call(args) if call is not None else fn(**args),
+                    rollback_on_error=True,
+                )
+                result = sandbox_res.output
+            else:
+                result = call(args) if call is not None else fn(**args)
         except Exception as exc:
             self._finish(
                 action,
