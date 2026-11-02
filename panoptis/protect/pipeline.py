@@ -736,7 +736,28 @@ class ProtectionPipeline:
         duration_ms = (
             round((time.perf_counter() - started) * 1000, 3) if started is not None else None
         )
-        error = getattr(error, "original", error)  # the tool's own exception, not a wrapper
+        self.record_execution(
+            action,
+            success=success,
+            result=result,
+            duration_ms=duration_ms,
+            error=getattr(error, "original", error),  # the tool's own exception, not a wrapper
+            mutated=mutated,
+        )
+
+    def record_execution(
+        self,
+        action: ToolAction,
+        *,
+        success: bool,
+        result: Any = None,
+        duration_ms: float | None = None,
+        error: BaseException | str | None = None,
+        mutated: bool = False,
+    ) -> None:
+        """Record that ``action`` ran, for runtimes that execute the tool themselves
+        (a Claude Code hook sees the call before and after, but never runs it)."""
+        error_name = error if isinstance(error, str) or error is None else type(error).__name__
         self._record(
             KIND_EXECUTION,
             {
@@ -745,7 +766,7 @@ class ProtectionPipeline:
                 "agent_id": action.agent_id,
                 "session_id": action.session_id,
                 "outcome": "success" if success else "failure",
-                "error": type(error).__name__ if error is not None else None,
+                "error": error_name,
                 "duration_ms": duration_ms,
                 "arguments_mutated": mutated,
             },
