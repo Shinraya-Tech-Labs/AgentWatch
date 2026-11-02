@@ -103,6 +103,8 @@ command: panoptis doctor
     short_help: 
     param downgrade_schema kind=TyperOption type=int required=False default=None flags=--downgrade-schema help='Roll back schema to a specific prior version (e.g., 1).'
     param rollback_derived kind=TyperOption type=boolean required=False default=False flags=--rollback-derived help='Safely roll back derived interpretation tables without touching raw evidence.'
+    param seal_pending kind=TyperOption type=boolean required=False default=False flags=--seal-pending help='Seal all pending unsealed observations into hash-chained segments.'
+    param test_alert kind=TyperOption type=boolean required=False default=False flags=--test-alert help='Send a diagnostic test alert to configured Slack/PagerDuty channels.'
     param upgrade_schema kind=TyperOption type=boolean required=False default=False flags=--upgrade-schema help='Apply pending schema upgrades to target version.'
 
 command: panoptis drift

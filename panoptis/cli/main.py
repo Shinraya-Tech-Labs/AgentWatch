@@ -2711,8 +2711,19 @@ def doctor(
     downgrade_schema: int | None = typer.Option(
         None, "--downgrade-schema", help="Roll back schema to a specific prior version (e.g., 1)."
     ),
+    seal_pending: bool = typer.Option(
+        False,
+        "--seal-pending",
+        help="Seal all pending unsealed observations into hash-chained segments.",
+    ),
+    test_alert: bool = typer.Option(
+        False,
+        "--test-alert",
+        help="Send a diagnostic test alert to configured Slack/PagerDuty channels.",
+    ),
 ) -> None:
     """[bold]Doctor[/bold]: Check AgentWatch installation health and manage schema migrations."""
+    import asyncio
     import os
     import shutil
     import subprocess  # nosec B404
@@ -2750,6 +2761,30 @@ def doctor(
         )
         for act in res.get("actions", []):
             console.print(f"  - {act}")
+        return
+
+    if seal_pending:
+        sealed = store.seal_all()
+        console.print(f"[green]Successfully sealed {len(sealed)} segment(s).[/green]")
+        for seg in sealed:
+            console.print(f"  - Segment {seg.segment_id} (seq {seg.seq}): {seg.n_obs} observations")
+        return
+
+    if test_alert:
+        from panoptis.alerting.engine import AlertingConfig, AlertingEngine
+
+        config = AlertingConfig(
+            slack_webhook_url=os.getenv("SLACK_WEBHOOK_URL"),
+            pagerduty_webhook_url=os.getenv("PAGERDUTY_WEBHOOK_URL"),
+            pagerduty_routing_key=os.getenv("PAGERDUTY_ROUTING_KEY"),
+            webhook_signing_secret=os.getenv("AGENTWATCH_WEBHOOK_SIGNING_SECRET"),
+        )
+        engine = AlertingEngine(config)
+        console.print("[cyan]Sending diagnostic test alerts...[/cyan]")
+        results = asyncio.run(engine.send_test_alert())
+        console.print(
+            f"[green]Alert test dispatch complete:[/green] Slack: {results.get('slack')}, PagerDuty: {results.get('pagerduty')}"
+        )
         return
 
     table = Table(title="Health Diagnostics")
