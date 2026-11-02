@@ -143,8 +143,12 @@ _limiter = _Limiter()
 
 
 def reset_rate_limiter_for_tests() -> None:
-    """Clear in-memory counters between tests (test-only helper)."""
+    """Clear in-memory counters between tests (test-only helper): the route limiter and
+    the per-user middleware limiter, whose 100/hour budget otherwise carried over."""
     _limiter.reset()
+    mw = globals().get("_rate_limiter")
+    if mw is not None and hasattr(mw.backend, "_buckets"):
+        mw.backend._buckets.clear()
 
 
 def _client_ip(request: Request) -> str:
