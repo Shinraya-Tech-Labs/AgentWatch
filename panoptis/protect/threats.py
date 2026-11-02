@@ -35,10 +35,11 @@ from panoptis.security.owasp import OwaspVector
 def _rules_version() -> str:
     """Content hash of the rule code, so every decision names the exact rules that made it."""
     import panoptis.core.safety as legacy
+    import panoptis.evidence.redaction as redaction
     import panoptis.protect.arguments as args_mod
 
     h = hashlib.sha256()
-    for mod in (args_mod, sys.modules[__name__], legacy):
+    for mod in (args_mod, sys.modules[__name__], legacy, redaction):
         h.update(Path(mod.__file__ or "").read_bytes())
     return f"sha256:{h.hexdigest()[:16]}"
 
