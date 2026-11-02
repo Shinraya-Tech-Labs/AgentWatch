@@ -19,7 +19,13 @@ body {
     radial-gradient(circle at top right, rgba(249, 115, 22, 0.14), transparent 24%),
     linear-gradient(180deg, #0a0b10 0%, #11131a 54%, #0b0c11 100%);
   color: #f4f4f5;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 * {
@@ -29,8 +35,7 @@ body {
 .bg-panoptis {
   background:
     radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(251, 146, 60, 0.12), transparent 22%),
-    #09090b;
+    radial-gradient(circle at bottom right, rgba(251, 146, 60, 0.12), transparent 22%), #09090b;
 }
 
 code {

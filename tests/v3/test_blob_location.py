@@ -7,7 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from panoptis.evidence.blobs import FsBlobStore, MemoryBlobStore
-from panoptis.storage.store import panoptis_home, default_blob_store
+from panoptis.storage.store import default_blob_store, panoptis_home
 
 PG = "postgresql+psycopg://u:p@db:5432/aw"
 

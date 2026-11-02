@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { usePathname } from "next/navigation";
-import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 
-const ThreeBackground = dynamic(() => import("./ThreeBackground"), {
+const ThreeBackground = dynamic(() => import('./ThreeBackground'), {
   ssr: false,
 });
-import EdgeTraces from "./EdgeTraces";
+import EdgeTraces from './EdgeTraces';
 
 /**
  * Conditional neural atmosphere.
@@ -27,7 +27,7 @@ export default function Atmosphere() {
     return () => clearTimeout(timer);
   }, []);
 
-  const hidden = pathname?.startsWith("/about");
+  const hidden = pathname?.startsWith('/about');
   if (hidden) return null;
   return (
     <>

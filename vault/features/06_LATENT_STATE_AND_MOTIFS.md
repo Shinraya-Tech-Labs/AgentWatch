@@ -70,26 +70,28 @@ Where:
 
 ```python
 # Feature extraction per window in panoptis/state/latent.py
-def _features(chunk: list[dict[str, Any]], seen_ops: set[str], prev_size: float | None) -> list[float]:
+def _features(
+    chunk: list[dict[str, Any]], seen_ops: set[str], prev_size: float | None
+) -> list[float]:
     n = len(chunk)
     errors = sum(1 for e in chunk if e.get("status") in ("ERROR", "TIMEOUT"))
     kinds = [e["kind"] for e in chunk]
     ops = [f"{e['kind']}:{e['operation']}" for e in chunk]
     novel = sum(1 for o in ops if o not in seen_ops)
     seen_ops.update(ops)
-    
+
     size = mean(float(e["resources"].get("tokens_in") or len(e["inputs"])) for e in chunk)
     growth = 0.0 if not prev_size else (size - prev_size) / prev_size
-    
+
     return [
-        errors / n,                                      # error_share
-        1.0 - (len(set(ops)) / n),                      # repeat_share
-        novel / n,                                      # novelty
-        max(-1.0, min(3.0, growth)),                    # input_growth (clamped)
-        kinds.count("MODEL_INVOCATION") / n,            # model_share
-        kinds.count("TOOL_INVOCATION") / n,             # tool_share
-        kinds.count("RETRIEVAL") / n,                   # retrieval_share
-        kinds.count("MEMORY_ACCESS") / n,               # memory_share
+        errors / n,  # error_share
+        1.0 - (len(set(ops)) / n),  # repeat_share
+        novel / n,  # novelty
+        max(-1.0, min(3.0, growth)),  # input_growth (clamped)
+        kinds.count("MODEL_INVOCATION") / n,  # model_share
+        kinds.count("TOOL_INVOCATION") / n,  # tool_share
+        kinds.count("RETRIEVAL") / n,  # retrieval_share
+        kinds.count("MEMORY_ACCESS") / n,  # memory_share
     ]
 ```
 
@@ -110,14 +112,14 @@ Rather than assigning arbitrary numerical labels (`State 0`, `State 1`) or hand-
 
 ```python
 FEATURE_WORDS = {
-    "error_share":     ("failing", "clean"),
-    "repeat_share":    ("repeating", "varied"),
-    "novelty":         ("exploring", "settled"),
-    "input_growth":    ("context-growing", "context-shrinking"),
-    "model_share":     ("model-heavy", "model-light"),
-    "tool_share":      ("tool-heavy", "tool-light"),
+    "error_share": ("failing", "clean"),
+    "repeat_share": ("repeating", "varied"),
+    "novelty": ("exploring", "settled"),
+    "input_growth": ("context-growing", "context-shrinking"),
+    "model_share": ("model-heavy", "model-light"),
+    "tool_share": ("tool-heavy", "tool-light"),
     "retrieval_share": ("retrieving", "not-retrieving"),
-    "memory_share":    ("memory-bound", "memory-free"),
+    "memory_share": ("memory-bound", "memory-free"),
 }
 ```
 
@@ -337,9 +339,9 @@ def detect_ping_pong(
     data: AnalysisInput,
 ) -> list[MotifInstance]:
     delegations = [
-        e for e in event_order(events)
-        if e.kind in (EventKind.DELEGATION, EventKind.MESSAGE)
-        and e.actor and e.target_actor
+        e
+        for e in event_order(events)
+        if e.kind in (EventKind.DELEGATION, EventKind.MESSAGE) and e.actor and e.target_actor
     ]
     if len(delegations) < 3:
         return []
@@ -394,7 +396,10 @@ def detect_context_expansion(
     for (actor, model), calls in by_actor_model.items():
         if len(calls) < 3:
             continue
-        sizes = [e.resources.get("tokens_in") or sum(len(i.content or "") for i in e.inputs) for e in calls]
+        sizes = [
+            e.resources.get("tokens_in") or sum(len(i.content or "") for i in e.inputs)
+            for e in calls
+        ]
         if all(sizes[i] < sizes[i + 1] for i in range(len(sizes) - 1)):
             growth = sizes[-1] / max(1, sizes[0])
             if growth >= 1.5:
@@ -405,7 +410,7 @@ def detect_context_expansion(
                         events=[e.event_id for e in calls],
                         confidence=1.0,
                         explanation=f"Actor '{actor}' expanded model context by {growth:.2f}x over {len(calls)} calls.",
-                        measures={"calls": len(calls), "growth": growth, "final_tokens": sizes[-1]}
+                        measures={"calls": len(calls), "growth": growth, "final_tokens": sizes[-1]},
                     )
                 )
     return out
@@ -464,7 +469,7 @@ no_epistemic_echo = Contract(
     name="NO_RETRIEVAL_ECHO_PERMITTED",
     rule=Rule.FORBID_MOTIF(motif_id="M004"),
     severity="CRITICAL",
-    remedy="PURGE_AGENT_MEMORY_AND_ROLLBACK"
+    remedy="PURGE_AGENT_MEMORY_AND_ROLLBACK",
 )
 
 # Contract: Maximum permitted retry depth before circuit breaker trips
@@ -472,7 +477,7 @@ bounded_retries = Contract(
     name="MAX_RETRY_DEPTH_BOUND",
     rule=Rule.ASSERT_MEASURE("M001", "attempts", max_value=3),
     severity="HIGH",
-    remedy="HALT_SUBAGENT"
+    remedy="HALT_SUBAGENT",
 )
 ```
 

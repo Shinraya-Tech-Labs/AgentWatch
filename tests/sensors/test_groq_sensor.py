@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -110,7 +109,11 @@ def test_groq_sensor_sync_call_emits_events():
     event_types = [e.event_type for e in captured]
     assert EventType.AGENT_INTENT in event_types
     # First event should be AGENT_INTENT with RUNNING status
-    start_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.RUNNING]
+    start_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.RUNNING
+    ]
     assert len(start_events) == 1
     assert start_events[0].session_id == "sess1"
     assert start_events[0].agent_id == "agent1"
@@ -120,7 +123,11 @@ def test_groq_sensor_sync_call_emits_events():
     assert start_events[0].prompt_preview == "Hello"
 
     # Completion event should be AGENT_INTENT with SUCCESS status
-    completion_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS]
+    completion_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS
+    ]
     assert len(completion_events) == 1
     assert completion_events[0].duration_ms is not None
     assert completion_events[0].duration_ms > 0
@@ -195,11 +202,19 @@ async def test_groq_sensor_async_call_emits_events():
     event_types = [e.event_type for e in captured]
     assert EventType.AGENT_INTENT in event_types
 
-    start_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.RUNNING]
+    start_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.RUNNING
+    ]
     assert len(start_events) == 1
     assert start_events[0].prompt_preview == "Hello async"
 
-    completion_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS]
+    completion_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS
+    ]
     assert len(completion_events) == 1
     assert completion_events[0].duration_ms is not None
     assert completion_events[0].duration_ms > 0
@@ -227,7 +242,6 @@ def test_instrument_groq_returns_sensor():
     client, _ = _make_mock_groq_client()
     # We can't easily test the full instrument_groq without the SDK,
     # but we can verify the function exists and returns the right type
-    from panoptis.sensors.groq_sensor import instrument_groq
     assert callable(instrument_groq)
 
 
@@ -269,7 +283,11 @@ def test_groq_sensor_no_usage_in_response():
 
     client.chat.completions.create(model="llama3-70b-8192", messages=[])
 
-    completion_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS]
+    completion_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS
+    ]
     assert len(completion_events) == 1
     assert completion_events[0].token_usage is None
 
@@ -286,5 +304,9 @@ def test_groq_sensor_no_choices_in_response():
     client.chat.completions.create(model="llama3-70b-8192", messages=[])
 
     # Should still emit events, just no tool calls
-    completion_events = [e for e in captured if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS]
+    completion_events = [
+        e
+        for e in captured
+        if e.event_type == EventType.AGENT_INTENT and e.status == ExecutionStatus.SUCCESS
+    ]
     assert len(completion_events) == 1

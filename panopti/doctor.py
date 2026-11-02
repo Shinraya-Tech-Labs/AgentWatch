@@ -6,10 +6,10 @@ import platform
 import sys
 from typing import Any
 
-from panoptis.circuit_breaker.loop_detector import LoopDetector
-from panoptis.core.safety import SafetyEngine
 from panopti.court import WitnessChain
 from panopti.guard import guard
+from panoptis.circuit_breaker.loop_detector import LoopDetector
+from panoptis.core.safety import SafetyEngine
 
 
 def run_diagnostics() -> dict[str, Any]:
@@ -42,7 +42,7 @@ def run_diagnostics() -> dict[str, Any]:
     # 2. Cryptographic Witness Court
     try:
         chain = WitnessChain("doctor-selftest")
-        entry = chain.record("doctor", "ping", {"check": "self-test"})
+        chain.record("doctor", "ping", {"check": "self-test"})
         proof = chain.export_proof()
         valid, err = WitnessChain.verify_proof(proof)
         results["components"]["court"] = {
@@ -56,7 +56,6 @@ def run_diagnostics() -> dict[str, Any]:
 
     # 3. Storage Layer Check
     try:
-        from panoptis.storage.store import get_storage_engine
         results["components"]["storage"] = {
             "status": "ok",
             "engine": "available",

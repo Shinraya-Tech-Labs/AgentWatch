@@ -320,7 +320,9 @@ def _handle_http_status_error(exc: httpx.HTTPStatusError, api_url: str) -> NoRet
 def _dry_run_print(action: str, detail: str = "") -> None:
     """Print a consistent dry-run preview line to the terminal."""
     detail_str = f"\n  [dim]{detail}[/dim]" if detail else ""
-    console.print(f"[bold yellow][DRY-RUN][/bold yellow] Would {action}{detail_str}")
+    console.print(
+        f"[bold yellow][DRY-RUN][/bold yellow] Would {action}{detail_str}", soft_wrap=True
+    )
 
 
 # ---------------------------------------------
