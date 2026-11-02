@@ -296,24 +296,24 @@ rejected without unbounded memory/CPU use.
 integration test proving pre-execution blocking. Observation-only
 integrations are explicitly labelled.
 
-## TO-012 --- Implement genuine Claude Code pre-tool enforcement
+## TO-012 --- Implement genuine Claude Code pre-tool enforcement — **BLOCKED** (implemented and contract-tested; the real `claude -p` E2E needs the owner to sign the CLI in: evidence docs/IMPLEMENTATION_EVIDENCE.md#to-012)
 
--   [ ] Replace or supplement output-stream-only observation with Claude
+-   [x] Replace or supplement output-stream-only observation with Claude
     Code's supported `PreToolUse` hook/permission mechanism.
--   [ ] Ensure the hook invokes the authoritative enforcement decision
+-   [x] Ensure the hook invokes the authoritative enforcement decision
     before the CLI executes the tool.
--   [ ] Implement correct allow/deny/approval behavior for supported
+-   [x] Implement correct allow/deny/approval behavior for supported
     hook responses.
--   [ ] Inspect tool name and arguments; apply policy and risk checks.
+-   [x] Inspect tool name and arguments; apply policy and risk checks.
 -   [ ] Ensure a blocked tool cannot execute and cannot be relabelled as
     blocked after the fact.
--   [ ] Capture post-tool output only where the supported lifecycle
+-   [x] Capture post-tool output only where the supported lifecycle
     permits it; do not claim output sanitization if the integration
     cannot perform it.
 -   [ ] Add an end-to-end test using a harmless local tool that writes a
     marker file; prove the marker is absent when blocked and present
     once when allowed.
--   [ ] Document hook installation, permissions, limitations, and
+-   [x] Document hook installation, permissions, limitations, and
     supported CLI versions.
 
 **Acceptance evidence:** A real Claude Code hook test proves the blocked

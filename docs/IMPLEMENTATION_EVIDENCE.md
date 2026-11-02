@@ -44,7 +44,7 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-009 service exposure | DONE | [TO-009](#to-009) |
 | TO-010 request limits | DONE | [TO-010](#to-010) |
 | TO-011 adapter audit and enforcement | DONE | [TO-011](#to-011) |
-| TO-012 Claude Code PreToolUse | NOT STARTED | — |
+| TO-012 Claude Code PreToolUse | BLOCKED (owner: sign the `claude` CLI in) | [TO-012](#to-012) |
 | TO-013 / TO-014 / TO-015 LangGraph, AutoGen, smolagents | DONE | [TO-013, TO-014, TO-015](#to-013-to-014-to-015) |
 | TO-016 … TO-040 | NOT STARTED unless listed below | — |
 
@@ -668,3 +668,48 @@ The decision is made before the underlying function runs, and the output is insp
 - AutoGen MCP workbenches, which go through the MCP gateway (TO-023).
 
 **Commits:** `bbf9750` `17e96b7` `2035770` `f872cdf`, plus this ledger commit.
+
+### TO-012
+
+**Status:** BLOCKED. The implementation and the hook-contract tests are complete. The acceptance criterion, a real Claude Code hook test proving a blocked command did not run, has not passed yet.
+
+**Blocker (needs the owner):** the standalone `claude` CLI on this machine (2.1.229) is not signed in. `claude auth status` reports `"loggedIn": false`, and the E2E runs got `401 Not logged in · Please run /login`. Using an `ANTHROPIC_API_KEY` instead would bill the API, which was not approved, so it was not done. To unblock:
+
+```text
+claude                      # then /login, once
+set AGENTWATCH_E2E_CLAUDE=1
+pytest tests/e2e_claude -m external -v
+```
+
+**Changes:**
+
+- `panoptis/protect/claude_hook.py`: the PreToolUse, PostToolUse and PostToolUseFailure handler. Verdicts map to Claude Code's documented hook output:
+  - BLOCK → `deny`;
+  - ESCALATE_HITL → `ask`;
+  - MUTATE_AND_ALLOW → `ask` (or opt-in `allow`) with `updatedInput`;
+  - ALLOW → no decision, so the CLI's own permission rules still apply.
+  - PostToolUse returns `updatedToolOutput` with the sanitized result; executions and failures are recorded under `call_id` `cc-<tool_use_id>`.
+- `panoptis/protect/claude_hook_entry.py`: a stdlib-only entry script, so a broken install exits 2 (block) instead of 1 (which Claude Code treats as non-blocking).
+- `ProtectionPipeline.record_execution()`: public, for runtimes that run the tool themselves.
+- CLI: `panoptis protect claude-hook install | uninstall | print`, with `--on-failure-block` for Claude Code 2.1.295+.
+- `panoptis/adapters/claude_code.py`: a violation read from the stream-json output is now a detection (`policy_violation`, `observation_only`, failed `SAFETY_CHECK` with `detected_after_execution`). Before, it was a `BLOCKED` event and `SAFETY_BLOCK`, although the CLI had already run the tool.
+- Docs: `docs/CLAUDE_CODE_HOOK.md` covers installation, the verdict table, failure behaviour, settings, tool-name mapping, limitations and the tested version. The support matrix gains the hook row.
+
+**Tests:**
+
+- `tests/protect/test_claude_hook.py` (23):
+  - every verdict mapping, including that an escalation is denied when no approval channel is configured;
+  - `updatedInput` keeps the other fields;
+  - Write to a blocked path is denied;
+  - PostToolUse sanitization keeps the Bash output shape, and execution and output records share the call id;
+  - failure recording;
+  - the installed command string run through a shell denies and allows;
+  - a shadowed, broken `panoptis` package makes the real entry script exit 2;
+  - bad input (4 cases), a bad policy and a pipeline exception each exit 2;
+  - install merge, idempotence and uninstall; `onFailure` is opt-in; the CLI.
+- `tests/test_adapter_claude_code.py`: a stream violation is not a block. This test fails against the previous adapter code.
+- `tests/e2e_claude/test_claude_code_hook_e2e.py`: the real CLI. Not yet passing; see the blocker.
+
+**Known limitation, documented:** if the hook command cannot start or times out, Claude Code below 2.1.295 runs the tool anyway. Each hook call is a fresh process, so loop, rate and breaker state does not carry over between calls.
+
+**Commits:** `de4328d` `0f0cb5b` `c976ddb` and the docs/E2E commit, plus this ledger commit.
