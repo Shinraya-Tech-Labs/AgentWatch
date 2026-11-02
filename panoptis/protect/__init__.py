@@ -48,6 +48,7 @@ from panoptis.protect.ifc_lattice import (
     SecurityLabel,
     TaintContext,
 )
+from panoptis.protect.integrity import RuntimeIntegrityGuard
 from panoptis.protect.intent import GroundingConfig, IntentGrounder, openai_compatible_verifier
 from panoptis.protect.kernel_sandbox import (
     KernelSandbox,
@@ -56,6 +57,7 @@ from panoptis.protect.kernel_sandbox import (
 )
 from panoptis.protect.ledger import ProtectLedger
 from panoptis.protect.loops import LoopConfig, LoopDetector
+from panoptis.protect.ltl_trajectory import LTLTrajectoryVerifier, TrajectoryStep
 from panoptis.protect.model import (
     ActionBlocked,
     Decision,
@@ -69,7 +71,9 @@ from panoptis.protect.model import (
 from panoptis.protect.output import OutputInspector
 from panoptis.protect.pipeline import ProtectionConfig, ProtectionPipeline
 from panoptis.protect.rbac import PolicyError, PolicyStore, RBACEngine, parse_policy
+from panoptis.protect.taint_tracker import DynamicTaintTracker
 from panoptis.protect.threats import ThreatAnalyzer
+from panoptis.protect.transactor import SpeculativeSideEffect, SpeculativeTransactor
 from panoptis.protect.wasi_sandbox import (
     SandboxExecutionError,
     SandboxResult,
@@ -90,6 +94,7 @@ __all__ = [
     "CounterfactualResult",
     "DEFAULT_SINK_CLEARANCES",
     "Decision",
+    "DynamicTaintTracker",
     "EnclaveAttestationDocument",
     "EnclaveAttestationVerifier",
     "EnclavePlatform",
@@ -104,6 +109,7 @@ __all__ = [
     "KernelSandbox",
     "KernelSandboxConfig",
     "KernelSandboxStatus",
+    "LTLTrajectoryVerifier",
     "LoopConfig",
     "LoopDetector",
     "OutputInspection",
@@ -115,15 +121,19 @@ __all__ = [
     "ProtectionConfig",
     "ProtectionPipeline",
     "RBACEngine",
+    "RuntimeIntegrityGuard",
     "SandboxExecutionError",
     "SandboxResult",
     "SecurityLabel",
     "SnapshotDiff",
     "Severity",
+    "SpeculativeSideEffect",
+    "SpeculativeTransactor",
     "Stage",
     "TaintContext",
     "ThreatAnalyzer",
     "ToolAction",
+    "TrajectoryStep",
     "Verdict",
     "VerificationStatus",
     "WasiSandbox",

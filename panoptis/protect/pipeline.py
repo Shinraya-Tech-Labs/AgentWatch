@@ -92,6 +92,8 @@ class ProtectionConfig:
     enable_counterfactual_forking: bool = False
     counterfactual_config: Any = None
     enable_ifc: bool = False
+    enable_ltl_trajectory: bool = False
+    enable_integrity_guard: bool = False
 
 
 @dataclass
@@ -170,6 +172,8 @@ class ProtectionPipeline:
         sandbox: Any = None,
         counterfactual: Any = None,
         ifc: Any = None,
+        ltl: Any = None,
+        integrity: Any = None,
     ) -> None:
         self.config = config or ProtectionConfig()
         self.policy = policy or PolicyStore()
@@ -210,6 +214,25 @@ class ProtectionPipeline:
             self.ifc = InformationFlowEngine()
         else:
             self.ifc = None
+        if ltl is not None:
+            self.ltl = ltl
+        elif self.config.enable_ltl_trajectory:
+            from panoptis.protect.ltl_trajectory import LTLTrajectoryVerifier
+
+            self.ltl = LTLTrajectoryVerifier()
+        else:
+            self.ltl = None
+        if integrity is not None:
+            self.integrity = integrity
+        elif self.config.enable_integrity_guard:
+            from panoptis.protect.integrity import RuntimeIntegrityGuard
+
+            self.integrity = RuntimeIntegrityGuard()
+            self.integrity.seal_function("evaluate", self, "evaluate")
+            self.integrity.seal_function("execute", self, "execute")
+            self.integrity.seal_function("rbac_authorize", self.rbac, "authorize")
+        else:
+            self.integrity = None
         self.telemetry = Telemetry()
         self.sessions: dict[str, SessionInfo] = {}
         self.registered_agents: set[str] = set()
@@ -326,6 +349,10 @@ class ProtectionPipeline:
 
         findings += timed("identity", lambda: self._identity(action))
         findings += timed("control", lambda: self._control(action))
+        if self.config.enable_integrity_guard and self.integrity is not None:
+            findings += timed("integrity", lambda: self.integrity.verify_integrity()[1])
+        if self.config.enable_ltl_trajectory and self.ltl is not None:
+            findings += timed("ltl", lambda: self.ltl.verify_action(action))
         if not _blocked(findings):
             profile_box: list[Any] = []
 
@@ -801,6 +828,8 @@ class ProtectionPipeline:
             tenant_id=action.tenant_id,
         )
         self.loops.record_result(action.call_id, success=success, output=result)
+        if self.ltl is not None and success:
+            self.ltl.record_step(action, result=result)
         b = self.breaker(action.scope)
         b.observe(
             AgentEvent(

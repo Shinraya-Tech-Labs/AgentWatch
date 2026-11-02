@@ -88,27 +88,44 @@ class InformationFlowEngine:
         self,
         sink_clearances: dict[str, SecurityLabel] | None = None,
         default_sink_clearance: SecurityLabel = SecurityLabel.PUBLIC,
+        taint_tracker: Any = None,
     ) -> None:
         self.sink_clearances = dict(sink_clearances or DEFAULT_SINK_CLEARANCES)
         self.default_sink_clearance = default_sink_clearance
+        if taint_tracker is not None:
+            self.taint_tracker = taint_tracker
+        else:
+            from panoptis.protect.taint_tracker import DynamicTaintTracker
+
+            self.taint_tracker = DynamicTaintTracker()
 
     def infer_label(self, value: Any) -> SecurityLabel:
-        """Infer the minimal security label of raw data by static pattern analysis."""
+        """Infer security label by static analysis AND dynamic transformation tracking."""
         if value is None:
             return SecurityLabel.PUBLIC
 
         text = str(value)
+        base_label = SecurityLabel.PUBLIC
+
         # 1. Check top-secret patterns (API keys, private keys, tokens)
         for _, pat in SECRET_PATTERNS:
             if pat.search(text):
-                return SecurityLabel.SECRET
+                base_label = SecurityLabel.SECRET
+                break
 
         # 2. Check confidential / PII patterns
-        for _, pat in _PII_PATTERNS:
-            if pat.search(text):
-                return SecurityLabel.CONFIDENTIAL
+        if base_label < SecurityLabel.SECRET:
+            for _, pat in _PII_PATTERNS:
+                if pat.search(text):
+                    base_label = SecurityLabel.CONFIDENTIAL
+                    break
 
-        return SecurityLabel.PUBLIC
+        # 3. Dynamic transformation tracking (base64, hex, URL-enc, token splits)
+        if self.taint_tracker is not None:
+            dyn_label = self.taint_tracker.evaluate_taint(value, default_label=base_label)
+            return base_label.join(dyn_label)
+
+        return base_label
 
     def verify_flow(
         self,

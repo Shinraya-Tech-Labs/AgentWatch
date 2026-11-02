@@ -28,6 +28,7 @@ from typing import Any
 
 from panoptis.evidence.redaction import SECRET_PATTERNS
 from panoptis.protect.model import Finding, Severity, Stage, ToolAction, Verdict
+from panoptis.protect.transactor import SpeculativeTransactor
 from panoptis.protect.wasi_sandbox import SnapshotDiff, WorkspaceSnapshot
 
 
@@ -37,6 +38,7 @@ class CounterfactualConfig:
     max_state_drift_files: int = 50
     allow_file_deletion: bool = True
     max_deleted_files: int = 10
+    block_unauthorized_network_egress: bool = False
     forbidden_mutation_paths: list[str] = field(
         default_factory=lambda: [
             ".git/**",
@@ -79,8 +81,13 @@ class CounterfactualResult:
 class CounterfactualEngine:
     """Orchestrates ephemeral speculative execution in isolated temporal forks."""
 
-    def __init__(self, config: CounterfactualConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: CounterfactualConfig | None = None,
+        transactor: SpeculativeTransactor | None = None,
+    ) -> None:
         self.config = config or CounterfactualConfig()
+        self.transactor = transactor or SpeculativeTransactor()
 
     def fork_and_evaluate(
         self,
@@ -114,13 +121,29 @@ class CounterfactualEngine:
                 os.chdir(str(fork_temp_dir))
                 # Adjust path arguments to point to fork if applicable
                 forked_args = self._remap_args_to_fork(args, target_ws, fork_temp_dir)
-                output = func(**forked_args)
+                with self.transactor.capture_side_effects():
+                    output = func(**forked_args)
             finally:
                 os.chdir(orig_cwd)
 
             # Compute post-execution state diff
             state_diff = pre_snap.compute_diff()
             pre_snap.cleanup()
+
+            # Invariant: External Network Side-Effects Interception (ToolEmu mitigation)
+            if self.config.block_unauthorized_network_egress and self.transactor.recorded_effects:
+                for eff in self.transactor.recorded_effects:
+                    findings.append(
+                        Finding(
+                            stage=Stage.COUNTERFACTUAL,
+                            code="COUNTERFACTUAL_UNAUTHORIZED_NETWORK_EGRESS",
+                            severity=Severity.CRITICAL,
+                            message=f"Temporal fork intercepted unauthorized network egress to {eff.target!r} ({eff.method})",
+                            evidence={"target": eff.target, "method": eff.method},
+                            recommends=Verdict.BLOCK,
+                        )
+                    )
+                    is_safe = False
 
             # Invariant 1: Check forbidden mutations (e.g. .env, .git, private keys)
             for touched in state_diff.created + state_diff.modified + state_diff.deleted:
