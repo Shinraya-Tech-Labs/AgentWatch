@@ -270,3 +270,19 @@ def test_the_command_uses_this_interpreter_and_the_entry_script():
     command = claude_hook.hook_command()
     assert Path(sys.executable).as_posix() in command
     assert command.endswith('claude_hook_entry.py"')
+
+
+def test_cli_installs_prints_and_uninstalls(tmp_path):
+    from typer.testing import CliRunner
+
+    from panoptis.cli.main import app
+
+    settings = tmp_path / "settings.json"
+    runner = CliRunner()
+    res = runner.invoke(app, ["protect", "claude-hook", "install", "--settings", str(settings)])
+    assert res.exit_code == 0, res.output
+    assert "claude_hook_entry.py" in settings.read_text()
+    res = runner.invoke(app, ["protect", "claude-hook", "print", "--on-failure-block"])
+    assert res.exit_code == 0 and json.loads(res.output)["hooks"]["PreToolUse"]
+    res = runner.invoke(app, ["protect", "claude-hook", "uninstall", "--settings", str(settings)])
+    assert res.exit_code == 0 and json.loads(settings.read_text()) == {}

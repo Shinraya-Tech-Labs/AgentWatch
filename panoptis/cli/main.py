@@ -2819,6 +2819,65 @@ _register_v3(app)
 protect_app.add_typer(compliance_app, name="compliance")
 protect_app.add_typer(evidence_app, name="evidence")
 
+# ── Claude Code PreToolUse hook (TO-012) ──────────────────────────────────────────────
+
+claude_hook_app = typer.Typer(
+    name="claude-hook",
+    help="Enforce on Claude Code: install the PreToolUse/PostToolUse hook.",
+    no_args_is_help=True,
+)
+protect_app.add_typer(claude_hook_app, name="claude-hook")
+
+_HOOK_SETTINGS_HELP = "Claude Code settings file (default: ./.claude/settings.local.json)."
+
+
+@claude_hook_app.command("install")
+def claude_hook_install(
+    settings: Path = typer.Option(
+        Path(".claude") / "settings.local.json", "--settings", help=_HOOK_SETTINGS_HELP
+    ),
+    timeout: int = typer.Option(30, "--timeout", help="Hook timeout in seconds."),
+    on_failure_block: bool = typer.Option(
+        False,
+        "--on-failure-block",
+        help='Add "onFailure": "block" so a hook that cannot start blocks the call '
+        "(needs Claude Code 2.1.295 or later).",
+    ),
+) -> None:
+    """Merge the AgentWatch hook into a Claude Code settings file."""
+    from panoptis.protect import claude_hook
+
+    claude_hook.install(settings, timeout_s=timeout, on_failure_block=on_failure_block)
+    console.print(f"[green]AgentWatch hook installed in {settings}[/green]")
+    if not on_failure_block:
+        console.print(
+            "[yellow]Claude Code runs the tool if the hook command cannot start or times out. "
+            "On Claude Code 2.1.295+, re-run with --on-failure-block.[/yellow]"
+        )
+
+
+@claude_hook_app.command("uninstall")
+def claude_hook_uninstall(
+    settings: Path = typer.Option(
+        Path(".claude") / "settings.local.json", "--settings", help=_HOOK_SETTINGS_HELP
+    ),
+) -> None:
+    """Remove the AgentWatch hook from a Claude Code settings file."""
+    from panoptis.protect import claude_hook
+
+    found = claude_hook.uninstall(settings)
+    console.print("Removed." if found else "No AgentWatch hook found.")
+
+
+@claude_hook_app.command("print")
+def claude_hook_print(
+    on_failure_block: bool = typer.Option(False, "--on-failure-block"),
+) -> None:
+    """Print the settings JSON (for `claude --settings`)."""
+    from panoptis.protect import claude_hook
+
+    typer.echo(json.dumps(claude_hook.hook_settings(on_failure_block=on_failure_block), indent=2))
+
 
 if __name__ == "__main__":
     main()
