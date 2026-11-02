@@ -486,3 +486,67 @@ def test_mutated_arguments_reach_the_tool(framework):
     out = RUNNERS[framework](ProtectionPipeline(), SECRET_CMD, calls)
     assert _ran(framework, out), out
     assert len(calls) == 1 and "ghp_" not in calls[0] and "REDACTED" in calls[0]
+
+
+def test_langgraph_streaming_and_callbacks_still_work_on_protected_tools():
+    pytest.importorskip("langgraph")
+    from langchain_core.callbacks import BaseCallbackHandler
+
+    from panoptis.protect.integrations import protect_langgraph_tool_node
+
+    seen: list[str] = []
+
+    class Recorder(BaseCallbackHandler):
+        def on_tool_start(self, serialized, input_str, **kw):
+            seen.append("start")
+
+        def on_tool_end(self, output, **kw):
+            seen.append("end")
+
+    calls: list[str] = []
+    graph, node = _graph(_lc_tool(calls), True)
+    protect_langgraph_tool_node(node, pipeline=ProtectionPipeline())
+    chunks = list(graph.stream(_call("ls"), config={"callbacks": [Recorder()]}))
+    tool_msgs = [m for c in chunks for m in c.get("tools", {}).get("messages", [])]
+    assert [m.content for m in tool_msgs] == ["ran ls"]
+    assert seen == ["start", "end"] and calls == ["ls"]
+
+
+def test_smolagents_and_autogen_tool_errors_surface_as_they_do_unprotected():
+    smolagents = pytest.importorskip("smolagents")
+    pytest.importorskip("autogen_core")
+    from autogen_core import CancellationToken
+    from autogen_core.tools import FunctionTool
+
+    from panoptis.protect.integrations import protect_autogen_tool, protect_smolagents_tool
+
+    class Failing(smolagents.Tool):
+        name = "bash"
+        description = "Run a shell command"
+        inputs = {"command": {"type": "string", "description": "the command"}}
+        output_type = "string"
+
+        def forward(self, command: str) -> str:
+            raise ValueError("disk full")
+
+    with pytest.raises(ValueError, match="disk full"):
+        Failing()(command="ls")
+    with pytest.raises(ValueError, match="disk full"):
+        protect_smolagents_tool(Failing(), pipeline=ProtectionPipeline())(command="ls")
+
+    async def bash(command: str) -> str:
+        """Run a shell command."""
+        raise ValueError("disk full")
+
+    def run(tool):
+        return asyncio.run(tool.run_json({"command": "ls"}, CancellationToken()))
+
+    with pytest.raises(ValueError, match="disk full"):
+        run(FunctionTool(bash, description="Run a shell command"))
+    with pytest.raises(ValueError, match="disk full"):
+        run(
+            protect_autogen_tool(
+                FunctionTool(bash, description="Run a shell command"),
+                pipeline=ProtectionPipeline(),
+            )
+        )
