@@ -49,17 +49,18 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-016 generic and direct tools | DONE | [TO-016](#to-016) |
 | TO-017 threat analysis | DONE | [TO-017](#to-017) |
 | TO-018 output inspection | DONE | [TO-018](#to-018) |
-| TO-019 approvals | DONE (UI test in TO-029) | [TO-019](#to-019) |
+| TO-019 approvals | DONE (UI in TO-029) | [TO-019](#to-019) |
 | TO-020 loop detection | DONE | [TO-020](#to-020) |
 | TO-021 intent grounding | DONE | [TO-021](#to-021) |
-| TO-022 RBAC | DONE (dashboard view in TO-029) | [TO-022](#to-022) |
+| TO-022 RBAC | DONE | [TO-022](#to-022) |
 | TO-023 MCP gateway | DONE | [TO-023](#to-023) |
-| TO-024 discovery | DONE (dashboard view in TO-029) | [TO-024](#to-024) |
-| TO-025 emergency controls | DONE (dashboard view in TO-029) | [TO-025](#to-025) |
+| TO-024 discovery | DONE | [TO-024](#to-024) |
+| TO-025 emergency controls | DONE | [TO-025](#to-025) |
 | TO-026 evidence integrity | DONE | [TO-026](#to-026) |
 | TO-027 API | DONE | [TO-027](#to-027) |
 | TO-028 CLI | DONE | [TO-028](#to-028) |
-| TO-029 … TO-040 | NOT STARTED unless listed below | — |
+| TO-029 dashboard | DONE | [TO-029](#to-029) |
+| TO-030 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -1204,4 +1205,46 @@ Forged unsealed rows went unreported. The update trigger also left sensor, seque
   - **evidence:** `evidence verify` against the real store;
   - **configuration:** an invalid policy gives `validate` exit 1 with all errors, and `doctor` fails;
   - **failures:** a wrong or missing key exits 3 and the key is not echoed; an unreachable server exits 4 with no traceback.
+
+### TO-029
+
+**Status:** DONE. Browser E2E tests drive a running backend and prove that the decisions and controls the dashboard displays correspond to real backend state. They use Playwright and Chromium against a uvicorn API, the production Next.js build and a real protected agent. Docs: [`docs/DASHBOARD.md`](DASHBOARD.md). This also delivers the dashboard parts of TO-019, TO-022 and TO-024–026.
+
+**Implementation:** `frontend/pages/security/*` with eight views:
+
+- overview and agents (with the discovery inventory);
+- decisions, with call detail, loops and intent;
+- approvals, policy (with dry-run), MCP, evidence (verify and proof);
+- controls.
+
+The client is `frontend/lib/protect/client.ts`: hooks normalize responses, refresh every 5 s, and run only while a key is set. The shell is `frontend/components/security/*`: sign-in with the user's own key; a live, stale or disconnected indicator; the kill banner; an error boundary; skip link and landmarks.
+
+**Proxy fix:** the `/api/v1` proxy forwards `X-API-Key` / `X-Tenant-ID`. Before, the dashboard could not authenticate to the protection API at all. It also no longer returns the internal upstream URL or exception text.
+
+**Defects found by the tests:**
+
+- views crashed on partially shaped responses (component tests);
+- the first unauthenticated result stuck after sign-in (component tests);
+- approvals and controls views stayed empty after sign-in until a reload, because the hooks did not re-render (browser E2E).
+
+All three are fixed.
+
+**Tests:**
+
+- **Component and accessibility:** `frontend/__tests__/security.test.tsx` (14), Jest with `jest-axe`. Sign-in sends the key; backend counts and the kill banner; empty, disconnected and rejected-key states; filters and call detail; the approval posts the exact digest; unmonitored items are never green; the emergency stop needs a reason and confirmation, and a 403 is explained; a failed verification is shown; the policy dry-run and invalid JSON; no axe violations on 5 views.
+- **Browser E2E:** `tests/e2e_dashboard/test_dashboard_e2e.py` (4, opt-in with `AGENTWATCH_E2E_DASHBOARD=1`):
+  - the tenant sees its real allow/block decisions and the blocked call shows "executed: no"; another tenant's tool never appears;
+  - approving in the browser releases the waiting agent thread, the tool runs exactly once, and the decider is recorded as `acme:alice`;
+  - the emergency stop with a tenant key is refused (backend still not killed); with the operator key the backend is killed (`operator:dashboard`), the agent is blocked and the banner shows; lifting it restores execution;
+  - a disconnected backend shows "disconnected".
+
+**Commands and results** (frontend):
+
+- `npm run type-check`: clean
+- `npx next lint`: clean
+- `npm test`: 36 passed (5 suites)
+- `npm run build`: compiled, with 8 security routes
+- `AGENTWATCH_E2E_DASHBOARD=1 pytest tests/e2e_dashboard`: 4 passed
+
+Screenshots: `docs/screenshots/dashboard/`.
 

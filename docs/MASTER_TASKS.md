@@ -424,7 +424,7 @@ false-positive behavior.
 removed/withheld before reaching the agent and benign content remains
 usable.
 
-## TO-019 --- Complete human-in-the-loop approvals — **DONE** (acceptance met; the dashboard approvals view and its UI test are TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-019)
+## TO-019 --- Complete human-in-the-loop approvals — **DONE** (dashboard approvals view and browser E2E delivered in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-019)
 
 -   [x] Define approval request identity, context, expiry, and one-time
     use.
@@ -437,7 +437,7 @@ usable.
 -   [x] Record approval actor, timestamp, decision, and bound action in
     evidence.
 -   [ ] Add API/UI and integration tests for the full approval
-    lifecycle. *(API and integration done; UI in TO-029)*
+    lifecycle. *(API, integration and dashboard UI with browser E2E: TO-029)*
 
 **Acceptance evidence:** End-to-end tests prove execution occurs only
 after a valid approval for the exact requested action.
@@ -491,7 +491,7 @@ a productive-polling case that must not be flagged.
 with read-only objectives are blocked/escalated while legitimate aligned
 actions remain usable.
 
-## TO-022 --- Complete per-agent RBAC — **DONE** (acceptance met; the dashboard permissions view is TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-022)
+## TO-022 --- Complete per-agent RBAC — **DONE** (dashboard Policy view delivered in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-022)
 
 -   [x] Define agent roles and an explicit allowed/forbidden tool
     matrix.
@@ -509,7 +509,7 @@ actions remain usable.
     rate limits, default deny, invalid policy, reload, and tenant
     boundaries.
 -   [x] Expose effective permissions and denial reasons in the
-    dashboard/API. *(API done; dashboard view in TO-029)*
+    dashboard/API. *(API, and the dashboard Policy view: TO-029)*
 
 **Acceptance evidence:** RBAC integration tests prove unauthorized tool
 names and arguments are rejected before execution.
@@ -543,7 +543,7 @@ names and arguments are rejected before execution.
 test server scenario proves a blocked `tools/call` never reaches the
 upstream server and unsafe output is sanitized before returning.
 
-## TO-024 --- Build local agent and MCP discovery — **DONE** (dashboard view in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-024)
+## TO-024 --- Build local agent and MCP discovery — **DONE** (dashboard views delivered in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-024)
 
 -   [x] Discover supported local agent runtimes using documented process
     and configuration inspection.
@@ -554,7 +554,7 @@ upstream server and unsafe output is sanitized before returning.
 -   [x] Avoid assuming that a discovered process is protected merely
     because it is detected.
 -   [x] Show discovery source, timestamp, confidence, and monitoring
-    status. *(CLI/JSON and evidence record; dashboard view in TO-029)*
+    status. *(CLI/JSON, evidence record and the dashboard Agents/MCP views: TO-029)*
 -   [x] Define permission boundaries and avoid collecting unrelated
     process data or secrets.
 -   [x] Do not automatically kill or modify discovered processes.
@@ -568,7 +568,7 @@ upstream server and unsafe output is sanitized before returning.
 identified accurately and unmonitored agents are never represented as
 protected.
 
-## TO-025 --- Complete runtime controls and emergency stop — **DONE** (API/CLI done; dashboard view in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-025)
+## TO-025 --- Complete runtime controls and emergency stop — **DONE** (dashboard Controls view delivered in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-025)
 
 -   [x] Verify kill switch behavior across all supported execution
     paths.
@@ -580,7 +580,7 @@ protected.
     emergency stop.
 -   [x] Ensure emergency stop blocks new actions before tool execution.
 -   [x] Add concurrency, restart, multi-process, and failure-path tests.
--   [x] Expose status and authorized controls through API/CLI/dashboard. *(API and CLI done; dashboard in TO-029)*
+-   [x] Expose status and authorized controls through API/CLI/dashboard. *(API, CLI and the dashboard Controls view with browser E2E: TO-029)*
 
 **Acceptance evidence:** Integration tests prove the kill switch blocks
 new tool execution across the supported runtime topology.
@@ -589,7 +589,7 @@ new tool execution across the supported runtime topology.
 
 # P2 --- Evidence, API, dashboard, and operational platform
 
-## TO-026 --- Verify append-only evidence and Merkle integrity — **DONE** (dashboard verification view in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-026)
+## TO-026 --- Verify append-only evidence and Merkle integrity — **DONE** (dashboard Evidence view delivered in TO-029; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-026)
 
 -   [x] Audit the existing v3 evidence store and all write/read paths.
 -   [x] Verify append-only behavior and detect unauthorized mutation,
@@ -647,26 +647,26 @@ protection pipeline and verify tenant isolation.
 **Acceptance evidence:** CLI smoke tests run against a real local test
 deployment and verify returned state.
 
-## TO-029 --- Complete the security dashboard
+## TO-029 --- Complete the security dashboard — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-029)
 
--   [ ] Provide a truthful security overview using actual backend data.
--   [ ] Provide agent inventory and clear monitored/unmonitored status.
--   [ ] Provide runtime protection status and recent
+-   [x] Provide a truthful security overview using actual backend data.
+-   [x] Provide agent inventory and clear monitored/unmonitored status.
+-   [x] Provide runtime protection status and recent
     allow/block/escalate decisions.
--   [ ] Provide policy/RBAC management views.
--   [ ] Provide MCP gateway and discovery views.
--   [ ] Provide loop and intent-grounding events.
--   [ ] Provide human approval workflows.
--   [ ] Provide evidence/Merkle verification views.
--   [ ] Provide authorized emergency-stop controls.
--   [ ] Include loading, empty, stale, error, and disconnected states.
--   [ ] Ensure all displayed data is tenant-scoped and
+-   [x] Provide policy/RBAC management views.
+-   [x] Provide MCP gateway and discovery views.
+-   [x] Provide loop and intent-grounding events.
+-   [x] Provide human approval workflows.
+-   [x] Provide evidence/Merkle verification views.
+-   [x] Provide authorized emergency-stop controls.
+-   [x] Include loading, empty, stale, error, and disconnected states.
+-   [x] Ensure all displayed data is tenant-scoped and
     permission-checked.
--   [ ] Do not use fabricated events or static values presented as live
+-   [x] Do not use fabricated events or static values presented as live
     telemetry.
--   [ ] Add frontend unit, component, accessibility, and browser E2E
+-   [x] Add frontend unit, component, accessibility, and browser E2E
     tests for critical flows.
--   [ ] Verify type-check, lint, and production build.
+-   [x] Verify type-check, lint, and production build.
 
 **Acceptance evidence:** Browser E2E tests operate against a running
 backend and prove that displayed decisions and controls correspond to
