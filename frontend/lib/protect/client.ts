@@ -107,13 +107,17 @@ const qs = (params: Record<string, string | number | boolean | undefined | null>
   return p.length ? `?${p.map(([k, v]) => `${k}=${enc(String(v))}`).join('&')}` : '';
 };
 
-// Queries run only with a key; the shell resets them when the key changes.
-const signedIn = () => !!getKey();
-const live = () => ({
+// Queries run only with a key. Every hook subscribes to the key, so signing in or out
+// re-renders the page that owns the hook (the hooks live above the shell).
+function useSignedIn(): boolean {
+  const [key] = useApiKey();
+  return !!key;
+}
+const live = (enabled: boolean) => ({
   refetchInterval: POLL_MS,
   staleTime: 0,
   retry: false as const,
-  enabled: signedIn(),
+  enabled,
 });
 
 // Unknown or partial bodies become well-formed empty shapes, never a crash.
@@ -148,12 +152,14 @@ const normControl = (d: any): ControlState => ({
   suspended_sessions: obj(d?.suspended_sessions),
 });
 
-export const useStatus = () =>
-  useQuery({
+export const useStatus = () => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'status'],
     queryFn: async () => normStatus(await protect('/status')),
-    ...live(),
+    ...live(signed),
   });
+};
 
 export interface DecisionFilters {
   verdict?: string;
@@ -162,16 +168,19 @@ export interface DecisionFilters {
   stage?: string;
   limit?: number;
 }
-export const useDecisions = (f: DecisionFilters = {}) =>
-  useQuery({
+export const useDecisions = (f: DecisionFilters = {}) => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'decisions', f],
     queryFn: async () => normPage(await protect(`/decisions${qs({ limit: 100, ...f })}`)),
-    ...live(),
+    ...live(signed),
     placeholderData: keepPreviousData, // keep the table while a new filter loads
   });
+};
 
-export const useCallDetail = (callId?: string) =>
-  useQuery({
+export const useCallDetail = (callId?: string) => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'call', callId],
     queryFn: async () => {
       const d = await protect<CallDetail>(`/decisions/${enc(callId!)}`);
@@ -184,12 +193,14 @@ export const useCallDetail = (callId?: string) =>
         outputs: arr(d?.outputs),
       } as CallDetail;
     },
-    enabled: !!callId && signedIn(),
+    enabled: !!callId && signed,
     retry: false,
   });
+};
 
-export const useStageEvents = (stage: 'loops' | 'intent') =>
-  useQuery({
+export const useStageEvents = (stage: 'loops' | 'intent') => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', stage],
     queryFn: async () => {
       const d = await protect<StageEvents>(`/${stage}`);
@@ -201,11 +212,13 @@ export const useStageEvents = (stage: 'loops' | 'intent') =>
         })),
       } as StageEvents;
     },
-    ...live(),
+    ...live(signed),
   });
+};
 
-export const useAgents = () =>
-  useQuery({
+export const useAgents = () => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'agents'],
     queryFn: async () => {
       const d = await protect<Agents>('/agents');
@@ -217,11 +230,13 @@ export const useAgents = () =>
         })),
       } as Agents;
     },
-    ...live(),
+    ...live(signed),
   });
+};
 
-export const useMcp = () =>
-  useQuery({
+export const useMcp = () => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'mcp'],
     queryFn: async () => {
       const d = await protect<Mcp>('/mcp');
@@ -235,22 +250,26 @@ export const useMcp = () =>
         recent: arr(d?.recent),
       } as Mcp;
     },
-    ...live(),
+    ...live(signed),
   });
+};
 
-export const useDiscovery = () =>
-  useQuery({
+export const useDiscovery = () => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'discovery'],
     queryFn: async () => {
       const d = await protect<Discovery>('/discovery');
       const inv = d?.inventory;
       return { ...d, inventory: inv ? { ...inv, items: arr(inv.items) } : null } as Discovery;
     },
-    ...live(),
+    ...live(signed),
   });
+};
 
-export const useApprovals = (state?: string) =>
-  useQuery({
+export const useApprovals = (state?: string) => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'approvals', state],
     queryFn: async () => {
       const d = await protect<{ approvals: Approval[]; count: number }>(
@@ -262,9 +281,10 @@ export const useApprovals = (state?: string) =>
       }));
       return { approvals, count: approvals.length };
     },
-    ...live(),
+    ...live(signed),
     refetchInterval: 2000,
   });
+};
 
 export function useDecideApproval() {
   const qc = useQueryClient();
@@ -289,8 +309,9 @@ export function useDecideApproval() {
   });
 }
 
-export const usePolicy = () =>
-  useQuery({
+export const usePolicy = () => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'policy'],
     queryFn: async () => {
       const d = await protect<PolicyView>('/rbac/policy');
@@ -308,16 +329,19 @@ export const usePolicy = () =>
       return { ...d, roles, agents: obj<PolicyView['agents']>(d?.agents) } as PolicyView;
     },
     retry: false,
-    enabled: signedIn(),
+    enabled: signed,
   });
+};
 
-export const usePermissions = (agent?: string) =>
-  useQuery({
+export const usePermissions = (agent?: string) => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'permissions', agent],
     queryFn: () => protect<Permissions>(`/rbac/agents/${enc(agent!)}/permissions`),
-    enabled: !!agent && signedIn(),
+    enabled: !!agent && signed,
     retry: false,
   });
+};
 
 export const useRbacCheck = () =>
   useMutation({
@@ -328,12 +352,14 @@ export const useRbacCheck = () =>
       })),
   });
 
-export const useControl = () =>
-  useQuery({
+export const useControl = () => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'control'],
     queryFn: async () => normControl(await protect('/control')),
-    ...live(),
+    ...live(signed),
   });
+};
 
 export function useControlAction() {
   const qc = useQueryClient();
@@ -347,19 +373,23 @@ export function useControlAction() {
   });
 }
 
-export const useEvidence = (seal: boolean, nonce: number) =>
-  useQuery({
+export const useEvidence = (seal: boolean, nonce: number) => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'evidence', seal, nonce],
     queryFn: async () => normEvidence(await protect(`/evidence/verify${qs({ seal })}`)),
     retry: false,
     staleTime: Infinity,
-    enabled: signedIn(),
+    enabled: signed,
   });
+};
 
-export const useProof = (obsId?: string) =>
-  useQuery({
+export const useProof = (obsId?: string) => {
+  const signed = useSignedIn();
+  return useQuery({
     queryKey: ['protect', 'proof', obsId],
     queryFn: () => protect<Record<string, unknown>>(`/evidence/proof/${enc(obsId!)}`),
-    enabled: !!obsId && signedIn(),
+    enabled: !!obsId && signed,
     retry: false,
   });
+};

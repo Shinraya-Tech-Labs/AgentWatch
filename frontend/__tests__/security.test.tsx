@@ -338,3 +338,62 @@ it.each([
   await waitFor(() => expect(screen.getByText(/tenant acme/)).toBeInTheDocument());
   expect(await axe(container)).toHaveNoViolations();
 });
+
+it('policy view shows the active policy and explains a dry-run denial', async () => {
+  const { default: PolicyPage } = await import('../pages/security/policy');
+  mockApi(status(), (url, init) =>
+    url.endsWith('/rbac/policy')
+      ? {
+          status: 200,
+          body: {
+            configured: true,
+            tenant_id: 'acme',
+            digest: 'abc123',
+            version: '1.0',
+            default: 'deny',
+            loaded_at: 1,
+            last_error: null,
+            roles: {
+              coder: {
+                allowed_tools: ['bash'],
+                forbidden_tools: [],
+                require_approval: [],
+                rate_limits: {},
+              },
+            },
+            agents: { coder: ['coder'] },
+          },
+        }
+      : url.endsWith('/rbac/check') && init?.method === 'POST'
+        ? {
+            status: 200,
+            body: {
+              tenant_id: 'acme',
+              agent_id: 'coder',
+              tool: 'bash',
+              verdict: 'block',
+              authorized: false,
+              reasons: ["Role 'coder' blocks commands matching 'sudo *'"],
+            },
+          }
+        : undefined,
+  );
+  wrap(<PolicyPage />);
+  await waitFor(() => expect(screen.getByText(/digest abc123/)).toBeInTheDocument());
+  fireEvent.change(screen.getByLabelText('check agent'), { target: { value: 'coder' } });
+  fireEvent.change(screen.getByLabelText('check tool'), { target: { value: 'bash' } });
+  fireEvent.change(screen.getByLabelText('check arguments'), {
+    target: { value: '{"command": "sudo ls"}' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'check' }));
+  await waitFor(() => expect(screen.getByText(/blocks commands matching/)).toBeInTheDocument());
+  const post = calls.find((c) => c.init?.method === 'POST')!;
+  expect(JSON.parse(String(post.init!.body))).toEqual({
+    agent_id: 'coder',
+    tool: 'bash',
+    arguments: { command: 'sudo ls' },
+  });
+  fireEvent.change(screen.getByLabelText('check arguments'), { target: { value: 'not json' } });
+  fireEvent.click(screen.getByRole('button', { name: 'check' }));
+  expect(screen.getByText('Arguments must be a JSON object.')).toBeInTheDocument();
+});
