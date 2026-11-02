@@ -88,6 +88,15 @@ MATRIX: tuple[Support, ...] = (
         "MCP workbenches route through the MCP gateway instead",
     ),
     Support(
+        "Claude Code (PreToolUse hook)",
+        PRE,
+        "panoptis.protect.claude_hook",
+        "PreToolUse deny/ask/updatedInput; PostToolUse updatedToolOutput",
+        "tests/protect/test_claude_hook.py",
+        "a hook command that cannot start or times out lets the tool run unless installed "
+        "with onFailure=block (Claude Code 2.1.295+); per-process loop/rate state",
+    ),
+    Support(
         "LangChain callback adapter",
         POST,
         "panoptis.adapters.langchain",
