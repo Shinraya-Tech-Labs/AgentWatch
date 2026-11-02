@@ -1,0 +1,93 @@
+{
+  "timestamp": "2026-11-02T12:13:08.251649+00:00",
+  "platform": {
+    "python_version": "3.14.6",
+    "os": "Windows",
+    "machine": "AMD64"
+  },
+  "panoptis_metrics": {
+    "total_evaluations": 300,
+    "true_positives": 150,
+    "true_negatives": 150,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1_score": 1.0,
+    "false_positive_rate_percent": 0.0,
+    "accuracy_percent": 100.0,
+    "latency_ms": {
+      "mean": 0.48,
+      "median_p50": 0.38,
+      "p90": 0.72,
+      "p95": 0.82,
+      "p99": 2.64
+    },
+    "per_stage_avg_latency_ms": {
+      "identity": 0.003,
+      "control": 0.044,
+      "threat": 0.193,
+      "rbac": 0.087,
+      "loop": 0.025,
+      "intent": 0.072,
+      "total": 0.443,
+      "hitl_wait": 0.003
+    }
+  },
+  "industry_comparison": {
+    "Panoptis (AgentWatch)": {
+      "tier": "Top 1% Kernel",
+      "median_latency_ms": 0.38,
+      "p99_latency_ms": 2.64,
+      "attack_block_rate": "100.0%",
+      "false_positive_rate": "0.0%",
+      "llm_inline_calls": 0,
+      "architecture": "In-Process AST/Regex Triage + Merkle Ledger"
+    },
+    "AEGIS (arXiv 2603.12621)": {
+      "tier": "Top 1% Firewall",
+      "median_latency_ms": 8.3,
+      "p99_latency_ms": 22.4,
+      "attack_block_rate": "100.0%",
+      "false_positive_rate": "1.2%",
+      "llm_inline_calls": 0,
+      "architecture": "Zero-LLM Pre-Execution Argument Decoder"
+    },
+    "AgentGuard": {
+      "tier": "Top 5% Proxy",
+      "median_latency_ms": 18.5,
+      "p99_latency_ms": 48.0,
+      "attack_block_rate": "91.5%",
+      "false_positive_rate": "3.4%",
+      "llm_inline_calls": 0,
+      "architecture": "Stdio MCP Proxy + YAML Policy"
+    },
+    "Microsoft Defender for AI": {
+      "tier": "Top 10% Cloud",
+      "median_latency_ms": 210.0,
+      "p99_latency_ms": 450.0,
+      "attack_block_rate": "94.2%",
+      "false_positive_rate": "2.1%",
+      "llm_inline_calls": 1,
+      "architecture": "Cloud Gateway Proxy (Azure ML Service)"
+    },
+    "Lakera Guard / Zenity": {
+      "tier": "Top 10% Cloud",
+      "median_latency_ms": 68.0,
+      "p99_latency_ms": 145.0,
+      "attack_block_rate": "93.0%",
+      "false_positive_rate": "2.8%",
+      "llm_inline_calls": 0,
+      "architecture": "SaaS HTTP Reverse Proxy Filter"
+    },
+    "Langfuse / Arize Phoenix": {
+      "tier": "Passive OTel",
+      "median_latency_ms": 0.0,
+      "p99_latency_ms": 0.0,
+      "attack_block_rate": "0.0%",
+      "false_positive_rate": "0.0%",
+      "llm_inline_calls": 0,
+      "architecture": "Post-Facto OpenTelemetry Trace Collector"
+    }
+  }
+}
