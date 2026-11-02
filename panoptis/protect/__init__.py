@@ -20,6 +20,12 @@ from panoptis.protect.counterfactual import (
     CounterfactualEngine,
     CounterfactualResult,
 )
+from panoptis.protect.crescendo_drift import (
+    ConversationTurn,
+    CrescendoDriftMonitor,
+    DriftAssessment,
+    DriftStatus,
+)
 from panoptis.protect.enclave_attestation import (
     EnclaveAttestationDocument,
     EnclaveAttestationVerifier,
@@ -58,6 +64,13 @@ from panoptis.protect.kernel_sandbox import (
 from panoptis.protect.ledger import ProtectLedger
 from panoptis.protect.loops import LoopConfig, LoopDetector
 from panoptis.protect.ltl_trajectory import LTLTrajectoryVerifier, TrajectoryStep
+from panoptis.protect.memory_sentry import (
+    MemoryInspectionResult,
+    MemoryRecord,
+    MemoryRiskType,
+    MemorySentry,
+    MemoryTrustLevel,
+)
 from panoptis.protect.model import (
     ActionBlocked,
     Decision,
@@ -70,6 +83,11 @@ from panoptis.protect.model import (
 )
 from panoptis.protect.output import OutputInspector
 from panoptis.protect.pipeline import ProtectionConfig, ProtectionPipeline
+from panoptis.protect.rag_sanitizer import (
+    RAGPoisonStatus,
+    RAGSanitizationResult,
+    RAGSanitizer,
+)
 from panoptis.protect.rbac import PolicyError, PolicyStore, RBACEngine, parse_policy
 from panoptis.protect.taint_tracker import DynamicTaintTracker
 from panoptis.protect.threats import ThreatAnalyzer
@@ -89,11 +107,15 @@ __all__ = [
     "ApprovalOutcome",
     "ApprovalRequest",
     "ControlState",
+    "ConversationTurn",
     "CounterfactualConfig",
     "CounterfactualEngine",
     "CounterfactualResult",
+    "CrescendoDriftMonitor",
     "DEFAULT_SINK_CLEARANCES",
     "Decision",
+    "DriftAssessment",
+    "DriftStatus",
     "DynamicTaintTracker",
     "EnclaveAttestationDocument",
     "EnclaveAttestationVerifier",
@@ -112,6 +134,11 @@ __all__ = [
     "LTLTrajectoryVerifier",
     "LoopConfig",
     "LoopDetector",
+    "MemoryInspectionResult",
+    "MemoryRecord",
+    "MemoryRiskType",
+    "MemorySentry",
+    "MemoryTrustLevel",
     "OutputInspection",
     "OutputInspector",
     "PolicyError",
@@ -120,6 +147,9 @@ __all__ = [
     "ProtectLedger",
     "ProtectionConfig",
     "ProtectionPipeline",
+    "RAGPoisonStatus",
+    "RAGSanitizationResult",
+    "RAGSanitizer",
     "RBACEngine",
     "RuntimeIntegrityGuard",
     "SandboxExecutionError",
