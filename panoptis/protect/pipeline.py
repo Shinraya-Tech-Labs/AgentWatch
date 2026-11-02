@@ -332,7 +332,12 @@ class ProtectionPipeline:
                 findings += timed(
                     "rbac",
                     lambda: self.rbac.authorize(
-                        action.agent_id, action.tool, action.arguments, profile
+                        action.agent_id,
+                        action.tool,
+                        action.arguments,
+                        profile,
+                        tenant_id=action.tenant_id,
+                        session_id=action.session_id,
                     ),
                 )
                 findings += timed(

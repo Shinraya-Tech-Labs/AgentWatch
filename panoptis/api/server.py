@@ -900,6 +900,11 @@ from panoptis.api.protect_approvals import build_router as _build_approvals_rout
 
 app.include_router(_build_approvals_router(_require_api_key_or_operator, _v3_tenant))
 
+# Effective RBAC permissions and dry-run authorization checks (TO-022), tenant-scoped.
+from panoptis.api.protect_rbac import build_router as _build_rbac_router  # noqa: E402
+
+app.include_router(_build_rbac_router(_require_api_key_or_operator, _v3_tenant))
+
 
 @app.exception_handler(HTTPException)
 async def _panoptis_http_exception_handler(request: Request, exc: HTTPException):
