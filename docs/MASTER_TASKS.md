@@ -401,23 +401,23 @@ against the same enforcement contract as framework adapters.
 detection and benign-content preservation, with documented
 false-positive behavior.
 
-## TO-018 --- Complete post-execution output inspection
+## TO-018 --- Complete post-execution output inspection — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-018)
 
--   [ ] Inspect tool results before they are returned to the agent.
--   [ ] Detect prompt-injection instructions in retrieved or
+-   [x] Inspect tool results before they are returned to the agent.
+-   [x] Detect prompt-injection instructions in retrieved or
     tool-produced content.
--   [ ] Detect secrets and sensitive data in outputs.
--   [ ] Sanitize or withhold malicious content without destroying
+-   [x] Detect secrets and sensitive data in outputs.
+-   [x] Sanitize or withhold malicious content without destroying
     unrelated benign content.
--   [ ] Define behavior for structured, text, binary, oversized, and
+-   [x] Define behavior for structured, text, binary, oversized, and
     streaming results.
--   [ ] Ensure sanitized output---not the original unsafe output---is
+-   [x] Ensure sanitized output---not the original unsafe output---is
     what the agent receives.
--   [ ] Add synthetic harmless fixtures for detection, sanitization,
+-   [x] Add synthetic harmless fixtures for detection, sanitization,
     benign preservation, and false-positive tests.
--   [ ] Add integration tests that inspect the exact value returned to
+-   [x] Add integration tests that inspect the exact value returned to
     the agent.
--   [ ] Record sanitization actions in evidence without storing
+-   [x] Record sanitization actions in evidence without storing
     unnecessary secrets.
 
 **Acceptance evidence:** Tests prove malicious content is

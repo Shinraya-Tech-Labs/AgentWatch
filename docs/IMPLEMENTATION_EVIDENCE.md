@@ -48,7 +48,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-013 / TO-014 / TO-015 LangGraph, AutoGen, smolagents | DONE | [TO-013, TO-014, TO-015](#to-013-to-014-to-015) |
 | TO-016 generic and direct tools | DONE | [TO-016](#to-016) |
 | TO-017 threat analysis | DONE | [TO-017](#to-017) |
-| TO-018 … TO-040 | NOT STARTED unless listed below | — |
+| TO-018 output inspection | DONE | [TO-018](#to-018) |
+| TO-019 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -792,3 +793,36 @@ pytest tests/e2e_claude -m external -v
 - `pytest tests/protect tests/test_watcher_fail_closed.py tests/test_adapter_claude_code.py tests/test_safety*.py`: 337 passed
 
 **Commits:** `fa9e317` `5cc9dae` `ce2054d`, plus this ledger commit.
+
+### TO-018
+
+**Status:** DONE. Docs: [`docs/OUTPUT_INSPECTION.md`](OUTPUT_INSPECTION.md).
+
+**Gaps found by probing and fixed** (each one reached the agent unsanitized, or in the wrong type, on the previous code):
+
+| Input | Before | Now |
+|---|---|---|
+| a list padded past 2,000,000 chars, then an injection | rest **passed on unscanned** (MEDIUM, allow) | rest withheld (`UNSCANNED_CONTENT`, HIGH); `on_oversize="pass"` is an explicit opt-in |
+| dataclass, pydantic model or plain object with an injected field | **not inspected** | fields inspected; rebuilt with the same type, or withheld |
+| slotted object whose `str()` carries an injection | not inspected | withheld |
+| `ign​ore all previous instructions…` (one zero-width char), soft hyphen, word joiner | not detected | detected: `_normalize` drops Unicode format characters |
+| `bytes` result | returned as `str` | same type; clean bytes untouched; non-UTF-8 binary passes with `BINARY_NOT_INSPECTED` |
+| `namedtuple`, `set` | namedtuple became a plain tuple; set not walked | same type, walked |
+| results nested very deeply | no bound | withheld beyond `max_depth` (64) |
+
+**Already in place and covered:** quarantine, withhold and flag modes; hidden HTML; tag-block and invisible text; base64 and URL-encoded variants; markdown exfiltration beacons; secret masking; streaming chunk-by-chunk sanitization (`b555a36`); the framework integrations returning sanitized values (TO-011).
+
+**Tests:** `tests/protect/test_output_inspection.py` (33). 9 of them fail on the previous code.
+
+- Synthetic harmless injections (BANANA fixtures) are detected and neutralised.
+- Benign lines and ordinary text are preserved.
+- Every result type: bytes, binary, objects, unrebuildable objects, namedtuple, set.
+- Invisible-character evasion; the oversize withhold and the opt-in; depth.
+- An integration test checks that the exact value `protect_tool` returns equals the sanitized value, that benign fields survive, and that the `protect.output` evidence holds the counts but **not** the secret.
+
+**Commands and results:**
+
+- `pytest tests/protect`: 202 passed
+- `pytest tests/contracts tests/test_safety.py tests/test_observability.py tests/v3/test_attestation.py tests/test_counterfactual_l3_replay.py`: 398 passed (other users of `_normalize`)
+
+**Commits:** `e7d000a` `79ff7a9` `5597c25` and the docs commit, plus this ledger commit.
