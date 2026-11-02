@@ -14,6 +14,11 @@ export const VIEWS = [
   { href: '/genome', label: 'GENOME', hint: 'motifs, profiles, drift' },
   { href: '/compare', label: 'COMPARE', hint: 'runs and versions side by side' },
   { href: '/query', label: 'QUERY', hint: 'evidence-backed questions' },
+  {
+    href: '/security',
+    label: 'SECURITY',
+    hint: 'runtime protection, approvals, evidence, emergency stop',
+  },
 ];
 
 export function Shell({
