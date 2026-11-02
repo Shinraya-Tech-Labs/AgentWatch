@@ -62,7 +62,10 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-029 dashboard | DONE | [TO-029](#to-029) |
 | TO-030 packaging | DONE | [TO-030](#to-030) |
 | TO-031 memory erasure | DONE | [TO-031](#to-031) |
-| TO-032 … TO-040 | NOT STARTED unless listed below | — |
+| TO-032 CI and static security | IN PROGRESS (GitHub CI run pending) | [TO-032](#to-032) |
+| TO-033 release workflow | IN PROGRESS (GitHub RC run pending) | [TO-033](#to-033) |
+| TO-034 architecture | DONE | [TO-034](#to-034) |
+| TO-035 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -1297,4 +1300,92 @@ Screenshots: `docs/screenshots/dashboard/`.
 - **Commands:**
   - `pytest tests/test_memory_erasure.py`: 9 passed
   - `pytest -k "gdpr or erase or memory or erasure"`: 117 passed
+
+### TO-032
+
+**Status:** IN PROGRESS. Every configured check passes locally on this tree (below). The acceptance criterion asks for **a clean GitHub CI run** on the release candidate. CI now also runs on `feat/**` pushes; its result is checked and recorded in TO-039.
+
+**What changed:**
+
+- **Lint:**
+  - The whole repository now passes `ruff check .` and `ruff format --check .`, including `panopti/`, tests and scripts.
+  - There were 58 findings. Two narrowly justified per-file ignores remain: the legacy uppercase Colors API, and notebook E402.
+  - CI linted `panoptis/` only; it now lints everything.
+- **Types:** `make typecheck` (mypy) now also covers `panoptis/protect` and the protect API routers, 116 files. 17 errors were fixed.
+- **Bandit** (both packages, blocking in CI; it was PR-only and covered `panoptis` only):
+  - **Trojan source:** the regex source in `protect/output.py` contained raw bidi control characters; they are now escapes.
+  - **Asserts:** two runtime checks used `assert`, which is stripped under `-O`.
+  - **Suppressions:** the rest are documented inline. Result: 0 findings.
+- **Dependency drift:**
+  - `scripts/check_imports.py` and `pip check`.
+  - A package job: clean install of the wheel and the sdist, a smoke test, **pip-audit blocking**, and `twine check --strict` with twine 7 or later (6.x cannot read Metadata-Version 2.5). Before, pip-audit ran with `continue-on-error: true` in both CI and PR workflows.
+- **Secrets:** a gitleaks job. `.gitleaks.toml` allowlists build output and 7 *named* test-fixture files plus the AWS documented example key. A scan of the tree found no real secrets; the 36 raw hits were fixtures and `.next` output.
+- **Coverage:** `scripts/coverage_gate.py` adds floors for 30 security-sensitive modules (protect, tenant auth, protect API, evidence, the legacy gate), on top of the global 70%.
+- **Frontend:** CI now also runs lint, Jest (component and accessibility) and `npm audit --omit=dev`.
+- **Permissions and PR workflows:**
+  - `ci.yml` has `permissions: contents: read`.
+  - The PR test workflow's lint now blocks.
+  - **Fork-PR comment abuse fixed:** `report-on-pr.yml` took the PR number and outcome text from the fork's artifact, so a fork could post on another PR. The PR must now exist with the tested commit as its head, and outcomes are allowlisted.
+- **Static validation:** `actionlint` (with shellcheck) passes on all workflows.
+
+**Local results on this tree:**
+
+- `ruff check .` and `ruff format --check .`: clean
+- `make typecheck`: no issues in 116 files
+- `bandit -r panoptis panopti`: 0
+- `scripts/check_imports.py`: 0
+- gitleaks: no leaks
+- `scripts/clean_install.sh`: both artifacts pass, pip-audit clean
+- frontend lint, types, 36 Jest tests, audit and build: clean
+- full suite: 2928 passed, 0 failed, coverage 82%
+
+The coverage-floor gate was re-measured on the final tree in TO-039, because the first measurement ran while files were being edited.
+
+### TO-033
+
+**Status:** IN PROGRESS. `release.yml` is the single release path and is implemented. Locally, its gates and the build and checksum steps refuse wrong tags, version and CHANGELOG mismatches, unexpected artifact contents, tampering and unlisted files. Two things cannot be done from this session:
+
+- **A GitHub release-candidate run.** It needs a `v*` tag or a manual dispatch from `main`. Tagging is outside this branch's rules.
+- **Owner settings in GitHub and PyPI:** the `pypi` environment with reviewers, the trusted publisher, and `main` branch protection (docs/RELEASING.md).
+
+**Defects fixed:**
+
+- Two workflows created GitHub Releases from the same tag.
+- The old `release.yml` "integrity validation" step was an `echo`.
+- `publish-pypi.yml` published any `v*` tag **with no tests**, using a long-lived token, and uploaded whatever `python -m build` produced.
+
+**Now:**
+
+- the full CI runs on the tag commit (`ci.yml` as a reusable workflow);
+- the gates check the tag format, the pyproject version, the CHANGELOG section, and that the commit is on `main`;
+- one build is checked (`twine check --strict`, contents), hashed (`SHA256SUMS`) and given a build-provenance attestation;
+- PyPI receives exactly those files, re-verified, via trusted publishing or the token, behind the `pypi` environment;
+- the GitHub Release carries the same files and checksums;
+- there is a dry-run mode; rollback and yank are documented.
+
+**Tests and local dry run:**
+
+- `tests/test_release_check.py`: 12 passed
+- `release_check.py tag v0.3.0`: passed; `v0.3.1`: refused (version and CHANGELOG)
+- build, `twine check --strict`: both PASSED
+- `artifacts` wrote the SHA256SUMS; a tampered sdist is refused by `verify-sums`
+
+### TO-034
+
+**Status:** DONE. The architecture map accounts for every reviewed module, and every retained public capability has a supported entry point or an explicit internal purpose. Docs: [`docs/ARCHITECTURE_MAP.md`](ARCHITECTURE_MAP.md).
+
+- **Method.** `scripts/module_map.py` builds the import graph from the real entry points (console scripts, `python -m`, the API app, Celery tasks, the MCP server, the gateway, the hook, the verifier, the SDK roots). It counts lazy imports and dotted names in strings, so dynamic loads are not missed.
+  - **Before:** 7 modules were reachable from nothing, and 80 only from tests.
+  - **After:** 0 are unreachable; 265 are reached at runtime and 77 only from tests, and every one of the 77 is classified with evidence (test files, documentation).
+- **Classification:**
+  - 3 documented library APIs (the evidence attestation, Merkle and shredding modules);
+  - 2 internal or re-export modules;
+  - 7 legacy modules, superseded by `protect`, with the replacement named;
+  - 2 deprecated shims;
+  - 65 experimental modules: tested, not part of the supported surface, kept rather than deleted, because a static scan cannot see external users.
+- **Removed:** `security/encryption.py` and `security/key_storage.py` (unused and untested). ADR-0011 misattributed per-tenant encryption to them; it was corrected to `evidence/crypto.py`. Also removed: `telemetry/ingestion.py`, an unused, untested duplicate of the API's ingestion.
+- **Wired:** `panoptis protect support` (the support matrix); `__main__` entry points recognised.
+- **Deprecated:** `cost/caching.py` and `cost/router.py` warn on import.
+- **Dependency direction** is documented, and single-boundary enforcement is guarded by `tests/protect/test_single_boundary.py`.
+- **Guard:** `tests/test_architecture.py` (5) fails on any unreachable module, on an unwired module missing from the map or a stale entry, on shims that stop warning, and on the removed modules coming back.
 

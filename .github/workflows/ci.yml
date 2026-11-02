@@ -2,7 +2,7 @@ name: AgentWatch CI
 
 on:
   push:
-    branches: [main, develop, architecture/v3]
+    branches: [main, develop, architecture/v3, "feat/**"]
   pull_request:
     branches: [main]
   # the release workflow runs this whole CI on the tagged commit before it builds anything

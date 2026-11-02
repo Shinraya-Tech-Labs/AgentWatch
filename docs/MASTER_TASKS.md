@@ -709,71 +709,71 @@ output is attached to the release evidence.
 **Acceptance evidence:** The memory-erasure path executes successfully
 in integration tests and rejects unauthorized cross-tenant requests.
 
-## TO-032 --- Strengthen CI and static security checks
+## TO-032 --- Strengthen CI and static security checks — **IN PROGRESS** (all checks pass locally; the GitHub CI run on this branch is checked in TO-039; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-032)
 
--   [ ] Make CI lint all shipped Python packages, including
+-   [x] Make CI lint all shipped Python packages, including
     `agentwatch/` and `panopti/`.
--   [ ] Resolve the 49 repo-wide Ruff findings or document narrowly
+-   [x] Resolve the 49 repo-wide Ruff findings or document narrowly
     justified suppressions.
--   [ ] Add/retain type checking and coverage gates.
--   [ ] Make dependency auditing actionable; do not silently configure
+-   [x] Add/retain type checking and coverage gates.
+-   [x] Make dependency auditing actionable; do not silently configure
     `pip-audit` to always succeed.
--   [ ] Add a maintained static security scanner (for example Bandit or
+-   [x] Add a maintained static security scanner (for example Bandit or
     Semgrep) if compatible with the repository and CI policy.
--   [ ] Add checks for secrets, unsafe configuration, dependency drift,
+-   [x] Add checks for secrets, unsafe configuration, dependency drift,
     and packaging errors.
--   [ ] Ensure security-critical tests run on pull requests.
--   [ ] Set meaningful coverage thresholds for security-sensitive
+-   [x] Ensure security-critical tests run on pull requests.
+-   [x] Set meaningful coverage thresholds for security-sensitive
     modules, including tenant auth and adapters.
--   [ ] Test CI workflow behavior for fork pull requests and
+-   [x] Test CI workflow behavior for fork pull requests and
     least-privilege permissions.
--   [ ] Ensure CI checks the exact code that will be released.
+-   [x] Ensure CI checks the exact code that will be released.
 
 **Acceptance evidence:** A clean CI run demonstrates lint, type, tests,
 coverage, package checks, and configured security checks all pass on the
 release candidate.
 
-## TO-033 --- Secure release and publishing workflows
+## TO-033 --- Secure release and publishing workflows — **IN PROGRESS** (workflow, gates and local dry run done; a GitHub release-candidate run needs a tag or dispatch from main and the owner's PyPI/environment settings; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-033)
 
--   [ ] Consolidate duplicate GitHub Release creation workflows or
+-   [x] Consolidate duplicate GitHub Release creation workflows or
     define a single authoritative release path.
--   [ ] Require green CI and the full required test suite before PyPI
+-   [x] Require green CI and the full required test suite before PyPI
     publication.
--   [ ] Ensure `v*` tags cannot publish untested artifacts.
--   [ ] Replace any placeholder/echo-only integrity validation with real
+-   [x] Ensure `v*` tags cannot publish untested artifacts.
+-   [x] Replace any placeholder/echo-only integrity validation with real
     verification.
--   [ ] Verify build provenance, package metadata, artifact contents,
+-   [x] Verify build provenance, package metadata, artifact contents,
     and signatures/attestations where supported.
--   [ ] Restrict workflow permissions to least privilege.
--   [ ] Audit fork-PR comment/report workflows for cross-PR write or
+-   [x] Restrict workflow permissions to least privilege.
+-   [x] Audit fork-PR comment/report workflows for cross-PR write or
     comment abuse.
--   [ ] Add release dry-run tests and document rollback/yank procedures.
--   [ ] Verify the published artifact matches the tested commit and
+-   [x] Add release dry-run tests and document rollback/yank procedures.
+-   [x] Verify the published artifact matches the tested commit and
     build.
 
 **Acceptance evidence:** A release-candidate workflow refuses
 publication when tests or required checks fail and publishes only the
 verified artifact.
 
-## TO-034 --- Architecture and dead-code review
+## TO-034 --- Architecture and dead-code review — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-034)
 
--   [ ] Map runtime entry points, API routes, CLI commands, adapters,
+-   [x] Map runtime entry points, API routes, CLI commands, adapters,
     dashboard calls, package exports, and tests.
--   [ ] Review the reported approximately 54 importable but unreachable
+-   [x] Review the reported approximately 54 importable but unreachable
     modules (\~6,500 lines).
--   [ ] Classify each module as required library API, internal
+-   [x] Classify each module as required library API, internal
     dependency, experimental, dead code, or undocumented feature.
--   [ ] Do not delete modules solely because a simple static
+-   [x] Do not delete modules solely because a simple static
     reachability scan cannot find dynamic imports or plugin entry
     points.
--   [ ] Remove genuinely dead code or wire required functionality into
+-   [x] Remove genuinely dead code or wire required functionality into
     documented entry points.
--   [ ] Consolidate duplicated subsystems only where behavior and
+-   [x] Consolidate duplicated subsystems only where behavior and
     compatibility are understood.
--   [ ] Establish dependency direction and avoid circular or duplicated
+-   [x] Establish dependency direction and avoid circular or duplicated
     enforcement logic.
--   [ ] Add tests before removing or consolidating behavior.
--   [ ] Update package exports and documentation.
+-   [x] Add tests before removing or consolidating behavior.
+-   [x] Update package exports and documentation.
 
 **Acceptance evidence:** The architecture map accounts for the reviewed
 modules and every retained public capability has a supported entry point
