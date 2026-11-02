@@ -191,9 +191,3 @@ class RecursiveProofCompressor:
             return False, "Aggregated commitment mismatch (tampering detected)"
 
         return True, "Certificate and all constituent Merkle proofs verified valid"
-        expected_commitment = h.hexdigest()
-
-        if expected_commitment != cert.aggregated_commitment:
-            return False, "Aggregated commitment mismatch (tampering detected)"
-
-        return True, "Certificate and all constituent Merkle proofs verified valid"

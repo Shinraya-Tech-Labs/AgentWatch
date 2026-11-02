@@ -83,6 +83,17 @@ from panoptis.protect.model import (
 )
 from panoptis.protect.output import OutputInspector
 from panoptis.protect.pipeline import ProtectionConfig, ProtectionPipeline
+from panoptis.protect.pqc_attestation import (
+    PQCAlgorithm,
+    PQCKeyPair,
+    PQCSigner,
+    SovereignAttestationCertificate,
+    SovereignAttestationEngine,
+    StarkFRICommitment,
+    StarkProof,
+    StarkRecursiveProver,
+    StarkRecursiveVerifier,
+)
 from panoptis.protect.rag_sanitizer import (
     RAGPoisonStatus,
     RAGSanitizationResult,
@@ -153,6 +164,9 @@ __all__ = [
     "MemoryTrustLevel",
     "OutputInspection",
     "OutputInspector",
+    "PQCAlgorithm",
+    "PQCKeyPair",
+    "PQCSigner",
     "PolicyError",
     "PolicyFormalVerifier",
     "PolicyStore",
@@ -171,9 +185,15 @@ __all__ = [
     "SimulationConfig",
     "SnapshotDiff",
     "Severity",
+    "SovereignAttestationCertificate",
+    "SovereignAttestationEngine",
     "SpeculativeSideEffect",
     "SpeculativeTransactor",
     "Stage",
+    "StarkFRICommitment",
+    "StarkProof",
+    "StarkRecursiveProver",
+    "StarkRecursiveVerifier",
     "TaintContext",
     "TemporalSimulationResult",
     "ThreatAnalyzer",
