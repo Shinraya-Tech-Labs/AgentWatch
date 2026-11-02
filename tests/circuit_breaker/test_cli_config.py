@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
+from panopti.cli import main as panopti_main
 from panoptis.circuit_breaker import CircuitBreaker, CircuitState, CircuitThresholds
 from panoptis.cli.main import app
 from panoptis.core.schema import AgentEvent, EventType, ExecutionStatus
-from panopti.cli import main as panopti_main
 
 runner = CliRunner()
 

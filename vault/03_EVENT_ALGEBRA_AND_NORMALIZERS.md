@@ -24,18 +24,18 @@ A `ComputationalEvent` contains:
 ```python
 @dataclass(frozen=True)
 class ComputationalEvent:
-    event_id: str                      # Deterministic UUID derived from evidence hash
-    tenant_id: str                     # Tenant isolation namespace
-    interp_id: str                     # Normalizer interpretation run identifier
-    normalizer: str                    # Normalizer name and version (e.g., "otel_genai@1.2")
-    derived_from: tuple[str, ...]      # List of raw observation IDs producing this event
-    kind: EventKind                    # High-level taxonomy of the computation
-    operation: str                     # Concrete operation (e.g., "llm.chat", "tools.execute")
-    time: TemporalInfo                 # Start, end, and uncertainty interval
-    status: EventStatus                # OK, ERROR, or UNKNOWN
-    attributes_json: str               # Canonical JSON serialized attributes
-    actor: str | None = None           # Resolved entity (agent or human)
-    links: tuple[DeclaredLink, ...] = () # Declared causal & parent-child relationships
+    event_id: str  # Deterministic UUID derived from evidence hash
+    tenant_id: str  # Tenant isolation namespace
+    interp_id: str  # Normalizer interpretation run identifier
+    normalizer: str  # Normalizer name and version (e.g., "otel_genai@1.2")
+    derived_from: tuple[str, ...]  # List of raw observation IDs producing this event
+    kind: EventKind  # High-level taxonomy of the computation
+    operation: str  # Concrete operation (e.g., "llm.chat", "tools.execute")
+    time: TemporalInfo  # Start, end, and uncertainty interval
+    status: EventStatus  # OK, ERROR, or UNKNOWN
+    attributes_json: str  # Canonical JSON serialized attributes
+    actor: str | None = None  # Resolved entity (agent or human)
+    links: tuple[DeclaredLink, ...] = ()  # Declared causal & parent-child relationships
 ```
 
 ### Event Taxonomy (`EventKind`)
@@ -58,7 +58,7 @@ In distributed multi-agent systems, clocks drift. A timestamp without an uncerta
 class TemporalInfo:
     start: datetime
     end: datetime | None = None
-    uncertainty_ms: float = 0.0        # Clock drift bound (+/- delta in ms)
+    uncertainty_ms: float = 0.0  # Clock drift bound (+/- delta in ms)
 ```
 
 - When evaluating temporal orderings ($A \prec B$):

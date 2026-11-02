@@ -4,12 +4,7 @@ import { BLOG_POSTS } from './blog/data';
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://agentwatch.ai'; // Replace with actual production URL
 
-  const staticRoutes = [
-    '',
-    '/about',
-    '/blog',
-    '/contributors',
-  ].map((route) => ({
+  const staticRoutes = ['', '/about', '/blog', '/contributors'].map((route) => ({
     url: `${baseUrl}${route}`,
     changeFrequency: 'weekly' as const,
     priority: route === '' ? 1 : 0.8,

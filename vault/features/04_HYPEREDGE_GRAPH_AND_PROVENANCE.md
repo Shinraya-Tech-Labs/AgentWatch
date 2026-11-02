@@ -352,18 +352,20 @@ When AgentWatch's security monitor detects suspicious tool arguments in `event_0
 from panoptis.graph import HyperedgeGraphStore
 from panoptis.provenance import LineageTracker
 
-store = HyperedgeGraphStore.from_connection_string("postgresql://panoptis:secret@localhost:5432/graph")
+store = HyperedgeGraphStore.from_connection_string(
+    "postgresql://panoptis:secret@localhost:5432/graph"
+)
 tracker = LineageTracker(graph_store=store)
 
 # Extract full root-cause causal slice
 taint_slice = tracker.trace_root_cause(
-    target_event_id="evt_tool_curl_exec_006",
-    max_hops=8,
-    include_taint_metadata=True
+    target_event_id="evt_tool_curl_exec_006", max_hops=8, include_taint_metadata=True
 )
 
 for step in taint_slice.chronological_path:
-    print(f"Step {step.depth}: [{step.producer_component}] Event {step.event_id} (taint_score={step.taint_score})")
+    print(
+        f"Step {step.depth}: [{step.producer_component}] Event {step.event_id} (taint_score={step.taint_score})"
+    )
 ```
 
 ---
@@ -380,9 +382,7 @@ AgentWatch guarantees strict acyclicity through **Temporal Ephemeral Node Versio
 
 ```python
 def resolve_cyclic_dependency(
-    graph_store: HyperedgeGraphStore,
-    entity_key: str,
-    new_version_event: ComputationalEvent
+    graph_store: HyperedgeGraphStore, entity_key: str, new_version_event: ComputationalEvent
 ) -> NodeVersionId:
     """
     Unrolls cyclic entity modifications into an acyclic temporal version chain:
@@ -390,14 +390,14 @@ def resolve_cyclic_dependency(
     """
     current_head = graph_store.get_current_entity_head(entity_key)
     new_version_id = f"{entity_key}#v{current_head.version_index + 1}"
-    
+
     # Create distinct node in hypergraph
     graph_store.create_versioned_node(
         version_id=new_version_id,
         entity_key=entity_key,
         parent_version_id=current_head.version_id,
         originating_event_id=new_version_event.event_id,
-        lamport_timestamp=new_version_event.temporal.lamport_clock
+        lamport_timestamp=new_version_event.temporal.lamport_clock,
     )
     return new_version_id
 ```

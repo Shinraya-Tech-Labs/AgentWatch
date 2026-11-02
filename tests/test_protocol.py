@@ -218,4 +218,3 @@ def test_mcp_server_dispatches_store_and_query_memory():
     assert res2.ok
     assert len(res2.result) == 1
     assert res2.result[0]["key"] == "k1"
-
