@@ -1411,7 +1411,7 @@ The coverage-floor gate was re-measured on the final tree in TO-039, because the
 
 ### TO-036, TO-037
 
-**Status:** DONE. The results are in [`benchmarks/results/protect_eval/REPORT.md`](../benchmarks/results/protect_eval/REPORT.md) (with `results.json` and `corpus_v1.json`) and [`docs/EVALUATION.md`](EVALUATION.md). Commits `e01b3c6` and `5e214f3`, plus fixes `56c9d86`, `4f50104` and `5ff9d14`.
+**Status:** DONE. The results are in [`benchmarks/results/protect_eval/REPORT.md`](https://github.com/Shinraya-Tech-Labs/AgentWatch/blob/main/benchmarks/results/protect_eval/REPORT.md) (with `results.json` and `corpus_v1.json`) and [`docs/EVALUATION.md`](EVALUATION.md). Commits `e01b3c6` and `5e214f3`, plus fixes `56c9d86`, `4f50104` and `5ff9d14`.
 
 - **Corpus.** `benchmarks/protect_eval/corpus.py` (v1.0.0) has 82 harmless synthetic cases, each labelled attack or benign. They cover dangerous arguments, secrets, prompt injection and secrets in output, RBAC, loops, and intent. Nothing is downloaded or executed, and the evaluation tools are no-op stubs.
 - **Metrics.** Detection, block, escalate and false-positive rates, the missed attacks, sanitization correctness (injection removed and legitimate content kept), and p50/p95/p99 latency. Results are reported by category and by integration: the pipeline, `protect_tool` (also counting executions), the MCP gateway, and the Claude Code hook contract.
@@ -1432,7 +1432,7 @@ The coverage-floor gate was re-measured on the final tree in TO-039, because the
 python examples/walkthrough/run_walkthrough.py --out walkthrough-out [--screenshots]
 ```
 
-Docs: [`examples/walkthrough/README.md`](../examples/walkthrough/README.md). The committed output of the run is in `examples/walkthrough/output/`: the log, the JSON, the console, and 7 dashboard screenshots.
+Docs: [`examples/walkthrough/README.md`](https://github.com/Shinraya-Tech-Labs/AgentWatch/blob/main/examples/walkthrough/README.md). The committed output of the run is in `examples/walkthrough/output/`: the log, the JSON, the console, and 7 dashboard screenshots.
 
 - **What it runs.** The real API server (uvicorn) runs on a free port with a temporary SQLite store, kill file, anchors, RBAC policy, two tenant keys and an operator key. The agents share that store, as in a deployment. With `--screenshots`, the production dashboard build is also started and captured with Playwright.
 - **Self-checks.** 23 checks across the 11 steps. The run exits non-zero at the first failure, and every step listed in the task is demonstrated:

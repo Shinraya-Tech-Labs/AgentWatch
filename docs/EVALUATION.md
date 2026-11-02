@@ -6,7 +6,7 @@ The protection pipeline is measured with a reproducible, versioned evaluation (T
 python -m benchmarks.protect_eval.run --out benchmarks/results/protect_eval --iterations 300
 ```
 
-The command writes `REPORT.md` (methodology, environment, results by threat category and integration, false positives, overhead, limitations), `results.json` (every case's outcome and latency) and `corpus_v1.json` (the exact cases). The committed run is in [`benchmarks/results/protect_eval/`](../benchmarks/results/protect_eval/REPORT.md).
+The command writes `REPORT.md` (methodology, environment, results by threat category and integration, false positives, overhead, limitations), `results.json` (every case's outcome and latency) and `corpus_v1.json` (the exact cases). The committed run is in [`benchmarks/results/protect_eval/`](https://github.com/Shinraya-Tech-Labs/AgentWatch/blob/main/benchmarks/results/protect_eval/REPORT.md).
 
 ## Corpus
 
