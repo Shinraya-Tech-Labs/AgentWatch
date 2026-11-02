@@ -126,3 +126,37 @@ def test_retrying_an_event_after_an_outage_stores_it_exactly_once(monkeypatch, t
 
         assert asyncio.run(count()) == 1
         assert server._collector.get_trace("retry-session").event_count == 1
+
+
+@pytest.mark.skipif(
+    not __import__("os").environ.get("DATABASE_URL", "").startswith("postgresql"),
+    reason="needs DATABASE_URL pointing at PostgreSQL, which enforces the foreign key (CI sets it)",
+)
+async def test_an_event_for_a_session_the_collector_has_not_seen_yet_persists(monkeypatch):
+    # the collector and the database writer are separate subscribers of one event, so the
+    # writer can run first: the session row must then come from the event itself
+    import os
+    import uuid
+
+    from panoptis.core.models import init_db
+    from panoptis.core.schema import AgentEvent, EventType
+
+    factory = await init_db(os.environ["DATABASE_URL"])
+    monkeypatch.setattr(server, "_db_session_factory", factory)
+    sid = f"unseen-{uuid.uuid4().hex[:8]}"
+    assert server._collector.get_trace(sid) is None
+    failures: list[str] = []
+    token = server._write_failures.set(failures)
+    try:
+        await server._pg_write_event(
+            AgentEvent(session_id=sid, agent_id="bot", event_type=EventType.TOOL_CALL)
+        )
+    finally:
+        server._write_failures.reset(token)
+    assert failures == []
+    async with factory() as db:
+        from panoptis.core.models import Repository
+
+        assert (await Repository(db).get_session(sid)) is not None
+        assert len(await Repository(db).get_events(sid)) == 1
+    await factory.kw["bind"].dispose()

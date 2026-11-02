@@ -25,5 +25,6 @@ paths = [
   '''^tests/test_tenancy_resolver\.py$''',
   '''^tests/v3/test_evidence\.py$''',
 ]
-# AWS's documented example key, used as a fixture in several tests
-regexes = ['''AKIAIOSFODNN7EXAMPLE''']
+# AWS's documented example key, used as a fixture in several tests; the walkthrough's
+# synthetic tenant keys (examples/walkthrough), which only exist for its local deployment
+regexes = ['''AKIAIOSFODNN7EXAMPLE''', '''walkthrough-key-(acme|globex)''']

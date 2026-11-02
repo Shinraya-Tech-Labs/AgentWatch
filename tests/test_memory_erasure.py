@@ -8,6 +8,8 @@ target (HTTP 207) and no memory was ever erased; its count also matched by subst
 from __future__ import annotations
 
 import gc
+import os
+import uuid
 
 import pytest
 
@@ -161,3 +163,23 @@ async def test_erasure_does_not_bypass_evidence_integrity(api, tmp_path):
     assert lg.verify(tenant_id="acme", anchor=False)["ok"]
     assert len(lg.query((KIND_DECISION,), tenant_id="acme")) == 1
     lg.store.close()
+
+
+@pytest.mark.skipif(
+    not os.environ.get("DATABASE_URL", "").startswith("postgresql"),
+    reason="needs DATABASE_URL pointing at PostgreSQL (CI sets it)",
+)
+def test_sql_erasure_in_a_self_hosted_multi_tenant_deployment_stays_in_the_callers_tenant(api):
+    agent = f"pg-bot-{uuid.uuid4().hex[:8]}"
+    for key, sid in (("key-acme", f"{agent}-a"), ("key-globex", f"{agent}-g")):
+        r = api.post(
+            "/api/v1/sessions",
+            json={"session_id": sid, "agent_id": agent, "framework": "custom"},
+            headers={"X-Api-Key": key},
+        )
+        assert r.status_code == 200, r.text
+    first = _erase(api, "key-acme", agent, scope="agent_id").json()
+    # acme's session from the trace cache and from SQL, never globex's SQL row
+    assert first["failed_targets"] == [] and first["items_erased"] == 2, first
+    second = _erase(api, "key-globex", agent, scope="agent_id").json()
+    assert second["failed_targets"] == [] and second["items_erased"] == 2, second

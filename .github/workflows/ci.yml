@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install deps
-        run: pip install ruff mypy pydantic bandit==1.9.4 && pip install -e .
+        run: pip install ruff==0.15.14 mypy==2.3.1 pydantic bandit==1.9.4 && pip install -e .
       # every shipped package (panoptis, panopti), the tests and the scripts
       - name: Ruff lint
         run: ruff check .

@@ -287,13 +287,23 @@ async def _pg_write_event(event: AgentEvent, tenant_id: str | None = None) -> No
             event_data = _event_to_pg(event)
             if tenant_id:
                 event_data["tenant_id"] = tenant_id
-            await repo.insert_event(event_data)
+            # the session row first: agent_events.session_id references it, and a session
+            # first seen through an event has no row yet
+            # The collector is another subscriber of the same event, so its trace may not
+            # exist yet: then write a minimal session row (never over an existing one).
             trace = _collector.get_trace(event.session_id)
-            if trace:
-                session_data = _session_to_pg(trace.session)
+            if trace is not None or await repo.get_session(event.session_id) is None:
+                session = trace.session if trace is not None else None
+                session = session or AgentSession(
+                    session_id=event.session_id,
+                    agent_id=event.agent_id,
+                    metadata={"tenant_id": tenant_id} if tenant_id else {},
+                )
+                session_data = _session_to_pg(session)
                 if tenant_id:
                     session_data["tenant_id"] = tenant_id
                 await repo.upsert_session(session_data)
+            await repo.insert_event(event_data)
             await db.commit()
     except Exception:
         logger.error("PG event write failed", exc_info=True)
@@ -686,9 +696,15 @@ def _record_budget(event: AgentEvent) -> None:
     _cost_tracker.ingest_event(event)
 
 
+def _pg_tenant(metadata: dict[str, Any] | None) -> str | None:
+    """The tenant to tag a self-hosted row with: the authenticated owner when tenant keys
+    partition the deployment (so erasure can be scoped to it), else none (single tenant)."""
+    return _owner(metadata) if _tenant_keys() else None
+
+
 async def _after_publish(event: AgentEvent) -> None:
     _record_budget(event)
-    await _pg_write_event(event)
+    await _pg_write_event(event, tenant_id=None if _CLOUD_MODE else _pg_tenant(event.metadata))
     if event.is_blocked or (event.safety and event.safety.risk_level.value in {"high", "critical"}):
         await _alerting.alert_event(event)
 
@@ -853,6 +869,12 @@ async def lifespan(app: FastAPI):
     _seed_demo_data()
     logger.info("AgentWatch API started")
     yield
+    if _db_session_factory is not None:
+        # release the pool: its connections belong to this event loop, which ends here
+        engine = _db_session_factory.kw.get("bind")
+        _db_session_factory = None
+        if engine is not None:
+            await engine.dispose()
     logger.info("AgentWatch API shutdown")
 
 
@@ -1212,7 +1234,9 @@ async def create_session(
     failures: list[str] = []
     token = _write_failures.set(failures)
     try:
-        await _pg_write_session(session)
+        await _pg_write_session(
+            session, tenant_id=None if _CLOUD_MODE else _pg_tenant(session.metadata)
+        )
     finally:
         _write_failures.reset(token)
     if _db_session_factory is not None or _persistence["state"] == "fallback":
@@ -2118,11 +2142,11 @@ class _SessionErasureTarget:
                 "panoptis.api.server._db_session_factory must be wired "
                 "before the /api/v1/gdpr/erase endpoint accepts traffic."
             )
-        if not _CLOUD_MODE and tenant_id is not None:
+        if not _CLOUD_MODE and tenant_id is not None and not _tenant_keys():
             raise RuntimeError(
                 "Tenant filtering requested but server is in legacy mode "
-                "(_CLOUD_MODE=False). Reject the request rather than silently "
-                "scoping to a non-cloud tenant."
+                "(_CLOUD_MODE=False) without tenant keys. Reject the request rather than "
+                "silently scoping to a tenant the rows are not tagged with."
             )
         self._tenant_id = tenant_id
 

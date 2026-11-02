@@ -437,7 +437,11 @@ tenants: {acme: {agents: {mcp-client: [reader]}}}
     await other.settle()
     assert other.forwarded_calls() == []  # mcp-client has no role in globex
     recs = ledger.query((KIND_DECISION,), newest_first=False, tenant_id="acme")
-    assert [r["declared"]["verdict"] for r in recs] == ["allow", "block"]
+    # the two calls were in flight together, so their records may land in either order
+    assert {r["declared"]["tool"]: r["declared"]["verdict"] for r in recs} == {
+        "echo": "allow",
+        "bash": "block",
+    }
 
 
 # ── end to end: MCP SDK client → gateway CLI → MCP SDK server ────────────────────────
