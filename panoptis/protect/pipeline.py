@@ -236,14 +236,29 @@ class ProtectionPipeline:
                 "metadata": metadata or {},
             },
             {"agent_id": agent_id, "session_id": session_id},
+            tenant_id=tenant_id,
         )
         return info
 
     def set_objective(self, session_id: str, objective: str, *, tenant_id: str = "default") -> None:
+        """Change a started session's objective (recorded). An unknown session is an error."""
         scope = f"{tenant_id}/{session_id}"
         with self._lock:
-            if scope in self.sessions:
-                self.sessions[scope].objective = objective
+            info = self.sessions.get(scope)
+            if info is None:
+                raise KeyError(f"session {session_id!r} has not been started")
+            info.objective = objective
+        self._record(
+            KIND_AGENT,
+            {
+                "event": "objective_set",
+                "agent_id": info.agent_id,
+                "session_id": session_id,
+                "objective": objective,
+            },
+            {"agent_id": info.agent_id, "session_id": session_id},
+            tenant_id=tenant_id,
+        )
 
     def breaker(self, scope: str) -> CircuitBreaker:
         with self._lock:
@@ -334,6 +349,7 @@ class ProtectionPipeline:
                         action.arguments,
                         profile,
                         reasoning=action.reasoning,
+                        context=(session.metadata.get("authorized_context") if session else None),
                     ),
                 )
             elif not _blocked(findings):
