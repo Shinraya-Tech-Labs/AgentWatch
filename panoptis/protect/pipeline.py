@@ -813,6 +813,8 @@ class ProtectionPipeline:
         )
         if not self.config.output_inspection:
             return result
+        if inspect.isgenerator(result):
+            return self._inspect_stream(action, result)
         return self.inspect_output(action, result).sanitized_output
 
     async def aexecute(
@@ -834,6 +836,17 @@ class ProtectionPipeline:
         try:
             started = time.perf_counter()
             result = await (call(args) if call is not None else fn(**args))
+        except asyncio.CancelledError as exc:
+            # cancelled mid-flight: the tool may have had side effects; record it, then propagate
+            self._finish(
+                action,
+                success=False,
+                result="cancelled",
+                started=started,
+                error=exc,
+                mutated=decision.mutated_arguments is not None,
+            )
+            raise
         except Exception as exc:
             self._finish(
                 action,
@@ -853,7 +866,20 @@ class ProtectionPipeline:
         )
         if not self.config.output_inspection:
             return result
+        if inspect.isasyncgen(result):
+            return self._ainspect_stream(action, result)
+        if inspect.isgenerator(result):
+            return self._inspect_stream(action, result)
         return (await asyncio.to_thread(self.inspect_output, action, result)).sanitized_output
+
+    def _inspect_stream(self, action: ToolAction, stream: Any) -> Any:
+        """A streamed result: every chunk is inspected and sanitized before it is yielded."""
+        for chunk in stream:
+            yield self.inspect_output(action, chunk).sanitized_output
+
+    async def _ainspect_stream(self, action: ToolAction, stream: Any) -> Any:
+        async for chunk in stream:
+            yield (await asyncio.to_thread(self.inspect_output, action, chunk)).sanitized_output
 
     def guard(
         self,
