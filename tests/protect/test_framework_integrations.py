@@ -400,3 +400,89 @@ def test_watch_with_protection_refuses_an_agent_with_no_tools():
     g.add_edge("noop", END)
     with pytest.raises(ValueError, match="no tools were found"):
         watch(g.compile(), event_bus=EventBus(), protection=ProtectionPipeline())
+
+
+# ── escalated and mutated calls, per framework (TO-013, TO-014, TO-015) ─────────────
+
+ESCALATED = "git push --force origin main"  # the threat analyser escalates this (HIGH)
+SECRET_CMD = "echo ghp_" + "q1w2e3r4t5" * 4  # the secret is redacted before the tool runs
+
+
+def _approving(ledger, answer: bool) -> tuple[ProtectionPipeline, list[str]]:
+    from panoptis.protect import ApprovalBroker
+
+    asked: list[str] = []
+
+    def approver(req):
+        asked.append(req.request_id)
+        return answer
+
+    return (
+        ProtectionPipeline(
+            ledger=ledger,
+            approvals=ApprovalBroker(ledger, approver=approver, timeout_s=2.0, poll_s=0.01),
+        ),
+        asked,
+    )
+
+
+def _run_langgraph(pipeline: ProtectionPipeline, command: str, calls: list[str]) -> Any:
+    pytest.importorskip("langgraph")
+    from panoptis.protect.integrations import protect_langgraph_tool_node
+
+    graph, node = _graph(_lc_tool(calls), True)
+    protect_langgraph_tool_node(node, pipeline=pipeline)
+    return graph.invoke(_call(command))["messages"][-1]
+
+
+def _run_smolagents(pipeline: ProtectionPipeline, command: str, calls: list[str]) -> Any:
+    smolagents = pytest.importorskip("smolagents")
+    from panoptis.protect.integrations import protect_smolagents_agent
+
+    agent = smolagents.ToolCallingAgent(tools=[_smol_tool(calls)], model=_NoModel())
+    protect_smolagents_agent(agent, pipeline=pipeline)
+    try:
+        return agent.execute_tool_call("bash", {"command": command})
+    except Exception as exc:  # smolagents wraps tool errors
+        return exc
+
+
+def _run_autogen(pipeline: ProtectionPipeline, command: str, calls: list[str]) -> Any:
+    return _tool_results(_autogen_run(command, calls, pipeline=pipeline))[0]
+
+
+RUNNERS = {"langgraph": _run_langgraph, "smolagents": _run_smolagents, "autogen": _run_autogen}
+
+
+def _ran(framework: str, out: Any) -> bool:
+    if framework == "langgraph":
+        return out.status != "error"
+    if framework == "autogen":
+        return not out.is_error
+    return not isinstance(out, Exception)
+
+
+@pytest.mark.parametrize("framework", sorted(RUNNERS))
+def test_escalated_call_runs_once_after_approval(framework, ledger):
+    calls: list[str] = []
+    pipeline, asked = _approving(ledger, True)
+    out = RUNNERS[framework](pipeline, ESCALATED, calls)
+    assert _ran(framework, out), out
+    assert calls == [ESCALATED] and len(asked) == 1
+
+
+@pytest.mark.parametrize("framework", sorted(RUNNERS))
+def test_rejected_escalation_never_runs(framework, ledger):
+    calls: list[str] = []
+    pipeline, asked = _approving(ledger, False)
+    out = RUNNERS[framework](pipeline, ESCALATED, calls)
+    assert not _ran(framework, out)
+    assert calls == [] and len(asked) == 1
+
+
+@pytest.mark.parametrize("framework", sorted(RUNNERS))
+def test_mutated_arguments_reach_the_tool(framework):
+    calls: list[str] = []
+    out = RUNNERS[framework](ProtectionPipeline(), SECRET_CMD, calls)
+    assert _ran(framework, out), out
+    assert len(calls) == 1 and "ghp_" not in calls[0] and "REDACTED" in calls[0]
