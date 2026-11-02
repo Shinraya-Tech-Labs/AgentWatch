@@ -96,7 +96,9 @@ _HOMOGLYPH_MAP = {
 def _normalize(text: str) -> str:
     """Return NFKC-normalized text with visual homoglyphs translated to ASCII counterparts."""
     normalized = unicodedata.normalize("NFKC", text)
-    return "".join(_HOMOGLYPH_MAP.get(c, c) for c in normalized)
+    # format characters (zero-width space/joiners, soft hyphen, bidi controls) render as
+    # nothing and only serve to split words a pattern would otherwise match
+    return "".join(_HOMOGLYPH_MAP.get(c, c) for c in normalized if unicodedata.category(c) != "Cf")
 
 
 @dataclass
