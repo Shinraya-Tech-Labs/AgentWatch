@@ -497,47 +497,28 @@ class ProtectionPipeline:
                 ]
         return out
 
-    def _control(self, action: ToolAction) -> list[Finding]:
-        killed, reason = self.control.local_kill()
+    def _emergency(self, action: ToolAction) -> list[Finding]:
+        """Kill switch and suspensions: checked when deciding and again just before running."""
+        hit = self.control.emergency(action.tenant_id, action.agent_id, action.session_id)
+        if hit is None:
+            return []
+        code, message = hit
         snap = self.control.snapshot()
-        if killed or snap.killed:
-            return [
-                Finding(
-                    Stage.KILLSWITCH,
-                    "KILL_SWITCH",
-                    Severity.CRITICAL,
-                    f"Emergency stop is active: {reason or snap.kill_reason}",
-                    {"actor": snap.kill_actor},
-                    None,
-                    Verdict.BLOCK,
-                )
-            ]
-        if action.agent_id in snap.suspended_agents:
-            meta = snap.suspended_agents[action.agent_id]
-            return [
-                Finding(
-                    Stage.KILLSWITCH,
-                    "AGENT_SUSPENDED",
-                    Severity.CRITICAL,
-                    f"Agent '{action.agent_id}' is suspended: {meta.get('reason')}",
-                    meta,
-                    None,
-                    Verdict.BLOCK,
-                )
-            ]
-        if action.session_id in snap.suspended_sessions:
-            meta = snap.suspended_sessions[action.session_id]
-            return [
-                Finding(
-                    Stage.KILLSWITCH,
-                    "SESSION_SUSPENDED",
-                    Severity.CRITICAL,
-                    f"Session '{action.session_id}' is suspended: {meta.get('reason')}",
-                    meta,
-                    None,
-                    Verdict.BLOCK,
-                )
-            ]
+        meta: dict[str, Any] = {"actor": snap.kill_actor} if code == "KILL_SWITCH" else {}
+        if code == "AGENT_SUSPENDED":
+            meta = dict(snap.suspended_agents.get(f"{action.tenant_id}/{action.agent_id}") or {})
+        elif code == "SESSION_SUSPENDED":
+            meta = dict(
+                snap.suspended_sessions.get(f"{action.tenant_id}/{action.session_id}") or {}
+            )
+        return [
+            Finding(Stage.KILLSWITCH, code, Severity.CRITICAL, message, meta, None, Verdict.BLOCK)
+        ]
+
+    def _control(self, action: ToolAction) -> list[Finding]:
+        stop = self._emergency(action)
+        if stop:
+            return stop
         b = self.breaker(action.scope)
         if b.state is CircuitState.OPEN:
             # let an elapsed cooldown move the breaker to HALF_OPEN (this call is the probe)
@@ -590,7 +571,12 @@ class ProtectionPipeline:
         }
         if not wait:
             return
-        outcome = self.approvals.wait(req)
+
+        def abort() -> str | None:
+            stop = self._emergency(decision.action)
+            return stop[0].message if stop else None
+
+        outcome = self.approvals.wait(req, abort=abort)
         decision.approval = {
             "request_id": req.request_id,
             "state": "approved"
@@ -968,6 +954,13 @@ class ProtectionPipeline:
         emergency = any(f.stage is Stage.KILLSWITCH for f in decision.findings)
         if not decision.allowed and (not self.observing or emergency):
             raise ActionBlocked(decision)
+        # an emergency stop or suspension issued while the call was being decided (or waited
+        # for approval) still prevents it: checked again right before the tool runs
+        stop = self._emergency(action)
+        if stop:
+            decision.findings.extend(stop)
+            decision.verdict = Verdict.BLOCK
+            raise ActionBlocked(decision)
         approved_for = (decision.approval or {}).get("action_digest")
         if approved_for and decision.allowed and approved_for != action_digest(action):
             # the arguments were changed between the approval and the execution
@@ -978,13 +971,23 @@ class ProtectionPipeline:
             return action.arguments
         return decision.mutated_arguments
 
+    def _stop_stream(self, action: ToolAction) -> None:
+        stop = self._emergency(action)
+        if stop:
+            decision = Decision(action=action, verdict=Verdict.BLOCK, risk_score=1.0, findings=stop)
+            self._after_decision(decision)
+            raise ActionBlocked(decision)
+
     def _inspect_stream(self, action: ToolAction, stream: Any) -> Any:
-        """A streamed result: every chunk is inspected and sanitized before it is yielded."""
+        """A streamed result: every chunk is inspected and sanitized before it is yielded;
+        an emergency stop ends the stream (the agent gets no further chunks)."""
         for chunk in stream:
+            self._stop_stream(action)
             yield self.inspect_output(action, chunk).sanitized_output
 
     async def _ainspect_stream(self, action: ToolAction, stream: Any) -> Any:
         async for chunk in stream:
+            self._stop_stream(action)
             yield (await asyncio.to_thread(self.inspect_output, action, chunk)).sanitized_output
 
     def guard(

@@ -180,7 +180,11 @@ class ApprovalBroker:
             )
         return req
 
-    def wait(self, req: ApprovalRequest) -> ApprovalOutcome:
+    def wait(
+        self, req: ApprovalRequest, *, abort: Callable[[], str | None] | None = None
+    ) -> ApprovalOutcome:
+        """Wait for the decision. ``abort`` is polled; a reason it returns (an emergency
+        stop) withdraws the request: it is recorded as cancelled and can no longer be approved."""
         if self.approver is not None:
             got = self.approver(req)
             out = (
@@ -200,6 +204,13 @@ class ApprovalBroker:
             found = self._lookup(req.request_id, req.tenant_id)
             if found is not None:
                 return found
+            stop = abort() if abort is not None else None
+            if stop:
+                cancelled = self.cancel(
+                    req.request_id, "system:emergency-stop", tenant_id=req.tenant_id, comment=stop
+                )
+                if cancelled is not None:
+                    return cancelled
             remaining = req.expires_at - time.time()
             if remaining <= 0:
                 return self._record(
@@ -259,7 +270,12 @@ class ApprovalBroker:
         )
 
     def cancel(
-        self, request_id: str, decided_by: str = "system:cancelled", *, tenant_id: str | None = None
+        self,
+        request_id: str,
+        decided_by: str = "system:cancelled",
+        *,
+        tenant_id: str | None = None,
+        comment: str = "the requesting call was cancelled",
     ) -> ApprovalOutcome | None:
         """Withdraw a pending request (its caller went away). A decided one is unchanged."""
         req = self._request(request_id, tenant_id)
@@ -273,7 +289,7 @@ class ApprovalBroker:
             ApprovalOutcome(
                 approved=False,
                 decided_by=decided_by,
-                comment="the requesting call was cancelled",
+                comment=comment,
                 cancelled=True,
             ),
         )
