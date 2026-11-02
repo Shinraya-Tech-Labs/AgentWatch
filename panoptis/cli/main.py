@@ -2975,5 +2975,27 @@ def claude_hook_print(
     typer.echo(json.dumps(claude_hook.hook_settings(on_failure_block=on_failure_block), indent=2))
 
 
+# ── MCP gateway (TO-023) ──────────────────────────────────────────────────────────────
+
+
+@protect_app.command(
+    "mcp-gateway",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    add_help_option=False,
+)
+def protect_mcp_gateway(ctx: typer.Context) -> None:
+    """Run the enforcing MCP gateway: stdio | http | config | status (see --help of each).
+
+    
+    panoptis protect mcp-gateway stdio --server-name fs -- npx -y @modelcontextprotocol/server-filesystem .
+    panoptis protect mcp-gateway http --upstream http://127.0.0.1:9000/mcp --port 8765
+    panoptis protect mcp-gateway config --server-name fs -- npx -y @modelcontextprotocol/server-filesystem .
+    panoptis protect mcp-gateway status
+    """
+    from panoptis.protect import mcp_gateway
+
+    raise typer.Exit(mcp_gateway.main(list(ctx.args)))
+
+
 if __name__ == "__main__":
     main()
