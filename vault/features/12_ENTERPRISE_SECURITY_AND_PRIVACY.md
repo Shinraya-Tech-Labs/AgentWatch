@@ -64,7 +64,7 @@ Every suppressed check within the AgentWatch repository must satisfy the three-p
 ```python
 # Rule: Scoped nosec + Scoped noqa + Prose justification
 rng = random.Random(seed)  # noqa: S311  # nosec B311 — seeded statistical sampling, not cryptography
-assert anchor is not None   # nosec B101 — invariant: caller must supply start or end anchor
+assert anchor is not None  # nosec B101 — invariant: caller must supply start or end anchor
 ```
 
 1. `# nosec <TEST-ID>`: Scoped strictly to the specific Bandit vulnerability ID (e.g., `B311`, `B101`). Bare `# nosec` is strictly rejected by pre-commit hooks and CI.
@@ -89,16 +89,16 @@ AgentWatch monitors and validates all agent operations against the **OWASP Top 1
 
 ```python
 class OwaspVector(str, Enum):
-    PROMPT_INJECTION      = "A01_prompt_injection"
-    TOOL_ABUSE            = "A02_tool_abuse"
+    PROMPT_INJECTION = "A01_prompt_injection"
+    TOOL_ABUSE = "A02_tool_abuse"
     EXCESSIVE_PERMISSIONS = "A03_excessive_permissions"
-    UNSAFE_CODE_EXEC      = "A04_unsafe_code_execution"
-    DATA_EXFILTRATION     = "A05_data_exfiltration"
-    GOAL_HIJACKING        = "A06_goal_hijacking"
-    CONTEXT_POISONING     = "A07_context_poisoning"
-    TRUST_BOUNDARY        = "A08_trust_boundary_violation"
-    INSECURE_MEMORY       = "A09_insecure_memory_access"
-    SUPPLY_CHAIN          = "A10_supply_chain"
+    UNSAFE_CODE_EXEC = "A04_unsafe_code_execution"
+    DATA_EXFILTRATION = "A05_data_exfiltration"
+    GOAL_HIJACKING = "A06_goal_hijacking"
+    CONTEXT_POISONING = "A07_context_poisoning"
+    TRUST_BOUNDARY = "A08_trust_boundary_violation"
+    INSECURE_MEMORY = "A09_insecure_memory_access"
+    SUPPLY_CHAIN = "A10_supply_chain"
 ```
 
 ### 3.1 Vector In-Depth Analysis & Defenses
@@ -128,24 +128,28 @@ class OwaspScanner:
             return OwaspScan(findings=[])
 
         cmd = event.tool_call.raw_command or ""
-        
+
         # 1. Check A04 Unsafe Code Execution
         if re.search(r"\b(rm\s+-rf|mkfs|dd\s+if=)\b", cmd):
-            findings.append(OwaspFinding(
-                vector=OwaspVector.UNSAFE_CODE_EXEC,
-                severity="critical",
-                detail="Destructive OS primitive detected in tool invocation.",
-                event_id=event.event_id
-            ))
+            findings.append(
+                OwaspFinding(
+                    vector=OwaspVector.UNSAFE_CODE_EXEC,
+                    severity="critical",
+                    detail="Destructive OS primitive detected in tool invocation.",
+                    event_id=event.event_id,
+                )
+            )
 
         # 2. Check A05 Data Exfiltration via Network
         if re.search(r"\b(curl|wget|nc|netcat)\b.*(?:\$|env|AWS_|KEY)", cmd, re.I):
-            findings.append(OwaspFinding(
-                vector=OwaspVector.DATA_EXFILTRATION,
-                severity="critical",
-                detail="Attempted exfiltration of environmental secrets over HTTP/socket.",
-                event_id=event.event_id
-            ))
+            findings.append(
+                OwaspFinding(
+                    vector=OwaspVector.DATA_EXFILTRATION,
+                    severity="critical",
+                    detail="Attempted exfiltration of environmental secrets over HTTP/socket.",
+                    event_id=event.event_id,
+                )
+            )
 
         return OwaspScan(findings=findings)
 ```
@@ -163,6 +167,7 @@ Regulatory compliance (GDPR Art. 17/25/32 and HIPAA Security Rule) mandates that
 
 ```python
 MASK = "[REDACTED]"
+
 
 class RedactionEngine:
     def __init__(self):
@@ -227,6 +232,7 @@ import os
 import secrets
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+
 class EnvelopeEncryptionEngine:
     def __init__(self, master_key_kek: bytes):
         if len(master_key_kek) != 32:
@@ -252,7 +258,7 @@ class EnvelopeEncryptionEngine:
             "payload_nonce": payload_nonce.hex(),
             "encrypted_dek": encrypted_dek.hex(),
             "kek_nonce": kek_nonce.hex(),
-            "algorithm": "AES-256-GCM-ENVELOPE"
+            "algorithm": "AES-256-GCM-ENVELOPE",
         }
 
     def decrypt_payload(self, bundle: dict[str, str]) -> bytes:
@@ -283,6 +289,7 @@ AgentWatch analyzes every outbound network transmission:
 import math
 from collections import Counter
 
+
 def compute_string_entropy(s: str) -> float:
     """Calculates Shannon entropy in bits per character."""
     if not s:
@@ -291,9 +298,11 @@ def compute_string_entropy(s: str) -> float:
     total = len(s)
     return -sum((c / total) * math.log2(c / total) for c in counts.values())
 
+
 def inspect_outbound_url_exfiltration(url_string: str) -> dict[str, Any]:
     """Analyzes URL parameters for potential base64/hex secret leaks."""
     from urllib.parse import urlparse, parse_qs
+
     parsed = urlparse(url_string)
     query_params = parse_qs(parsed.query)
 
@@ -303,18 +312,20 @@ def inspect_outbound_url_exfiltration(url_string: str) -> dict[str, Any]:
             if len(val) >= 24:  # Secrets typically exceed 24 characters
                 entropy = compute_string_entropy(val)
                 if entropy >= 4.75:  # High entropy indicates base64 or cryptographic secret
-                    suspicious_params.append({
-                        "param": param_name,
-                        "value_preview": val[:8] + "...",
-                        "entropy": round(entropy, 3)
-                    })
+                    suspicious_params.append(
+                        {
+                            "param": param_name,
+                            "value_preview": val[:8] + "...",
+                            "entropy": round(entropy, 3),
+                        }
+                    )
 
     is_leaking = len(suspicious_params) > 0
     return {
         "url": parsed.netloc + parsed.path,
         "is_exfiltration_attempt": is_leaking,
         "suspicious_parameters": suspicious_params,
-        "action": "BLOCK" if is_leaking else "ALLOW"
+        "action": "BLOCK" if is_leaking else "ALLOW",
     }
 ```
 
@@ -349,6 +360,7 @@ from panoptis.core.schema import AgentEvent, EventType, ToolCallData
 redactor = RedactionEngine()
 scanner = OwaspScanner()
 
+
 def process_secure_agent_event(raw_event: dict) -> AgentEvent:
     # 1. Scrub PII and PHI from text payloads
     cleaned_prompt = redactor.scrub(raw_event.get("prompt", ""))
@@ -357,14 +369,16 @@ def process_secure_agent_event(raw_event: dict) -> AgentEvent:
     event = AgentEvent(
         session_id=raw_event["session_id"],
         event_type=EventType.TOOL_CALL,
-        tool_call=ToolCallData(tool_name="bash", raw_command=cleaned_command)
+        tool_call=ToolCallData(tool_name="bash", raw_command=cleaned_command),
     )
 
     # 2. Run Real-Time OWASP Top 10 Scan
     scan_result = scanner.scan_event(event)
     for finding in scan_result.findings:
         if finding.severity == "critical":
-            raise PermissionError(f"Security Policy Violation [{finding.vector.value}]: {finding.detail}")
+            raise PermissionError(
+                f"Security Policy Violation [{finding.vector.value}]: {finding.detail}"
+            )
 
     return event
 ```

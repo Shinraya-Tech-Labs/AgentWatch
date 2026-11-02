@@ -23,9 +23,7 @@ async def test_append_persists_and_chains():
     store = InMemoryAuditStore()
     log = PersistentAuditLog(store)
 
-    first = await log.append(
-        "role.change", "u1", actor="admin", details={"to": "admin"}
-    )
+    first = await log.append("role.change", "u1", actor="admin", details={"to": "admin"})
     second = await log.append("policy.set", "team-1")
 
     assert first.prev_hash == GENESIS_HASH

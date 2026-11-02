@@ -9,13 +9,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any, TypeVar
 
-from panoptis.causality.decay import (
-    ConfidenceDecayTracker,
-)
-from panoptis.circuit_breaker.loop_detector import AgentLoopError, LoopDetector
-from panoptis.core.safety import DEFAULT_POLICY, RiskPattern, SafetyEngine
-from panoptis.core.schema import ToolCallData
-from panoptis.core.watcher import AgentWatchBlockedError, watch
 from panopti.contracts import (
     Contract,
     ContractRegistry,
@@ -24,6 +17,13 @@ from panopti.contracts import (
     RequiresPrior,
 )
 from panopti.killswitch import EmergencyKillSwitch, EmergencyStopTriggered
+from panoptis.causality.decay import (
+    ConfidenceDecayTracker,
+)
+from panoptis.circuit_breaker.loop_detector import AgentLoopError, LoopDetector
+from panoptis.core.safety import DEFAULT_POLICY, RiskPattern, SafetyEngine
+from panoptis.core.schema import ToolCallData
+from panoptis.core.watcher import AgentWatchBlockedError, watch
 
 try:
     from panoptis.contracts.streaming import StreamingContractEvaluator
