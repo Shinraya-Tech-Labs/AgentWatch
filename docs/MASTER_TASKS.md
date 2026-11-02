@@ -491,25 +491,25 @@ a productive-polling case that must not be flagged.
 with read-only objectives are blocked/escalated while legitimate aligned
 actions remain usable.
 
-## TO-022 --- Complete per-agent RBAC
+## TO-022 --- Complete per-agent RBAC — **DONE** (acceptance met; the dashboard permissions view is TO-028; evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-022)
 
--   [ ] Define agent roles and an explicit allowed/forbidden tool
+-   [x] Define agent roles and an explicit allowed/forbidden tool
     matrix.
--   [ ] Support argument restrictions and resource constraints for
+-   [x] Support argument restrictions and resource constraints for
     sensitive tools.
--   [ ] Add per-agent/session rate limits where policy requires.
--   [ ] Define default-deny behavior and explicit configurable
+-   [x] Add per-agent/session rate limits where policy requires.
+-   [x] Define default-deny behavior and explicit configurable
     exceptions.
--   [ ] Validate policy schemas and reject invalid or ambiguous
+-   [x] Validate policy schemas and reject invalid or ambiguous
     policies.
--   [ ] Support safe policy reload without a window of unintended
+-   [x] Support safe policy reload without a window of unintended
     authorization.
--   [ ] Bind authorization to authenticated agent identity and tenant.
--   [ ] Add tests for allowed/forbidden tools, restricted arguments,
+-   [x] Bind authorization to authenticated agent identity and tenant.
+-   [x] Add tests for allowed/forbidden tools, restricted arguments,
     rate limits, default deny, invalid policy, reload, and tenant
     boundaries.
--   [ ] Expose effective permissions and denial reasons in the
-    dashboard/API.
+-   [x] Expose effective permissions and denial reasons in the
+    dashboard/API. *(API done; dashboard view in TO-028)*
 
 **Acceptance evidence:** RBAC integration tests prove unauthorized tool
 names and arguments are rejected before execution.

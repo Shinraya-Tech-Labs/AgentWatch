@@ -52,7 +52,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-019 approvals | DONE (UI test in TO-028) | [TO-019](#to-019) |
 | TO-020 loop detection | DONE | [TO-020](#to-020) |
 | TO-021 intent grounding | DONE | [TO-021](#to-021) |
-| TO-022 … TO-040 | NOT STARTED unless listed below | — |
+| TO-022 RBAC | DONE (dashboard view in TO-028) | [TO-022](#to-022) |
+| TO-023 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -948,4 +949,48 @@ The earlier approval tests in `tests/protect/test_enforce.py` and `tests/protect
 - `pytest tests/protect tests/test_core.py tests/v3/test_killswitch.py`: 360 passed, 1 skipped
 
 **Commits:** `a7cf32a` `e3b2021` `dafb9e8` `63f4491`, plus this ledger commit.
+
+### TO-022
+
+**Status:** DONE. RBAC integration tests prove unauthorized tool names and arguments are rejected before execution. The dashboard view of effective permissions belongs to TO-028; the API exists. Docs: [`docs/RBAC.md`](RBAC.md).
+
+**Defects found and fixed:**
+
+| Defect | Fix |
+|---|---|
+| Authorization ignored the tenant: an agent id had the same roles in every tenant, and rate-limit counters were shared across tenants | `roles_for(agent, tenant)`, optional `tenants:` bindings (inherit or replace); limiter keys include the tenant; findings record `tenant_id` |
+| No per-session rate limits | `per_session_per_minute` |
+| A call refused by one limit had already been counted against the others | every limit is checked first, then all are counted |
+| Rate-limit memory grew with every (agent, scope) key | idle keys pruned past `max_keys` |
+| **The policy file was never re-read**: `reload_if_changed` had no caller, so a long-running pipeline kept enforcing the old policy | `PolicyStore` re-checks on authorization (`auto_reload_s`, 2 s) |
+| A file read while being written could be activated truncated (for example missing its `forbidden_tools`) | not activated if size or mtime change during the read; retried on the next check |
+| Duplicate YAML keys were accepted (the last silently won) | rejected |
+| A tool both allowed and forbidden by one role, unsupported versions, empty patterns, non-numeric `max`/`min`, `min > max`, non-list `enum`, `roles` + `agent_roles` were accepted | rejected; all errors reported together |
+| `RBACEngine(store, limiter)` ignored an empty limiter passed in (a falsy check) | `is not None` |
+| No API for effective permissions or denial reasons | `GET /api/v1/protect/rbac/policy`, `GET …/agents/{id}/permissions`, `POST …/check` (a dry run), all tenant-scoped |
+
+**Tests:** `tests/protect/test_rbac.py` (51).
+
+- **Tools:** allowed (with role and rule), not allowed, forbidden by glob, and forbidden beats allowed across roles. `require_approval` escalates.
+- **Restricted arguments:**
+  - shell: blocked command, a disallowed second command, a blocked path, a disallowed host;
+  - permitted shell lines;
+  - file paths and enum fields.
+- **Rate limits:** a per-tool limit and window expiry. Limits are per agent and per tenant, and per session. Dry runs and refused calls consume no budget, and memory is bounded.
+- **Default deny:** unknown agents are denied, `default: allow` is an explicit exception, and no policy is reported.
+- **Validation:** 16 invalid or ambiguous policies are rejected, with all errors reported together.
+- **Reload:**
+  - an invalid reload keeps the old policy;
+  - a changed file is picked up automatically;
+  - a file changing during the read is not activated;
+  - 20 concurrent reloads never leave a window without a policy.
+- **Tenants:** tenant bindings override, and `inherit: false` drops the global ones. Through the pipeline, authorization is bound to the call's tenant. Four unauthorized calls never execute.
+- **Effective permissions:** checked directly and through the API (tenant-scoped). The policy view shows only the caller's bindings. The check explains denials without consuming budget, and the API needs a key.
+
+**Commands and results:**
+
+- `pytest tests/protect/test_rbac.py`: 51 passed
+- `pytest tests/protect tests/test_api*.py tests/v3/test_tenant_isolation_api.py tests/contracts`: 639 passed
+
+**Commits:** `fffc83b` `7401e53` `c8f6a64` `a927d19`, plus this ledger commit.
 
