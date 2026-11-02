@@ -309,9 +309,27 @@ class StreamingContractEvaluator:
             jkey = ob.contract.rule.join_on[0] if ob.contract.rule.join_on else None
             if jkey and event.attributes.get(jkey) != ob.join_val:
                 return False
-        if t_start is not None:
-            return ob.window_start <= t_start <= ob.deadline
-        return True
+        # Reject required events without timestamps as independent proof of
+        # temporal precedence for preceding-event contracts.
+        if t_start is None:
+            if ob.contract.rule.operator == ContractOperator.PRECEDING_EVENT:
+                return False
+            return True
+
+        # For PRECEDING_EVENT, the semantic occurrence-time upper bound is the
+        # target timestamp, NOT the arrival-lateness deadline.  The deadline
+        # governs how long the evaluator may wait for delayed telemetry, but it
+        # must never extend the occurrence-time window.
+        if ob.contract.rule.operator == ContractOperator.PRECEDING_EVENT:
+            target_time = (
+                ob.target_event.time.start if ob.target_event.time else None
+            )
+            if target_time is not None and target_time.tzinfo is None:
+                target_time = target_time.replace(tzinfo=UTC)
+            upper = target_time if target_time is not None else ob.deadline
+            return ob.window_start <= t_start <= upper
+
+        return ob.window_start <= t_start <= ob.deadline
 
     def _evaluate_preceding_target(
         self,

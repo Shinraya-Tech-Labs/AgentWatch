@@ -77,7 +77,7 @@ def evaluate_contract(
     # Extract max clock uncertainty across sensors and events
     max_clock_uncertainty_ms = max(
         [s.clock_uncertainty_ms for s in active_coverage]
-        + [e.time.uncertainty_ms or 0.0 for e in events]
+        + [(e.time.uncertainty_ms or 0.0) if e.time is not None else 0.0 for e in events]
         + [0.0]
     )
 
@@ -93,7 +93,7 @@ def evaluate_contract(
         join_val = target_attrs.get(join_key) if join_key else None
 
         # Compute expected observation window for this target
-        target_time = target.time.start
+        target_time = target.time.start if target.time is not None else None
         window_start: datetime | None = None
         window_end: datetime | None = None
         if target_time is not None:
