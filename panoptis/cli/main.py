@@ -3180,6 +3180,34 @@ for _kind in ("agent", "session"):
         control_app.command(f"{_op}-{_kind}")(_make_scoped(_op, _kind))
 
 
+# ── support matrix (TO-034: the protect.support table had no entry point) ────────────
+
+
+@protect_app.command("support")
+def protect_support(as_json: bool = typer.Option(False, "--json")) -> None:
+    """What each integration does to a tool call: enforced before execution, or only observed."""
+    from dataclasses import asdict
+
+    from panoptis.protect.support import MATRIX
+
+    if as_json:
+        typer.echo(json.dumps([asdict(s) for s in MATRIX], indent=2))
+        return
+    from rich.table import Table
+
+    table = Table(title="AgentWatch integration support")
+    for col in ("Integration", "Stage", "Entry point", "Limitations"):
+        table.add_column(col)
+    for s in MATRIX:
+        stage = (
+            "[green]ENFORCED[/green]"
+            if s.stage.startswith("PRE")
+            else "[yellow]observed only[/yellow]"
+        )
+        table.add_row(s.integration, stage, s.entry_point, s.limitations)
+    console.print(table)
+
+
 # ── status, decisions, agents, approvals, rbac, doctor (TO-028) ───────────────────────
 from panoptis.cli import protect_ops as _protect_ops  # noqa: E402
 

@@ -616,6 +616,11 @@ command: panoptis protect status
     param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store for local mode (default: AGENTWATCH_STORE).'
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
 
+command: panoptis protect support
+    help: What each integration does to a tool call: enforced before execution, or only observed.
+    short_help: 
+    param as_json kind=TyperOption type=boolean required=False default=False flags=--json help=''
+
 command: panoptis provenance
     help: [bold]Provenance[/bold]: where did this information come from?
     short_help: 

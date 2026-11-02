@@ -18,7 +18,7 @@ Payloads (prompts, completions, documents) often contain personal data. v0.2 red
 
 **Encryption and erasure:**
 
-- Payloads and blobs are encrypted with per-tenant data keys. Optionally, when a subject key is declared, per-subject keys are used instead (`security/encryption.py`, `key_storage.py`).
+- Payloads and blobs are encrypted with per-tenant data keys. Optionally, when a subject key is declared, per-subject keys are used instead (`evidence/crypto.py`, keys in the store's `aw3_tenant_keys` / data-key tables).
 - Segment Merkle trees hash the *ciphertext*.
 - **Erasure = destroy the key (crypto-shredding).** The payload becomes unreadable, and the integrity chain still verifies.
 - Derived records that embed payload fragments (artifact previews) are purged and re-derived from the now-unreadable evidence, so they fall back to hashes only.
