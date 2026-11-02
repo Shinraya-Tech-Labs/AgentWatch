@@ -60,7 +60,9 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-027 API | DONE | [TO-027](#to-027) |
 | TO-028 CLI | DONE | [TO-028](#to-028) |
 | TO-029 dashboard | DONE | [TO-029](#to-029) |
-| TO-030 … TO-040 | NOT STARTED unless listed below | — |
+| TO-030 packaging | DONE | [TO-030](#to-030) |
+| TO-031 memory erasure | DONE | [TO-031](#to-031) |
+| TO-032 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -1247,4 +1249,52 @@ All three are fixed.
 - `AGENTWATCH_E2E_DASHBOARD=1 pytest tests/e2e_dashboard`: 4 passed
 
 Screenshots: `docs/screenshots/dashboard/`.
+
+### TO-030
+
+**Status:** DONE. Clean-install tests pass, and the dependency audit output is recorded below. Docs: [`docs/PACKAGING.md`](PACKAGING.md).
+
+**Findings and fixes:**
+
+- **Undeclared imports.** `scripts/check_imports.py` (AST over both packages) found 4: `starlette` (imported directly), `protobuf` (otel), `reportlab`, `groq`.
+  - `starlette` → core; `protobuf` → the `otel` extra; new `reports` and `groq` extras.
+  - `jsonschema` was already declared.
+  - The `typer[all]` extra no longer exists, so the dependency is now `typer`.
+  - Result: 0 undeclared imports.
+- **Python advisories** (pip-audit on a clean install):
+  - **starlette 0.52.1:** PYSEC-2026-161, -248, -249, -2280 and -2281. Floors are now `fastapi>=0.162` / `starlette>=1.3.1`, and the 1265 API, protect, v3 and contract tests pass on FastAPI 0.162 / Starlette 1.10.
+  - **filelock 3.32.7:** 13 advisories (GHSA-v4x8-3wr5-3wq8 and related). Floor `filelock>=4.2.1`.
+  - After the change, `pip-audit` reports **no known vulnerabilities**.
+- **sdist contents.** The sdist shipped the landing site, including 7 MB of `.next` build output, plus `frontend/`, `.claude/`, `helm/`, `vault/` notes and more. It is now restricted to the packages, tests and project files (1.0 MB).
+- **Wheel contents.** Both `panoptis/` and `panopti/` are present (324 and 25 files), with `verifier.py` and `claude_hook_entry.py`, and no tests or caches.
+- **Clean install.** `scripts/clean_install.sh` builds in a fresh venv, then installs the wheel and the sdist into separate fresh Python 3.12 venvs. It runs `scripts/smoke_installed.py` from outside the repository: imports, both console scripts, a protected call, a blocked dangerous call, verified evidence, and the verifier present. Then it runs pip-audit. **Both pass, and no known vulnerabilities are reported.**
+- **Reproducible set:** `constraints/py312.txt`, frozen from the clean sdist install.
+- **Dashboard: Next.js 14.2.30 → 16.4.4** (React 18.3, Pages Router unchanged).
+  - The last 14.x (14.2.35) still carried advisories fixed only in 15.5.10+/16.x, and a bundled PostCSS 8.4.31.
+  - `npm audit --omit=dev`: **0** runtime vulnerabilities.
+  - 35 low/moderate dev-only advisories remain (Jest/ESLint tooling, not shipped). They are documented.
+  - Linting moved to ESLint 9 with a flat config (`next lint` was removed in 16). Its `react-hooks/purity` rule caught the stale badge calling `Date.now()` during render; fixed.
+  - Verified after the upgrade: type-check, lint, Jest 36, build, the browser E2E (4 passed) and the frontend Docker image build.
+
+### TO-031
+
+**Status:** DONE. The memory-erasure path executes successfully in integration tests and rejects unauthorized cross-tenant requests. Docs: [`docs/MEMORY_ERASURE.md`](MEMORY_ERASURE.md).
+
+- **Defect.** `_MemoryErasureTarget` imported `list_memory_entries` / `drop_memory_entries` from `panoptis.memory.governance`, which defined neither. Every erasure therefore reported a failed target (207), and no memory was ever erased. The count also matched `user_id` by substring.
+- **Fix:**
+  - **A per-tenant registry of memory stores.** `MemoryEngine` registers its store weakly. The two functions now exist, with exact matching per scope.
+  - **The target is honest about what it covers.** It is added only when stores exist and searches only the caller's tenant; a `tenant_id` erasure of another tenant matches nothing.
+  - **SQL scoping.** In self-hosted multi-tenant mode, the SQL sessions-and-events target was unscoped (cross-tenant erasure). It is now scoped to the authenticated tenant.
+- **Tests:** `tests/test_memory_erasure.py` (9).
+  - Exact scope matching; tenant-scoped stores; weak registration.
+  - **Endpoint:**
+    - it erases the subject's memories and returns a clean signed receipt (200, no failed target);
+    - it never reaches another tenant's memories, including with a `tenant_id` scope;
+    - without stores, no target is claimed;
+    - a failing store gives 207 with `memory` in `failed_targets`;
+    - authentication is required (401).
+  - **Evidence:** the ledger is untouched and still verifies.
+- **Commands:**
+  - `pytest tests/test_memory_erasure.py`: 9 passed
+  - `pytest -k "gdpr or erase or memory or erasure"`: 117 passed
 

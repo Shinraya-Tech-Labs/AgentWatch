@@ -672,39 +672,39 @@ deployment and verify returned state.
 backend and prove that displayed decisions and controls correspond to
 real backend state.
 
-## TO-030 --- Fix dependency and package integrity
+## TO-030 --- Fix dependency and package integrity — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-030)
 
--   [ ] Declare `jsonschema` in the correct package/dependency group if
+-   [x] Declare `jsonschema` in the correct package/dependency group if
     it is required; otherwise remove the undeclared import and use a
     supported alternative.
--   [ ] Verify every runtime import is declared in packaging metadata.
--   [ ] Verify both `agentwatch/` and `panopti/` are included and tested
+-   [x] Verify every runtime import is declared in packaging metadata.
+-   [x] Verify both `agentwatch/` and `panopti/` are included and tested
     as shipped.
--   [ ] Check wheel and source distribution contents.
--   [ ] Test clean installation from built wheel and source distribution
+-   [x] Check wheel and source distribution contents.
+-   [x] Test clean installation from built wheel and source distribution
     in isolated environments.
--   [ ] Resolve or explicitly document dependency advisories with
+-   [x] Resolve or explicitly document dependency advisories with
     severity, reachability, affected versions, and mitigation.
--   [ ] Update dashboard `next` from the audited 14.2.30 version to a
+-   [x] Update dashboard `next` from the audited 14.2.30 version to a
     verified patched supported version; rerun all frontend checks and
     E2E tests.
--   [ ] Pin or constrain dependencies reproducibly and review transitive
+-   [x] Pin or constrain dependencies reproducibly and review transitive
     dependency changes.
 
 **Acceptance evidence:** Clean-install tests pass and dependency audit
 output is attached to the release evidence.
 
-## TO-031 --- Repair memory-erasure integration
+## TO-031 --- Repair memory-erasure integration — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-031)
 
--   [ ] Fix the missing function import identified in the memory-erasure
+-   [x] Fix the missing function import identified in the memory-erasure
     target (TO18 in the existing task list).
--   [ ] Verify the intended function exists, is exported, and has the
+-   [x] Verify the intended function exists, is exported, and has the
     expected semantics.
--   [ ] Add tests for successful erasure, missing target, authorization
+-   [x] Add tests for successful erasure, missing target, authorization
     failure, and tenant isolation.
--   [ ] Verify erasure does not bypass evidence-retention or integrity
+-   [x] Verify erasure does not bypass evidence-retention or integrity
     rules.
--   [ ] Document the supported erasure behavior.
+-   [x] Document the supported erasure behavior.
 
 **Acceptance evidence:** The memory-erasure path executes successfully
 in integration tests and rejects unauthorized cross-tenant requests.
