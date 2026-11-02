@@ -37,6 +37,8 @@ import json
 import logging
 import re
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -65,7 +67,9 @@ DESTROY_VERBS = {
 }  # fmt: skip
 PROHIBITION = re.compile(
     r"(?i)\b(do\s*n[o']?t|never|without|must\s+not|avoid|no)\s+(\w+\s+){0,3}?(delet\w*|remov\w*|drop\w*|modif\w*|chang\w*|writ\w*|touch\w*|push\w*|send\w*|email\w*|deploy\w*|commit\w*|edit\w*|alter\w*|overwrit\w*)"
-    r"|\bread[- ]only\b|\bdry[- ]run\b|\bjust\s+(look|check|read|tell)\b"
+    r"|\b(delet|remov|drop|chang|modif|touch|writ|edit|alter)\w*\s+(nothing|none)\b"
+    r"|\bleave\s+(everything|it|them|all\s+\w+|the\s+\w+)\s+(as\s+is|untouched|alone|intact)\b"
+    r"|\bread[- ]only\b|\bdry[- ]run\b|(?<!n't\s)(?<!not\s)\bjust\s+(look|check|read|tell)\b"
 )
 _ENTITY_KV = re.compile(
     r"(?i)\b([a-z][a-z_]{1,30}?)(?:[_\s-]?(?:id|no|number|num))?\s*(?:[:=#]|\s+#?|\bis\b\s*)\s*['\"]?([A-Za-z]{0,4}[-_]?\d{1,12})\b"
@@ -108,8 +112,19 @@ _STOP_ENTITY = {
 _TOKEN = re.compile(r"[a-z0-9_]{3,}")
 _HOST = re.compile(r"\b(?:https?://)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?::\d+)?\b", re.I)
 _PATHLIKE = re.compile(
-    r"(?:~|\.{1,2})?/[\w.\-/]+|[A-Za-z]:\\[\w.\-\\]+|\b[\w\-]+\.(?:py|js|ts|json|ya?ml|toml|md|txt|csv|sql|sh|cfg|ini|env|log)\b"
+    r"(?:~|\.{1,2})?/[\w.\-/]+|\b[\w\-.]+/(?:[\w\-.]+/?)*|[A-Za-z]:\\[\w.\-\\]+|\b[\w\-]+\.(?:py|js|ts|json|ya?ml|toml|md|txt|csv|sql|sh|cfg|ini|env|log)\b"
 )
+_NOT_PATHS = {
+    "and/or",
+    "either/or",
+    "he/she",
+    "his/her",
+    "yes/no",
+    "true/false",
+    "on/off",
+    "w/",
+    "n/a",
+}
 _TABLE = re.compile(
     r"(?i)\b(?:table|from|in)\s+[`\"]?([a-z_][a-z0-9_]{2,})[`\"]?|\b([a-z_][a-z0-9_]{2,})\s+table\b"
 )
@@ -125,6 +140,7 @@ class Objective:
     paths: set[str] = field(default_factory=set)
     tables: set[str] = field(default_factory=set)
     tokens: set[str] = field(default_factory=set)
+    authorized: dict[str, Any] = field(default_factory=dict)  # context supplied by the integration
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -134,6 +150,7 @@ class Objective:
             "hosts": sorted(self.hosts),
             "paths": sorted(self.paths),
             "tables": sorted(self.tables),
+            "authorized_context": bool(self.authorized),
         }
 
 
@@ -160,8 +177,13 @@ def _leading_verbs(text: str) -> set[str]:
     return verbs
 
 
-def extract_objective(text: str) -> Objective:
-    """Parse a natural-language task into what it allows and what it names."""
+def extract_objective(text: str, context: dict[str, Any] | None = None) -> Objective:
+    """Parse a natural-language task into what it allows and what it names.
+
+    ``context`` is authorized context the integration knows besides the text: ``hosts``,
+    ``paths``, ``tables`` and ``entities`` (``{kind: [values]}``) the task may touch. It
+    widens what the task names; it never changes the task's mode.
+    """
     t = text.strip()
     low = t.lower()
     prohibitions = [m.group(0) for m in PROHIBITION.finditer(t)]
@@ -191,8 +213,13 @@ def extract_objective(text: str) -> Objective:
             r"[\w\-]+\.(py|js|ts|json|ya?ml|toml|md|txt|csv|sql|sh|cfg|ini|log|env)", h.lower()
         )
     }
-    paths = {p for p in _PATHLIKE.findall(t)}
+    paths = {p for p in _PATHLIKE.findall(t) if p.lower() not in _NOT_PATHS}
     tables = {a or b for a, b in _TABLE.findall(t)} - {"the", "this", "that", "which"}
+    ctx = context or {}
+    for kind, values in (ctx.get("entities") or {}).items():
+        entities.setdefault(_root(str(kind)), set()).update(str(v).lower() for v in values)
+    hosts |= {str(h).lower() for h in ctx.get("hosts") or ()}
+    paths |= {str(x) for x in ctx.get("paths") or ()}
     return Objective(
         text=t,
         mode=mode,
@@ -200,8 +227,9 @@ def extract_objective(text: str) -> Objective:
         entities=entities,
         hosts=hosts,
         paths=paths,
-        tables={x.lower() for x in tables},
+        tables={x.lower() for x in tables} | {str(x).lower() for x in ctx.get("tables") or ()},
         tokens=set(_TOKEN.findall(low)),
+        authorized=dict(ctx),
     )
 
 
@@ -252,6 +280,24 @@ class GroundingConfig:
     verifier: Verifier | None = None
     verifier_no_verdict: Verdict = Verdict.BLOCK
     verify_only_high_risk: bool = True
+    verifier_timeout_s: float = 5.0  # a verifier slower than this is treated as unavailable
+    # a high-risk call (destructive, sends data, reads secrets) under an objective whose
+    # mode cannot be determined; similarity to the objective never lowers this
+    ambiguous_high_risk: Verdict = Verdict.ESCALATE_HITL
+    # a high-risk call with no objective at all; ALLOW keeps grounding opt-in
+    missing_objective_high_risk: Verdict = Verdict.ALLOW
+
+
+_VERIFIER_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="intent-verifier")
+
+
+def _within(path: str, roots: set[str]) -> bool:
+    p = path.replace("\\", "/").rstrip("/").removeprefix("./")
+    for r in roots:
+        r = r.replace("\\", "/").rstrip("/").removeprefix("./")
+        if p == r or p.startswith(r + "/") or (r and p.endswith("/" + r)):
+            return True
+    return False
 
 
 class IntentGrounder:
@@ -266,25 +312,29 @@ class IntentGrounder:
         profile: ArgumentProfile,
         *,
         reasoning: str | None = None,
+        context: dict[str, Any] | None = None,
     ) -> list[Finding]:
+        high_risk = (
+            profile.destructive or (profile.network and profile.mutating) or profile.reads_sensitive
+        )
         if not objective_text or not objective_text.strip():
+            v = self.config.missing_objective_high_risk if high_risk else Verdict.ALLOW
             return [
                 Finding(
                     Stage.INTENT,
                     "NO_OBJECTIVE",
-                    Severity.INFO,
-                    "No task objective supplied; intent grounding skipped",
-                    {},
-                    None,
-                    Verdict.ALLOW,
+                    Severity.MEDIUM if v is not Verdict.ALLOW else Severity.INFO,
+                    "No task objective supplied; intent grounding skipped"
+                    if v is Verdict.ALLOW
+                    else "No task objective supplied for a high-risk call",
+                    {"confidence": 0.0, "high_risk": bool(high_risk)},
+                    OwaspVector.GOAL_HIJACKING.value if v is not Verdict.ALLOW else None,
+                    v,
                 )
             ]
-        obj = extract_objective(objective_text)
+        obj = extract_objective(objective_text, context)
         out: list[Finding] = []
         ev_obj = {"objective_mode": obj.mode, "objective": obj.text[:300]}
-        high_risk = (
-            profile.destructive or (profile.network and profile.mutating) or profile.reads_sensitive
-        )
 
         # 1. task mode vs what the call does
         if obj.mode == "read_only" and profile.destructive:
@@ -324,6 +374,42 @@ class IntentGrounder:
                 )
             )
 
+        elif obj.mode == "unknown" and high_risk:
+            out.append(
+                Finding(
+                    Stage.INTENT,
+                    "AMBIGUOUS_OBJECTIVE",
+                    Severity.HIGH,
+                    f"The task does not say what kind of work it is; '{tool}' is high-risk",
+                    {**ev_obj, "action": _action_kind(profile)},
+                    OwaspVector.GOAL_HIJACKING.value,
+                    self.config.ambiguous_high_risk,
+                )
+            )
+
+        # 1b. a destructive call on targets the task never named, while it names others
+        if profile.destructive and obj.mode != "read_only":
+            stray_tables = sorted(profile.sql_tables - obj.tables) if obj.tables else []
+            stray_paths = (
+                sorted(p for p in profile.paths if not _within(p, obj.paths)) if obj.paths else []
+            )
+            if stray_tables or stray_paths:
+                out.append(
+                    Finding(
+                        Stage.INTENT,
+                        "TARGET_NOT_REQUESTED",
+                        Severity.HIGH,
+                        f"'{tool}' destroys {', '.join(stray_tables + stray_paths)[:200]}, which the task does not name",
+                        {
+                            **ev_obj,
+                            "targets": stray_tables + stray_paths,
+                            "requested": sorted(obj.tables | obj.paths),
+                        },
+                        OwaspVector.GOAL_HIJACKING.value,
+                        Verdict.ESCALATE_HITL,
+                    )
+                )
+
         # 2. explicit prohibitions
         if obj.prohibitions and (profile.mutating or profile.destructive or profile.network):
             forbidden_kind = " ".join(obj.prohibitions).lower()
@@ -331,13 +417,14 @@ class IntentGrounder:
                 (
                     profile.destructive
                     and re.search(
-                        r"delet|remov|drop|overwrit|read[- ]only|dry[- ]run|just", forbidden_kind
+                        r"delet|remov|drop|overwrit|leave|read[- ]only|dry[- ]run|just",
+                        forbidden_kind,
                     )
                 )
                 or (
                     profile.mutating
                     and re.search(
-                        r"modif|chang|writ|touch|edit|alter|read[- ]only|dry[- ]run|just|commit|push|deploy",
+                        r"modif|chang|writ|touch|edit|alter|leave|read[- ]only|dry[- ]run|just|commit|push|deploy",
                         forbidden_kind,
                     )
                 )
@@ -438,18 +525,36 @@ class IntentGrounder:
                     "GROUNDED",
                     Severity.INFO,
                     f"Consistent with a {obj.mode.replace('_', '-')} task",
-                    ev_obj,
+                    {**ev_obj, "overlap": round(overlap, 3)},
                     None,
                     Verdict.ALLOW,
                 )
             )
+        for f in out:
+            f.evidence.setdefault("confidence", _confidence(f.code, obj, overlap))
         return out
 
     def _verify(
         self, obj: Objective, tool: str, arguments: dict[str, Any], reasoning: str | None
     ) -> list[Finding]:
+        fut = _VERIFIER_POOL.submit(self.config.verifier, obj.text, tool, arguments)  # type: ignore[arg-type]
         try:
-            answer, reason = self.config.verifier(obj.text, tool, arguments)  # type: ignore[misc]
+            answer, reason = fut.result(timeout=self.config.verifier_timeout_s)
+            reason = str(reason or "")
+        except FutureTimeout:
+            fut.cancel()
+            logger.warning("intent verifier timed out after %ss", self.config.verifier_timeout_s)
+            return [
+                Finding(
+                    Stage.INTENT,
+                    "VERIFIER_UNAVAILABLE",
+                    Severity.INFO,
+                    f"Intent verifier timed out after {self.config.verifier_timeout_s}s; heuristic result used",
+                    {"timeout_s": self.config.verifier_timeout_s},
+                    None,
+                    Verdict.ALLOW,
+                )
+            ]
         except Exception as exc:  # noqa: BLE001 - a verifier must never take enforcement down
             logger.warning("intent verifier failed: %s", exc)
             return [
@@ -463,7 +568,7 @@ class IntentGrounder:
                     Verdict.ALLOW,
                 )
             ]
-        answer = (answer or "").strip().upper()
+        answer = str(answer or "").strip().upper()
         if answer.startswith("NO"):
             return [
                 Finding(
@@ -535,3 +640,35 @@ def openai_compatible_verifier(
         return (word[0].strip(".,:").upper() if word else "UNSURE", text)
 
     return verify
+
+
+def _action_kind(profile: ArgumentProfile) -> str:
+    if profile.destructive:
+        return "destructive"
+    if profile.network and profile.mutating:
+        return "sends_data"
+    if profile.reads_sensitive:
+        return "reads_sensitive"
+    return "mutating" if profile.mutating else "read"
+
+
+# How sure the heuristic is of each finding (0-1). Recorded with the finding as evidence;
+# it explains a decision, it does not make one.
+_CONFIDENCE = {
+    "OBJECTIVE_PROHIBITS": 0.9,
+    "GOAL_ACTION_MISMATCH": 0.85,
+    "DESTRUCTION_NOT_REQUESTED": 0.7,
+    "ENTITY_MISMATCH": 0.7,
+    "UNREQUESTED_DESTINATION": 0.7,
+    "TARGET_NOT_REQUESTED": 0.65,
+    "AMBIGUOUS_OBJECTIVE": 0.5,
+    "LOW_GOAL_OVERLAP": 0.3,
+}
+
+
+def _confidence(code: str, obj: Objective, overlap: float) -> float:
+    if code == "GROUNDED":
+        # higher when the task's mode is known and the call shares its words
+        base = 0.4 if obj.mode == "unknown" else 0.6
+        return round(min(0.9, base + 0.3 * min(1.0, overlap)), 2)
+    return _CONFIDENCE.get(code, 0.5)
