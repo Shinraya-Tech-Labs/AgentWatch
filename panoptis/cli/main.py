@@ -2699,11 +2699,58 @@ def main() -> None:
 
 
 @app.command(name="doctor")
-def doctor() -> None:
-    """[bold]Doctor[/bold]: Check AgentWatch installation health."""
+def doctor(
+    rollback_derived: bool = typer.Option(
+        False,
+        "--rollback-derived",
+        help="Safely roll back derived interpretation tables without touching raw evidence.",
+    ),
+    upgrade_schema: bool = typer.Option(
+        False, "--upgrade-schema", help="Apply pending schema upgrades to target version."
+    ),
+    downgrade_schema: int | None = typer.Option(
+        None, "--downgrade-schema", help="Roll back schema to a specific prior version (e.g., 1)."
+    ),
+) -> None:
+    """[bold]Doctor[/bold]: Check AgentWatch installation health and manage schema migrations."""
     import os
     import shutil
     import subprocess  # nosec B404
+
+    from panoptis.storage.store import Store
+
+    store = Store()
+
+    if rollback_derived:
+        from panoptis.storage.migration import rollback_derived_schema
+
+        deleted = rollback_derived_schema(store.engine)
+        console.print("[green]Derived interpretation schema rolled back successfully:[/green]")
+        for tbl, count in deleted.items():
+            console.print(f"  - {tbl}: {count} rows cleared")
+        return
+
+    if upgrade_schema:
+        from panoptis.storage.migration import upgrade_schema as apply_upgrade
+
+        res = apply_upgrade(store.engine)
+        console.print(
+            f"[green]Schema migration result:[/green] {res['status']} (v{res['to_version']})"
+        )
+        for act in res.get("actions", []):
+            console.print(f"  - {act}")
+        return
+
+    if downgrade_schema is not None:
+        from panoptis.storage.migration import downgrade_schema as apply_downgrade
+
+        res = apply_downgrade(store.engine, target_version=downgrade_schema)
+        console.print(
+            f"[yellow]Schema downgrade result:[/yellow] {res['status']} (v{res['to_version']})"
+        )
+        for act in res.get("actions", []):
+            console.print(f"  - {act}")
+        return
 
     table = Table(title="Health Diagnostics")
     table.add_column("Component", style="cyan")
@@ -2735,9 +2782,7 @@ def doctor() -> None:
 
     try:
         from panoptis.storage.migration import get_migration_status
-        from panoptis.storage.store import Store
 
-        store = Store()
         mig = get_migration_status(store.engine)
         mig_status = (
             f"[green]Up to date (v{mig.installed_version})[/green]"
