@@ -922,6 +922,11 @@ from panoptis.api.protect_rbac import build_router as _build_rbac_router  # noqa
 
 app.include_router(_build_rbac_router(_require_api_key_or_operator, _v3_tenant))
 
+# Decisions, agents, loops, intent, MCP, discovery and evidence (TO-027), tenant-scoped.
+from panoptis.api.protect_api import build_router as _build_protect_router  # noqa: E402
+
+app.include_router(_build_protect_router(_require_api_key_or_operator, _v3_tenant))
+
 # Emergency stop and suspensions (TO-025): global controls are operator-only.
 from panoptis.api.protect_control import build_router as _build_control_router  # noqa: E402
 
