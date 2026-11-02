@@ -31,7 +31,7 @@ Settings (environment):
 ``AGENTWATCH_TENANT_ID``       tenant (default ``default``)
 ``AGENTWATCH_OBJECTIVE``       the session's objective, for intent grounding
 ``AGENTWATCH_POLICY_FILE``     RBAC policy (YAML/JSON); no file means no RBAC stage
-``AGENTWATCH_STORE_URL``       evidence store (default: the AgentWatch home database)
+``AGENTWATCH_STORE``       evidence store (default: the AgentWatch home database)
 ``AGENTWATCH_HOOK_MUTATION``   ``ask`` (default) or ``allow``
 """
 
@@ -78,7 +78,7 @@ def build_pipeline(env: dict[str, str] | None = None) -> ProtectionPipeline:
     policy_file = env.get("AGENTWATCH_POLICY_FILE")
     return ProtectionPipeline(
         policy=PolicyStore(path=policy_file) if policy_file else None,
-        ledger=ProtectLedger(env.get("AGENTWATCH_STORE_URL") or None),
+        ledger=ProtectLedger(env.get("AGENTWATCH_STORE") or None),
         # Claude Code's permission prompt is the approval channel: an escalation is
         # answered with "ask", never silently allowed.
         config=ProtectionConfig(escalate_without_approver=Verdict.ESCALATE_HITL),

@@ -60,7 +60,7 @@ def _run(tmp_path: Path, role: str) -> tuple[Path, Path, subprocess.CompletedPro
     env = {
         **os.environ,
         "AGENTWATCH_POLICY_FILE": str(policy),
-        "AGENTWATCH_STORE_URL": f"sqlite:///{store.as_posix()}",
+        "AGENTWATCH_STORE": f"sqlite:///{store.as_posix()}",
         "AGENTWATCH_AGENT_ID": "claude-code",
     }
     prompt = (

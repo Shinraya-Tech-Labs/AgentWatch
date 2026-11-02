@@ -175,7 +175,7 @@ def test_other_events_are_ignored(pipeline):
 
 
 def run_main(raw: str, monkeypatch, tmp_path, **env: str) -> tuple[int, str, str]:
-    monkeypatch.setenv("AGENTWATCH_STORE_URL", f"sqlite:///{(tmp_path / 'h.db').as_posix()}")
+    monkeypatch.setenv("AGENTWATCH_STORE", f"sqlite:///{(tmp_path / 'h.db').as_posix()}")
     for k, v in env.items():
         monkeypatch.setenv(k, v)
     out, err = io.StringIO(), io.StringIO()
@@ -218,7 +218,7 @@ def test_the_installed_command_runs_and_blocks(tmp_path):
     import os
 
     command = claude_hook.hook_settings()["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
-    env = {**os.environ, "AGENTWATCH_STORE_URL": f"sqlite:///{(tmp_path / 'e.db').as_posix()}"}
+    env = {**os.environ, "AGENTWATCH_STORE": f"sqlite:///{(tmp_path / 'e.db').as_posix()}"}
     denied = _run_settings_command(command, json.dumps(pre("rm -rf /")), env)
     assert denied.returncode == 0, denied.stderr
     assert decision(json.loads(denied.stdout)) == "deny"
