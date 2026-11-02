@@ -110,12 +110,12 @@ class ProtectLedger:
         after: str | None = None,
         limit: int = 200,
         newest_first: bool = True,
+        tenant_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Records of the given kinds, newest first by default."""
+        tenant = tenant_id or self.tenant_id
         t = s.observations
-        q = select(t.c.obs_id).where(
-            t.c.tenant_id == self.tenant_id, t.c.source_kind.in_(list(kinds))
-        )
+        q = select(t.c.obs_id).where(t.c.tenant_id == tenant, t.c.source_kind.in_(list(kinds)))
         if after:
             q = q.where(t.c.obs_id > after)
         q = q.order_by(t.c.obs_id.desc() if newest_first else t.c.obs_id).limit(limit)
@@ -123,16 +123,22 @@ class ProtectLedger:
             ids = [r[0] for r in conn.execute(q)]
         if not ids:
             return []
-        obs = {o.obs_id: o for o in self.store.observations(self.tenant_id, obs_ids=ids)}
+        obs = {o.obs_id: o for o in self.store.observations(tenant, obs_ids=ids)}
         return [self._row(obs[i]) for i in ids if i in obs]
 
     def find(
-        self, key: str, value: str, kinds: tuple[str, ...] | None = None
+        self,
+        key: str,
+        value: str,
+        kinds: tuple[str, ...] | None = None,
+        *,
+        tenant_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        ids = self.store.find_by_declared_id(self.tenant_id, key, value)
+        tenant = tenant_id or self.tenant_id
+        ids = self.store.find_by_declared_id(tenant, key, value)
         if not ids:
             return []
-        rows = [self._row(o) for o in self.store.observations(self.tenant_id, obs_ids=ids)]
+        rows = [self._row(o) for o in self.store.observations(tenant, obs_ids=ids)]
         if kinds:
             rows = [r for r in rows if r["kind"] in kinds]
         return sorted(rows, key=lambda r: r["obs_id"])
