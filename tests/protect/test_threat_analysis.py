@@ -267,7 +267,9 @@ def test_a_crashing_detector_fails_closed():
     assert d.verdict is Verdict.BLOCK
 
 
-@pytest.mark.parametrize("path", ["../../../../etc/shadow", "../../etc/passwd", "..\..\etc\shadow"])
+@pytest.mark.parametrize(
+    "path", ["../../../../etc/shadow", "../../etc/passwd", r"..\..\etc\shadow"]
+)
 def test_relative_traversal_into_a_sensitive_system_file_escalates(path):
     # found by the evaluation suite (TO-036): only the absolute form was recognised
     codes = {f.code: f for f in ThreatAnalyzer().analyze("read_file", {"path": path}).findings}

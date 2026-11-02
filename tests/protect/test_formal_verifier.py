@@ -4,7 +4,7 @@ from panoptis.protect.formal_verifier import (
     PolicyFormalVerifier,
     VerificationStatus,
 )
-from panoptis.protect.rbac import parse_policy
+from panoptis.protect.rbac import RBACPolicy, parse_policy
 
 
 def test_verifier_detects_fail_open_default_allow():
@@ -89,24 +89,31 @@ def test_verifier_detects_path_starvation_contradiction():
 
 
 def test_verifier_detects_numeric_field_unsat_contradiction():
-    policy_doc = {
-        "version": "1.0",
-        "default": "deny",
-        "agents": {"bot": ["role1"]},
-        "roles": {
-            "role1": {
-                "allowed_tools": ["calculate"],
-                "restricted_arguments": {
-                    "calculate": {
-                        "fields": {
-                            "limit": {"min": 100, "max": 10}  # min > max
-                        }
-                    }
+    from panoptis.protect.rbac import ArgumentRestriction, Role
+
+    policy = RBACPolicy(
+        version="1.0",
+        default="deny",
+        agents={"bot": ["role1"]},
+        roles={
+            "role1": Role(
+                name="role1",
+                allowed_tools=["calculate"],
+                forbidden_tools=[],
+                restrictions={
+                    "calculate": ArgumentRestriction(
+                        allowed_paths=[],
+                        blocked_paths=[],
+                        allowed_commands=[],
+                        blocked_commands=[],
+                        fields={"limit": {"min": 100, "max": 10}},
+                    )
                 },
-            }
+            )
         },
-    }
-    policy = parse_policy(policy_doc)
+        digest="test-digest",
+        tenants={},
+    )
     verifier = PolicyFormalVerifier()
     cert = verifier.verify(policy)
 

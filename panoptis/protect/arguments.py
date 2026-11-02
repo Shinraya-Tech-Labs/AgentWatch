@@ -89,7 +89,9 @@ SENSITIVE_PATHS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(^|[/\\])\.(kube|docker)[/\\]config\b"), "cluster/registry credentials"),
     (re.compile(r"(^|[/\\])\.gnupg([/\\]|$)"), "GPG keyring"),
     (
-        re.compile(r"(^|[/\\])etc/(shadow|gshadow|sudoers)\b|(^|[/\\])etc/passwd\b"),
+        re.compile(
+            r"^(?:[A-Za-z]:)?[/\\]etc/(shadow|gshadow|sudoers)\b|^(?:[A-Za-z]:)?[/\\]etc/passwd\b"
+        ),
         "system account database",
     ),
     (re.compile(r"(?i)[/\\]system32[/\\]config[/\\](sam|system|security)\b"), "Windows SAM hive"),

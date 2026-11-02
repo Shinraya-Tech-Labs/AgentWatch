@@ -140,7 +140,7 @@ def protect_langchain_tool(
         object.__setattr__(
             tool, "func", _wrap_sync(tool.func, name, "adapter:langchain", pipeline, ident)
         )
-    elif type(tool)._run is not _base_run():
+    elif getattr(type(tool), "_run", None) is not None and type(tool)._run is not _base_run():
         object.__setattr__(
             tool, "_run", _wrap_sync(tool._run, name, "adapter:langchain", pipeline, ident)
         )
@@ -162,15 +162,21 @@ def protect_langchain_tool(
 
 
 def _base_run() -> Any:
-    from langchain_core.tools import BaseTool
+    try:
+        from langchain_core.tools import BaseTool
 
-    return BaseTool._run
+        return BaseTool._run
+    except ImportError:
+        return None
 
 
 def _base_arun() -> Any:
-    from langchain_core.tools import BaseTool
+    try:
+        from langchain_core.tools import BaseTool
 
-    return BaseTool._arun
+        return BaseTool._arun
+    except ImportError:
+        return None
 
 
 def protect_langgraph_tool_node(
