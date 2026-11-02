@@ -69,16 +69,13 @@ FEATURES: dict[str, str] = {
     "graph_depth": "longest CONTAINS/DEPENDS_ON chain from a root",
     "mean_branching": "mean structural children over events that have children",
     "multi_parent_events": "events with >1 structural parent (DAG confluence)",
-    
     # 2. Reliability & Resilience
     "error_rate": "fraction of leaf operations with ERROR/TIMEOUT status",
     "retry_rate": "RETRIES relations per leaf operation",
-    
     # 3. Tool Usage & Entropy
     "tool_calls": "TOOL_INVOCATION events count",
     "tool_diversity": "distinct tools / tool calls (0 when no tool calls)",
     "tool_entropy": "Shannon entropy (bits) of tool usage",
-    
     # 4. Model & Agent Orchestration
     "model_calls": "MODEL_INVOCATION events count",
     "distinct_models": "distinct model entities invoked",
@@ -86,12 +83,10 @@ FEATURES: dict[str, str] = {
     "delegations": "DELEGATION + MESSAGE events count",
     "delegation_entropy": "Shannon entropy (bits) of (sender->receiver) hand-offs",
     "actors": "distinct actors participating in the run",
-    
     # 5. Information Flow & Memory Coupling
     "content_derivations": "DERIVES_FROM relations (content containment links)",
     "memory_transfers": "TRANSFERS relations (memory write -> read of same key)",
     "memory_dependency": "fraction of model invocations with memory read ancestor",
-    
     # 6. Operational Efficiency & Financial Cost
     "duration_ms": "run wall-clock duration in milliseconds",
     "log_leaf_latency_p50": "log10(1 + median leaf latency ms)",
@@ -127,7 +122,9 @@ A single run is an isolated phenotype; a **Behavioral Genome** characterizes a c
 Because software latency and token expenditures follow heavy-tailed, non-Gaussian distributions, AgentWatch rejects standard Student's $t$ approximations. It computes **Empirical Percentile Bootstrap Confidence Intervals** ($B = 1000$ resamples with replacement):
 
 ```python
-def _bootstrap_ci(values: list[float], n_boot: int = 1000, alpha: float = 0.05) -> tuple[float, float]:
+def _bootstrap_ci(
+    values: list[float], n_boot: int = 1000, alpha: float = 0.05
+) -> tuple[float, float]:
     """Computes a 95% bootstrap confidence interval with fixed deterministic seed."""
     if not values:
         return (0.0, 0.0)
@@ -193,7 +190,9 @@ When evaluating whether a candidate version has drifted on trait $f$, parametric
 
 ```python
 # Permutation test in panoptis/behaviour/drift.py
-def _permutation_p(va: list[float], vb: list[float], permutations: int = 2000, seed: int = 42) -> float:
+def _permutation_p(
+    va: list[float], vb: list[float], permutations: int = 2000, seed: int = 42
+) -> float:
     t_obs = abs(mean(va) - mean(vb))
     combined = va + vb
     na = len(va)
@@ -356,19 +355,15 @@ print(f"Event Kind JSD:           {dists['js_kinds']:.4f}")
 print(f"Motif Frequency JSD:      {dists['js_motifs']:.4f}")
 
 # Execute two-sample permutation tests with Benjamini-Hochberg FDR control
-drift_report = drift(
-    profiles_baseline, 
-    profiles_candidate,
-    permutations=2000,
-    alpha=0.05,
-    seed=42
-)
+drift_report = drift(profiles_baseline, profiles_candidate, permutations=2000, alpha=0.05, seed=42)
 
 # Inspect certified drift anomalies
 for trait, result in drift_report["traits"].items():
     if result["drift_detected"]:
         print(f"🚨 Significant drift in trait '{trait}':")
-        print(f"   Baseline Mean: {result['baseline_mean']:.3f} | Candidate Mean: {result['candidate_mean']:.3f}")
+        print(
+            f"   Baseline Mean: {result['baseline_mean']:.3f} | Candidate Mean: {result['candidate_mean']:.3f}"
+        )
         print(f"   Adjusted q-value: {result['q_value']:.5f} (raw p: {result['p_value']:.5f})")
 ```
 

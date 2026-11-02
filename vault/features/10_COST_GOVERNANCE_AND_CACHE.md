@@ -59,9 +59,9 @@ The Complexity Router implements CST-009, dynamically matching task demands with
 ### 2.1 The Three Complexity Tiers
 ```python
 class TaskComplexity(IntEnum):
-    SIMPLE   = 1  # Formats, summaries, simple extractions, deterministic transforms
+    SIMPLE = 1  # Formats, summaries, simple extractions, deterministic transforms
     STANDARD = 2  # Multi-step tool use, code generation, schema modifications
-    COMPLEX  = 3  # Deep mathematical reasoning, architecture design, edge-case debugging
+    COMPLEX = 3  # Deep mathematical reasoning, architecture design, edge-case debugging
 ```
 
 ### 2.2 Model Capability Matrix & Pricing Basis
@@ -70,17 +70,15 @@ AgentWatch maps frontier and lightweight models to their maximum capable complex
 ```python
 DEFAULT_CAPABILITY: dict[str, TaskComplexity] = {
     # Tier 1: Ultra-fast, low-cost models
-    "gemini-1.5-flash":   TaskComplexity.SIMPLE,
-    "gpt-4o-mini":        TaskComplexity.SIMPLE,
-    "claude-haiku-4-5":   TaskComplexity.SIMPLE,
-    
+    "gemini-1.5-flash": TaskComplexity.SIMPLE,
+    "gpt-4o-mini": TaskComplexity.SIMPLE,
+    "claude-haiku-4-5": TaskComplexity.SIMPLE,
     # Tier 2: General enterprise workhorses
-    "gemini-1.5-pro":     TaskComplexity.STANDARD,
-    "gpt-4o":             TaskComplexity.STANDARD,
-    "claude-sonnet-4-5":  TaskComplexity.STANDARD,
-    
+    "gemini-1.5-pro": TaskComplexity.STANDARD,
+    "gpt-4o": TaskComplexity.STANDARD,
+    "claude-sonnet-4-5": TaskComplexity.STANDARD,
     # Tier 3: Elite frontier reasoning models
-    "claude-opus-4-5":    TaskComplexity.COMPLEX,
+    "claude-opus-4-5": TaskComplexity.COMPLEX,
 }
 ```
 
@@ -100,6 +98,7 @@ class TaskSignals:
     @property
     def input_tokens(self) -> int:
         return len(self.prompt) // 4  # Standard ~4 chars per token approximation
+
 
 def score_complexity(signals: TaskSignals) -> TaskComplexity:
     """Heuristically classifies task signals into a complexity tier."""
@@ -129,14 +128,15 @@ AgentWatch maintains an authoritative pricing table in `panoptis/cost/comparator
 
 ```python
 DEFAULT_PRICING: dict[str, dict[str, float]] = {
-    "gemini-1.5-flash":   {"input_per_million": 0.075, "output_per_million": 0.30},
-    "gpt-4o-mini":        {"input_per_million": 0.150, "output_per_million": 0.60},
-    "claude-haiku-4-5":   {"input_per_million": 0.250, "output_per_million": 1.25},
-    "gemini-1.5-pro":     {"input_per_million": 1.250, "output_per_million": 5.00},
-    "gpt-4o":             {"input_per_million": 2.500, "output_per_million": 10.00},
-    "claude-sonnet-4-5":  {"input_per_million": 3.000, "output_per_million": 15.00},
-    "claude-opus-4-5":    {"input_per_million": 15.000, "output_per_million": 75.00},
+    "gemini-1.5-flash": {"input_per_million": 0.075, "output_per_million": 0.30},
+    "gpt-4o-mini": {"input_per_million": 0.150, "output_per_million": 0.60},
+    "claude-haiku-4-5": {"input_per_million": 0.250, "output_per_million": 1.25},
+    "gemini-1.5-pro": {"input_per_million": 1.250, "output_per_million": 5.00},
+    "gpt-4o": {"input_per_million": 2.500, "output_per_million": 10.00},
+    "claude-sonnet-4-5": {"input_per_million": 3.000, "output_per_million": 15.00},
+    "claude-opus-4-5": {"input_per_million": 15.000, "output_per_million": 75.00},
 }
+
 
 def estimate_cost_usd(model: str, input_tokens: int, expected_output_tokens: int) -> float:
     """Computes exact monetary cost in USD for a proposed model invocation."""
@@ -184,7 +184,9 @@ def _cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
 ```python
 # Semantic Cache core lookup implementation
 class SemanticCache:
-    def __init__(self, similarity_threshold: float = 0.95, max_entries: int = 1000, ttl_days: int | None = 7):
+    def __init__(
+        self, similarity_threshold: float = 0.95, max_entries: int = 1000, ttl_days: int | None = 7
+    ):
         self.similarity_threshold = similarity_threshold
         self.max_entries = max_entries
         self.ttl_days = ttl_days
@@ -212,7 +214,11 @@ class SemanticCache:
                     best_entry = entry
 
             if highest_sim >= self.similarity_threshold and best_entry:
-                logger.info("Semantic cache HIT (similarity=%.4f, entry_id=%s)", highest_sim, best_entry.entry_id)
+                logger.info(
+                    "Semantic cache HIT (similarity=%.4f, entry_id=%s)",
+                    highest_sim,
+                    best_entry.entry_id,
+                )
                 return best_entry.response
 
             return None
@@ -271,7 +277,12 @@ class BudgetGovernance:
 
         # 2. Human Review Evaluation (Soft Ceiling)
         if team and estimated_cost_usd > team.auto_approve_ceiling_usd:
-            return BudgetDecision(BudgetAction.REQUIRE_HUMAN, "Action exceeds auto-approve threshold", float(team.monthly_cap_usd - team.used_usd), 0.0)
+            return BudgetDecision(
+                BudgetAction.REQUIRE_HUMAN,
+                "Action exceeds auto-approve threshold",
+                float(team.monthly_cap_usd - team.used_usd),
+                0.0,
+            )
 
         # 3. Clean Approval
         return BudgetDecision(BudgetAction.APPROVE, "Within budget boundaries", 0.0, 0.0)
@@ -309,6 +320,7 @@ In benchmark enterprise deployments, AgentWatch routinely demonstrates a **68% t
 from panoptis.cost.complexity_router import CostAwareRouter, TaskSignals, TaskComplexity
 from panoptis.cost.semantic_cache import SemanticCache
 from panoptis.cost.governance import BudgetGovernance, BudgetAction
+
 
 class GuardedLLMClient:
     def __init__(self):

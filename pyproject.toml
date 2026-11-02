@@ -32,7 +32,7 @@ dependencies = [
   "redis[hiredis]>=5.3.0,<6.0.0",
   "celery[redis]>=5.5.0,<6.0.0",
   "httpx>=0.28.0,<1.0.0",
-  "typer[all]>=0.12.0,<1.0.0",
+  "typer>=0.12.0,<1.0.0",
   "rich>=13.9.0,<14.0.0",
   "shellingham>=1.5.0,<2.0.0",
   "python-multipart>=0.0.12,<1.0.0",
@@ -147,6 +147,7 @@ ignore = [
 # (F405: __all__ names resolve through those wildcards).
 "panoptis/**/__init__.py" = ["F401", "F403", "F405"]
 "panoptis/*/__init__.py"  = ["F401", "F403", "F405"]
+"panopti/themes.py" = ["N802"]
 
 [tool.mypy]
 python_version = "3.12"

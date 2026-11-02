@@ -1,45 +1,38 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import gsap from "gsap";
-import ScrollTrigger from "gsap/ScrollTrigger";
+import { useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
 const CODE_LINES = [
-  { text: "# Install", type: "comment" },
-  { text: "pip install agentwatch-ai", type: "cmd" },
-  { text: "", type: "empty" },
-  { text: "# Watch any agent", type: "comment" },
-  { text: 'agentwatch watch "python my_agent.py"', type: "cmd" },
-  { text: "", type: "empty" },
-  { text: "# Or wrap in Python", type: "comment" },
-  { text: "from agentwatch import watch", type: "code" },
-  { text: "agent = watch(your_agent)", type: "code" },
+  { text: '# Install', type: 'comment' },
+  { text: 'pip install agentwatch-ai', type: 'cmd' },
+  { text: '', type: 'empty' },
+  { text: '# Watch any agent', type: 'comment' },
+  { text: 'agentwatch watch "python my_agent.py"', type: 'cmd' },
+  { text: '', type: 'empty' },
+  { text: '# Or wrap in Python', type: 'comment' },
+  { text: 'from agentwatch import watch', type: 'code' },
+  { text: 'agent = watch(your_agent)', type: 'code' },
 ];
 
-const frameworks = [
-  "LangChain",
-  "CrewAI",
-  "AutoGPT",
-  "Claude Code",
-  "LangGraph",
-  "AutoGen",
-];
+const frameworks = ['LangChain', 'CrewAI', 'AutoGPT', 'Claude Code', 'LangGraph', 'AutoGen'];
 
 function lineColor(type: string) {
-  if (type === "comment") return "#555";
-  if (type === "cmd") return "#e8ff47";
-  return "#e5e2e1";
+  if (type === 'comment') return '#555';
+  if (type === 'cmd') return '#e8ff47';
+  return '#e5e2e1';
 }
 
 function renderStaticLines(container: HTMLDivElement) {
-  container.innerHTML = "";
+  container.innerHTML = '';
   CODE_LINES.forEach((line) => {
-    const el = document.createElement("div");
-    el.className = "leading-7";
-    if (line.type === "empty") {
-      el.innerHTML = "&nbsp;";
+    const el = document.createElement('div');
+    el.className = 'leading-7';
+    if (line.type === 'empty') {
+      el.innerHTML = '&nbsp;';
     } else {
       el.style.color = lineColor(line.type);
       el.textContent = line.text;
@@ -49,13 +42,13 @@ function renderStaticLines(container: HTMLDivElement) {
 }
 
 function typeLines(container: HTMLDivElement) {
-  container.innerHTML = "";
+  container.innerHTML = '';
   let delay = 0;
   CODE_LINES.forEach((line) => {
-    const el = document.createElement("div");
-    el.className = "leading-7";
-    if (line.type === "empty") {
-      el.innerHTML = "&nbsp;";
+    const el = document.createElement('div');
+    el.className = 'leading-7';
+    if (line.type === 'empty') {
+      el.innerHTML = '&nbsp;';
       setTimeout(() => container.appendChild(el), delay);
       delay += 50;
       return;
@@ -64,10 +57,10 @@ function typeLines(container: HTMLDivElement) {
     setTimeout(() => {
       container.appendChild(el);
       let i = 0;
-      const chars = line.text.split("");
+      const chars = line.text.split('');
       const tick = () => {
         if (i < chars.length) {
-          el.textContent = (el.textContent ?? "") + chars[i++];
+          el.textContent = (el.textContent ?? '') + chars[i++];
           setTimeout(tick, 22);
         }
       };
@@ -85,7 +78,7 @@ export default function QuickStart() {
   const triggered = useRef(false);
 
   useEffect(() => {
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const container = linesRef.current;
     if (!container) return;
 
@@ -95,19 +88,33 @@ export default function QuickStart() {
     }
 
     const ctx = gsap.context(() => {
-      gsap.fromTo(leftRef.current, 
+      gsap.fromTo(
+        leftRef.current,
         { x: -40, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.8, ease: "power3.out", scrollTrigger: { trigger: leftRef.current, start: "top 80%", once: true } }
+        {
+          x: 0,
+          opacity: 1,
+          duration: 0.8,
+          ease: 'power3.out',
+          scrollTrigger: { trigger: leftRef.current, start: 'top 80%', once: true },
+        },
       );
 
-      gsap.fromTo(terminalRef.current, 
+      gsap.fromTo(
+        terminalRef.current,
         { x: 40, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.8, ease: "power3.out", scrollTrigger: { trigger: terminalRef.current, start: "top 80%", once: true } }
+        {
+          x: 0,
+          opacity: 1,
+          duration: 0.8,
+          ease: 'power3.out',
+          scrollTrigger: { trigger: terminalRef.current, start: 'top 80%', once: true },
+        },
       );
 
       ScrollTrigger.create({
         trigger: terminalRef.current,
-        start: "top 80%",
+        start: 'top 80%',
         once: true,
         onEnter: () => {
           if (triggered.current) return;
@@ -127,7 +134,7 @@ export default function QuickStart() {
       className="py-16 px-6"
       style={{
         background:
-          "radial-gradient(ellipse 65% 70% at 50% 50%, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.45) 55%, transparent 92%)",
+          'radial-gradient(ellipse 65% 70% at 50% 50%, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.45) 55%, transparent 92%)',
       }}
     >
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -136,12 +143,11 @@ export default function QuickStart() {
           <h2
             className="font-bold"
             style={{
-              fontFamily: "var(--font-syne)",
-              fontSize: "clamp(1.8rem, 3.5vw, 2.8rem)",
+              fontFamily: 'var(--font-syne)',
+              fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)',
             }}
           >
-            Start watching in{" "}
-            <span className="gradient-text">60 seconds.</span>
+            Start watching in <span className="gradient-text">60 seconds.</span>
           </h2>
           <p className="text-[#b8b8b8] text-lg leading-relaxed">
             Wraps any agent framework.
@@ -167,8 +173,8 @@ export default function QuickStart() {
           ref={terminalRef}
           className="rounded-xl overflow-hidden border border-white/10 shadow-2xl"
           style={{
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
           }}
         >
           {/* macOS chrome */}
@@ -178,7 +184,7 @@ export default function QuickStart() {
             <span className="w-3 h-3 rounded-full bg-[#28c840]" />
             <span
               className="ml-4 text-xs text-[#555]"
-              style={{ fontFamily: "var(--font-jetbrains)" }}
+              style={{ fontFamily: 'var(--font-jetbrains)' }}
             >
               terminal
             </span>
@@ -187,7 +193,7 @@ export default function QuickStart() {
           {/* Code area */}
           <div
             className="bg-[#0d0d0d]/95 px-6 py-5 min-h-[280px]"
-            style={{ fontFamily: "var(--font-jetbrains)", fontSize: "0.82rem" }}
+            style={{ fontFamily: 'var(--font-jetbrains)', fontSize: '0.82rem' }}
           >
             {/* linesRef starts empty; filled by useEffect */}
             <div ref={linesRef} />

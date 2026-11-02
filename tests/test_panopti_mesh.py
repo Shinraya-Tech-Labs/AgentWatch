@@ -8,8 +8,12 @@ from panopti.mesh import SwarmMesh
 def test_swarm_mesh_registration_and_hierarchy() -> None:
     """Agents can be registered with parent-child relationships."""
     mesh = SwarmMesh(root_agent_id="lead_planner", root_role="orchestrator")
-    mesh.register_agent("coder", role="worker", parent_id="lead_planner", task_description="Write tests")
-    mesh.register_agent("reviewer", role="auditor", parent_id="lead_planner", task_description="Audit security")
+    mesh.register_agent(
+        "coder", role="worker", parent_id="lead_planner", task_description="Write tests"
+    )
+    mesh.register_agent(
+        "reviewer", role="auditor", parent_id="lead_planner", task_description="Audit security"
+    )
 
     root = mesh._nodes["lead_planner"]
     assert "coder" in root.children

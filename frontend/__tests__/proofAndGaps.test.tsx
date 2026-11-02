@@ -164,7 +164,7 @@ describe('ProofAndGapsVisualizer Component Tests', () => {
         events={mockEvents}
         assessments={[supportedAssessment]}
         coverage={mockCoverage}
-      />
+      />,
     );
     expect(screen.getByTestId('assessment-verdict-badge')).toHaveTextContent('SUPPORTED');
 
@@ -174,7 +174,7 @@ describe('ProofAndGapsVisualizer Component Tests', () => {
         events={mockEvents}
         assessments={[refutedAssessment]}
         coverage={mockCoverage}
-      />
+      />,
     );
     expect(screen.getByTestId('assessment-verdict-badge')).toHaveTextContent('REFUTED');
 
@@ -184,7 +184,7 @@ describe('ProofAndGapsVisualizer Component Tests', () => {
         events={mockEvents}
         assessments={[inconclusiveAssessment]}
         coverage={mockCoverage}
-      />
+      />,
     );
     expect(screen.getByTestId('assessment-verdict-badge')).toHaveTextContent('INCONCLUSIVE');
 
@@ -194,7 +194,7 @@ describe('ProofAndGapsVisualizer Component Tests', () => {
         events={mockEvents}
         assessments={[conflictingAssessment]}
         coverage={mockCoverage}
-      />
+      />,
     );
     expect(screen.getByTestId('assessment-verdict-badge')).toHaveTextContent('CONFLICTING');
   });
@@ -205,7 +205,7 @@ describe('ProofAndGapsVisualizer Component Tests', () => {
         events={mockEvents}
         assessments={[supportedAssessment, refutedAssessment]}
         coverage={mockCoverage}
-      />
+      />,
     );
 
     // evt-001 has obs-auth-1 which is in support_obs_ids -> SUPPORTING WITNESS badge
@@ -221,7 +221,7 @@ describe('ProofAndGapsVisualizer Component Tests', () => {
         events={mockEvents}
         assessments={[supportedAssessment]}
         coverage={mockCoverage}
-      />
+      />,
     );
 
     // evt-001 has parents -> DECLARED
@@ -237,7 +237,7 @@ describe('ProofAndGapsVisualizer Component Tests', () => {
         events={mockEvents}
         assessments={[inconclusiveAssessment]}
         coverage={mockCoverage}
-      />
+      />,
     );
 
     expect(screen.getByTestId('missing-fact-callout')).toBeInTheDocument();
@@ -255,7 +255,7 @@ describe('ProofAndGapsVisualizer Component Tests', () => {
         events={mockEvents}
         assessments={[supportedAssessment]}
         coverage={mockCoverage}
-      />
+      />,
     );
 
     expect(screen.getByTestId('sensor-row-auth_sensor_primary')).toBeInTheDocument();
@@ -274,7 +274,7 @@ describe('ProofAndGapsVisualizer Component Tests', () => {
         assessments={[supportedAssessment]}
         coverage={mockCoverage}
         onSelectEvent={handleSelect}
-      />
+      />,
     );
 
     const eventNode = screen.getByTestId('event-node-evt-001');
