@@ -380,22 +380,22 @@ tools never execute.
 **Acceptance evidence:** Direct and generic tool calls are tested
 against the same enforcement contract as framework adapters.
 
-## TO-017 --- Complete pre-execution threat analysis
+## TO-017 --- Complete pre-execution threat analysis — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-017)
 
--   [ ] Inspect tool names, arguments, structured payloads, and relevant
+-   [x] Inspect tool names, arguments, structured payloads, and relevant
     execution context.
--   [ ] Cover shell commands, Python execution, SQL, filesystem paths,
+-   [x] Cover shell commands, Python execution, SQL, filesystem paths,
     URLs/network destinations, and other supported high-risk tool types.
--   [ ] Detect destructive operations, privilege escalation, credential
+-   [x] Detect destructive operations, privilege escalation, credential
     exposure, suspicious command composition, and policy violations.
--   [ ] Use structured parsing/AST or domain-aware validation where
+-   [x] Use structured parsing/AST or domain-aware validation where
     appropriate; avoid relying only on brittle string matching.
--   [ ] Define risk scoring and policy thresholds with explainable
+-   [x] Define risk scoring and policy thresholds with explainable
     reasons.
--   [ ] Ensure detection errors fail closed according to policy.
--   [ ] Add positive, negative, edge-case, and bypass-oriented tests for
+-   [x] Ensure detection errors fail closed according to policy.
+-   [x] Add positive, negative, edge-case, and bypass-oriented tests for
     each detector family.
--   [ ] Record rule/policy version and decision rationale in evidence.
+-   [x] Record rule/policy version and decision rationale in evidence.
 
 **Acceptance evidence:** Threat-analysis tests demonstrate both attack
 detection and benign-content preservation, with documented

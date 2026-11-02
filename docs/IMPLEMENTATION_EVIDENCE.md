@@ -47,7 +47,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-012 Claude Code PreToolUse | BLOCKED (owner: sign the `claude` CLI in) | [TO-012](#to-012) |
 | TO-013 / TO-014 / TO-015 LangGraph, AutoGen, smolagents | DONE | [TO-013, TO-014, TO-015](#to-013-to-014-to-015) |
 | TO-016 generic and direct tools | DONE | [TO-016](#to-016) |
-| TO-017 … TO-040 | NOT STARTED unless listed below | — |
+| TO-017 threat analysis | DONE | [TO-017](#to-017) |
+| TO-018 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -749,3 +750,45 @@ pytest tests/e2e_claude -m external -v
 - `pytest tests/` at `5d5de77`: **2582 passed**, 9 skipped, 2 failed (the pre-existing `test_cli_animator` failures on `main`, scheduled for TO-032)
 
 **Commits:** `ef8b62e` `284f958` `7159e6a` `1c7ebd1` `a32d908` `5d5de77`, plus this ledger commit.
+
+### TO-017
+
+**Status:** DONE. Docs: [`docs/THREAT_ANALYSIS.md`](THREAT_ANALYSIS.md).
+
+**Method:** I probed the analyser with bypass-oriented inputs for each family before changing anything. Every probe below was allowed, or produced no finding, on the previous code:
+
+| Input | Before | Now |
+|---|---|---|
+| `sudo su -`, `sudo -i` | **command discarded**: the wrapper consumed the whole argv | `PRIVILEGE_ESCALATION`, escalate |
+| `x=rm; $x -rf /` | no finding | resolved: `FS_DELETE_CRITICAL`, block |
+| `$CMD …` (unresolvable) | no finding | `DYNAMIC_COMMAND`, escalate |
+| `echo <b64> \| base64 -d \| sh` | no finding | decoded: `FS_DELETE_CRITICAL`, block |
+| `chmod 4755` / `g+s` | no finding (numeric) | `SETUID_BIT`, block |
+| `usermod -aG sudo\|wheel`, `tee …/sudoers` | no finding | `PRIVILEGE_GRANT`, escalate |
+| `printenv \| curl -d @- …`, `env \| nc …` | no finding | `EXFIL_ENVIRONMENT`, block |
+| `os.remove('/etc/passwd')` (Python) | `PY_DELETE`, allow | `PY_DELETE_SYSTEM`, escalate |
+| metadata as `2852039166`, `0xa9fea9fe`, octal, `::ffff:`-mapped | allow or no finding | canonicalised: `SSRF_METADATA`, block |
+| `file:///etc/hosts` on a fetch tool | no finding (no host, skipped) | `LOCAL_FILE_URL`, escalate |
+
+**Also added:**
+
+- `THREAT_RULES_VERSION`, a content hash of the rule code, on every decision next to the RBAC `policy_version`.
+- Tests that a crashing detector fails closed, and that `fail_closed=False` still cannot authorise unanalysed arguments (`NO_PROFILE`).
+- `docs/THREAT_ANALYSIS.md`: parsing per content type, the detector-family table with default verdicts (each one verified against the code), the risk-score formula, evidence fields, failure behaviour, and the false-positive policy with its known limits.
+
+**Tests:** `tests/protect/test_threat_analysis.py` (71).
+
+- 18 attack cases and 10 benign cases.
+- 17 bypass cases, each asserting the code and the verdict, and that every finding explains itself.
+- 11 benign near-misses that must neither block nor escalate.
+- 7 host-canonicalisation cases and the unassigned-variable case.
+- Rule-version evidence, and the crashing detector.
+
+24 of these fail on the previous analyser.
+
+**Commands and results:**
+
+- `pytest tests/protect/test_threat_analysis.py`: 71 passed
+- `pytest tests/protect tests/test_watcher_fail_closed.py tests/test_adapter_claude_code.py tests/test_safety*.py`: 337 passed
+
+**Commits:** `fa9e317` `5cc9dae` `ce2054d`, plus this ledger commit.
