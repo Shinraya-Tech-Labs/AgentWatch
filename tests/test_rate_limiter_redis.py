@@ -40,12 +40,8 @@ def test_redis_backend_satisfies_protocol():
 
 def test_shared_redis_enforces_one_quota_across_replicas():
     shared = FakeRedis()
-    replica_a = RateLimiter(
-        user_limit=3, global_limit=100, backend=RedisBackend(shared)
-    )
-    replica_b = RateLimiter(
-        user_limit=3, global_limit=100, backend=RedisBackend(shared)
-    )
+    replica_a = RateLimiter(user_limit=3, global_limit=100, backend=RedisBackend(shared))
+    replica_b = RateLimiter(user_limit=3, global_limit=100, backend=RedisBackend(shared))
 
     # 4 total hits for one user across replicas; the 4th exceeds the limit of 3.
     assert replica_a.check_rate_limit("alice")[0] is True
@@ -58,12 +54,8 @@ def test_shared_redis_enforces_one_quota_across_replicas():
 
 def test_shared_redis_enforces_global_limit_across_replicas():
     shared = FakeRedis()
-    replica_a = RateLimiter(
-        user_limit=100, global_limit=3, backend=RedisBackend(shared)
-    )
-    replica_b = RateLimiter(
-        user_limit=100, global_limit=3, backend=RedisBackend(shared)
-    )
+    replica_a = RateLimiter(user_limit=100, global_limit=3, backend=RedisBackend(shared))
+    replica_b = RateLimiter(user_limit=100, global_limit=3, backend=RedisBackend(shared))
 
     assert replica_a.check_rate_limit("u1")[0] is True
     assert replica_b.check_rate_limit("u2")[0] is True
@@ -126,9 +118,7 @@ def test_from_redis_url_uses_redis_when_reachable(monkeypatch):
     assert isinstance(limiter.backend, RedisBackend)
 
 
-@pytest.mark.parametrize(
-    "backend_factory", [InMemoryBackend, lambda: RedisBackend(FakeRedis())]
-)
+@pytest.mark.parametrize("backend_factory", [InMemoryBackend, lambda: RedisBackend(FakeRedis())])
 def test_interface_preserved_for_both_backends(backend_factory):
     limiter = RateLimiter(user_limit=100, global_limit=10000, backend=backend_factory())
     assert limiter.user_limit == 100

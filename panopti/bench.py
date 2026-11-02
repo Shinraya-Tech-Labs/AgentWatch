@@ -73,10 +73,10 @@ def run_bench(iterations: int = DEFAULT_ITERATIONS) -> list[OpResult]:
     if iterations < 1:
         raise ValueError(f"iterations must be at least 1, got {iterations}")
 
-    from panoptis.circuit_breaker import CircuitBreaker, CircuitThresholds
-    from panoptis.core.schema import AgentEvent, EventType, ExecutionStatus
     from panopti.court import WitnessChain
     from panopti.presets.profiles import get_profile
+    from panoptis.circuit_breaker import CircuitBreaker, CircuitThresholds
+    from panoptis.core.schema import AgentEvent, EventType, ExecutionStatus
 
     patterns = [re.compile(p) for p in get_profile("devops").destructive_patterns]
 

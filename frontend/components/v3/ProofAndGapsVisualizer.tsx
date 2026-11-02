@@ -1,11 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import type { CEvent } from '../../lib/v3/types';
 
-export type EvidenceVerdict =
-  | 'supported'
-  | 'refuted'
-  | 'inconclusive'
-  | 'conflicting_evidence';
+export type EvidenceVerdict = 'supported' | 'refuted' | 'inconclusive' | 'conflicting_evidence';
 
 export interface MissingFact {
   field: string;
@@ -127,7 +123,7 @@ export function ProofAndGapsVisualizer({
         onSelectEvent?.(eventId);
       }
     },
-    [onSelectEvent]
+    [onSelectEvent],
   );
 
   return (
@@ -205,12 +201,8 @@ export function ProofAndGapsVisualizer({
             ) : (
               events.map((evt) => {
                 const isSelected = selectedEventId === evt.event_id;
-                const isSupporting = evt.derived_from.some((id) =>
-                  supportingWitnessSet.has(id)
-                );
-                const isRefuting = evt.derived_from.some((id) =>
-                  refutingWitnessSet.has(id)
-                );
+                const isSupporting = evt.derived_from.some((id) => supportingWitnessSet.has(id));
+                const isRefuting = evt.derived_from.some((id) => refutingWitnessSet.has(id));
 
                 let highlightBorder = 'border-zinc-800';
                 let highlightBg = 'bg-zinc-900/40';
@@ -273,9 +265,7 @@ export function ProofAndGapsVisualizer({
                               : 'border border-dashed border-zinc-700 text-zinc-500'
                           }`}
                           title={
-                            hasDeclaredLink
-                              ? 'Direct declared evidence'
-                              : 'Inferred correlation'
+                            hasDeclaredLink ? 'Direct declared evidence' : 'Inferred correlation'
                           }
                         >
                           {hasDeclaredLink ? 'DECLARED' : 'INFERRED'}
@@ -433,8 +423,7 @@ export function ProofAndGapsVisualizer({
                       <div className="rounded bg-rose-950/30 border border-rose-500/20 p-1.5 text-[11px] font-mono text-rose-300 space-y-0.5">
                         {s.gaps.map((g, gi) => (
                           <div key={gi}>
-                            Sequence Gap: [{g.seq_lost_start}..{g.seq_lost_end}] ({g.count}{' '}
-                            lost)
+                            Sequence Gap: [{g.seq_lost_start}..{g.seq_lost_end}] ({g.count} lost)
                           </div>
                         ))}
                       </div>

@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from panopti.guard import PanoptiGuard
 from panoptis.contracts.coverage import SequenceContinuityTracker
 from panoptis.contracts.evaluator import evaluate_contract
 from panoptis.contracts.schema import (
@@ -38,7 +39,6 @@ from panoptis.events.model import (
     EventStatus,
     TemporalInfo,
 )
-from panopti.guard import PanoptiGuard
 
 
 def make_test_event(

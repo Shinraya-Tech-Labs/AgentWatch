@@ -320,7 +320,9 @@ def _handle_http_status_error(exc: httpx.HTTPStatusError, api_url: str) -> NoRet
 def _dry_run_print(action: str, detail: str = "") -> None:
     """Print a consistent dry-run preview line to the terminal."""
     detail_str = f"\n  [dim]{detail}[/dim]" if detail else ""
-    console.print(f"[bold yellow][DRY-RUN][/bold yellow] Would {action}{detail_str}")
+    console.print(
+        f"[bold yellow][DRY-RUN][/bold yellow] Would {action}{detail_str}", soft_wrap=True
+    )
 
 
 # ---------------------------------------------
@@ -2000,6 +2002,28 @@ def verify_env() -> None:
     from panoptis.cli.verify_env import verify_environment
 
     verify_environment()
+
+
+@app.command(name="validate")
+def validate_events(file: Path = typer.Argument(..., help="JSONL file of events")) -> None:
+    """[bold]Validate[/bold] a telemetry event stream envelope and timestamps."""
+    from panoptis.validation.envelope import validate_event_stream
+
+    events = []
+    with file.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            events.append(json.loads(line))
+
+    report = validate_event_stream(events)
+    console.print(f"Events: {report.total}")
+    console.print(f"Valid: {report.valid}")
+    for w in report.warnings:
+        console.print(f"[yellow]{w.code}[/yellow] {w.message} (event={w.event_id})")
+    if not report.valid:
+        raise typer.Exit(1)
 
 
 # ─────────────────────────────────────────────
