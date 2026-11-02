@@ -158,6 +158,21 @@ command: panoptis evidence erase-subject
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
     param yes kind=TyperOption type=boolean required=False default=False flags=--yes help=''
 
+command: panoptis evidence export
+    help: Export sealed evidence for independent verification (panoptis/evidence/verifier.py).
+    short_help: 
+    param output kind=TyperOption type=path required=True default=None flags=--output,-o help='bundle file to write'
+    param seal kind=TyperOption type=boolean required=False default=True flags=--seal help='seal pending observations first'
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+
+command: panoptis evidence proof
+    help: The inclusion proof of one sealed record (verify with verifier.py --proof).
+    short_help: 
+    param obs_id kind=TyperArgument type=str required=True default=None flags=obs_id help="the record's observation id"
+    param output kind=TyperOption type=path required=False default=None flags=--output,-o help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
+
 command: panoptis evidence purge
     help: Retention: remove sealed segments older than N days, their payload files and derived copies (chain preserved).
     short_help: 
@@ -180,11 +195,19 @@ command: panoptis evidence show
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
 command: panoptis evidence verify
-    help: Verify the hash chain and Merkle roots of all sealed evidence.
+    help: Verify the hash chain, Merkle roots, envelopes and index of all sealed evidence.
     short_help: 
+    param anchor kind=TyperOption type=boolean required=False default=True flags=--anchor help='check against, then update, the locally kept head'
+    param expect_head kind=TyperOption type=str required=False default=None flags=--expect-head help='SEQ:SEGMENT_HASH known from elsewhere (truncation check)'
     param seal kind=TyperOption type=boolean required=False default=True flags=--seal help='seal pending observations first'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+
+command: panoptis evidence verify-bundle
+    help: Verify an exported bundle with the standalone verifier (no store access).
+    short_help: 
+    param bundle kind=TyperArgument type=path required=True default=None flags=bundle help="bundle written by 'evidence export'"
+    param expect_head kind=TyperOption type=str required=False default=None flags=--expect-head help='SEQ:SEGMENT_HASH'
 
 command: panoptis forecast
     help: EXPERIMENTAL outcome forecast for a (partial) run, with calibration evidence.
@@ -417,6 +440,21 @@ command: panoptis protect evidence erase-subject
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
     param yes kind=TyperOption type=boolean required=False default=False flags=--yes help=''
 
+command: panoptis protect evidence export
+    help: Export sealed evidence for independent verification (panoptis/evidence/verifier.py).
+    short_help: 
+    param output kind=TyperOption type=path required=True default=None flags=--output,-o help='bundle file to write'
+    param seal kind=TyperOption type=boolean required=False default=True flags=--seal help='seal pending observations first'
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+
+command: panoptis protect evidence proof
+    help: The inclusion proof of one sealed record (verify with verifier.py --proof).
+    short_help: 
+    param obs_id kind=TyperArgument type=str required=True default=None flags=obs_id help="the record's observation id"
+    param output kind=TyperOption type=path required=False default=None flags=--output,-o help=''
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
+
 command: panoptis protect evidence purge
     help: Retention: remove sealed segments older than N days, their payload files and derived copies (chain preserved).
     short_help: 
@@ -439,11 +477,19 @@ command: panoptis protect evidence show
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
 command: panoptis protect evidence verify
-    help: Verify the hash chain and Merkle roots of all sealed evidence.
+    help: Verify the hash chain, Merkle roots, envelopes and index of all sealed evidence.
     short_help: 
+    param anchor kind=TyperOption type=boolean required=False default=True flags=--anchor help='check against, then update, the locally kept head'
+    param expect_head kind=TyperOption type=str required=False default=None flags=--expect-head help='SEQ:SEGMENT_HASH known from elsewhere (truncation check)'
     param seal kind=TyperOption type=boolean required=False default=True flags=--seal help='seal pending observations first'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+
+command: panoptis protect evidence verify-bundle
+    help: Verify an exported bundle with the standalone verifier (no store access).
+    short_help: 
+    param bundle kind=TyperArgument type=path required=True default=None flags=bundle help="bundle written by 'evidence export'"
+    param expect_head kind=TyperOption type=str required=False default=None flags=--expect-head help='SEQ:SEGMENT_HASH'
 
 command: panoptis protect mcp-gateway
     help: Run the enforcing MCP gateway: stdio | http | config | status (see --help of each).

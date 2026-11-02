@@ -1008,17 +1008,84 @@ def evidence_verify(
     store: str | None = STORE_OPTION,
     seal: bool = typer.Option(True, "--seal/--no-seal", help="seal pending observations first"),
     tenant: str = typer.Option("default", "--tenant"),
+    expect_head: str | None = typer.Option(
+        None, "--expect-head", help="SEQ:SEGMENT_HASH known from elsewhere (truncation check)"
+    ),
+    anchor: bool = typer.Option(
+        True, "--anchor/--no-anchor", help="check against, then update, the locally kept head"
+    ),
 ) -> None:
-    """Verify the hash chain and Merkle roots of all sealed evidence."""
+    """Verify the hash chain, Merkle roots, envelopes and index of all sealed evidence."""
+    from panoptis.protect.ledger import ProtectLedger
+
+    head = None
+    if expect_head:
+        seq, _, digest = expect_head.partition(":")
+        head = {"seq": int(seq), "segment_hash": digest}
+    lg = ProtectLedger(store)
+    try:
+        rep = lg.verify(seal=seal, tenant_id=tenant, expected_head=head, anchor=anchor)
+    finally:
+        lg.store.close()
+    _out(rep)
+    if not rep["ok"]:
+        raise typer.Exit(2)
+
+
+@evidence_app.command("export")
+@_guard
+def evidence_export(
+    output: Path = typer.Option(..., "--output", "-o", help="bundle file to write"),
+    store: str | None = STORE_OPTION,
+    tenant: str = typer.Option("default", "--tenant"),
+    seal: bool = typer.Option(True, "--seal/--no-seal", help="seal pending observations first"),
+) -> None:
+    """Export sealed evidence for independent verification (panoptis/evidence/verifier.py)."""
     from panoptis.storage.store import Store
 
     st = Store(store)
     if seal:
         st.seal_all(tenant)
-    rep = st.verify(tenant)
-    _out(rep.to_dict())
-    if not rep.ok:
-        raise typer.Exit(2)
+    bundle = st.export_bundle(tenant)
+    output.write_text(json.dumps(bundle, default=str), encoding="utf-8")
+    _out(
+        {
+            "file": str(output),
+            "segments": len(bundle["segments"]),
+            "observations": len(bundle["observations"]),
+            "head": bundle["head"],
+        }
+    )
+
+
+@evidence_app.command("verify-bundle")
+def evidence_verify_bundle(
+    bundle: Path = typer.Argument(..., help="bundle written by 'evidence export'"),
+    expect_head: str | None = typer.Option(None, "--expect-head", help="SEQ:SEGMENT_HASH"),
+) -> None:
+    """Verify an exported bundle with the standalone verifier (no store access)."""
+    from panoptis.evidence import verifier
+
+    args = [str(bundle)] + (["--expect-head", expect_head] if expect_head else [])
+    raise typer.Exit(verifier.main(args))
+
+
+@evidence_app.command("proof")
+@_guard
+def evidence_proof(
+    obs_id: str = typer.Argument(..., help="the record's observation id"),
+    store: str | None = STORE_OPTION,
+    output: Path | None = typer.Option(None, "--output", "-o"),
+) -> None:
+    """The inclusion proof of one sealed record (verify with verifier.py --proof)."""
+    from panoptis.storage.store import Store
+
+    proof = Store(store).inclusion_proof(obs_id)
+    if proof is None:
+        _fail(f"{obs_id} is unknown or not sealed yet")
+    if output:
+        output.write_text(json.dumps(proof, default=str), encoding="utf-8")
+    _out(proof)
 
 
 @evidence_app.command("seal")
