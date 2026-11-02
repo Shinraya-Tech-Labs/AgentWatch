@@ -27,6 +27,7 @@ callable can decide directly.
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 import json
 import threading
@@ -395,15 +396,15 @@ class ApprovalBroker:
                 }
                 for r in reqs
             ]
-        reqs = self.ledger.query((KIND_APPROVAL_REQUEST,), limit=limit, tenant_id=tenant_id)
+        rows = self.ledger.query((KIND_APPROVAL_REQUEST,), limit=limit, tenant_id=tenant_id)
         decisions: dict[str, dict[str, Any]] = {}
         for r in self.ledger.query(
             (KIND_APPROVAL_DECISION,), limit=limit * 4, tenant_id=tenant_id, newest_first=False
         ):
             decisions.setdefault(r["declared"].get("approval_request"), r["payload"])
         out = []
-        for r in reqs:
-            doc = r["payload"]
+        for row in rows:
+            doc = row["payload"]
             d = decisions.get(doc["request_id"])
             outcome = _outcome(d, doc["request_id"]) if d else None
             out.append(
@@ -416,7 +417,7 @@ class ApprovalBroker:
             )
         return out
 
-    def pending(self, *, tenant_id: str | None = None) -> list[dict[str, Any]]:
+    def pending(self, *, tenant_id: str | None = None) -> builtins.list[dict[str, Any]]:
         return [r for r in self.list(limit=500, tenant_id=tenant_id) if r["state"] == "pending"]
 
 

@@ -13,7 +13,7 @@ help:
 	@echo "  make format-py    - ruff format (Python)"
 	@echo "  make format-frontend - Prettier (frontend/)"
 	@echo "  make format-landing  - Prettier (agentwatch-landing/)"
-	@echo "  make typecheck    - mypy over the v3 modules"
+	@echo "  make typecheck    - mypy over the v3 and protect modules"
 
 format-py:
 	ruff format panoptis/
@@ -38,7 +38,7 @@ format-check-landing:
 	cd agentwatch-landing && npm run format:check
 
 # v3 modules are type-checked in CI; the v0.2 packages are not (yet).
-V3_MODULES = panoptis/evidence panoptis/storage panoptis/sensors panoptis/events 	panoptis/runtime panoptis/graph panoptis/provenance panoptis/compare 	panoptis/behaviour panoptis/causality panoptis/lab panoptis/state 	panoptis/forecasting panoptis/analysis panoptis/query panoptis/runs 	panoptis/entities panoptis/api/v3.py panoptis/cli/v3.py panoptis/instrument.py
+V3_MODULES = panoptis/evidence panoptis/storage panoptis/sensors panoptis/events panoptis/runtime panoptis/graph panoptis/provenance panoptis/compare panoptis/behaviour panoptis/causality panoptis/lab panoptis/state panoptis/forecasting panoptis/analysis panoptis/query panoptis/runs panoptis/entities panoptis/api/v3.py panoptis/cli/v3.py panoptis/instrument.py panoptis/protect panoptis/api/protect_api.py panoptis/api/protect_approvals.py panoptis/api/protect_control.py panoptis/api/protect_rbac.py
 
 typecheck:
 	mypy $(V3_MODULES)

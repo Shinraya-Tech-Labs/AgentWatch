@@ -1285,11 +1285,11 @@ class ArgumentAnalyzer:
                 if q in ("os.system", "os.popen") or q.startswith("subprocess."):
                     for s in literal_args:
                         out.extend(self._shell(f"{path}<python:{q}>", s, profile))
-                    for a in node.args:
-                        if isinstance(a, (ast.List, ast.Tuple)):
+                    for arg in node.args:
+                        if isinstance(arg, (ast.List, ast.Tuple)):
                             argv = [
                                 e.value
-                                for e in a.elts
+                                for e in arg.elts
                                 if isinstance(e, ast.Constant) and isinstance(e.value, str)
                             ]
                             if argv:

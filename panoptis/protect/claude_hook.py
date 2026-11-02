@@ -95,7 +95,7 @@ def action_for(payload: dict[str, Any], env: dict[str, str] | None = None) -> To
         raise ValueError("hook input has no tool_name")
     session = payload.get("session_id")
     use_id = payload.get("tool_use_id")
-    return ToolAction(
+    action = ToolAction(
         agent_id=env.get("AGENTWATCH_AGENT_ID") or "claude-code",
         session_id=str(session) if session else "claude-code-session",
         tool=tool_name(claude_tool),
@@ -105,9 +105,10 @@ def action_for(payload: dict[str, Any], env: dict[str, str] | None = None) -> To
         trace_id=str(session) if session else None,
         source=SOURCE,
         defaulted_identity=not session,
-        # the pre- and post-tool records of one call share its id
-        **({"call_id": f"cc-{use_id}"} if use_id else {}),
     )
+    if use_id:
+        action.call_id = f"cc-{use_id}"  # the pre- and post-tool records of one call share it
+    return action
 
 
 def _pre(payload: dict[str, Any], pipeline: ProtectionPipeline, env: dict[str, str]) -> dict:

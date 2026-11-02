@@ -482,7 +482,8 @@ class SqlTenantStore:
                     .values(events=daily.c.events + events)
                 )
         got = self.get_usage(tenant_id, period)
-        assert got is not None
+        if got is None:  # not an assert: asserts are stripped under python -O
+            raise RuntimeError(f"usage row for {tenant_id} missing right after it was written")
         return got
 
     def get_usage(self, tenant_id: str, period: str | None = None) -> UsageRecord | None:

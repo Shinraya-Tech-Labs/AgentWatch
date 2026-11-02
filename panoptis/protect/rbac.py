@@ -217,7 +217,7 @@ def parse_policy(doc: Any, *, source: str = "inline") -> RBACPolicy:
     errors: list[str] = []
     if isinstance(doc, (str, bytes)):
         try:
-            doc = yaml.load(doc, Loader=_UniqueKeyLoader)  # noqa: S506 - a SafeLoader subclass
+            doc = yaml.load(doc, Loader=_UniqueKeyLoader)  # noqa: S506  # nosec B506 - a SafeLoader subclass
         except yaml.YAMLError as exc:
             raise PolicyError([f"not valid YAML/JSON: {exc}"]) from exc
     if not isinstance(doc, dict):
@@ -494,7 +494,7 @@ class RBACEngine:
                     Verdict.ALLOW,
                 )
             ]
-        ev = {
+        ev: dict[str, Any] = {
             "agent_id": agent_id,
             "tenant_id": tenant_id,
             "tool": tool,

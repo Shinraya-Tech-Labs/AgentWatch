@@ -434,7 +434,7 @@ def scan_processes(
                 str(info.get("name") or ""),
                 [str(c) for c in info.get("cmdline") or []],
             )
-        except Exception:  # noqa: BLE001, S112 - access denied or the process exited
+        except Exception:  # noqa: BLE001, S112  # nosec B112 - access denied or the process exited
             continue
         if pid == me:
             continue

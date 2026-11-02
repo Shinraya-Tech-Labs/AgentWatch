@@ -130,7 +130,9 @@ LEGACY_RULES: tuple[_Rule, ...] = tuple(
 )
 RULES = INDIRECT_RULES + LEGACY_RULES
 MARKDOWN_EXFIL = re.compile(r"!\[[^\]]*\]\((https?://[^)\s]+\?[^)\s]*=[^)\s]{8,})\)")
-INVISIBLE = re.compile(r"[\U000E0000-\U000E007F]|[‪-‮⁦-⁩]|[​-‏⁠﻿]{3,}")
+INVISIBLE = re.compile(
+    r"[\U000E0000-\U000E007F]|[\u202a-\u202e\u2066-\u2069]|[\u200b-\u200f\u2060\ufeff]{3,}"
+)
 TAG_BLOCK = re.compile(r"[\U000E0000-\U000E007F]+")
 
 

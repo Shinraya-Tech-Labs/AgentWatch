@@ -336,12 +336,13 @@ def build_router(
     @router.get("/mcp")
     def mcp(tenant_id: str = Depends(tenant)) -> dict[str, Any]:
         servers: dict[str, dict[str, Any]] = {}
-        recent = []
+        recent: list[dict[str, Any]] = []
         for r in _decisions(tenant_id):
             d = _decision(r)
-            if not (d.source or "").startswith("mcp:"):
+            source = d.source or ""
+            if not source.startswith("mcp:"):
                 continue
-            name = d.source[4:]
+            name = source[4:]
             srv = servers.setdefault(
                 name,
                 {"server": name, "decisions": 0, "verdicts": {}, "tools": {}, "last_seen": None},

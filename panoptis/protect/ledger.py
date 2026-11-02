@@ -116,7 +116,8 @@ class ProtectLedger:
         if res.rejected:
             raise ValueError(f"protect ledger rejected a record: {res.rejected}")
         self._maybe_seal(draft.tenant_id)
-        return (res.accepted or res.duplicates or [None])[0]
+        stored = res.accepted or res.duplicates
+        return stored[0] if stored else None
 
     def _maybe_seal(self, tenant: str) -> None:
         if not self.seal_every:

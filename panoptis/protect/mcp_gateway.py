@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import itertools
 import json
 import logging
@@ -323,7 +324,7 @@ class MCPGateway:
                 return
             task = asyncio.ensure_future(self._handle_call(msg))
             self._calls[k] = task
-            task.add_done_callback(lambda _t, k=k: self._calls.pop(k, None))
+            task.add_done_callback(functools.partial(self._forget_call, k))
             return
         if method == "notifications/cancelled":
             rid = (
@@ -331,9 +332,9 @@ class MCPGateway:
                 if isinstance(msg.get("params"), dict)
                 else None
             )
-            task = self._calls.get(_key(rid)) if rid is not None else None
-            if task is not None:
-                task.cancel()  # still deciding (or waiting for approval): it never runs
+            pending = self._calls.get(_key(rid)) if rid is not None else None
+            if pending is not None:
+                pending.cancel()  # still deciding (or waiting for approval): it never runs
         if method == "initialize" and msg_id is not None:
             self._initialize_ids.add(_key(msg_id))
             self._record_session(msg.get("params") or {}, None)
@@ -346,6 +347,9 @@ class MCPGateway:
                 )
             return
         await self.send_upstream(msg)
+
+    def _forget_call(self, k: str, _task: Any) -> None:
+        self._calls.pop(k, None)
 
     async def _handle_call(self, msg: dict[str, Any]) -> None:
         async def forward(fwd: dict[str, Any]) -> dict[str, Any]:
@@ -487,7 +491,9 @@ async def run_stdio(
         cwd=cwd,
         limit=max_message_bytes + 1024,
     )
-    assert proc.stdin and proc.stdout
+    if proc.stdin is None or proc.stdout is None:  # not an assert: stripped under python -O
+        raise RuntimeError("the upstream MCP server's stdio pipes are not available")
+    up_in, up_out = proc.stdin, proc.stdout
     out_lock = asyncio.Lock()
     up_lock = asyncio.Lock()
 
@@ -499,10 +505,10 @@ async def run_stdio(
     async def send_upstream(msg: dict[str, Any]) -> None:
         data = (json.dumps(msg, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
         async with up_lock:
-            if proc.stdin.is_closing():
+            if up_in.is_closing():
                 raise UpstreamClosedError("upstream stdin closed")
-            proc.stdin.write(data)
-            await proc.stdin.drain()
+            up_in.write(data)
+            await up_in.drain()
 
     gw = MCPGateway(
         pipeline,
@@ -516,12 +522,12 @@ async def run_stdio(
     async def pump_upstream() -> None:
         while True:
             try:
-                line = await proc.stdout.readline()
+                line = await up_out.readline()
             except (asyncio.LimitOverrunError, ValueError):
                 gw.stats["malformed_upstream"] += 1
                 logger.warning("upstream message exceeded %s bytes; dropped", max_message_bytes)
                 with contextlib.suppress(Exception):
-                    await proc.stdout.readuntil(b"\n")
+                    await up_out.readuntil(b"\n")
                 continue
             if not line:
                 break
@@ -572,7 +578,7 @@ async def run_stdio(
         if gw._calls:
             await asyncio.wait(list(gw._calls.values()), timeout=5)
         with contextlib.suppress(Exception):
-            proc.stdin.close()
+            up_in.close()
         try:
             await asyncio.wait_for(proc.wait(), timeout=5)
         except TimeoutError:
@@ -883,7 +889,7 @@ def gateway_status(
     finally:
         lg.store.close()
     servers: dict[str, dict[str, Any]] = {}
-    recent = []
+    recent: list[dict[str, Any]] = []
     for d in docs:
         action = (d.get("payload") or {}).get("action") or {}
         source = str(action.get("source", ""))

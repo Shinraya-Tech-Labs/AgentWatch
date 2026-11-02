@@ -47,7 +47,7 @@ ENVELOPE_FIELDS = (
 )
 
 
-def leaf_v2(row: Mapping[str, Any]) -> str:
+def leaf_v2(row: Mapping[Any, Any]) -> str:
     """Version-2 leaf: SHA-256 over the canonical JSON of the stored envelope."""
     env = {k: row.get(k) for k in ENVELOPE_FIELDS}
     return sha256_hex(
