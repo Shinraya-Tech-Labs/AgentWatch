@@ -17,14 +17,24 @@ paths = [
   '''\.pyc$''',
   '''(^|/)\.venv/''',
   '''^agentwatch-landing/''',  # a separate repository with its own scanning
+  '''^benchmarks/protect_eval/''',
+  '''^benchmarks/results/protect_eval/''',
   '''^tests/security/test_secret_redactor\.py$''',
   '''^tests/protect/test_output_inspection\.py$''',
   '''^tests/protect/test_threat_analysis\.py$''',
   '''^tests/protect/test_discovery\.py$''',
+  '''^tests/protect/test_framework_integrations\.py$''',
+  '''^tests/protect/test_generic_and_direct\.py$''',
+  '''^tests/protect/test_mcp_gateway\.py$''',
+  '''^tests/protect/mcp_fixtures/fake_server\.py$''',
   '''^tests/test_tasks_and_alerting\.py$''',
   '''^tests/test_tenancy_resolver\.py$''',
   '''^tests/v3/test_evidence\.py$''',
 ]
 # AWS's documented example key, used as a fixture in several tests; the walkthrough's
 # synthetic tenant keys (examples/walkthrough), which only exist for its local deployment
-regexes = ['''AKIAIOSFODNN7EXAMPLE''', '''walkthrough-key-(acme|globex)''']
+regexes = [
+  '''AKIAIOSFODNN7EXAMPLE''',
+  '''walkthrough-key-(acme|globex)''',
+  '''FAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKEfake''',
+]

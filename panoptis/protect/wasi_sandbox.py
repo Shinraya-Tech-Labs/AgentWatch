@@ -10,8 +10,9 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import os
+import shlex
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import tempfile
 import time
 from collections.abc import Callable
@@ -270,14 +271,15 @@ class WasiSandbox:
         env = {k: v for k, v in os.environ.items() if k in self.config.allowed_env_vars}
 
         try:
-            proc = subprocess.run(  # noqa: S603
-                command,
+            cmd = shlex.split(command) if isinstance(command, str) else list(command)
+            proc = subprocess.run(  # nosec B603 # noqa: S603
+                cmd,
                 cwd=str(target_cwd),
                 env=env,
                 capture_output=True,
                 text=True,
                 timeout=self.config.timeout_seconds,
-                shell=isinstance(command, str),
+                shell=False,
                 check=False,
             )
             elapsed_ms = (time.perf_counter() - t0) * 1000.0

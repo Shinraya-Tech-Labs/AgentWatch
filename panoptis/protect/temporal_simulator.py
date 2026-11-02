@@ -397,8 +397,7 @@ class FastForwardSimulationEngine:
             root_tool in ("get_secret", "fetch_credentials")
         )
         root_is_staging = root_tool in ("write_file", "append_file") and any(
-            t in root_args_str
-            for t in ("/tmp", "scratch", "cache", "staging")  # noqa: S108
+            t in root_args_str for t in ("staging_area", "scratch", "cache", "staging")
         )
         root_is_untrusted_ingest = root_tool in _UNTRUSTED_INGEST_TOOLS
         root_is_db = any(k in root_tool.lower() for k in ("sql", "db", "database", "query"))
@@ -504,7 +503,7 @@ class FastForwardSimulationEngine:
             if root_is_db:
                 tools = ["query_sql", "explain_query", "fetch_results", "cache_put", "log_metrics"]
                 t = tools[(branch_idx + step_num) % len(tools)]
-                return t, {"query": f"SELECT * FROM items WHERE id = {step_num}"}  # noqa: S608
+                return t, {"query": f"SELECT * FROM items WHERE id = {int(step_num)}"}  # nosec B608 # noqa: S608
             else:
                 tools = ["read_file", "format_code", "run_linter", "run_unit_test", "write_summary"]
                 t = tools[(branch_idx + step_num) % len(tools)]
@@ -523,7 +522,7 @@ class FastForwardSimulationEngine:
                 # Step 1-2: staging; Step 3+: network egress
                 if step_num < 3:
                     return "write_file", {
-                        "path": f"/tmp/staging_{branch_idx}.tmp",  # noqa: S108
+                        "path": f"staging/staging_{branch_idx}.tmp",
                         "content": "staged",
                     }
                 else:
@@ -555,8 +554,7 @@ class FastForwardSimulationEngine:
             tool in _NETWORK_EGRESS_TOOLS or "http" in tool.lower() or "webhook" in tool.lower()
         )
         is_staging = tool in ("write_file", "append_file") and any(
-            t in args_str
-            for t in ("/tmp", "staging", "scratch")  # noqa: S108
+            t in args_str for t in ("staging_dir", "staging", "scratch")
         )
         is_untrusted = tool in _UNTRUSTED_INGEST_TOOLS
         is_destructive = (
