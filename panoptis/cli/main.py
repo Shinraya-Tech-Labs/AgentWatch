@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import platform
 import sys
@@ -2706,11 +2707,93 @@ def main() -> None:
 
 
 @app.command(name="doctor")
-def doctor() -> None:
-    """[bold]Doctor[/bold]: Check AgentWatch installation health."""
+def doctor(
+    rollback_derived: bool = typer.Option(
+        False,
+        "--rollback-derived",
+        help="Safely roll back derived interpretation tables without touching raw evidence.",
+    ),
+    upgrade_schema: bool = typer.Option(
+        False, "--upgrade-schema", help="Apply pending schema upgrades to target version."
+    ),
+    downgrade_schema: int | None = typer.Option(
+        None, "--downgrade-schema", help="Roll back schema to a specific prior version (e.g., 1)."
+    ),
+    seal_pending: bool = typer.Option(
+        False,
+        "--seal-pending",
+        help="Seal all pending unsealed observations into hash-chained segments.",
+    ),
+    test_alert: bool = typer.Option(
+        False,
+        "--test-alert",
+        help="Send a diagnostic test alert to configured Slack/PagerDuty channels.",
+    ),
+) -> None:
+    """[bold]Doctor[/bold]: Check AgentWatch installation health and manage schema migrations."""
+    import asyncio
     import os
     import shutil
     import subprocess  # nosec B404
+
+    from panoptis.storage.store import Store
+
+    store = Store()
+
+    if rollback_derived:
+        from panoptis.storage.migration import rollback_derived_schema
+
+        deleted = rollback_derived_schema(store.engine)
+        console.print("[green]Derived interpretation schema rolled back successfully:[/green]")
+        for tbl, count in deleted.items():
+            console.print(f"  - {tbl}: {count} rows cleared")
+        return
+
+    if upgrade_schema:
+        from panoptis.storage.migration import upgrade_schema as apply_upgrade
+
+        res = apply_upgrade(store.engine)
+        console.print(
+            f"[green]Schema migration result:[/green] {res['status']} (v{res['to_version']})"
+        )
+        for act in res.get("actions", []):
+            console.print(f"  - {act}")
+        return
+
+    if downgrade_schema is not None:
+        from panoptis.storage.migration import downgrade_schema as apply_downgrade
+
+        res = apply_downgrade(store.engine, target_version=downgrade_schema)
+        console.print(
+            f"[yellow]Schema downgrade result:[/yellow] {res['status']} (v{res['to_version']})"
+        )
+        for act in res.get("actions", []):
+            console.print(f"  - {act}")
+        return
+
+    if seal_pending:
+        sealed = store.seal_all()
+        console.print(f"[green]Successfully sealed {len(sealed)} segment(s).[/green]")
+        for seg in sealed:
+            console.print(f"  - Segment {seg.segment_id} (seq {seg.seq}): {seg.n_obs} observations")
+        return
+
+    if test_alert:
+        from panoptis.alerting.engine import AlertingConfig, AlertingEngine
+
+        config = AlertingConfig(
+            slack_webhook_url=os.getenv("SLACK_WEBHOOK_URL"),
+            pagerduty_webhook_url=os.getenv("PAGERDUTY_WEBHOOK_URL"),
+            pagerduty_routing_key=os.getenv("PAGERDUTY_ROUTING_KEY"),
+            webhook_signing_secret=os.getenv("AGENTWATCH_WEBHOOK_SIGNING_SECRET"),
+        )
+        engine = AlertingEngine(config)
+        console.print("[cyan]Sending diagnostic test alerts...[/cyan]")
+        results = asyncio.run(engine.send_test_alert())
+        console.print(
+            f"[green]Alert test dispatch complete:[/green] Slack: {results.get('slack')}, PagerDuty: {results.get('pagerduty')}"
+        )
+        return
 
     table = Table(title="Health Diagnostics")
     table.add_column("Component", style="cyan")
@@ -2739,6 +2822,19 @@ def doctor() -> None:
             table.add_row("Docker", "[red]Not installed[/red]")
     except Exception:
         table.add_row("Docker", "[red]Not installed[/red]")
+
+    try:
+        from panoptis.storage.migration import get_migration_status
+
+        mig = get_migration_status(store.engine)
+        mig_status = (
+            f"[green]Up to date (v{mig.installed_version})[/green]"
+            if mig.is_up_to_date
+            else f"[yellow]v{mig.installed_version} (target v{mig.target_version})[/yellow]"
+        )
+        table.add_row("Schema Migration", mig_status)
+    except Exception as exc:
+        logging.getLogger(__name__).debug("Could not inspect schema migration status: %s", exc)
 
     from panoptis.cli.v3 import v3_health
 

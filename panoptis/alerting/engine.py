@@ -58,6 +58,42 @@ class AlertingEngine:
             )
         return sent
 
+    async def send_test_alert(
+        self, summary: str = "AgentWatch Alerting Health Check"
+    ) -> dict[str, bool]:
+        """Send a diagnostic test alert across configured channels to verify integration."""
+        sent = {"slack": False, "pagerduty": False}
+        if self._config.slack_webhook_url:
+            slack_payload = {
+                "text": f"AgentWatch Test Alert: {summary}",
+                "blocks": [
+                    {
+                        "type": "header",
+                        "text": {"type": "plain_text", "text": "🔔 AgentWatch Channel Test"},
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"*Status:* Channel operational\n*Message:* {summary}",
+                        },
+                    },
+                ],
+            }
+            sent["slack"] = await self._post(self._config.slack_webhook_url, slack_payload)
+        if self._config.pagerduty_webhook_url:
+            pd_payload = {
+                "routing_key": self._config.pagerduty_routing_key or "",
+                "event_action": "trigger",
+                "payload": {
+                    "summary": f"[AgentWatch Diagnostic] {summary}",
+                    "severity": "info",
+                    "source": "panoptis-doctor",
+                },
+            }
+            sent["pagerduty"] = await self._post(self._config.pagerduty_webhook_url, pd_payload)
+        return sent
+
     def _build_abuse_payload(self, event: AbuseEvent) -> dict[str, dict[str, Any]]:
         summary = (
             f"AgentWatch entitlement abuse: {event.subject} used on "

@@ -14,6 +14,7 @@ from typing import Any
 from rich import box
 from rich.align import Align
 from rich.console import Console
+from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 
@@ -70,9 +71,11 @@ def matrix_type_print(text: str, color: str = "96m", delay: float = 0.005) -> No
 
 def animate_table_rows(table: Table, rows: list[list[Any]], delay: float = 0.02) -> None:
     """Animate adding rows to a rich Table."""
-    for row in rows:
-        table.add_row(*row)
-    console.print(table)
+    with Live(table, console=console, refresh_per_second=20) as live:
+        for row in rows:
+            time.sleep(delay)
+            table.add_row(*row)
+            live.update(table)
 
 
 def glitch_ascii_art(ascii_art: list[str]) -> None:
@@ -109,4 +112,6 @@ def print_systematic_menu() -> None:
         border_style="cyan",
         box=box.ROUNDED,
     )
+    with Live(console=console, refresh_per_second=20) as live:
+        live.update(Align.center(panel))
     console.print(Align.center(panel))

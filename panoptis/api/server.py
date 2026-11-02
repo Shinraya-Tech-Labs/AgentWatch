@@ -964,11 +964,15 @@ async def record_metrics(request: Request, call_next):
 # without credentials (safe for public read-only dashboards and CLI usage;
 # credentialed cross-origin requests will not work in that mode).
 _raw_cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
-_cors_origins: list[str] = (
-    [o.strip() for o in _raw_cors_origins.split(",") if o.strip()]
-    if _raw_cors_origins.strip()
-    else ["*"]
-)
+if _raw_cors_origins.strip():
+    _cors_origins: list[str] = [o.strip() for o in _raw_cors_origins.split(",") if o.strip()]
+elif _ENV == "production":
+    _cors_origins = ["http://localhost:3000"]
+    logger.warning(
+        "CORS_ALLOWED_ORIGINS not set in production; strictly defaulting to %s", _cors_origins
+    )
+else:
+    _cors_origins = ["*"]
 _cors_credentials = _cors_origins != ["*"]
 
 app.add_middleware(
