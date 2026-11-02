@@ -73,7 +73,6 @@ export function GraphView({
     );
     setView({ x: -40 / k, y: 0, k });
   };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(fit, [bounds.maxX, bounds.maxY, height]);
 
   const dim = (id: string) => (highlight && !highlight.has(id) ? 0.12 : 1);

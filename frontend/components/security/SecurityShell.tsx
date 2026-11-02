@@ -91,6 +91,7 @@ export function SecurityShell({ title, children }: { title: string; children: Re
 }
 
 function Connection({ status, hasKey }: { status: ReturnType<typeof useStatus>; hasKey: boolean }) {
+  const now = useNow(5000);
   if (!hasKey) return <span className="font-mono text-[11px] text-zinc-400">not signed in</span>;
   if (status.isLoading)
     return <span className="font-mono text-[11px] text-zinc-400">connecting…</span>;
@@ -108,7 +109,9 @@ function Connection({ status, hasKey }: { status: ReturnType<typeof useStatus>; 
       </span>
     );
   }
-  const age = status.dataUpdatedAt ? Math.round((Date.now() - status.dataUpdatedAt) / 1000) : null;
+  const age = status.dataUpdatedAt
+    ? Math.max(0, Math.round((now - status.dataUpdatedAt) / 1000))
+    : null;
   const stale = age !== null && age > 20;
   return (
     <span
@@ -181,4 +184,14 @@ class ViewBoundary extends Component<{ children: ReactNode }, { error: Error | n
     }
     return this.props.children;
   }
+}
+
+/** The current time, refreshed every ``ms`` (render stays pure; the stale badge ages). */
+function useNow(ms: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return now;
 }
