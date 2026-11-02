@@ -46,7 +46,8 @@ Statuses: `NOT STARTED` · `IN PROGRESS` · `BLOCKED` · `FAILED` · `DONE`. A t
 | TO-011 adapter audit and enforcement | DONE | [TO-011](#to-011) |
 | TO-012 Claude Code PreToolUse | BLOCKED (owner: sign the `claude` CLI in) | [TO-012](#to-012) |
 | TO-013 / TO-014 / TO-015 LangGraph, AutoGen, smolagents | DONE | [TO-013, TO-014, TO-015](#to-013-to-014-to-015) |
-| TO-016 … TO-040 | NOT STARTED unless listed below | — |
+| TO-016 generic and direct tools | DONE | [TO-016](#to-016) |
+| TO-017 … TO-040 | NOT STARTED unless listed below | — |
 
 ## Pre-task work already on the branch
 
@@ -713,3 +714,38 @@ pytest tests/e2e_claude -m external -v
 **Known limitation, documented:** if the hook command cannot start or times out, Claude Code below 2.1.295 runs the tool anyway. Each hook call is a fresh process, so loop, rate and breaker state does not carry over between calls.
 
 **Commits:** `de4328d` `0f0cb5b` `c976ddb` and the docs/E2E commit, plus this ledger commit.
+
+### TO-016
+
+**Status:** DONE. Docs: [`docs/PROTECT_TOOL.md`](PROTECT_TOOL.md).
+
+**Vulnerabilities found and fixed:** each of these left a caller who asked for enforcement with nothing enforced. Each one is reproduced by a test that failed before its fix.
+
+1. `watch()` caught any instrumentation error and returned the agent **unmodified**, logging a warning. With `protection=` it now raises.
+2. A read-only (slotted) tool-like method was skipped at debug level. With `protection=` this is now a `TypeError`.
+3. An agent with no tool-like method was watched with nothing enforced. With `protection=` this is now a `ValueError`.
+
+**Changes:**
+
+- `panoptis/core/watcher.py`: the three fixes above.
+- `panoptis/protect/pipeline.py`:
+  - `ProtectionConfig(mode="observe")`: decided and recorded, but the call runs with its original arguments and unsanitized output.
+  - It is visible in three places: `mode` / `would_block` in decision records, `status()["mode"]`, and a warning at creation.
+  - The kill switch and suspensions still block; an unknown mode is refused.
+  - Execution records say whether the arguments that actually ran were mutated.
+- `panoptis/protect/enforce.py`: nested protected calls record `parent_call_id` through a context variable.
+- `panoptis/protect/registry.py`: `ProtectedToolRegistry`. Every registration path (item assignment, `update`, `setdefault`, `register`) protects the tool; framework tools are protected in place; protection is idempotent.
+- `docs/PROTECT_TOOL.md`: the contract, identity, nested tools, runtime registration, double wrapping, `watch()` refusals, and observe mode.
+
+**Tests:**
+
+- `tests/protect/test_generic_and_direct.py` (15): observe mode (sync and async, records, visibility, no approval wait, kill switch still blocks, unknown mode refused), every registry path, idempotent registration, framework tools in the registry, `watch()` refusals, watching twice, wrapper failure blocks, and tool exceptions pass through.
+- `tests/protect/test_protect_tool.py` (12): decorator forms, blocked never runs, async, mutation mapped back to positional and keyword arguments, double wrap, context identity, exceptions, varargs, `require_context`, and nested sync and async parent ids. The nested tests fail without the change.
+- `tests/protect/test_enforce.py`: the shared boundary contract (sync/async, streaming, cancellation, approvals).
+
+**Commands and results:**
+
+- `pytest tests/protect/test_generic_and_direct.py`: 15 passed
+- `pytest tests/` at `5d5de77`: **2582 passed**, 9 skipped, 2 failed (the pre-existing `test_cli_animator` failures on `main`, scheduled for TO-032)
+
+**Commits:** `ef8b62e` `284f958` `7159e6a` `1c7ebd1` `a32d908` `5d5de77`, plus this ledger commit.

@@ -364,17 +364,17 @@ functions never execute.
 **Acceptance evidence:** smolagents integration tests prove blocked
 tools never execute.
 
-## TO-016 --- Complete generic and direct tool protection
+## TO-016 --- Complete generic and direct tool protection — **DONE** (evidence: docs/IMPLEMENTATION_EVIDENCE.md#to-016)
 
--   [ ] Ensure `GenericAdapter` cannot bypass the enforcement boundary.
--   [ ] Provide and document `protect_tool()` for tools not managed by a
+-   [x] Ensure `GenericAdapter` cannot bypass the enforcement boundary.
+-   [x] Provide and document `protect_tool()` for tools not managed by a
     framework adapter.
--   [ ] Define behavior for nested tools, dynamically registered tools,
+-   [x] Define behavior for nested tools, dynamically registered tools,
     and tools registered after agent startup.
--   [ ] Prevent double-wrapping and duplicate execution.
--   [ ] Add tests for direct calls, nested calls, repeated registration,
+-   [x] Prevent double-wrapping and duplicate execution.
+-   [x] Add tests for direct calls, nested calls, repeated registration,
     sync/async tools, and wrapper exceptions.
--   [ ] Provide an explicit compatibility mode for observation-only
+-   [x] Provide an explicit compatibility mode for observation-only
     operation, visibly distinct from enforcement mode.
 
 **Acceptance evidence:** Direct and generic tool calls are tested
