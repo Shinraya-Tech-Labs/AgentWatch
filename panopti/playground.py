@@ -13,7 +13,7 @@ import threading
 import webbrowser
 from pathlib import Path
 
-from panopti._banner import PANOPTI_ASCII_BANNER, print_banner
+from panopti._banner import print_banner
 
 
 def launch_local_playground(port: int = 8080) -> int:
@@ -51,7 +51,7 @@ def launch_local_playground(port: int = 8080) -> int:
             threading.Thread(target=httpd.serve_forever, daemon=True).start()
             try:
                 webbrowser.open(f"http://127.0.0.1:{port}")
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
             print(f"✅ Playground server is running at http://127.0.0.1:{port}")
             print("Navigate to the URL in your browser to test interactive attack vectors.")

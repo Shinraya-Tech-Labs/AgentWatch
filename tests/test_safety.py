@@ -299,7 +299,9 @@ def test_loop_detector_invalid_explicit_threshold_raises():
     with pytest.raises(ValueError, match="min_reps must be >= 1"):
         LoopDetector(min_reps=-5)
 
+
 # SAF-0XX — Recursion Depth Detector
+
 
 def test_recursion_depth_detector_detects_self_reflection():
     detector = RecursionDepthDetector()
@@ -330,6 +332,8 @@ def test_recursion_depth_detector_ignores_normal_reasoning():
     report = detector.observe(event)
 
     assert not report.detected
+
+
 # ─────────────────────────────────────────────
 # SAF-008 — Exfiltration
 # ─────────────────────────────────────────────

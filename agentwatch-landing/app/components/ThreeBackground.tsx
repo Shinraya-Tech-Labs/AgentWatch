@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import * as THREE from "three";
+import { useEffect, useRef } from 'react';
+import * as THREE from 'three';
 
 /**
  * SITE-WIDE NEURAL BACKGROUND
@@ -22,8 +22,8 @@ const CONNECTION_THRESHOLD = 120;
 const PARTICLE_COUNT = 80;
 const MAX_WAVES = 4;
 const WAVE_SPEED = 280; // world units / sec
-const WAVE_BAND = 60;   // thickness of the bright ring
-const WAVE_LIFE = 2.0;  // seconds
+const WAVE_BAND = 60; // thickness of the bright ring
+const WAVE_LIFE = 2.0; // seconds
 
 interface NodeData {
   velocity: THREE.Vector3;
@@ -62,7 +62,7 @@ export default function ThreeBackground() {
       60,
       window.innerWidth / window.innerHeight,
       0.1,
-      2000
+      2000,
     );
     camera.position.set(0, 0, 400);
 
@@ -81,7 +81,7 @@ export default function ThreeBackground() {
       mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
       cursorNDC.set(mouseX, -mouseY);
     };
-    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    window.addEventListener('mousemove', onMouseMove, { passive: true });
 
     const onScroll = () => {
       const max = Math.max(1, document.body.scrollHeight - window.innerHeight);
@@ -89,7 +89,7 @@ export default function ThreeBackground() {
       // intensity curve: hero (1.0) → middle (0.55) → bottom (0.18)
       intensity = 1.0 - scrollProgress * 0.82;
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
 
     // — Click waves —
@@ -100,7 +100,7 @@ export default function ThreeBackground() {
     const projectCursorTo3D = (clientX: number, clientY: number) => {
       const ndc = new THREE.Vector2(
         (clientX / window.innerWidth) * 2 - 1,
-        -((clientY / window.innerHeight) * 2 - 1)
+        -((clientY / window.innerHeight) * 2 - 1),
       );
       raycaster.setFromCamera(ndc, camera);
       const target = new THREE.Vector3();
@@ -111,12 +111,12 @@ export default function ThreeBackground() {
     const onPointerDown = (e: PointerEvent) => {
       // Skip if user clicked a form input or content-editable
       const t = e.target as HTMLElement | null;
-      if (t && (t.closest("input,textarea,[contenteditable='true']"))) return;
+      if (t && t.closest("input,textarea,[contenteditable='true']")) return;
       const origin = projectCursorTo3D(e.clientX, e.clientY);
       waves.push({ origin, startTime: performance.now() * 0.001 });
       if (waves.length > MAX_WAVES) waves.shift();
     };
-    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener('pointerdown', onPointerDown);
 
     // — Colors —
     const nodeColors = [
@@ -135,7 +135,7 @@ export default function ThreeBackground() {
       const pos = new THREE.Vector3(
         (Math.random() - 0.5) * 600,
         (Math.random() - 0.5) * 400,
-        (Math.random() - 0.5) * 300
+        (Math.random() - 0.5) * 300,
       );
       nodePositions.push(pos);
 
@@ -155,7 +155,7 @@ export default function ThreeBackground() {
         velocity: new THREE.Vector3(
           (Math.random() - 0.5) * 0.15,
           (Math.random() - 0.5) * 0.15,
-          (Math.random() - 0.5) * 0.1
+          (Math.random() - 0.5) * 0.1,
         ),
         baseOpacity: opacity,
         pulseOffset: Math.random() * Math.PI * 2,
@@ -167,8 +167,8 @@ export default function ThreeBackground() {
     const linePositionsArr = new Float32Array(maxLines * 6);
     const lineColorsArr = new Float32Array(maxLines * 6);
     const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute("position", new THREE.BufferAttribute(linePositionsArr, 3));
-    lineGeo.setAttribute("color", new THREE.BufferAttribute(lineColorsArr, 3));
+    lineGeo.setAttribute('position', new THREE.BufferAttribute(linePositionsArr, 3));
+    lineGeo.setAttribute('color', new THREE.BufferAttribute(lineColorsArr, 3));
     const lineMat = new THREE.LineBasicMaterial({
       vertexColors: true,
       transparent: true,
@@ -180,7 +180,7 @@ export default function ThreeBackground() {
     // — Cursor-following ambient particles (subtle field around cursor) —
     const cursorGlow = new THREE.Mesh(
       new THREE.SphereGeometry(8, 16, 16),
-      new THREE.MeshBasicMaterial({ color: 0xe8ff47, transparent: true, opacity: 0.18 })
+      new THREE.MeshBasicMaterial({ color: 0xe8ff47, transparent: true, opacity: 0.18 }),
     );
     scene.add(cursorGlow);
 
@@ -214,7 +214,7 @@ export default function ThreeBackground() {
     const onVisibilityChange = () => {
       isVisible = !document.hidden;
     };
-    document.addEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     const accentColor = new THREE.Color(0xe8ff47);
     const CURSOR_RADIUS = 110;
@@ -277,8 +277,7 @@ export default function ThreeBackground() {
           }
         }
 
-        const opacity =
-          data.baseOpacity * pulse * cursorBoost * intensity + waveBoost * 0.4;
+        const opacity = data.baseOpacity * pulse * cursorBoost * intensity + waveBoost * 0.4;
         (mesh.material as THREE.MeshBasicMaterial).opacity = Math.min(opacity, 1);
 
         // Subtle scale on proximity / wave
@@ -291,8 +290,8 @@ export default function ThreeBackground() {
 
       // Build lines
       let lineCount = 0;
-      const posAttr = lineGeo.getAttribute("position") as THREE.BufferAttribute;
-      const colAttr = lineGeo.getAttribute("color") as THREE.BufferAttribute;
+      const posAttr = lineGeo.getAttribute('position') as THREE.BufferAttribute;
+      const colAttr = lineGeo.getAttribute('color') as THREE.BufferAttribute;
       const activeConnections: [number, number][] = [];
 
       for (let i = 0; i < NODE_COUNT && lineCount < maxLines; i++) {
@@ -321,7 +320,7 @@ export default function ThreeBackground() {
             opacity = Math.min(opacity, 0.9);
 
             const base = lineCount * 6;
-            posAttr.array[base]     = nodePositions[i].x;
+            posAttr.array[base] = nodePositions[i].x;
             posAttr.array[base + 1] = nodePositions[i].y;
             posAttr.array[base + 2] = nodePositions[i].z;
             posAttr.array[base + 3] = nodePositions[j].x;
@@ -331,7 +330,7 @@ export default function ThreeBackground() {
             const r = accentColor.r * opacity * 4;
             const g = accentColor.g * opacity * 4;
             const b = accentColor.b * opacity * 4;
-            colAttr.array[base]     = r;
+            colAttr.array[base] = r;
             colAttr.array[base + 1] = g;
             colAttr.array[base + 2] = b;
             colAttr.array[base + 3] = r;
@@ -356,8 +355,7 @@ export default function ThreeBackground() {
         if (pd.t > 1) {
           pd.t = 0;
           if (activeConnections.length > 0) {
-            const conn =
-              activeConnections[Math.floor(Math.random() * activeConnections.length)];
+            const conn = activeConnections[Math.floor(Math.random() * activeConnections.length)];
             pd.fromIdx = conn[0];
             pd.toIdx = conn[1];
           }
@@ -386,15 +384,15 @@ export default function ThreeBackground() {
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     };
-    window.addEventListener("resize", onResize);
+    window.addEventListener('resize', onResize);
 
     return () => {
       cancelAnimationFrame(frameId);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       renderer.dispose();
       if (mount.contains(renderer.domElement)) {
         mount.removeChild(renderer.domElement);
@@ -406,7 +404,7 @@ export default function ThreeBackground() {
     <div
       ref={mountRef}
       className="fixed inset-0 z-0 pointer-events-none"
-      style={{ width: "100vw", height: "100vh" }}
+      style={{ width: '100vw', height: '100vh' }}
       aria-hidden="true"
     />
   );

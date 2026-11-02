@@ -55,12 +55,12 @@ A `RawObservation` is the immutable record of an event as received on the wire:
 ```python
 @dataclass(frozen=True)
 class RawObservation:
-    observation_id: str               # SHA-256 content-addressed hash of canonical payload
-    sensor_id: str                    # Unique identifier of the emitting sensor instance
-    family: str                       # Sensor family ("otel", "langchain", "claude_code", "mcp")
-    received_at: datetime             # UTC arrival timestamp at the ingest boundary
-    source_payload_json: str          # Verbatim wire payload formatted as canonical JSON
-    redaction_manifest: RedactionManifest # Audit record of edge PII/secret scrubbing
+    observation_id: str  # SHA-256 content-addressed hash of canonical payload
+    sensor_id: str  # Unique identifier of the emitting sensor instance
+    family: str  # Sensor family ("otel", "langchain", "claude_code", "mcp")
+    received_at: datetime  # UTC arrival timestamp at the ingest boundary
+    source_payload_json: str  # Verbatim wire payload formatted as canonical JSON
+    redaction_manifest: RedactionManifest  # Audit record of edge PII/secret scrubbing
     declared_trace_id: str | None = None
     declared_span_id: str | None = None
     declared_parent_id: str | None = None
@@ -86,16 +86,18 @@ Hooks seamlessly into LangChain via a custom `BaseCallbackHandler`:
 ```python
 class AgentWatchCallbackHandler(BaseCallbackHandler):
     """Asynchronous, non-blocking telemetry emitter for LangChain and LangGraph."""
-    
+
     def on_llm_start(self, serialized: dict[str, Any], prompts: list[str], **kwargs: Any) -> None:
         self._emit_observation(family="langchain", kind="MODEL_START", payload={"prompts": prompts})
-        
+
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
-        self._emit_observation(family="langchain", kind="MODEL_END", payload={"response": response.dict()})
-        
+        self._emit_observation(
+            family="langchain", kind="MODEL_END", payload={"response": response.dict()}
+        )
+
     def on_tool_start(self, serialized: dict[str, Any], input_str: str, **kwargs: Any) -> None:
         self._emit_observation(family="langchain", kind="TOOL_START", payload={"input": input_str})
-        
+
     def on_tool_end(self, output: Any, **kwargs: Any) -> None:
         self._emit_observation(family="langchain", kind="TOOL_END", payload={"output": str(output)})
 ```
@@ -128,7 +130,7 @@ In [`panoptis/adapters/generic.py`](file:///data/data/com.termux/files/home/Agen
 ```python
 class GenericAdapter:
     """Bridges legacy v0.2 AgentEvent dictionaries into v3 ComputationalEvents."""
-    
+
     @staticmethod
     def adapt(legacy_dict: dict[str, Any]) -> ComputationalEvent:
         event_type = legacy_dict.get("event_type", "unknown").upper()
@@ -140,15 +142,21 @@ class GenericAdapter:
             "AGENT_STEP": (EventKind.AGENT_STEP, "step.execute"),
             "HUMAN_INTERVENTION": (EventKind.HUMAN_INPUT, "hitl.intervene"),
         }
-        kind, operation = mapping.get(event_type, (EventKind.SYSTEM_EVENT, f"legacy.{event_type.lower()}"))
-        
+        kind, operation = mapping.get(
+            event_type, (EventKind.SYSTEM_EVENT, f"legacy.{event_type.lower()}")
+        )
+
         # Parse timestamp with zero uncertainty assumption for legacy events
         dt_str = legacy_dict.get("timestamp")
         dt = datetime.fromisoformat(dt_str) if dt_str else datetime.now(timezone.utc)
-        
+
         # Preserve original payload in attributes_json
-        attrs = {k: v for k, v in legacy_dict.items() if k not in ("event_type", "timestamp", "session_id")}
-        
+        attrs = {
+            k: v
+            for k, v in legacy_dict.items()
+            if k not in ("event_type", "timestamp", "session_id")
+        }
+
         return ComputationalEvent(
             event_id=str(uuid.uuid4()),
             tenant_id=legacy_dict.get("tenant_id", "default"),
@@ -225,9 +233,10 @@ Under AgentWatch's **Edge Redaction Invariant** ([ADR-0011](file:///data/data/co
 ```python
 @dataclass(frozen=True)
 class RedactedField:
-    json_path: str                     # e.g., "$.tool_args.api_key"
-    detector_name: str                 # e.g., "regex_aws_key", "pii_email"
-    replacement_hash: str              # Salted HMAC-SHA256 for correlation
+    json_path: str  # e.g., "$.tool_args.api_key"
+    detector_name: str  # e.g., "regex_aws_key", "pii_email"
+    replacement_hash: str  # Salted HMAC-SHA256 for correlation
+
 
 @dataclass(frozen=True)
 class RedactionManifest:
@@ -242,17 +251,20 @@ In [`panoptis/evidence/redaction.py`](file:///data/data/com.termux/files/home/Ag
 DETECTORS: dict[str, re.Pattern] = {
     "openai_key": re.compile(r"sk-[a-zA-Z0-9]{48}"),
     "anthropic_key": re.compile(r"sk-ant-[a-zA-Z0-9\-_]{32,}"),
-    "aws_access_key": re.compile(r"(?:A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}"),
+    "aws_access_key": re.compile(
+        r"(?:A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}"
+    ),
     "jwt_token": re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"),
     "email": re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"),
     "credit_card": re.compile(r"\b(?:\d{4}[ -]?){3}\d{4}\b"),
 }
 
+
 def sanitize_payload(raw_json_str: str, salt: bytes) -> tuple[str, RedactionManifest]:
     """Scans and redacts sensitive data, replacing values with salted hashes."""
     data = json.loads(raw_json_str)
     redacted_records = []
-    
+
     def _traverse(obj: Any, path: str) -> Any:
         if isinstance(obj, dict):
             return {k: _traverse(v, f"{path}.{k}") for k, v in obj.items()}
@@ -261,13 +273,19 @@ def sanitize_payload(raw_json_str: str, salt: bytes) -> tuple[str, RedactionMani
         elif isinstance(obj, str):
             for name, pattern in DETECTORS.items():
                 if pattern.search(obj):
-                    token_hash = hmac.new(salt, obj.encode("utf-8"), hashlib.sha256).hexdigest()[:16]
-                    redacted_records.append(RedactedField(path, name, f"[REDACTED:{name}:{token_hash}]"))
+                    token_hash = hmac.new(salt, obj.encode("utf-8"), hashlib.sha256).hexdigest()[
+                        :16
+                    ]
+                    redacted_records.append(
+                        RedactedField(path, name, f"[REDACTED:{name}:{token_hash}]")
+                    )
                     return f"[REDACTED:{name}:{token_hash}]"
         return obj
 
     cleaned = _traverse(data, "$")
-    manifest = RedactionManifest(redacted_fields=tuple(redacted_records), sanitized_at=datetime.now(timezone.utc))
+    manifest = RedactionManifest(
+        redacted_fields=tuple(redacted_records), sanitized_at=datetime.now(timezone.utc)
+    )
     return canonical_json(cleaned), manifest
 ```
 

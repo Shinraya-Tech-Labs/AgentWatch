@@ -6,11 +6,12 @@ agent traces and tool executions. Pure standard library (Ponytail: Ultra).
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import hashlib
 import json
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field
+from typing import Any
 
 
 def _canonical_json(data: Any) -> str:
