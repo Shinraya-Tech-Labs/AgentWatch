@@ -63,7 +63,7 @@ from panoptis.protect.model import (
 )
 from panoptis.protect.output import OutputInspector
 from panoptis.protect.rbac import PolicyStore, RBACEngine
-from panoptis.protect.threats import ThreatAnalyzer
+from panoptis.protect.threats import THREAT_RULES_VERSION, ThreatAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -360,6 +360,7 @@ class ProtectionPipeline:
             mutated_arguments=mutated if verdict is Verdict.MUTATE_AND_ALLOW else None,
             timings_ms=timings,
             policy_version=self.policy.policy.digest if self.policy.policy else None,
+            threat_rules_version=THREAT_RULES_VERSION,
         )
 
         if verdict is Verdict.ESCALATE_HITL:

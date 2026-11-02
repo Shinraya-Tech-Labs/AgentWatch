@@ -178,6 +178,7 @@ class Decision:
     timings_ms: dict[str, float] = field(default_factory=dict)
     decided_at: float = field(default_factory=time.time)
     policy_version: str | None = None
+    threat_rules_version: str | None = None
 
     @property
     def allowed(self) -> bool:
@@ -216,6 +217,7 @@ class Decision:
             "timings_ms": self.timings_ms,
             "decided_at": self.decided_at,
             "policy_version": self.policy_version,
+            "threat_rules_version": self.threat_rules_version,
         }
 
 

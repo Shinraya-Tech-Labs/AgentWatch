@@ -230,3 +230,38 @@ def test_canonical_host(host, expected):
 
 def test_a_variable_that_is_not_assigned_in_the_line_is_not_resolved():
     assert "FS_DELETE_CRITICAL" not in codes("bash", {"command": "rm -rf ./$TARGET"})
+
+
+def test_decisions_record_the_rule_and_policy_versions(ledger):
+    from panoptis.protect import ProtectionPipeline, ToolAction
+    from panoptis.protect.ledger import KIND_DECISION
+    from panoptis.protect.threats import THREAT_RULES_VERSION
+
+    assert THREAT_RULES_VERSION.startswith("sha256:")
+    p = ProtectionPipeline(ledger=ledger)
+    d = p.evaluate(
+        ToolAction(agent_id="a", session_id="s", tool="bash", arguments={"command": "rm -rf /"})
+    )
+    assert d.reason.startswith("[threat:FS_DELETE_CRITICAL]"), "the reason names the rule"
+    rec = ledger.query((KIND_DECISION,))[0]["payload"]
+    assert rec["threat_rules_version"] == THREAT_RULES_VERSION
+    assert rec["risk_score"] == 1.0 and rec["findings"][0]["code"] == "FS_DELETE_CRITICAL"
+
+
+def test_a_crashing_detector_fails_closed():
+    from panoptis.protect import ProtectionConfig, ProtectionPipeline, ToolAction
+
+    class Crashing(ThreatAnalyzer):
+        def analyze(self, tool, arguments):
+            raise RuntimeError("parser bug")
+
+    a = ToolAction(agent_id="a", session_id="s", tool="bash", arguments={"command": "ls"})
+    d = ProtectionPipeline(threats=Crashing()).evaluate(a)
+    assert d.verdict is Verdict.BLOCK and any(f.code == "STAGE_ERROR" for f in d.findings)
+    # even with fail_closed=False the stage error is only downgraded: arguments that could
+    # not be analysed cannot be authorised, so the call is still blocked (NO_PROFILE)
+    open_ = ProtectionPipeline(threats=Crashing(), config=ProtectionConfig(fail_closed=False))
+    d = open_.evaluate(a)
+    codes_ = {f.code: f.recommends for f in d.findings}
+    assert codes_["STAGE_ERROR"] is Verdict.ALLOW and codes_["NO_PROFILE"] is Verdict.BLOCK
+    assert d.verdict is Verdict.BLOCK
