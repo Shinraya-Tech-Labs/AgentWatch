@@ -321,6 +321,23 @@ command: panoptis protect config generate
     param force kind=TyperOption type=boolean required=False default=False flags=--force help='Overwrite an existing file.'
     param path kind=TyperOption type=path required=False default='.agentwatch-safety.yml' flags=--path help='Where to write the policy file.'
 
+command: panoptis protect discover
+    help: Find local agent runtimes and MCP servers, and whether AgentWatch enforces on them.
+    short_help: 
+    param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Print the inventory as JSON.'
+    param processes kind=TyperOption type=boolean required=False default=True flags=--processes help='Also scan running processes (needs psutil).'
+    param project kind=TyperOption type=path required=False default=[] flags=--project help='Project roots to check (.mcp.json, .claude/, .cursor/, .vscode/).'
+    param record kind=TyperOption type=boolean required=False default=False flags=--record help='Store the inventory in the evidence store for the dashboard.'
+    param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store URL (default: AGENTWATCH_STORE).'
+    param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
+
+command: panoptis protect discover wrap
+    help: Rewrite one configured stdio MCP server to run behind the AgentWatch gateway.
+    short_help: 
+    param apply kind=TyperOption type=boolean required=False default=False flags=--apply help='Write the change (a .agentwatch.bak backup is kept). Without it, only show it.'
+    param config kind=TyperOption type=path required=True default=None flags=--config help='The MCP config file (mcpServers).'
+    param server kind=TyperOption type=str required=True default=None flags=--server help='The server entry to put behind the gateway.'
+
 command: panoptis protect evidence
     help: Verify, seal and manage immutable evidence.
     short_help: 

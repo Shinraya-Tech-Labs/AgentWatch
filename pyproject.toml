@@ -36,7 +36,7 @@ dependencies = [
   "rich>=13.9.0,<14.0.0",
   "shellingham>=1.5.0,<2.0.0",
   "python-multipart>=0.0.12,<1.0.0",
-  "mcp>=1.0.0,<2.0.0",
+  "mcp>=1.8.0,<2.0.0",  # Streamable HTTP; the gateway tests use the SDK client and server
   "prometheus-client>=0.21.0,<1.0.0",
   "litellm>=1.0.0,<2.0.0",
   "tenacity>=8.0.0,<9.0.0",
@@ -81,6 +81,10 @@ docs = [
   "mkdocs-material>=9.5.0",
   "mkdocstrings[python]>=0.26.0",
 ]
+discovery = [
+  # running-process scan of `panoptis protect discover`; config files are scanned without it
+  "psutil>=5.9.0",
+]
 postgres = [
   # synchronous driver used by the v3 store (SQLAlchemy Core) in server mode
   "psycopg[binary]>=3.2.0,<4.0.0",
@@ -95,9 +99,10 @@ dev = [
   "openai>=1.0.0",
   "httpx>=0.28.0",
   "opentelemetry-sdk>=1.27.0",
+  "psutil>=5.9.0",
 ]
 all = [
-  "panoptis[embeddings,otel,crypto,langchain,postgres]",
+  "panoptis[embeddings,otel,crypto,langchain,postgres,discovery]",
 ]
 
 [project.scripts]

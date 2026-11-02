@@ -2997,5 +2997,94 @@ def protect_mcp_gateway(ctx: typer.Context) -> None:
     raise typer.Exit(mcp_gateway.main(list(ctx.args)))
 
 
+# ── Agent and MCP discovery (TO-024) ──────────────────────────────────────────────────
+
+discover_app = typer.Typer(
+    name="discover",
+    help="Find local agent runtimes and MCP servers, and whether AgentWatch enforces on them.",
+    invoke_without_command=True,
+)
+protect_app.add_typer(discover_app, name="discover")
+
+
+@discover_app.callback()
+def protect_discover(
+    ctx: typer.Context,
+    project: list[Path] = typer.Option(
+        [], "--project", help="Project roots to check (.mcp.json, .claude/, .cursor/, .vscode/)."
+    ),
+    processes: bool = typer.Option(
+        True, "--processes/--no-processes", help="Also scan running processes (needs psutil)."
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Print the inventory as JSON."),
+    record: bool = typer.Option(
+        False, "--record", help="Store the inventory in the evidence store for the dashboard."
+    ),
+    store: str | None = typer.Option(
+        None, "--store", help="Evidence store URL (default: AGENTWATCH_STORE)."
+    ),
+    tenant: str = typer.Option("default", "--tenant"),
+) -> None:
+    """Read-only inventory. Detection is not protection: only MONITORED items are enforced on."""
+    if ctx.invoked_subcommand is not None:
+        return
+    from panoptis.protect import discovery
+
+    inv = discovery.discover(projects=project or [Path.cwd()], processes=processes)
+    if record:
+        discovery.record_inventory(inv, store=store, tenant_id=tenant)
+    if as_json:
+        typer.echo(json.dumps(inv, indent=2, default=str))
+        return
+    from rich.table import Table
+
+    table = Table(title="AgentWatch discovery")
+    for col in ("Status", "Kind", "Runtime", "Name", "Source", "Why"):
+        table.add_column(col)
+    colors = {
+        "MONITORED": "green",
+        "UNMONITORED": "red",
+        "UNKNOWN": "yellow",
+        "UNSUPPORTED": "magenta",
+    }
+    for item in inv["items"]:
+        c = colors.get(item["status"], "white")
+        table.add_row(
+            f"[{c}]{item['status']}[/{c}]",
+            item["kind"],
+            item["runtime"],
+            str(item["name"])[:40],
+            str(item["source"])[:50],
+            item["reason"],
+        )
+    console.print(table)
+    console.print(
+        ", ".join(f"{k}: {v}" for k, v in sorted(inv["counts"].items())) or "nothing found"
+    )
+
+
+@discover_app.command("wrap")
+def protect_discover_wrap(
+    config: Path = typer.Option(..., "--config", help="The MCP config file (mcpServers)."),
+    server: str = typer.Option(..., "--server", help="The server entry to put behind the gateway."),
+    apply: bool = typer.Option(
+        False,
+        "--apply",
+        help="Write the change (a .agentwatch.bak backup is kept). Without it, only show it.",
+    ),
+) -> None:
+    """Rewrite one configured stdio MCP server to run behind the AgentWatch gateway."""
+    from panoptis.protect import discovery
+
+    try:
+        result = discovery.wrap_server(config, server, apply=apply)
+    except (KeyError, ValueError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    typer.echo(json.dumps(result, indent=2))
+    if result.get("changed") and not apply:
+        console.print("[yellow]Not written. Re-run with --apply, then restart the client.[/yellow]")
+
+
 if __name__ == "__main__":
     main()
