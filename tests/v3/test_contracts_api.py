@@ -12,7 +12,9 @@ Verifies Issue #731 acceptance criteria:
 
 from __future__ import annotations
 
+import json
 import time
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -20,6 +22,7 @@ from fastapi.testclient import TestClient
 from panoptis import instrument as aw
 from panoptis.api import v3 as v3api
 from panoptis.api.server import app
+from panoptis.evidence.model import ObservationDraft, SensorRef
 from panoptis.runtime.engine import Engine
 
 
@@ -225,3 +228,72 @@ def test_latency_sub_10ms_per_event(api_client, sink):
     latency_ms = (t1 - t0) * 1000.0
     # Even including HTTP routing, serialization, and evaluation, should be < 50ms
     assert latency_ms < 50.0, f"Assessment latency {latency_ms:.2f}ms too high"
+
+
+@pytest.mark.parametrize("approval_offset", [-1, 0, 1])
+def test_assessment_enforces_preceding_witness_time(api_client, monkeypatch, approval_offset):
+    """Persist native observations through the real API, including delayed earlier evidence."""
+    client, _ = api_client
+    monkeypatch.setenv("AGENTWATCH_TENANT_KEYS", "witness-tenant=witness-test-key")
+    headers = {"X-Api-Key": "witness-test-key"}
+    t0 = datetime(2026, 11, 1, 10, tzinfo=UTC)
+    obs_ids = []
+    # Transfer is ingested first even when approval occurred earlier.
+    for operation, offset in [("payments.transfer", 0), ("approval.granted", approval_offset)]:
+        draft = ObservationDraft(
+            sensor=SensorRef("native", "1", "witness-regression"),
+            source_kind="native.point",
+            payload={
+                "kind": "TOOL_INVOCATION",
+                "operation": operation,
+                "data": {"transaction_id": "tx"},
+            },
+            observed_at=t0 + timedelta(seconds=offset),
+            declared_ids={"run_id": "witness-run", "event_id": operation},
+            tenant_id="witness-tenant",
+        )
+        response = client.post(
+            "/api/v3/observations", json={"observations": [draft.to_dict()]}, headers=headers
+        )
+        assert response.status_code == 200
+        assert response.json()["accepted"] == 1
+        obs_ids.extend(response.json()["obs_ids"])
+
+    response = client.post(
+        "/api/v3/contracts",
+        json={
+            "name": "witness-gate",
+            "rule": {
+                "operator": "preceding_event",
+                "target_operation": "payments.transfer",
+                "required_operation": "approval.granted",
+                "max_window_seconds": 30,
+                "join_on": ["transaction_id"],
+            },
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200
+    runs_response = client.get("/api/v3/runs", headers=headers)
+    assert runs_response.status_code == 200
+    runs = runs_response.json()["runs"]
+    assert len(runs) == 1
+    response = client.post(f"/api/v3/runs/{runs[0]['run_id']}/assess", json={}, headers=headers)
+    assert response.status_code == 200
+    assessment = response.json()
+    expected = "supported" if approval_offset <= 0 else "inconclusive"
+    assert assessment["status"] == "completed"
+    assert assessment["verdict"] == expected
+    result = assessment["results"][0]
+    assert result["contract"] == "witness-gate"
+    assert result["verdict"] == expected
+    expected_witnesses = set(obs_ids) if approval_offset <= 0 else set()
+    assert set(result["support_obs_ids"]) == expected_witnesses
+    assert set(assessment["witness_ids"]) == expected_witnesses
+    witness_response = client.get(
+        f"/api/v3/assessments/{assessment['assessment_id']}/witness", headers=headers
+    )
+    assert witness_response.status_code == 200
+    assert {
+        json.loads(line)["obs_id"] for line in witness_response.text.splitlines()
+    } == expected_witnesses

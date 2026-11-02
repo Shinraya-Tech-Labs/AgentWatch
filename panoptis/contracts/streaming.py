@@ -309,6 +309,17 @@ class StreamingContractEvaluator:
             jkey = ob.contract.rule.join_on[0] if ob.contract.rule.join_on else None
             if jkey and event.attributes.get(jkey) != ob.join_val:
                 return False
+        if ob.contract.rule.operator == ContractOperator.PRECEDING_EVENT:
+            target_time = ob.target_event.time.start if ob.target_event.time else None
+            if t_start is None or target_time is None:
+                return False
+            # Match occurrence time, not the deadline for waiting on delayed telemetry.
+            # Keep the same naive-as-UTC policy used by ingest and buffered matching.
+            if t_start.tzinfo is None:
+                t_start = t_start.replace(tzinfo=UTC)
+            if target_time.tzinfo is None:
+                target_time = target_time.replace(tzinfo=UTC)
+            return ob.window_start <= t_start <= target_time
         if t_start is not None:
             return ob.window_start <= t_start <= ob.deadline
         return True
