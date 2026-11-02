@@ -51,7 +51,7 @@ MATRIX: tuple[Support, ...] = (
         "watch(agent) generic agents, no protection",
         PRE,
         "panoptis.core.watcher.GenericAdapter",
-        "legacy SafetyEngine pattern gate, fail-closed",
+        "the SafetyEngine gate runs as the threat stage of the shared pipeline (fail-closed, kill switch)",
         "tests/test_watcher_fail_closed.py",
         "pattern rules only: no RBAC, loops, intent, approvals or output sanitization",
     ),
@@ -95,6 +95,31 @@ MATRIX: tuple[Support, ...] = (
         "tests/protect/test_claude_hook.py",
         "a hook command that cannot start or times out lets the tool run unless installed "
         "with onFailure=block (Claude Code 2.1.295+); per-process loop/rate state",
+    ),
+    Support(
+        "MCP servers via the AgentWatch gateway (stdio)",
+        PRE,
+        "panoptis.protect.mcp_gateway.run_stdio",
+        "proxies JSON-RPC; tools/call goes through aenforce_call before it is forwarded",
+        "tests/protect/test_mcp_gateway.py",
+        "only clients configured to start the gateway (not the server) are covered; "
+        "one gateway process per client connection",
+    ),
+    Support(
+        "MCP servers via the AgentWatch gateway (Streamable HTTP)",
+        PRE,
+        "panoptis.protect.mcp_gateway.build_http_app",
+        "proxies POST/GET/DELETE; tools/call is enforced and answered as JSON",
+        "tests/protect/test_mcp_gateway.py",
+        "clients must use the gateway URL; the legacy HTTP+SSE transport (2024-11-05) is not supported",
+    ),
+    Support(
+        "MCP message tap",
+        POST,
+        "panoptis.sensors.mcp",
+        "records JSON-RPC messages it is given",
+        None,
+        "observation only; use the MCP gateway for enforcement",
     ),
     Support(
         "LangChain callback adapter",
