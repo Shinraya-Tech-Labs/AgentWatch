@@ -26,7 +26,11 @@ ap.add_argument("--project", default="panoptis")
 for name, default in (("postgres", 5432), ("redis", 6379), ("api", 8000), ("frontend", 3000)):
     ap.add_argument(f"--{name}", type=int, default=default)
 args = ap.parse_args()
-ENV = dict(line.strip().split("=", 1) for line in open(args.env_file, encoding="utf-8") if "=" in line and not line.lstrip().startswith("#"))
+ENV = dict(
+    line.strip().split("=", 1)
+    for line in open(args.env_file, encoding="utf-8")
+    if "=" in line and not line.lstrip().startswith("#")
+)
 results = []
 
 
@@ -52,11 +56,19 @@ check("redis rejects a default password", r.startswith("-WRONGPASS") or r.starts
 
 # 2. Postgres rejects the old default credentials
 try:
-    psycopg.connect(f"host=127.0.0.1 port={args.postgres} user=panoptis password=panoptis dbname=panoptis connect_timeout=5").close()
+    psycopg.connect(
+        f"host=127.0.0.1 port={args.postgres} user=panoptis password=panoptis dbname=panoptis connect_timeout=5"
+    ).close()
     check("postgres rejects default password", False, "connected with panoptis/panoptis")
 except psycopg.OperationalError as e:
-    check("postgres rejects default password", "password authentication failed" in str(e), str(e).splitlines()[0][:90])
-with psycopg.connect(f"host=127.0.0.1 port={args.postgres} user=panoptis password={ENV['POSTGRES_PASSWORD']} dbname=panoptis connect_timeout=5") as c:
+    check(
+        "postgres rejects default password",
+        "password authentication failed" in str(e),
+        str(e).splitlines()[0][:90],
+    )
+with psycopg.connect(
+    f"host=127.0.0.1 port={args.postgres} user=panoptis password={ENV['POSTGRES_PASSWORD']} dbname=panoptis connect_timeout=5"
+) as c:
     check("postgres accepts the configured password", c.execute("select 1").fetchone() == (1,))
 
 # 3. Nothing is reachable on a non-loopback interface
@@ -75,17 +87,39 @@ for port in (args.postgres, args.redis, args.api, args.frontend):
 # 4. API is up, requires the key
 base = f"http://127.0.0.1:{args.api}"
 check("api healthy", httpx.get(f"{base}/health", timeout=10).status_code == 200)
-check("api rejects requests without the key", httpx.get(f"{base}/api/v3/status", timeout=10).status_code == 401)
-check("api accepts the key", httpx.get(f"{base}/api/v3/status", headers={"X-Api-Key": ENV["AGENTWATCH_API_KEY"]}, timeout=10).status_code == 200)
-check("dashboard serves", httpx.get(f"http://127.0.0.1:{args.frontend}/", timeout=20).status_code == 200)
+check(
+    "api rejects requests without the key",
+    httpx.get(f"{base}/api/v3/status", timeout=10).status_code == 401,
+)
+check(
+    "api accepts the key",
+    httpx.get(
+        f"{base}/api/v3/status", headers={"X-Api-Key": ENV["AGENTWATCH_API_KEY"]}, timeout=10
+    ).status_code
+    == 200,
+)
+check(
+    "dashboard serves",
+    httpx.get(f"http://127.0.0.1:{args.frontend}/", timeout=20).status_code == 200,
+)
 
 # 5. Least privilege inside the app containers
 for ctr in (f"{args.project}-api-1", f"{args.project}-frontend-1"):
-    uid = subprocess.run(["docker", "exec", ctr, "id", "-u"], capture_output=True, text=True).stdout.strip()
-    caps = subprocess.run(["docker", "exec", ctr, "sh", "-c", "grep CapEff /proc/1/status"], capture_output=True, text=True).stdout.split()
+    uid = subprocess.run(
+        ["docker", "exec", ctr, "id", "-u"], capture_output=True, text=True
+    ).stdout.strip()
+    caps = subprocess.run(
+        ["docker", "exec", ctr, "sh", "-c", "grep CapEff /proc/1/status"],
+        capture_output=True,
+        text=True,
+    ).stdout.split()
     check(f"{ctr} runs as non-root", uid not in ("", "0"), f"uid={uid}")
     check(f"{ctr} has no effective capabilities", caps[-1:] == ["0000000000000000"], " ".join(caps))
-    nnp = subprocess.run(["docker", "inspect", ctr, "--format", "{{json .HostConfig.SecurityOpt}}"], capture_output=True, text=True).stdout.strip()
+    nnp = subprocess.run(
+        ["docker", "inspect", ctr, "--format", "{{json .HostConfig.SecurityOpt}}"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     check(f"{ctr} no-new-privileges", "no-new-privileges" in nnp, nnp)
 
 print(f"\n{sum(ok for _, ok in results)}/{len(results)} checks passed")

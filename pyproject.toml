@@ -179,6 +179,10 @@ ignore = [
 # (F405: __all__ names resolve through those wildcards).
 "panoptis/**/__init__.py" = ["F401", "F403", "F405"]
 "panoptis/*/__init__.py"  = ["F401", "F403", "F405"]
+# uppercase properties are the legacy Colors API, kept for compatibility
+"panopti/themes.py" = ["N802"]
+# notebook cells import where they are used
+"*.ipynb" = ["E402"]
 
 [tool.mypy]
 python_version = "3.12"

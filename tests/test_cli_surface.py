@@ -50,7 +50,9 @@ def _params(cmd: object) -> list[str]:
         type_name = getattr(getattr(param, "type", None), "name", "?")
         # click renamed param type names ("str" → "text", "int" → "integer"); normalize so the golden
         # file records the CLI surface rather than the installed click version.
-        type_name = {"text": "str", "integer": "int", "integer range": "int range"}.get(type_name, type_name)
+        type_name = {"text": "str", "integer": "int", "integer range": "int range"}.get(
+            type_name, type_name
+        )
         default = param.default() if callable(param.default) else param.default
         # repr() of a pathlib.Path embeds the concrete class — PosixPath on Linux, WindowsPath on
         # Windows — so a Path default would make the golden file platform-specific even though the

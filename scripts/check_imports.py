@@ -42,7 +42,11 @@ def declared() -> tuple[set[str], dict[str, set[str]]]:
     proj = doc["project"]
 
     def names(reqs: list[str]) -> set[str]:
-        return {_norm(re.split(r"[\s<>=!~\[;]", r, maxsplit=1)[0]) for r in reqs if not r.startswith("panoptis[")}
+        return {
+            _norm(re.split(r"[\s<>=!~\[;]", r, maxsplit=1)[0])
+            for r in reqs
+            if not r.startswith("panoptis[")
+        }
 
     extras = {k: names(v) for k, v in proj.get("optional-dependencies", {}).items()}
     return names(proj.get("dependencies", [])), extras
@@ -68,7 +72,14 @@ def imports() -> list[tuple[str, str, int, bool]]:
                 else:
                     continue
                 for m in mods:
-                    out.append((m.split(".")[0], str(path.relative_to(ROOT)), node.lineno, id(node) in guarded_nodes))
+                    out.append(
+                        (
+                            m.split(".")[0],
+                            str(path.relative_to(ROOT)),
+                            node.lineno,
+                            id(node) in guarded_nodes,
+                        )
+                    )
     return out
 
 
@@ -86,8 +97,12 @@ def main() -> int:
             continue
         if guarded and dists & all_extra:
             continue
-        where = "an optional extra (guard the import)" if dists & all_extra else "no dependency group"
-        problems.append(f"{file}:{line}: '{mod}' ({', '.join(sorted(dists))}) is declared in {where}")
+        where = (
+            "an optional extra (guard the import)" if dists & all_extra else "no dependency group"
+        )
+        problems.append(
+            f"{file}:{line}: '{mod}' ({', '.join(sorted(dists))}) is declared in {where}"
+        )
     for p in sorted(set(problems)):
         print(p)
     print(f"{len(set(problems))} undeclared import(s)")

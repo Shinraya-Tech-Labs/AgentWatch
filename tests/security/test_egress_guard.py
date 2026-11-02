@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import unittest
 
+from panopti.egress import EgressGuard, SSRFBlockedError
 from panoptis.security import EgressGuard as AWEgressGuard
 from panoptis.security import SSRFBlockedError as AWSSRFBlockedError
-from panopti.egress import EgressGuard, SSRFBlockedError
 
 
 class TestEgressGuard(unittest.TestCase):

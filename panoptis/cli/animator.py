@@ -36,7 +36,7 @@ def cinematic_logo_reveal(ascii_art: list[str]) -> None:
             for line in ascii_art:
                 visible = line[: int((frame / frames) * len(line))]
                 edge = (
-                    f"[bold green]{random.choice(CHARS)}[/bold green]"  # noqa: S311
+                    f"[bold green]{random.choice(CHARS)}[/bold green]"  # noqa: S311  # nosec B311 - visual effect
                     if frame < frames
                     else ""
                 )

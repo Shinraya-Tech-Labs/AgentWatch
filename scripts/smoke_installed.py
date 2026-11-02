@@ -47,9 +47,25 @@ def main() -> int:
     for script in ("panoptis", "panopti"):
         exe = shutil.which(script, path=str(Path(sys.executable).parent))
         assert exe, f"console script {script} missing"
-    out = subprocess.run([shutil.which("panoptis", path=str(Path(sys.executable).parent)), "--version"], capture_output=True, text=True, timeout=120)  # noqa: S603
+    out = subprocess.run(  # noqa: S603 - the installed console script
+        [shutil.which("panoptis", path=str(Path(sys.executable).parent)), "--version"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
     assert out.returncode == 0, out.stderr
-    print(json.dumps({"ok": True, "version": getattr(panoptis, "__version__", "?"), "evidence": {"segments": report["segments"], "observations": report["observations"]}}))
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "version": getattr(panoptis, "__version__", "?"),
+                "evidence": {
+                    "segments": report["segments"],
+                    "observations": report["observations"],
+                },
+            }
+        )
+    )
     return 0
 
 
