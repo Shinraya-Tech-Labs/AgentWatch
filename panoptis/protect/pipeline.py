@@ -89,6 +89,9 @@ class ProtectionConfig:
     breaker_consecutive_errors: int = 5
     enable_wasi_sandbox: bool = False
     sandbox_config: Any = None
+    enable_counterfactual_forking: bool = False
+    counterfactual_config: Any = None
+    enable_ifc: bool = False
 
 
 @dataclass
@@ -165,6 +168,8 @@ class ProtectionPipeline:
         output: OutputInspector | None = None,
         config: ProtectionConfig | None = None,
         sandbox: Any = None,
+        counterfactual: Any = None,
+        ifc: Any = None,
     ) -> None:
         self.config = config or ProtectionConfig()
         self.policy = policy or PolicyStore()
@@ -184,6 +189,27 @@ class ProtectionPipeline:
             self.sandbox = WasiSandbox(self.config.sandbox_config or WasiSandboxConfig())
         else:
             self.sandbox = None
+        if counterfactual is not None:
+            self.counterfactual = counterfactual
+        elif self.config.enable_counterfactual_forking:
+            from panoptis.protect.counterfactual import (
+                CounterfactualConfig,
+                CounterfactualEngine,
+            )
+
+            self.counterfactual = CounterfactualEngine(
+                self.config.counterfactual_config or CounterfactualConfig()
+            )
+        else:
+            self.counterfactual = None
+        if ifc is not None:
+            self.ifc = ifc
+        elif self.config.enable_ifc:
+            from panoptis.protect.ifc_lattice import InformationFlowEngine
+
+            self.ifc = InformationFlowEngine()
+        else:
+            self.ifc = None
         self.telemetry = Telemetry()
         self.sessions: dict[str, SessionInfo] = {}
         self.registered_agents: set[str] = set()
@@ -311,6 +337,11 @@ class ProtectionPipeline:
                 return report.findings
 
             findings += timed("threat", threat)
+            if self.config.enable_ifc and self.ifc is not None:
+                findings += timed(
+                    "ifc",
+                    lambda: self.ifc.audit_tool_call(action.tool, action.arguments)[1],
+                )
             profile = profile_box[0] if profile_box else None
             if profile is not None:
                 findings += timed(
@@ -804,7 +835,42 @@ class ProtectionPipeline:
         )
         try:
             started = time.perf_counter()
-            if self.sandbox is not None:
+            if self.counterfactual is not None:
+                cf_res = self.counterfactual.fork_and_evaluate(
+                    action,
+                    lambda **kw: call(kw) if call is not None else fn(**kw),
+                    args,
+                )
+                if not cf_res.is_safe:
+                    finding = (
+                        cf_res.findings[0]
+                        if cf_res.findings
+                        else Finding(
+                            Stage.COUNTERFACTUAL,
+                            "COUNTERFACTUAL_BLOCKED",
+                            Severity.CRITICAL,
+                            "Speculative counterfactual execution violated invariants",
+                            recommends=Verdict.BLOCK,
+                        )
+                    )
+                    block_decision = Decision(
+                        action=action,
+                        verdict=Verdict.BLOCK,
+                        risk_score=1.0,
+                        findings=[finding],
+                    )
+                    raise ActionBlocked(block_decision)
+                if cf_res.promoted:
+                    result = cf_res.output
+                elif self.sandbox is not None:
+                    sandbox_res = self.sandbox.run_function(
+                        lambda: call(args) if call is not None else fn(**args),
+                        rollback_on_error=True,
+                    )
+                    result = sandbox_res.output
+                else:
+                    result = call(args) if call is not None else fn(**args)
+            elif self.sandbox is not None:
                 sandbox_res = self.sandbox.run_function(
                     lambda: call(args) if call is not None else fn(**args),
                     rollback_on_error=True,

@@ -15,6 +15,18 @@ See :mod:`panoptis.protect.pipeline` for the stage order and failure behaviour.
 
 from panoptis.protect.approvals import ApprovalBroker, ApprovalOutcome, ApprovalRequest
 from panoptis.protect.control import ControlState
+from panoptis.protect.counterfactual import (
+    CounterfactualConfig,
+    CounterfactualEngine,
+    CounterfactualResult,
+)
+from panoptis.protect.enclave_attestation import (
+    EnclaveAttestationDocument,
+    EnclaveAttestationVerifier,
+    EnclavePlatform,
+    EnclaveVerificationConfig,
+    EnclaveVerificationResult,
+)
 from panoptis.protect.enforce import (
     aenforce_call,
     current_context,
@@ -23,6 +35,18 @@ from panoptis.protect.enforce import (
     protect_tool,
     protection_context,
     set_default_pipeline,
+)
+from panoptis.protect.formal_verifier import (
+    FormalFinding,
+    FormalVerificationCertificate,
+    PolicyFormalVerifier,
+    VerificationStatus,
+)
+from panoptis.protect.ifc_lattice import (
+    DEFAULT_SINK_CLEARANCES,
+    InformationFlowEngine,
+    SecurityLabel,
+    TaintContext,
 )
 from panoptis.protect.intent import GroundingConfig, IntentGrounder, openai_compatible_verifier
 from panoptis.protect.kernel_sandbox import (
@@ -61,9 +85,21 @@ __all__ = [
     "ApprovalOutcome",
     "ApprovalRequest",
     "ControlState",
+    "CounterfactualConfig",
+    "CounterfactualEngine",
+    "CounterfactualResult",
+    "DEFAULT_SINK_CLEARANCES",
     "Decision",
+    "EnclaveAttestationDocument",
+    "EnclaveAttestationVerifier",
+    "EnclavePlatform",
+    "EnclaveVerificationConfig",
+    "EnclaveVerificationResult",
     "Finding",
+    "FormalFinding",
+    "FormalVerificationCertificate",
     "GroundingConfig",
+    "InformationFlowEngine",
     "IntentGrounder",
     "KernelSandbox",
     "KernelSandboxConfig",
@@ -73,6 +109,7 @@ __all__ = [
     "OutputInspection",
     "OutputInspector",
     "PolicyError",
+    "PolicyFormalVerifier",
     "PolicyStore",
     "ProtectLedger",
     "ProtectionConfig",
@@ -80,12 +117,15 @@ __all__ = [
     "RBACEngine",
     "SandboxExecutionError",
     "SandboxResult",
+    "SecurityLabel",
     "SnapshotDiff",
     "Severity",
     "Stage",
+    "TaintContext",
     "ThreatAnalyzer",
     "ToolAction",
     "Verdict",
+    "VerificationStatus",
     "WasiSandbox",
     "WasiSandboxConfig",
     "WorkspaceSnapshot",

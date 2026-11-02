@@ -41,6 +41,25 @@ class SnapshotDiff:
     def has_changes(self) -> bool:
         return bool(self.created_files or self.modified_files or self.deleted_files)
 
+    @property
+    def created(self) -> list[str]:
+        return self.created_files
+
+    @property
+    def modified(self) -> list[str]:
+        return self.modified_files
+
+    @property
+    def deleted(self) -> list[str]:
+        return self.deleted_files
+
+    def to_dict(self) -> dict[str, list[str]]:
+        return {
+            "created": self.created_files,
+            "modified": self.modified_files,
+            "deleted": self.deleted_files,
+        }
+
 
 @dataclasses.dataclass
 class SandboxResult:
