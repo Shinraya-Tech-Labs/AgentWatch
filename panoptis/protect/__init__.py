@@ -40,6 +40,7 @@ from panoptis.protect.model import (
 from panoptis.protect.output import OutputInspector
 from panoptis.protect.pipeline import ProtectionConfig, ProtectionPipeline
 from panoptis.protect.rbac import PolicyError, PolicyStore, RBACEngine, parse_policy
+from panoptis.protect.registry import ProtectedToolRegistry
 from panoptis.protect.threats import ThreatAnalyzer
 
 __all__ = [
@@ -73,6 +74,7 @@ __all__ = [
     "get_default_pipeline",
     "openai_compatible_verifier",
     "protect_tool",
+    "ProtectedToolRegistry",
     "protection_context",
     "set_default_pipeline",
     "parse_policy",
