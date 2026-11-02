@@ -92,15 +92,15 @@ AgentWatch defines nine explicit dependency relationships permitted to propagate
 
 ```python
 DEP_TYPES = [
-    "CONTAINS",       # Structural container inclusion (run contains step)
-    "DEPENDS_ON",     # Explicit logical prerequisite
-    "RESPONDS_TO",    # LLM inference or agent response to an incoming prompt/message
-    "RETRIES",        # Re-execution after fault or timeout
-    "PRODUCES",       # Computational generation of an artifact or state mutation
-    "CONSUMES",       # Ingestion of prior context, memory, or tool output
-    "DERIVES_FROM",   # Information-theoretic derivation across data views
+    "CONTAINS",  # Structural container inclusion (run contains step)
+    "DEPENDS_ON",  # Explicit logical prerequisite
+    "RESPONDS_TO",  # LLM inference or agent response to an incoming prompt/message
+    "RETRIES",  # Re-execution after fault or timeout
+    "PRODUCES",  # Computational generation of an artifact or state mutation
+    "CONSUMES",  # Ingestion of prior context, memory, or tool output
+    "DERIVES_FROM",  # Information-theoretic derivation across data views
     "CONTAINS_ITEM",  # Collection aggregation
-    "TRANSFERS",      # Inter-agent message and context passing
+    "TRANSFERS",  # Inter-agent message and context passing
 ]
 ```
 
@@ -135,6 +135,7 @@ The evidence class of any hypothesis is **computed programmatically** from recor
 ```python
 from panoptis.graph.model import EvidenceClass
 from panoptis.causality.hypotheses import EvidenceKind, KIND_CLASS
+
 
 class HypothesisView:
     record: dict[str, Any]
@@ -360,22 +361,26 @@ $$\text{MIN\_CORR\_RUNS} = 5$$
 If fewer than five independent runs share a given structural feature or failure signature, AgentWatch **refuses to report correlation**, preventing spurious correlations from poisoning automated remediation workflows.
 
 ```python
-def _correlations(ws: Workspace, ev: dict[str, Any], upstream: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _correlations(
+    ws: Workspace, ev: dict[str, Any], upstream: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     runs = ws.store.get_historical_runs(tenant_id=ws.tenant_id, limit=100)
     if len(runs) < MIN_CORR_RUNS:
         return []  # Insufficient statistical power: suppress correlational noise
-    
+
     # Calculate Pearson phi-coefficient across historical execution runs
     correlations = []
     for candidate in upstream:
         phi = compute_phi_coefficient(runs, ev, candidate)
         if abs(phi) >= 0.65:
-            correlations.append({
-                "candidate_node": candidate["node"],
-                "phi_coefficient": phi,
-                "sample_size": len(runs),
-                "evidence_class": "CORRELATIONAL"
-            })
+            correlations.append(
+                {
+                    "candidate_node": candidate["node"],
+                    "phi_coefficient": phi,
+                    "sample_size": len(runs),
+                    "evidence_class": "CORRELATIONAL",
+                }
+            )
     return correlations
 ```
 

@@ -94,7 +94,7 @@ async def ingest_observations(body: IngestRequest, engine: Engine = Depends(get_
         "accepted": accepted,
         "duplicates": duplicates,
         "status": "success",
-        "timestamp": datetime.now(UTC).isoformat()
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 ```
 
@@ -117,31 +117,45 @@ async def receive_otlp_traces(request: Request, engine: Engine = Depends(get_eng
     events: list[ComputationalEvent] = []
 
     for rs in resource_spans:
-        resource_attrs = {attr["key"]: attr["value"].get("stringValue") for attr in rs.get("resource", {}).get("attributes", [])}
+        resource_attrs = {
+            attr["key"]: attr["value"].get("stringValue")
+            for attr in rs.get("resource", {}).get("attributes", [])
+        }
         tenant_id = resource_attrs.get("service.namespace", "default")
-        
+
         for ss in rs.get("scopeSpans", []):
             for span in ss.get("spans", []):
-                span_attrs = {attr["key"]: attr["value"].get("stringValue") for attr in span.get("attributes", [])}
-                
+                span_attrs = {
+                    attr["key"]: attr["value"].get("stringValue")
+                    for attr in span.get("attributes", [])
+                }
+
                 # Map GenAI semantic conventions to ComputationalEvent
-                events.append(ComputationalEvent(
-                    event_id=span["spanId"],
-                    run_id=span["traceId"],
-                    kind=_map_otlp_kind(span.get("kind"), span_attrs),
-                    operation=span.get("name", "unknown"),
-                    object=span_attrs.get("gen_ai.system") or span_attrs.get("db.system") or "unknown",
-                    status="SUCCESS" if span.get("status", {}).get("code") != 2 else "ERROR",
-                    actor=resource_attrs.get("service.name", "unknown_agent"),
-                    temporal={
-                        "started_at": datetime.fromtimestamp(int(span["startTimeUnixNano"]) / 1e9, UTC).isoformat(),
-                        "completed_at": datetime.fromtimestamp(int(span["endTimeUnixNano"]) / 1e9, UTC).isoformat()
-                    },
-                    resources={
-                        "tokens_in": int(span_attrs.get("gen_ai.usage.prompt_tokens", 0)),
-                        "tokens_out": int(span_attrs.get("gen_ai.usage.completion_tokens", 0))
-                    }
-                ))
+                events.append(
+                    ComputationalEvent(
+                        event_id=span["spanId"],
+                        run_id=span["traceId"],
+                        kind=_map_otlp_kind(span.get("kind"), span_attrs),
+                        operation=span.get("name", "unknown"),
+                        object=span_attrs.get("gen_ai.system")
+                        or span_attrs.get("db.system")
+                        or "unknown",
+                        status="SUCCESS" if span.get("status", {}).get("code") != 2 else "ERROR",
+                        actor=resource_attrs.get("service.name", "unknown_agent"),
+                        temporal={
+                            "started_at": datetime.fromtimestamp(
+                                int(span["startTimeUnixNano"]) / 1e9, UTC
+                            ).isoformat(),
+                            "completed_at": datetime.fromtimestamp(
+                                int(span["endTimeUnixNano"]) / 1e9, UTC
+                            ).isoformat(),
+                        },
+                        resources={
+                            "tokens_in": int(span_attrs.get("gen_ai.usage.prompt_tokens", 0)),
+                            "tokens_out": int(span_attrs.get("gen_ai.usage.completion_tokens", 0)),
+                        },
+                    )
+                )
 
     accepted, duplicates = await engine.ingest_batch(events)
     return {"accepted": accepted, "duplicates": duplicates}
@@ -225,10 +239,13 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "command": {"type": "string", "description": "The raw shell, SQL, or cloud command."}
+                "command": {
+                    "type": "string",
+                    "description": "The raw shell, SQL, or cloud command.",
+                }
             },
-            "required": ["command"]
-        }
+            "required": ["command"],
+        },
     },
     {
         "name": "panoptis_get_causal_cone",
@@ -237,11 +254,15 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "event_id": {"type": "string", "description": "The unique event ID."},
-                "direction": {"type": "string", "enum": ["up", "down"], "description": "Ancestors (causes) or descendants (effects)."}
+                "direction": {
+                    "type": "string",
+                    "enum": ["up", "down"],
+                    "description": "Ancestors (causes) or descendants (effects).",
+                },
             },
-            "required": ["event_id", "direction"]
-        }
-    }
+            "required": ["event_id", "direction"],
+        },
+    },
 ]
 ```
 
@@ -254,7 +275,9 @@ async def run_mcp_stdio_server(workspace: Workspace):
     reader = asyncio.StreamReader()
     protocol = asyncio.StreamReaderProtocol(reader)
     await loop.connect_read_pipe(lambda: protocol, sys.stdin)
-    w_transport, w_protocol = await loop.connect_write_pipe(asyncio.streams.FlowControlMixin, sys.stdout)
+    w_transport, w_protocol = await loop.connect_write_pipe(
+        asyncio.streams.FlowControlMixin, sys.stdout
+    )
     writer = asyncio.StreamWriter(w_transport, w_protocol, reader, loop)
 
     while True:
@@ -273,14 +296,26 @@ async def run_mcp_stdio_server(workspace: Workspace):
                 tool_name = params.get("name")
                 args = params.get("arguments", {})
                 result = await _dispatch_mcp_tool(workspace, tool_name, args)
-                resp = {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(result)}]}}
+                resp = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {"content": [{"type": "text", "text": json.dumps(result)}]},
+                }
             else:
-                resp = {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32601, "message": "Method not found"}}
+                resp = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {"code": -32601, "message": "Method not found"},
+                }
 
             writer.write((json.dumps(resp) + "\n").encode("utf-8"))
             await writer.drain()
         except Exception as exc:
-            err_resp = {"jsonrpc": "2.0", "id": None, "error": {"code": -32603, "message": str(exc)}}
+            err_resp = {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32603, "message": str(exc)},
+            }
             writer.write((json.dumps(err_resp) + "\n").encode("utf-8"))
             await writer.drain()
 ```
@@ -393,28 +428,35 @@ import httpx
 from fastapi.testclient import TestClient
 from panoptis.api.server import app
 
+
 def query_panoptis_api():
     client = TestClient(app)
-    
+
     # Ingest a test observation
-    response = client.post("/api/v3/observations", json={
-        "observations": [{
-            "event_id": "evt_test_001",
-            "run_id": "run_demo_99",
-            "kind": "TOOL_INVOCATION",
-            "operation": "bash",
-            "object": "tool:bash",
-            "status": "SUCCESS",
-            "temporal": {"started_at": "2026-10-16T12:00:00Z"},
-            "inputs": [{"content": "ls -la"}],
-            "outputs": [{"content": "total 0"}]
-        }]
-    })
+    response = client.post(
+        "/api/v3/observations",
+        json={
+            "observations": [
+                {
+                    "event_id": "evt_test_001",
+                    "run_id": "run_demo_99",
+                    "kind": "TOOL_INVOCATION",
+                    "operation": "bash",
+                    "object": "tool:bash",
+                    "status": "SUCCESS",
+                    "temporal": {"started_at": "2026-10-16T12:00:00Z"},
+                    "inputs": [{"content": "ls -la"}],
+                    "outputs": [{"content": "total 0"}],
+                }
+            ]
+        },
+    )
     print("Ingestion Status:", response.json())
 
     # Query causal cones
     causes_resp = client.get("/api/v3/runs/run_demo_99/causality/evt_test_001?direction=up")
     print("Causal Cone:", causes_resp.json())
+
 
 if __name__ == "__main__":
     query_panoptis_api()

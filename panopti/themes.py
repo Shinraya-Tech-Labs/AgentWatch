@@ -8,8 +8,8 @@ Pure standard library (Ponytail: Ultra).
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 
 def should_disable_color(no_color_flag: bool = False) -> bool:

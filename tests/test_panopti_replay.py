@@ -7,7 +7,6 @@ import pytest
 from panopti.replay import (
     DropStepPerturbation,
     MutateResultPerturbation,
-    RecordedCall,
     ReplayTape,
     ShadowReplayer,
 )
