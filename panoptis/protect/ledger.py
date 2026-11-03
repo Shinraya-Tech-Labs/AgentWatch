@@ -259,5 +259,5 @@ class ProtectLedger:
             "verified_at": datetime.now(UTC).isoformat(),
         }
 
-    def proof(self, obs_id: str) -> dict[str, Any] | None:
-        return self.store.inclusion_proof(obs_id)
+    def proof(self, obs_id: str, tenant_id: str = "default") -> dict[str, Any] | None:
+        return self.store.inclusion_proof(obs_id, tenant_id=tenant_id)

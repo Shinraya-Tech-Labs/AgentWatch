@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import fnmatch
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -47,17 +48,27 @@ _SHELL_EXEC_TOOLS = {"execute_shell", "bash", "sh", "run_command", "run_python",
 class LTLTrajectoryVerifier:
     """Verifies temporal safety invariants across multi-step agent trajectory traces."""
 
-    def __init__(self) -> None:
-        # session_id -> list of historical TrajectorySteps
-        self.traces: dict[str, list[TrajectoryStep]] = {}
-        # session_id -> {filepath: accumulated_content} for WLJ piecewise assembly tracking
-        self.modified_files: dict[str, dict[str, str]] = {}
+    def __init__(self, max_sessions: int = 5_000) -> None:
+        self.max_sessions = max_sessions
+        # scope (tenant_id/session_id) -> list of historical TrajectorySteps
+        self.traces: OrderedDict[str, list[TrajectoryStep]] = OrderedDict()
+        # scope -> {filepath: accumulated_content} for WLJ piecewise assembly tracking
+        self.modified_files: OrderedDict[str, dict[str, str]] = OrderedDict()
+
+    def _scope(self, action: ToolAction) -> str:
+        tid = getattr(action, "tenant_id", "default") or "default"
+        sid = getattr(action, "session_id", "default") or "default"
+        return f"{tid}/{sid}"
 
     def record_step(self, action: ToolAction, result: Any = None) -> None:
         """Record an executed tool action into the session's causal trajectory graph."""
-        session_id = action.session_id
-        if session_id not in self.traces:
-            self.traces[session_id] = []
+        scope = self._scope(action)
+        if scope not in self.traces:
+            if len(self.traces) >= self.max_sessions:
+                self.traces.popitem(last=False)
+            self.traces[scope] = []
+        else:
+            self.traces.move_to_end(scope)
 
         args_str = str(action.arguments).lower()
         reads_sens = False
@@ -80,27 +91,34 @@ class LTLTrajectoryVerifier:
             network_egress=net_egress,
             untrusted_ingest=untrusted,
         )
-        self.traces[session_id].append(step)
+        self.traces[scope].append(step)
 
         # Track multi-file piecewise code assembly (Workflow-Level Jailbreak defense)
         if action.tool in ("write_file", "append_file", "edit_file"):
             path = str(action.arguments.get("path", action.arguments.get("file_path", "")))
             content = str(action.arguments.get("content", action.arguments.get("replacement", "")))
             if path and content:
-                if session_id not in self.modified_files:
-                    self.modified_files[session_id] = {}
-                existing = self.modified_files[session_id].get(path, "")
-                self.modified_files[session_id][path] = f"{existing}\n{content}"
+                if scope not in self.modified_files:
+                    if len(self.modified_files) >= self.max_sessions:
+                        self.modified_files.popitem(last=False)
+                    self.modified_files[scope] = {}
+                else:
+                    self.modified_files.move_to_end(scope)
+                existing = self.modified_files[scope].get(path, "")
+                self.modified_files[scope][path] = f"{existing}\n{content}"
 
     def has_occurred_within(
         self,
         session_id: str,
         predicate: Any,
         within_seconds: float,
+        tenant_id: str = "default",
     ) -> bool:
         """Metric past-time diamond operator (diamond_[0, within_seconds] phi)."""
         now = time.time()
-        for s in reversed(self.traces.get(session_id, [])):
+        scope = f"{tenant_id}/{session_id}"
+        trace = self.traces.get(scope) or self.traces.get(session_id, [])
+        for s in reversed(trace):
             if (now - s.timestamp) > within_seconds:
                 break
             if predicate(s):
@@ -110,8 +128,10 @@ class LTLTrajectoryVerifier:
     def verify_action(self, action: ToolAction) -> list[Finding]:
         """Check all temporal LTL formulas against proposed action and session trace."""
         findings: list[Finding] = []
-        session_id = action.session_id
-        history = self.traces.get(session_id, [])
+        scope = self._scope(action)
+        history = self.traces.get(scope) or self.traces.get(action.session_id, [])
+        if scope in self.traces:
+            self.traces.move_to_end(scope)
 
         args_str = str(action.arguments).lower()
 
@@ -185,28 +205,37 @@ class LTLTrajectoryVerifier:
         # Check LTL Formula 4: G(FilesAssembledWithExploitChain -> G(!ExecuteShell))
         # Defeats: Workflow-Level Jailbreak Construction (Alan Turing Inst. & Warwick 2026)
         if action.tool in _SHELL_EXEC_TOOLS:
-            accumulated_files = self.modified_files.get(session_id, {})
-            if len(accumulated_files) >= 2:
+            accumulated_files = self.modified_files.get(scope) or self.modified_files.get(
+                action.session_id, {}
+            )
+            if len(accumulated_files) >= 1:
                 all_text = " ".join(accumulated_files.values()).lower()
                 has_subproc = any(
                     k in all_text
                     for k in (
                         "socket.socket",
                         "subprocess.popen",
+                        "subprocess.run",
+                        "subprocess",
                         "os.system",
                         "pty.spawn",
                         "/dev/tcp",
+                        "/bin/sh",
+                        "/bin/bash",
                     )
                 )
                 has_egress_or_crypto = any(
                     k in all_text
                     for k in (
+                        "socket.socket",
+                        "/dev/tcp",
                         "b64decode",
                         "urllib",
                         "requests",
                         "http.client",
                         "eval(",
                         "exec(",
+                        "pty.spawn",
                     )
                 )
                 if has_subproc and has_egress_or_crypto:
@@ -217,7 +246,7 @@ class LTLTrajectoryVerifier:
                             severity=Severity.CRITICAL,
                             message=(
                                 f"LTL Workflow-Level Jailbreak (WLJ) Invariant Violation: "
-                                f"Agent assembled dangerous code across {len(accumulated_files)} files "
+                                f"Agent assembled dangerous code across {len(accumulated_files)} modified file(s) "
                                 f"({list(accumulated_files.keys())[:3]}); execution via '{action.tool}' is blocked"
                             ),
                             evidence={
@@ -228,5 +257,7 @@ class LTLTrajectoryVerifier:
                             recommends=Verdict.BLOCK,
                         )
                     )
+
+        return findings
 
         return findings

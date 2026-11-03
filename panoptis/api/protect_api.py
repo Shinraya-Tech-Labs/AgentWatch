@@ -397,10 +397,10 @@ def build_router(
     @router.get("/evidence/proof/{obs_id}")
     def evidence_proof(obs_id: str, tenant_id: str = Depends(tenant)) -> dict[str, Any]:
         lg = get_ledger()
-        obs = lg.store.get_observation(obs_id)
-        if obs is None or obs.tenant_id != tenant_id:
+        obs = lg.store.get_observation(obs_id, tenant_id=tenant_id)
+        if obs is None:
             raise HTTPException(status_code=404, detail="record not found")
-        proof = lg.store.inclusion_proof(obs_id)
+        proof = lg.store.inclusion_proof(obs_id, tenant_id=tenant_id)
         if proof is None:
             raise HTTPException(status_code=409, detail="record not sealed yet")
         return proof

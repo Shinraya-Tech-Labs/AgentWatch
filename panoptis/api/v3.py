@@ -252,12 +252,12 @@ def build_router(auth: Callable[..., Any], tenant: Callable[..., str]) -> APIRou
     @router.get("/api/v3/observations/{obs_id}", tags=["v3 evidence"])
     def observation(obs_id: str, tenant_id: str = Depends(tenant)) -> dict[str, Any]:
         eng = get_engine()
-        obs = eng.store.get_observation(obs_id)
-        if obs is None or obs.tenant_id != tenant_id:
+        obs = eng.store.get_observation(obs_id, tenant_id=tenant_id)
+        if obs is None:
             raise HTTPException(404, "observation not found")
         return {
             "observation": obs.to_dict(),
-            "inclusion_proof": eng.store.inclusion_proof(obs_id),
+            "inclusion_proof": eng.store.inclusion_proof(obs_id, tenant_id=tenant_id),
             "derived_events": [
                 {"event_id": e, "interp_id": i} for e, i in eng.store.events_for_observation(obs_id)
             ],

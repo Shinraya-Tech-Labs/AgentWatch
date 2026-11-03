@@ -611,10 +611,12 @@ class Store:
         )
 
     # ── evidence: read ─────────────────────────────────────────────────────
-    def get_observation(self, obs_id: str, tenant_id: str | None = None) -> RawObservation | None:
-        q = select(s.observations).where(s.observations.c.obs_id == obs_id)
-        if tenant_id is not None:
-            q = q.where(s.observations.c.tenant_id == tenant_id)
+    def get_observation(self, obs_id: str, tenant_id: str) -> RawObservation | None:
+        q = (
+            select(s.observations)
+            .where(s.observations.c.obs_id == obs_id)
+            .where(s.observations.c.tenant_id == tenant_id)
+        )
         with self.engine.connect() as conn:
             r = conn.execute(q).first()
         return self._row_to_obs(r) if r else None
@@ -979,18 +981,21 @@ class Store:
             else None,
         }
 
-    def inclusion_proof(self, obs_id: str) -> dict[str, Any] | None:
-        obs = self.get_observation(obs_id)
+    def inclusion_proof(self, obs_id: str, tenant_id: str = "default") -> dict[str, Any] | None:
+        obs = self.get_observation(obs_id, tenant_id)
         if obs is None or obs.segment_id is None:
             return None
         with self.engine.connect() as conn:
             rows = conn.execute(
                 select(*[s.observations.c[k] for k in ENVELOPE_FIELDS])
                 .where(s.observations.c.segment_id == obs.segment_id)
+                .where(s.observations.c.tenant_id == tenant_id)
                 .order_by(s.observations.c.obs_id)
             ).all()
             seg = conn.execute(
-                select(s.segments).where(s.segments.c.segment_id == obs.segment_id)
+                select(s.segments)
+                .where(s.segments.c.segment_id == obs.segment_id)
+                .where(s.segments.c.tenant_id == tenant_id)
             ).first()
         version = self.segment_leaf_versions(obs.tenant_id).get(obs.segment_id, 1)
         leaves = [leaf_v2(r._mapping) if version >= 2 else _leaf(obs.tenant_id, r) for r in rows]

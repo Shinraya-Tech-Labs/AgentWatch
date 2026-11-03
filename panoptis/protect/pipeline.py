@@ -468,6 +468,30 @@ class ProtectionPipeline:
                         action.tool, action.arguments, scope=action.scope
                     )[1],
                 )
+            if self.stego is not None and not _blocked(findings):
+
+                def stego_check() -> list[Finding]:
+                    nonlocal mutated
+                    target_args = mutated if mutated is not None else action.arguments
+                    stego_res = self.stego.neutralize(target_args)
+                    if stego_res.bits_neutralized_est > 0 or stego_res.had_covert_channel:
+                        mutated = stego_res.cleaned_payload
+                        if stego_res.findings:
+                            return stego_res.findings
+                        return [
+                            Finding(
+                                Stage.THREAT,
+                                "STEGO_WHITESPACE_CLEANSED",
+                                Severity.LOW,
+                                f"Cleansed {stego_res.bits_neutralized_est} trailing whitespace / covert bits from tool arguments",
+                                {"bits": stego_res.bits_neutralized_est},
+                                None,
+                                Verdict.MUTATE_AND_ALLOW,
+                            )
+                        ]
+                    return []
+
+                findings += timed("stego", stego_check)
             if self.config.enable_crescendo_drift and self.crescendo is not None:
 
                 def crescendo_check() -> list[Finding]:
@@ -587,7 +611,10 @@ class ProtectionPipeline:
                     "has_read_sensitive": (
                         any(
                             s.reads_sensitive
-                            for s in getattr(self.ltl, "traces", {}).get(action.session_id, [])
+                            for s in (
+                                getattr(self.ltl, "traces", {}).get(action.scope)
+                                or getattr(self.ltl, "traces", {}).get(action.session_id, [])
+                            )
                         )
                         if self.ltl is not None
                         else False
@@ -595,7 +622,10 @@ class ProtectionPipeline:
                     "has_untrusted_ingest": (
                         any(
                             s.untrusted_ingest
-                            for s in getattr(self.ltl, "traces", {}).get(action.session_id, [])
+                            for s in (
+                                getattr(self.ltl, "traces", {}).get(action.scope)
+                                or getattr(self.ltl, "traces", {}).get(action.session_id, [])
+                            )
                         )
                         if self.ltl is not None
                         else False

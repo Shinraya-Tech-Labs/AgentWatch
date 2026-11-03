@@ -111,7 +111,7 @@ Self-evaluating models suffer from **structural sycophancy and overconfidence bi
 
 PANOPTIS is built on two decoupled, complementary planes:
 1. **Enforcement Plane (`panoptis.protect`)**: An ultra-low-latency synchronous gate that validates, rewrites, or terminates tool actions before execution.
-2. **Observation & Evidence Plane (`panoptis v3` Evidence Lab)**: A passive, deterministic runtime recorder that serializes immutable execution graphs, computes Merkle trees, and performs shadow replays.
+2. **Observation & Evidence Plane (PANOPTIS v3 Evidence Lab)**: A passive, deterministic runtime recorder that serializes immutable execution graphs, computes Merkle trees, and performs shadow replays.
 
 ```mermaid
 flowchart TB
@@ -412,7 +412,7 @@ panopti demo                     # Interactive terminal attack simulator
 panopti playground               # Zero-dependency local browser playground
 
 # 🛡️ Defense & Red-Teaming
-panoptis redteam                 # Run curated attack corpus against your policy engine
+panoptis protect redteam         # Run curated attack corpus against your policy engine
 panoptis check-env               # Validate cryptographic keys, database isolation & API safety
 
 # 🔬 Forensic Investigation & v3 Evidence Lab

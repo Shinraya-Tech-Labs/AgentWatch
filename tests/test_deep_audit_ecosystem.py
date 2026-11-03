@@ -32,14 +32,11 @@ def test_audit10_get_observation_tenant_isolation(tmp_path):
     )
     oid_a = store.append([draft]).accepted[0]
 
-    # Verify query without tenant_id finds it
-    assert store.get_observation(oid_a) is not None
-
     # Verify query with matching tenant_id finds it
-    assert store.get_observation(oid_a, tenant_id="tenant_A") is not None
+    assert store.get_observation(oid_a, "tenant_A") is not None
 
-    # Verify query with cross-tenant tenant_id returns None (IDOR blocked)
-    assert store.get_observation(oid_a, tenant_id="tenant_B") is None
+    # Verify query with cross-tenant tenant_id returns None (IDOR blocked at SQL query level)
+    assert store.get_observation(oid_a, "tenant_B") is None
 
 
 def test_audit11_webhook_idempotency_concurrency():

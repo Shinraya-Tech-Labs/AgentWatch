@@ -46,3 +46,6 @@ data/
 
 # graphify skill output (generated cache)
 graphify-out/
+
+# brag skill output (generated assets)
+brag-output/

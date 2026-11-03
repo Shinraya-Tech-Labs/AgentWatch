@@ -1154,11 +1154,16 @@ def evidence_show(obs_id: str = typer.Argument(...), store: str | None = STORE_O
     from panoptis.storage.store import Store
 
     st = Store(store)
-    obs = st.get_observation(obs_id)
+    obs = st.get_observation(obs_id, tenant_id="default")
     if obs is None:
         _fail("observation not found")
         return
-    _out({"observation": obs.to_dict(), "inclusion_proof": st.inclusion_proof(obs_id)})
+    _out(
+        {
+            "observation": obs.to_dict(),
+            "inclusion_proof": st.inclusion_proof(obs_id, tenant_id="default"),
+        }
+    )
 
 
 @_guard
