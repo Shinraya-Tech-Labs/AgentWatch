@@ -59,19 +59,32 @@ class TaintRecord:
 
 
 class DynamicTaintTracker:
-    """Session-scoped taint tracker that follows data through encodings and transformations."""
+    """Session and tenant-scoped taint tracker that follows data through encodings and transformations."""
 
     def __init__(self) -> None:
-        self.records: list[TaintRecord] = []
+        # scope (tenant_id/session_id or None) -> list of TaintRecord
+        self.scoped_records: dict[str | None, list[TaintRecord]] = {None: []}
 
-    def register_taint(self, source: str, value: str, label: SecurityLabel) -> None:
+    @property
+    def records(self) -> list[TaintRecord]:
+        """Backward-compatible view of all active taint records across scopes."""
+        out: list[TaintRecord] = []
+        for recs in self.scoped_records.values():
+            out.extend(recs)
+        return out
+
+    def register_taint(
+        self, source: str, value: str, label: SecurityLabel, scope: str | None = None
+    ) -> None:
         """Register a known confidential or secret value into the dynamic taint register."""
         if not value or len(value) < 4:
             return
         record = TaintRecord(source=source, label=label, raw_value=value)
-        self.records.append(record)
+        if scope not in self.scoped_records:
+            self.scoped_records[scope] = []
+        self.scoped_records[scope].append(record)
 
-    def register_from_payload(self, source: str, payload: Any) -> None:
+    def register_from_payload(self, source: str, payload: Any, scope: str | None = None) -> None:
         """Scan payload for secrets and automatically register their dynamic taints."""
         if not payload:
             return
@@ -79,10 +92,15 @@ class DynamicTaintTracker:
         for cat, pat in SECRET_PATTERNS:
             for match in pat.finditer(text):
                 matched_val = match.group(0)
-                self.register_taint(f"{source}:{cat}", matched_val, SecurityLabel.SECRET)
+                self.register_taint(
+                    f"{source}:{cat}", matched_val, SecurityLabel.SECRET, scope=scope
+                )
 
     def evaluate_taint(
-        self, value: Any, default_label: SecurityLabel = SecurityLabel.PUBLIC
+        self,
+        value: Any,
+        default_label: SecurityLabel = SecurityLabel.PUBLIC,
+        scope: str | None = None,
     ) -> SecurityLabel:
         """Evaluate the effective security label of value by checking transformations and encodings."""
         if value is None:
@@ -91,8 +109,14 @@ class DynamicTaintTracker:
         text = str(value)
         max_label = default_label
 
+        # Candidate records: scope-specific records plus global records (None)
+        candidates: list[TaintRecord] = []
+        if scope is not None and scope in self.scoped_records:
+            candidates.extend(self.scoped_records[scope])
+        candidates.extend(self.scoped_records.get(None, []))
+
         # 1. Exact or encoded variant matches
-        for rec in self.records:
+        for rec in candidates:
             if rec.raw_value in text:
                 max_label = max_label.join(rec.label)
                 continue
@@ -111,14 +135,14 @@ class DynamicTaintTracker:
                     decoded = base64.b64decode(clean_word, validate=True).decode(
                         "utf-8", errors="ignore"
                     )
-                    for rec in self.records:
+                    for rec in candidates:
                         if rec.raw_value in decoded:
                             max_label = max_label.join(rec.label)
                 except (binascii.Error, ValueError):
                     pass
 
         # 3. Shingle-based token-split detection (prevents "s" + "k" + "-..." leaks)
-        for rec in self.records:
+        for rec in candidates:
             if rec.shingles and len(text) >= 12:
                 matching_shingles = sum(1 for sh in rec.shingles if sh in text)
                 # If more than 50% of the secret's shingles appear in the payload, mark as tainted

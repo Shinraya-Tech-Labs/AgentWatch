@@ -99,7 +99,7 @@ class InformationFlowEngine:
 
             self.taint_tracker = DynamicTaintTracker()
 
-    def infer_label(self, value: Any) -> SecurityLabel:
+    def infer_label(self, value: Any, scope: str | None = None) -> SecurityLabel:
         """Infer security label by static analysis AND dynamic transformation tracking."""
         if value is None:
             return SecurityLabel.PUBLIC
@@ -122,10 +122,17 @@ class InformationFlowEngine:
 
         # 3. Dynamic transformation tracking (base64, hex, URL-enc, token splits)
         if self.taint_tracker is not None:
-            dyn_label = self.taint_tracker.evaluate_taint(value, default_label=base_label)
+            dyn_label = self.taint_tracker.evaluate_taint(
+                value, default_label=base_label, scope=scope
+            )
             return base_label.join(dyn_label)
 
         return base_label
+
+    def record_result(self, tool: str, result: Any, scope: str | None = None) -> None:
+        """Dynamically propagate confidentiality labels when a tool execution produces sensitive data."""
+        if self.taint_tracker is not None and result is not None:
+            self.taint_tracker.register_from_payload(f"{tool}:output", result, scope=scope)
 
     def verify_flow(
         self,
@@ -170,6 +177,7 @@ class InformationFlowEngine:
         tool: str,
         arguments: dict[str, Any],
         context_label: SecurityLabel = SecurityLabel.PUBLIC,
+        scope: str | None = None,
     ) -> tuple[SecurityLabel, list[Finding]]:
         """Compute the combined taint label of arguments and verify flow into target tool."""
         current_label = context_label
@@ -177,7 +185,7 @@ class InformationFlowEngine:
 
         # Infer taint of each argument
         for arg_key, arg_val in arguments.items():
-            arg_label = self.infer_label(arg_val)
+            arg_label = self.infer_label(arg_val, scope=scope)
             current_label = current_label.join(arg_label)
 
             if not arg_label.can_flow_to(

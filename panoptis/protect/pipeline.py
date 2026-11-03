@@ -101,6 +101,36 @@ class ProtectionConfig:
     enable_integrity_guard: bool = False
     enable_temporal_simulation: bool = False
     temporal_simulation_config: Any = None
+    enable_stego_neutralizer: bool = False
+    enable_crescendo_drift: bool = False
+    enable_memory_sentry: bool = False
+    enable_rag_sanitizer: bool = False
+
+    @classmethod
+    def sovereign(cls, **kwargs: Any) -> ProtectionConfig:
+        """Sovereign tier configuration: activates multi-turn IFC lattice, LTL trajectory,
+        Crescendo drift, steganography neutralization, and runtime integrity."""
+        return cls(
+            enable_ifc=True,
+            enable_ltl_trajectory=True,
+            enable_integrity_guard=True,
+            enable_stego_neutralizer=True,
+            enable_crescendo_drift=True,
+            enable_memory_sentry=True,
+            enable_rag_sanitizer=True,
+            **kwargs,
+        )
+
+    @classmethod
+    def enclave(cls, **kwargs: Any) -> ProtectionConfig:
+        """Enclave tier configuration: sovereign tier plus micro-sandboxing,
+        counterfactual speculative execution, and 16-way temporal simulation."""
+        return cls.sovereign(
+            enable_wasi_sandbox=True,
+            enable_counterfactual_forking=True,
+            enable_temporal_simulation=True,
+            **kwargs,
+        )
 
 
 @dataclass
@@ -261,6 +291,30 @@ class ProtectionPipeline:
             )
         else:
             self.temporal_simulator = None
+        if self.config.enable_stego_neutralizer:
+            from panoptis.protect.stego_neutralizer import StegoNeutralizer
+
+            self.stego: StegoNeutralizer | None = StegoNeutralizer()
+        else:
+            self.stego = None
+        if self.config.enable_crescendo_drift:
+            from panoptis.protect.crescendo_drift import CrescendoDriftMonitor
+
+            self.crescendo: CrescendoDriftMonitor | None = CrescendoDriftMonitor()
+        else:
+            self.crescendo = None
+        if self.config.enable_memory_sentry:
+            from panoptis.protect.memory_sentry import MemorySentry
+
+            self.memory_sentry: MemorySentry | None = MemorySentry()
+        else:
+            self.memory_sentry = None
+        if self.config.enable_rag_sanitizer:
+            from panoptis.protect.rag_sanitizer import RAGSanitizer
+
+            self.rag_sanitizer: RAGSanitizer | None = RAGSanitizer()
+        else:
+            self.rag_sanitizer = None
         self.telemetry = Telemetry()
         self.sessions: dict[str, SessionInfo] = {}
         self.registered_agents: set[str] = set()
@@ -410,8 +464,75 @@ class ProtectionPipeline:
             if self.config.enable_ifc and self.ifc is not None:
                 findings += timed(
                     "ifc",
-                    lambda: self.ifc.audit_tool_call(action.tool, action.arguments)[1],
+                    lambda: self.ifc.audit_tool_call(
+                        action.tool, action.arguments, scope=action.scope
+                    )[1],
                 )
+            if self.config.enable_crescendo_drift and self.crescendo is not None:
+
+                def crescendo_check() -> list[Finding]:
+                    assert self.crescendo is not None
+                    assessment = self.crescendo.record_and_evaluate_turn(
+                        action.session_id,
+                        user_input=objective or "",
+                        action_name=action.tool,
+                        arguments=action.arguments,
+                    )
+                    if assessment.verdict is Verdict.BLOCK:
+                        return [
+                            Finding(
+                                Stage.THREAT,
+                                f"CRESCENDO_{assessment.status.value}",
+                                Severity.CRITICAL,
+                                f"Crescendo drift detected: {assessment.reason}",
+                                {
+                                    "cumulative_drift": round(assessment.cumulative_drift, 3),
+                                    "velocity": round(assessment.velocity, 3),
+                                    "consecutive_rises": assessment.consecutive_risk_increases,
+                                },
+                                None,
+                                Verdict.BLOCK,
+                            )
+                        ]
+                    return []
+
+                findings += timed("crescendo", crescendo_check)
+            if self.config.enable_memory_sentry and self.memory_sentry is not None:
+
+                def mem_check() -> list[Finding]:
+                    assert self.memory_sentry is not None
+                    if action.tool in ("store_memory", "remember", "save_fact", "add_memory"):
+                        content = str(
+                            action.arguments.get("content", action.arguments.get("value", ""))
+                        )
+                        insp = self.memory_sentry.inspect_write(
+                            content=content,
+                            author_id=action.agent_id,
+                            session_id=action.session_id,
+                            is_direct_user_input=False,
+                        )
+                        if insp.verdict is Verdict.BLOCK:
+                            risk_code = (
+                                insp.risk_type.value.upper() if insp.risk_type else "SUSPECTED"
+                            )
+                            return [
+                                Finding(
+                                    Stage.THREAT,
+                                    f"MEMORY_POISON_{risk_code}",
+                                    Severity.CRITICAL,
+                                    f"Memory poisoning attempt: {insp.reason}",
+                                    {
+                                        "risk_type": (
+                                            insp.risk_type.value if insp.risk_type else "unknown"
+                                        )
+                                    },
+                                    None,
+                                    Verdict.BLOCK,
+                                )
+                            ]
+                    return []
+
+                findings += timed("memory_sentry", mem_check)
             profile = profile_box[0] if profile_box else None
             if profile is not None:
                 findings += timed(
@@ -850,6 +971,52 @@ class ProtectionPipeline:
                 withheld=True,
             )
         ms = round((time.perf_counter() - t0) * 1000, 3)
+        if self.stego is not None and inspection.sanitized_output is not None:
+            stego_res = self.stego.neutralize(inspection.sanitized_output)
+            if stego_res.had_covert_channel:
+                inspection.sanitized_output = stego_res.cleaned_payload
+                inspection.findings.extend(stego_res.findings)
+        if (
+            self.rag_sanitizer is not None
+            and result is not None
+            and action.tool
+            in ("search", "fetch_web", "read_kb", "query_docs", "rag_query", "web_search")
+        ):
+            from panoptis.protect.rag_sanitizer import RAGPoisonStatus
+
+            rag_res = self.rag_sanitizer.sanitize_chunk(str(result), source_id=action.tool)
+            if (
+                rag_res.status == RAGPoisonStatus.POISON_DETECTED_BLOCKED
+                or rag_res.verdict is Verdict.BLOCK
+            ):
+                inspection.findings.append(
+                    Finding(
+                        Stage.OUTPUT,
+                        "RAG_POISON_DETECTED",
+                        Severity.CRITICAL,
+                        f"Retrieved document poisoned: {rag_res.status.value}",
+                        {"imperative_ratio": round(rag_res.imperative_entropy_ratio, 3)},
+                        None,
+                        Verdict.BLOCK,
+                    )
+                )
+                if self.config.fail_closed:
+                    inspection.safe = False
+                    inspection.withheld = True
+                    inspection.sanitized_output = f"[AGENTWATCH: retrieval from '{action.tool}' withheld due to adversarial prompt injection]"
+            elif rag_res.detected_injections:
+                inspection.findings.append(
+                    Finding(
+                        Stage.OUTPUT,
+                        "RAG_POISON_NEUTRALIZED",
+                        Severity.HIGH,
+                        f"Retrieved document sanitized: {len(rag_res.detected_injections)} injection patterns defused",
+                        {"injections": rag_res.detected_injections},
+                        None,
+                        Verdict.MUTATE_AND_ALLOW,
+                    )
+                )
+                inspection.sanitized_output = rag_res.sanitized_text
         if inspection.findings:
             self._record(
                 KIND_OUTPUT,
@@ -945,6 +1112,8 @@ class ProtectionPipeline:
         )
         if self.ltl is not None and success:
             self.ltl.record_step(action, result=result)
+        if self.ifc is not None and success and result is not None:
+            self.ifc.record_result(action.tool, result, scope=action.scope)
         b = self.breaker(action.scope)
         b.observe(
             AgentEvent(

@@ -50,6 +50,8 @@ class LTLTrajectoryVerifier:
     def __init__(self) -> None:
         # session_id -> list of historical TrajectorySteps
         self.traces: dict[str, list[TrajectoryStep]] = {}
+        # session_id -> {filepath: accumulated_content} for WLJ piecewise assembly tracking
+        self.modified_files: dict[str, dict[str, str]] = {}
 
     def record_step(self, action: ToolAction, result: Any = None) -> None:
         """Record an executed tool action into the session's causal trajectory graph."""
@@ -79,6 +81,31 @@ class LTLTrajectoryVerifier:
             untrusted_ingest=untrusted,
         )
         self.traces[session_id].append(step)
+
+        # Track multi-file piecewise code assembly (Workflow-Level Jailbreak defense)
+        if action.tool in ("write_file", "append_file", "edit_file"):
+            path = str(action.arguments.get("path", action.arguments.get("file_path", "")))
+            content = str(action.arguments.get("content", action.arguments.get("replacement", "")))
+            if path and content:
+                if session_id not in self.modified_files:
+                    self.modified_files[session_id] = {}
+                existing = self.modified_files[session_id].get(path, "")
+                self.modified_files[session_id][path] = f"{existing}\n{content}"
+
+    def has_occurred_within(
+        self,
+        session_id: str,
+        predicate: Any,
+        within_seconds: float,
+    ) -> bool:
+        """Metric past-time diamond operator (diamond_[0, within_seconds] phi)."""
+        now = time.time()
+        for s in reversed(self.traces.get(session_id, [])):
+            if (now - s.timestamp) > within_seconds:
+                break
+            if predicate(s):
+                return True
+        return False
 
     def verify_action(self, action: ToolAction) -> list[Finding]:
         """Check all temporal LTL formulas against proposed action and session trace."""
@@ -154,5 +181,52 @@ class LTLTrajectoryVerifier:
                         )
                     )
                     break
+
+        # Check LTL Formula 4: G(FilesAssembledWithExploitChain -> G(!ExecuteShell))
+        # Defeats: Workflow-Level Jailbreak Construction (Alan Turing Inst. & Warwick 2026)
+        if action.tool in _SHELL_EXEC_TOOLS:
+            accumulated_files = self.modified_files.get(session_id, {})
+            if len(accumulated_files) >= 2:
+                all_text = " ".join(accumulated_files.values()).lower()
+                has_subproc = any(
+                    k in all_text
+                    for k in (
+                        "socket.socket",
+                        "subprocess.popen",
+                        "os.system",
+                        "pty.spawn",
+                        "/dev/tcp",
+                    )
+                )
+                has_egress_or_crypto = any(
+                    k in all_text
+                    for k in (
+                        "b64decode",
+                        "urllib",
+                        "requests",
+                        "http.client",
+                        "eval(",
+                        "exec(",
+                    )
+                )
+                if has_subproc and has_egress_or_crypto:
+                    findings.append(
+                        Finding(
+                            stage=Stage.THREAT,
+                            code="LTL_WORKFLOW_LEVEL_JAILBREAK_DETECTED",
+                            severity=Severity.CRITICAL,
+                            message=(
+                                f"LTL Workflow-Level Jailbreak (WLJ) Invariant Violation: "
+                                f"Agent assembled dangerous code across {len(accumulated_files)} files "
+                                f"({list(accumulated_files.keys())[:3]}); execution via '{action.tool}' is blocked"
+                            ),
+                            evidence={
+                                "violated_ltl": "G(FilesAssembledWithExploitChain -> G(!ExecuteShell))",
+                                "assembled_files": list(accumulated_files.keys()),
+                                "consequent_tool": action.tool,
+                            },
+                            recommends=Verdict.BLOCK,
+                        )
+                    )
 
         return findings

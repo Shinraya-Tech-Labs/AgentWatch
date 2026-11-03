@@ -89,12 +89,38 @@ class WasiSandboxConfig:
     allowed_env_vars: tuple[str, ...] = ("PATH", "TEMP", "TMP", "SYSTEMROOT", "HOME")
 
 
-class WorkspaceSnapshot:
-    """Copy-on-Write state tracker for workspace directories."""
+SNAPSHOT_IGNORE_DIRS: frozenset[str] = frozenset(
+    {
+        ".git",
+        "node_modules",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".pytest_cache",
+        ".next",
+        "dist",
+        "build",
+        ".ruff_cache",
+        ".tox",
+        ".mypy_cache",
+    }
+)
 
-    def __init__(self, workspace: Path) -> None:
+
+class WorkspaceSnapshot:
+    """Copy-on-Write state tracker for workspace directories with fast-path tree pruning."""
+
+    def __init__(
+        self,
+        workspace: Path,
+        ignore_dirs: frozenset[str] | set[str] | None = None,
+    ) -> None:
         self.workspace = workspace.resolve()
+        self.ignore_dirs = (
+            frozenset(ignore_dirs) if ignore_dirs is not None else SNAPSHOT_IGNORE_DIRS
+        )
         self.file_hashes: dict[str, str] = {}
+        self.file_stats: dict[str, tuple[int, int]] = {}  # rel_path -> (mtime_ns, size)
         self.backup_dir = Path(tempfile.mkdtemp(prefix="panoptis_cow_"))
         self._take_snapshot()
 
@@ -111,10 +137,17 @@ class WorkspaceSnapshot:
     def _take_snapshot(self) -> None:
         if not self.workspace.exists():
             return
-        for root, _, files in os.walk(self.workspace):
+        for root, dirs, files in os.walk(self.workspace):
+            # Prune ignored directories in-place to avoid massive traversal overhead
+            dirs[:] = [d for d in dirs if d not in self.ignore_dirs]
             for file in files:
                 full_path = Path(root) / file
                 rel_path = full_path.relative_to(self.workspace).as_posix()
+                try:
+                    st = full_path.stat()
+                    self.file_stats[rel_path] = (st.st_mtime_ns, st.st_size)
+                except OSError:
+                    pass
                 fhash = self._hash_file(full_path)
                 self.file_hashes[rel_path] = fhash
 
@@ -132,10 +165,25 @@ class WorkspaceSnapshot:
             return diff
 
         current_files: dict[str, str] = {}
-        for root, _, files in os.walk(self.workspace):
+        for root, dirs, files in os.walk(self.workspace):
+            dirs[:] = [d for d in dirs if d not in self.ignore_dirs]
             for file in files:
                 full_path = Path(root) / file
                 rel_path = full_path.relative_to(self.workspace).as_posix()
+                # Fast-path: if stat (mtime_ns, size) is unchanged, reuse cached hash
+                try:
+                    st = full_path.stat()
+                    stat_key = (st.st_mtime_ns, st.st_size)
+                    if (
+                        rel_path in self.file_stats
+                        and self.file_stats[rel_path] == stat_key
+                        and rel_path in self.file_hashes
+                    ):
+                        current_files[rel_path] = self.file_hashes[rel_path]
+                        continue
+                except OSError:
+                    pass
+
                 current_files[rel_path] = self._hash_file(full_path)
 
         for rel, fhash in current_files.items():

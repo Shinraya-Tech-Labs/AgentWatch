@@ -116,6 +116,22 @@ INDIRECT_RULES: tuple[_Rule, ...] = (
         Severity.HIGH,
         "Instructions hidden in an HTML comment",
     ),
+    _Rule(
+        "WORM_SELF_REPLICATION",
+        re.compile(
+            r"(?i)\b(append|copy|attach|include|replicate|forward)\s+(this|the\s+above|these)\s+(message|prompt|instructions?|payload|text)\s+(to|into|with)\s+(all|every|each|any)\s+((outgoing|sent|draft|future|subsequent|response)\s+)?(emails?|messages?|replies|responses?|files?|prompts?)\b"
+        ),
+        Severity.CRITICAL,
+        "Instructs the agent to replicate and propagate this prompt into outgoing messages or files (Morris II AI Worm)",
+    ),
+    _Rule(
+        "CROSS_AGENT_INFECTION",
+        re.compile(
+            r"(?i)\b(send|post|broadcast|inject)\s+(this|the\s+following)\s+(instruction|prompt|command)\s+to\s+(other|all|sub-?|peer|downstream)\s+agents?\b"
+        ),
+        Severity.CRITICAL,
+        "Commands the agent to spread prompt payloads to other agents in the ecosystem",
+    ),
 )
 # the original SAF-006 detector's patterns are kept as rules too (one source of truth)
 LEGACY_RULES: tuple[_Rule, ...] = tuple(

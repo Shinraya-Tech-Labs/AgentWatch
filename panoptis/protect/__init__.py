@@ -107,6 +107,7 @@ from panoptis.protect.rag_sanitizer import (
 )
 from panoptis.protect.rbac import PolicyError, PolicyStore, RBACEngine, parse_policy
 from panoptis.protect.registry import ProtectedToolRegistry
+from panoptis.protect.stego_neutralizer import StegoInspectionResult, StegoNeutralizer
 from panoptis.protect.taint_tracker import DynamicTaintTracker
 from panoptis.protect.temporal_simulator import (
     CounterfactualHazardProof,
@@ -203,6 +204,8 @@ __all__ = [
     "StarkProof",
     "StarkRecursiveProver",
     "StarkRecursiveVerifier",
+    "StegoInspectionResult",
+    "StegoNeutralizer",
     "TaintContext",
     "TemporalSimulationResult",
     "ThreatAnalyzer",
