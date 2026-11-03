@@ -32,6 +32,7 @@ paths = [
   '''^tests/protect/test_output_inspection\.py$''',
   '''^tests/protect/test_protect_tool\.py$''',
   '''^tests/protect/test_threat_analysis\.py$''',
+  '''^tests/protect/test_deep_audit_remediation\.py$''',
   '''^tests/test_tasks_and_alerting\.py$''',
   '''^tests/test_tenancy_resolver\.py$''',
   '''^tests/test_deep_audit_ecosystem\.py$''',
