@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The PyPI publish workflow reads the section matching the release tag from this
 file and uses it as the GitHub Release body, so keep each version's notes here.
 
+## [0.3.1] - 2026-11-03
+
+### Fixed
+- Remediated ecosystem vulnerabilities AUDIT-09 through AUDIT-14:
+  - Tenant API Key verification handles corrupted salt/hash payloads gracefully without 500 errors.
+  - Multi-tenant observation retrieval (`Store.get_observation`) strictly scopes queries by `tenant_id` to eliminate IDOR vectors.
+  - Thread-safe LRU eviction (50,000 key ceiling) and mutex synchronization on in-memory rate limiting and webhook idempotency trackers.
+  - Mitigated reverse proxy path traversal and masked upstream internal network topology in dashboard API proxy.
+  - Enforced security headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`) across frontend responses.
+
+### Added
+- Ecosystem deep audit verification test suite (`tests/test_deep_audit_ecosystem.py`).
+- Before vs Now comparative security audit specification and Tier 0.001% benchmarks.
+
 ## [0.3.0] - 2026-10-30
 
 ### Added
