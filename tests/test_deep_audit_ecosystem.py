@@ -47,9 +47,9 @@ def test_audit11_webhook_idempotency_concurrency():
     tracker = WebhookIdempotencyTracker(max_entries=50, default_ttl_seconds=60)
 
     def worker(idx: int):
-        event_id = f"evt_{idx % 20}"
-        tracker.record_event(event_id, provider="stripe")
-        tracker.is_duplicate(event_id, provider="stripe")
+        event_id = f"item_{idx % 20}"
+        tracker.record_event(event_id, provider="custom_provider")
+        tracker.is_duplicate(event_id, provider="custom_provider")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         futures = [pool.submit(worker, i) for i in range(200)]
