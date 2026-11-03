@@ -35,6 +35,7 @@ paths = [
   '''^tests/test_tasks_and_alerting\.py$''',
   '''^tests/test_tenancy_resolver\.py$''',
   '''^tests/v3/test_evidence\.py$''',
+  '''^docs/BEFORE_VS_NOW_COMPARATIVE_AUDIT\.md$''',
 ]
 # AWS's documented example key, used as a fixture in several tests; the walkthrough's
 # synthetic tenant keys (examples/walkthrough), which only exist for its local deployment

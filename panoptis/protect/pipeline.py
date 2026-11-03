@@ -471,7 +471,8 @@ class ProtectionPipeline:
             if self.config.enable_crescendo_drift and self.crescendo is not None:
 
                 def crescendo_check() -> list[Finding]:
-                    assert self.crescendo is not None
+                    if self.crescendo is None:
+                        return []
                     assessment = self.crescendo.record_and_evaluate_turn(
                         action.session_id,
                         user_input=objective or "",
@@ -500,7 +501,8 @@ class ProtectionPipeline:
             if self.config.enable_memory_sentry and self.memory_sentry is not None:
 
                 def mem_check() -> list[Finding]:
-                    assert self.memory_sentry is not None
+                    if self.memory_sentry is None:
+                        return []
                     if action.tool in ("store_memory", "remember", "save_fact", "add_memory"):
                         content = str(
                             action.arguments.get("content", action.arguments.get("value", ""))
