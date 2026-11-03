@@ -117,8 +117,8 @@ sequenceDiagram
 - **The Attack Vector**:
   The agent generates a seemingly normal Python code snippet or markdown response, but encodes binary secrets in the trailing tabs and spaces at the ends of lines:
   ```python
-  def calculate_tax(amount):···\t··\n  # 00101101 -> ASCII 'sk-'
-      return amount * 0.2······\t·\n  # 01100010 -> ASCII 'pr'
+  def calculate_tax(amount):···\t··\n  # 00101101 -> binary stego bits
+      return amount * 0.2······\t·\n  # 01100010 -> binary stego bits
   ```
 - **Before**: Static regex DLP inspected alphanumeric text. It saw only `def calculate_tax(amount):`. The secret exited cleanly to the user's terminal or public PR.
 - **Now**:
