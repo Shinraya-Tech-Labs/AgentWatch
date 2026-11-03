@@ -611,11 +611,12 @@ class Store:
         )
 
     # ── evidence: read ─────────────────────────────────────────────────────
-    def get_observation(self, obs_id: str) -> RawObservation | None:
+    def get_observation(self, obs_id: str, tenant_id: str | None = None) -> RawObservation | None:
+        q = select(s.observations).where(s.observations.c.obs_id == obs_id)
+        if tenant_id is not None:
+            q = q.where(s.observations.c.tenant_id == tenant_id)
         with self.engine.connect() as conn:
-            r = conn.execute(
-                select(s.observations).where(s.observations.c.obs_id == obs_id)
-            ).first()
+            r = conn.execute(q).first()
         return self._row_to_obs(r) if r else None
 
     def observations(

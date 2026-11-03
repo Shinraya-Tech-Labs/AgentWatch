@@ -97,7 +97,7 @@ class Workspace:
         ev = self.event(event_id)
         out = []
         for oid in ev["derived_from"]:
-            obs = self.store.get_observation(oid)
+            obs = self.store.get_observation(oid, tenant_id=self.tenant_id)
             if obs:
                 out.append(obs.to_dict())
         return out

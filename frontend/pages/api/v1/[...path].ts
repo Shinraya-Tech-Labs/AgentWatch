@@ -16,8 +16,11 @@ const API_BASE = (process.env.AGENTWATCH_API_URL ?? 'http://localhost:8000').rep
 // than a silent connection close that Render's proxy reports as 502.
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const segments = Array.isArray(req.query.path) ? req.query.path : [req.query.path ?? ''];
-    const path = segments.join('/');
+    const rawSegments = Array.isArray(req.query.path) ? req.query.path : [req.query.path ?? ''];
+    if (rawSegments.some((s) => String(s).includes('..') || String(s).startsWith('/'))) {
+      return res.status(400).json({ error: 'invalid_path', detail: 'Path traversal is not permitted' });
+    }
+    const path = rawSegments.map((s) => encodeURIComponent(String(s))).join('/');
 
     // Forward query params (except the internal Next.js `path` param)
     const { path: _drop, ...rest } = req.query;

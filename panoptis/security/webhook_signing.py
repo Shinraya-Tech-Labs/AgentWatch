@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import threading
 import time
 from collections import OrderedDict
 
@@ -94,6 +95,7 @@ class WebhookIdempotencyTracker:
         self._max_entries = max_entries
         self._default_ttl = default_ttl_seconds
         self._cache: OrderedDict[str, float] = OrderedDict()
+        self._lock = threading.Lock()
 
     def _key(self, event_id: str, provider: str) -> str:
         return f"{provider}:{event_id}"
@@ -108,28 +110,31 @@ class WebhookIdempotencyTracker:
     def is_duplicate(self, event_id: str, provider: str = "default") -> bool:
         """Check if an event ID has already been processed and is within TTL."""
         now = time.time()
-        self._prune(now)
-        key = self._key(event_id, provider)
-        if key in self._cache:
-            if self._cache[key] >= now:
-                return True
-            del self._cache[key]
-        return False
+        with self._lock:
+            self._prune(now)
+            key = self._key(event_id, provider)
+            if key in self._cache:
+                if self._cache[key] >= now:
+                    return True
+                del self._cache[key]
+            return False
 
     def record_event(
         self, event_id: str, provider: str = "default", ttl_seconds: int | None = None
     ) -> bool:
         """Record an event ID. Returns True if recorded (first time), False if duplicate."""
         now = time.time()
-        self._prune(now)
-        key = self._key(event_id, provider)
-        if key in self._cache and self._cache[key] >= now:
-            return False  # Already processed
-        ttl = ttl_seconds if ttl_seconds is not None else self._default_ttl
-        self._cache[key] = now + ttl
-        self._cache.move_to_end(key)
-        return True
+        with self._lock:
+            self._prune(now)
+            key = self._key(event_id, provider)
+            if key in self._cache and self._cache[key] >= now:
+                return False  # Already processed
+            ttl = ttl_seconds if ttl_seconds is not None else self._default_ttl
+            self._cache[key] = now + ttl
+            self._cache.move_to_end(key)
+            return True
 
     def clear(self) -> None:
         """Reset the tracker cache."""
-        self._cache.clear()
+        with self._lock:
+            self._cache.clear()

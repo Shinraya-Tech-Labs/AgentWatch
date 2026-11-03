@@ -10,6 +10,7 @@ interface is identical for both.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections import defaultdict
 from typing import Any, Protocol, runtime_checkable
@@ -39,13 +40,20 @@ class RateLimitBackend(Protocol):
 class InMemoryBackend:
     """Process-local fixed-window counters (not shared across replicas)."""
 
-    def __init__(self) -> None:
+    def __init__(self, max_buckets: int = 50_000) -> None:
+        self._max_buckets = max_buckets
         self._buckets: dict[str, dict[str, Any]] = defaultdict(
             lambda: {"count": 0, "start": time.time()}
         )
+        self._lock = threading.Lock()
 
     def _current(self, key: str, window_sec: int) -> dict[str, Any]:
         now = time.time()
+        # Evict expired keys when bucket map gets large to prevent memory leaks
+        if len(self._buckets) > self._max_buckets:
+            stale = [k for k, b in self._buckets.items() if now - b["start"] > window_sec]
+            for k in stale:
+                self._buckets.pop(k, None)
         bucket = self._buckets[key]
         if now - bucket["start"] > window_sec:
             bucket["count"] = 0
@@ -53,16 +61,20 @@ class InMemoryBackend:
         return bucket
 
     def hit(self, key: str, window_sec: int) -> int:
-        bucket = self._current(key, window_sec)
-        bucket["count"] += 1
-        return bucket["count"]
+        with self._lock:
+            bucket = self._current(key, window_sec)
+            bucket["count"] += 1
+            return bucket["count"]
 
     def peek(self, key: str, window_sec: int) -> int:
-        now = time.time()
-        bucket = self._buckets[key]
-        if now - bucket["start"] > window_sec:
-            return 0
-        return bucket["count"]
+        with self._lock:
+            now = time.time()
+            if key not in self._buckets:
+                return 0
+            bucket = self._buckets[key]
+            if now - bucket["start"] > window_sec:
+                return 0
+            return bucket["count"]
 
 
 class RedisBackend:

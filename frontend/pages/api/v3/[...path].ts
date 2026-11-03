@@ -10,8 +10,11 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 const API_BASE = (process.env.AGENTWATCH_API_URL ?? 'http://localhost:8000').replace(/\/$/, '');
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const segments = Array.isArray(req.query.path) ? req.query.path : [req.query.path ?? ''];
-  const path = segments.map((s) => encodeURIComponent(String(s))).join('/');
+  const rawSegments = Array.isArray(req.query.path) ? req.query.path : [req.query.path ?? ''];
+  if (rawSegments.some((s) => String(s).includes('..') || String(s).startsWith('/'))) {
+    return res.status(400).json({ error: 'invalid_path', detail: 'Path traversal is not permitted' });
+  }
+  const path = rawSegments.map((s) => encodeURIComponent(String(s))).join('/');
   const { path: _drop, ...rest } = req.query;
   const qs = new URLSearchParams(
     Object.entries(rest).flatMap(([k, v]) =>
@@ -38,8 +41,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.send(await upstreamRes.text());
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    console.error(`[proxy-v3] ${req.method} ${req.url} →`, message);
     res
       .status(502)
-      .json({ error: 'upstream_unavailable', upstream: `${API_BASE}/api/v3/`, detail: message });
+      .json({ error: 'upstream_unavailable', detail: 'The AgentWatch v3 API is unavailable' });
   }
 }

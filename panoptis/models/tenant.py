@@ -154,9 +154,12 @@ def _hash_api_key(raw_key: str, salt: str | None = None) -> str:
 
 def _verify_api_key(raw_key: str, stored: str) -> bool:
     """Verify a raw key against a ``salt:hash`` value."""
-    salt, expected_hash = stored.split(":", 1)
-    dk = hashlib.pbkdf2_hmac("sha256", raw_key.encode(), salt.encode(), iterations=100_000)
-    return secrets.compare_digest(dk.hex(), expected_hash)
+    try:
+        salt, expected_hash = stored.split(":", 1)
+        dk = hashlib.pbkdf2_hmac("sha256", raw_key.encode(), salt.encode(), iterations=100_000)
+        return secrets.compare_digest(dk.hex(), expected_hash)
+    except (ValueError, AttributeError):
+        return False
 
 
 def generate_api_key(tenant_id: str) -> str:

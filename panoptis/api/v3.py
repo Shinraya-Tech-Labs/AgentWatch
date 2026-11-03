@@ -821,7 +821,7 @@ def build_router(auth: Callable[..., Any], tenant: Callable[..., str]) -> APIRou
         observations = []
         eng = get_engine()
         for wid in witness_ids:
-            obs = eng.store.get_observation(wid)
+            obs = eng.store.get_observation(wid, tenant_id=tenant_id)
             if obs:
                 observations.append(obs.to_dict())
 
