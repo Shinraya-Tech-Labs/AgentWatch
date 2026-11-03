@@ -84,7 +84,7 @@ flowchart LR
 
     subgraph HYPERVISOR["🛡️ PANOPTIS Hypervisor"]
         direction TB
-        G1["⚡ Fast Gate (< 10ms)<br/>AST & Intent Normalization"]
+        G1["⚡ Fast Gate (sub-10ms)<br/>AST & Intent Normalization"]
         G2["🔒 Dynamic Taint Tracking<br/>Dual-Zone DLP & Secret Scrubbing"]
         G3["🧠 Semantic Invariant Auditor<br/>Crescendo Drift & Memory Sentry"]
         G4["🌲 Cryptographic Ledger<br/>Append-Only Merkle Tree"]
@@ -96,10 +96,10 @@ flowchart LR
     HYPERVISOR -.->|"👤 ESCALATED"| HUMAN["🧑‍💻 Human-in-the-Loop<br/>(Explicit Approval Gate)"]
 
     style A fill:#1e293b,stroke:#3b82f6,color:#fff
-    HYPERVISOR fill:#0f172a,stroke:#3ecf8e,color:#fff
-    REAL_WORLD fill:#0f2a18,stroke:#10b981,color:#fff
-    DEFENSE fill:#3b1212,stroke:#ef4444,color:#fff
-    HUMAN fill:#2a230f,stroke:#f59e0b,color:#fff
+    style HYPERVISOR fill:#0f172a,stroke:#3ecf8e,color:#fff
+    style REAL_WORLD fill:#0f2a18,stroke:#10b981,color:#fff
+    style DEFENSE fill:#3b1212,stroke:#ef4444,color:#fff
+    style HUMAN fill:#2a230f,stroke:#f59e0b,color:#fff
 ```
 
 ### The Architectural Separation
@@ -170,7 +170,7 @@ flowchart TD
     START["📥 Inbound Agent Action<br/>(Tool / Shell / SQL / Network)"] --> PARSE["⚡ AST Parsing & Intent Normalization<br/>(De-obfuscate split flags, long-form syntax, RCE chains)"]
     
     PARSE --> TAINT{"🔒 Dynamic Taint Tracking<br/>(Has secret touched memory?)"}
-    TAINT -->|Yes: Sink is Public| BLOCK_TAINT["⛔ BLOCKED: Lattice Violation<br/>(Prevent Turn 1 read -> Turn 2 exfil)"]
+    TAINT -->|Yes: Sink is Public| BLOCK_TAINT["⛔ BLOCKED: Lattice Violation<br/>(Prevent Turn 1 read to Turn 2 exfil)"]
     TAINT -->|No: Flow Valid| STEGO["🧹 Steganography Neutralizer<br/>(Strip trailing tabs/spaces, zero-width unicode)"]
 
     STEGO --> POLICY{"🔍 Policy & Invariant Check"}
