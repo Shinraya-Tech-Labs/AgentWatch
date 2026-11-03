@@ -13,6 +13,7 @@ Key defenses:
 from __future__ import annotations
 
 import re
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -118,16 +119,22 @@ class CrescendoDriftMonitor:
         velocity_threshold: float = 0.15,
         cumulative_drift_limit: float = 0.65,
         consecutive_rise_limit: int = 3,
+        max_sessions: int = 5_000,
     ) -> None:
         self.velocity_threshold = velocity_threshold
         self.cumulative_drift_limit = cumulative_drift_limit
         self.consecutive_rise_limit = consecutive_rise_limit
-        self._sessions: dict[str, list[ConversationTurn]] = {}
-        self._anchors: dict[str, str] = {}
+        self.max_sessions = max_sessions
+        self._sessions: OrderedDict[str, list[ConversationTurn]] = OrderedDict()
+        self._anchors: OrderedDict[str, str] = OrderedDict()
 
     def register_session_anchor(self, session_id: str, initial_objective: str) -> None:
         """Register the authoritative initial session objective as the anchor."""
+        if len(self._anchors) >= self.max_sessions:
+            self._anchors.popitem(last=False)
         self._anchors[session_id] = initial_objective.strip()
+        if len(self._sessions) >= self.max_sessions:
+            self._sessions.popitem(last=False)
         self._sessions[session_id] = []
 
     def _compute_risk_score(self, text: str) -> float:
@@ -169,8 +176,17 @@ class CrescendoDriftMonitor:
         anchor = self._anchors.get(session_id, user_input)
         if session_id not in self._anchors:
             self.register_session_anchor(session_id, user_input)
+        else:
+            self._anchors.move_to_end(session_id)
 
-        turns = self._sessions.setdefault(session_id, [])
+        if session_id not in self._sessions:
+            if len(self._sessions) >= self.max_sessions:
+                self._sessions.popitem(last=False)
+            self._sessions[session_id] = []
+        else:
+            self._sessions.move_to_end(session_id)
+
+        turns = self._sessions[session_id]
         turn_number = len(turns) + 1
 
         combined_text = f"{user_input} {action_name} {str(arguments)}"
@@ -222,6 +238,26 @@ class CrescendoDriftMonitor:
                 reason=(
                     f"Crescendo multi-turn drift detected: {consecutive_rises} consecutive turns "
                     f"with increasing proximity to restricted threat centroids (velocity={avg_velocity:.3f})."
+                ),
+            )
+
+        # CUSUM sequential test (Page 1954 / CURA 2026): S_t = max(0, S_{t-1} + (X_t - k))
+        # Detects subtle, persistent positive shifts in mean risk score
+        cusum = 0.0
+        baseline_k = 0.05
+        for t in turns:
+            cusum = max(0.0, cusum + (t.risk_score - baseline_k))
+
+        if cusum >= 0.50 and current_risk > 0.20 and len(turns) >= 3:
+            return DriftAssessment(
+                status=DriftStatus.CRESCENDO_DRIFT_SUSPECTED,
+                verdict=Verdict.BLOCK,
+                cumulative_drift=cumulative_drift,
+                velocity=avg_velocity,
+                consecutive_risk_increases=consecutive_rises,
+                reason=(
+                    f"Crescendo CUSUM sequential drift detected (cusum={cusum:.3f}): "
+                    f"persistent subtle multi-turn shift toward restricted capabilities."
                 ),
             )
 

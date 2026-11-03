@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import binascii
 import urllib.parse
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -61,9 +62,12 @@ class TaintRecord:
 class DynamicTaintTracker:
     """Session and tenant-scoped taint tracker that follows data through encodings and transformations."""
 
-    def __init__(self) -> None:
+    def __init__(self, max_scopes: int = 5_000, max_records_per_scope: int = 1_000) -> None:
+        self.max_scopes = max_scopes
+        self.max_records_per_scope = max_records_per_scope
         # scope (tenant_id/session_id or None) -> list of TaintRecord
-        self.scoped_records: dict[str | None, list[TaintRecord]] = {None: []}
+        self.scoped_records: OrderedDict[str | None, list[TaintRecord]] = OrderedDict()
+        self.scoped_records[None] = []
 
     @property
     def records(self) -> list[TaintRecord]:
@@ -81,8 +85,19 @@ class DynamicTaintTracker:
             return
         record = TaintRecord(source=source, label=label, raw_value=value)
         if scope not in self.scoped_records:
+            if len(self.scoped_records) >= self.max_scopes:
+                # Evict oldest non-None scope
+                for k in list(self.scoped_records.keys()):
+                    if k is not None:
+                        del self.scoped_records[k]
+                        break
             self.scoped_records[scope] = []
+        elif scope is not None:
+            self.scoped_records.move_to_end(scope)
+
         self.scoped_records[scope].append(record)
+        if len(self.scoped_records[scope]) > self.max_records_per_scope:
+            self.scoped_records[scope].pop(0)
 
     def register_from_payload(self, source: str, payload: Any, scope: str | None = None) -> None:
         """Scan payload for secrets and automatically register their dynamic taints."""

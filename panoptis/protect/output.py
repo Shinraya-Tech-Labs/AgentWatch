@@ -145,7 +145,17 @@ LEGACY_RULES: tuple[_Rule, ...] = tuple(
     if name != "bidi_control_chars"  # handled as INVISIBLE below
 )
 RULES = INDIRECT_RULES + LEGACY_RULES
-MARKDOWN_EXFIL = re.compile(r"!\[[^\]]*\]\((https?://[^)\s]+\?[^)\s]*=[^)\s]{8,})\)")
+MARKDOWN_EXFIL = re.compile(r"!\[[^\]]*\]\((https?://[^)\s]+\?[^)\s]*=[^)\s]{6,})\)")
+MARKDOWN_REF_EXFIL = re.compile(r"""(?im)^\s*\[[^\]]+\]:\s*(https?://[^\s]+\?[^\s]*=[^\s]{6,})""")
+HTML_TAG_EXFIL = re.compile(
+    r"""(?i)<(?:img|iframe|link|embed|script)\b[^>]+(?:src|href)\s*=\s*["'](https?://[^"'>\s]+\?[^"'>\s]*=[^"'>\s]{6,})["'][^>]*>"""
+)
+CSS_URL_EXFIL = re.compile(
+    r"""(?i)url\(\s*["']?(https?://[^"')\s]+\?[^"')\s]*=[^"')\s]{6,})["']?\s*\)"""
+)
+OAST_DNS_EXFIL = re.compile(
+    r"""(?i)\b(?:[a-zA-Z0-9_\-\.]{4,}\.)?(?:burpcollaborator\.net|oastify\.com|oast\.fun|oast\.site|canarytokens\.com|interactsh\.com|webhook\.site|requestbin\.com)\b"""
+)
 INVISIBLE = re.compile(
     r"[\U000E0000-\U000E007F]|[\u202a-\u202e\u2066-\u2069]|[\u200b-\u200f\u2060\ufeff]{3,}"
 )
@@ -367,22 +377,44 @@ class OutputInspector:
                 )
             counters["quarantined"] += n
 
-        # 3. exfiltration beacons in markdown
-        for m in MARKDOWN_EXFIL.finditer(out):
-            findings.append(
-                Finding(
-                    Stage.OUTPUT,
-                    "INDIRECT_MARKDOWN_EXFIL",
-                    Severity.HIGH,
-                    "Markdown image whose URL carries data (a zero-click exfiltration beacon)",
-                    {"path": path, "url": m.group(1)[:200]},
-                    OwaspVector.DATA_EXFILTRATION.value,
-                    Verdict.BLOCK,
+        # 3. zero-click exfiltration beacons (markdown, HTML, CSS, and OAST/canary domains)
+        beacon_patterns = [
+            ("INDIRECT_MARKDOWN_EXFIL", MARKDOWN_EXFIL, "Markdown image whose URL carries data"),
+            (
+                "INDIRECT_MARKDOWN_REF_EXFIL",
+                MARKDOWN_REF_EXFIL,
+                "Markdown reference link carrying data",
+            ),
+            (
+                "INDIRECT_HTML_TAG_EXFIL",
+                HTML_TAG_EXFIL,
+                "HTML media/link tag whose source carries data",
+            ),
+            ("INDIRECT_CSS_URL_EXFIL", CSS_URL_EXFIL, "CSS background/import URL carrying data"),
+            (
+                "INDIRECT_OAST_CANARY_EXFIL",
+                OAST_DNS_EXFIL,
+                "Out-of-band application security testing (OAST) / canary token exfiltration domain",
+            ),
+        ]
+
+        for code, pattern, desc in beacon_patterns:
+            for m in pattern.finditer(out):
+                matched_snippet = m.group(1) if m.groups() else m.group(0)
+                findings.append(
+                    Finding(
+                        Stage.OUTPUT,
+                        code,
+                        Severity.HIGH,
+                        f"{desc} (a zero-click exfiltration beacon)",
+                        {"path": path, "url": matched_snippet[:200]},
+                        OwaspVector.DATA_EXFILTRATION.value,
+                        Verdict.BLOCK,
+                    )
                 )
-            )
-        if MARKDOWN_EXFIL.search(out):
-            out = MARKDOWN_EXFIL.sub("[AGENTWATCH: removed an image link carrying data]", out)
-            counters["quarantined"] += 1
+            if pattern.search(out):
+                out = pattern.sub("[AGENTWATCH: removed zero-click exfiltration beacon]", out)
+                counters["quarantined"] += 1
 
         # 4. secrets
         hits = find_secrets(out)

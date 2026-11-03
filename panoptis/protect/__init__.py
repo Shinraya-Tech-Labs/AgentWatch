@@ -55,9 +55,12 @@ from panoptis.protect.formal_verifier import (
     VerificationStatus,
 )
 from panoptis.protect.ifc_lattice import (
+    DEFAULT_INTEGRITY_REQUIREMENTS,
     DEFAULT_SINK_CLEARANCES,
     InformationFlowEngine,
+    IntegrityLabel,
     SecurityLabel,
+    SessionTrifectaState,
     TaintContext,
 )
 from panoptis.protect.integrity import RuntimeIntegrityGuard
@@ -143,6 +146,7 @@ __all__ = [
     "CounterfactualHazardProof",
     "CounterfactualResult",
     "CrescendoDriftMonitor",
+    "DEFAULT_INTEGRITY_REQUIREMENTS",
     "DEFAULT_SINK_CLEARANCES",
     "Decision",
     "DownstreamBlastRadiusEvaluator",
@@ -160,6 +164,7 @@ __all__ = [
     "FormalVerificationCertificate",
     "GroundingConfig",
     "InformationFlowEngine",
+    "IntegrityLabel",
     "IntentGrounder",
     "KernelSandbox",
     "KernelSandboxConfig",
@@ -191,6 +196,7 @@ __all__ = [
     "SandboxExecutionError",
     "SandboxResult",
     "SecurityLabel",
+    "SessionTrifectaState",
     "SimulatedStep",
     "SimulationConfig",
     "SnapshotDiff",

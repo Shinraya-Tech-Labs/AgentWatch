@@ -13,6 +13,7 @@ taint propagation across agent tool chains.
 from __future__ import annotations
 
 import re
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any
@@ -41,6 +42,28 @@ class SecurityLabel(IntEnum):
         return SecurityLabel(min(self.value, other.value))
 
 
+class IntegrityLabel(IntEnum):
+    """Biba Dual-Lattice Integrity model for agentic workflow verification."""
+
+    UNTRUSTED = 0  # External web, unverified input, untrusted emails, scraped webhooks
+    COMMUNITY = 1  # Public packages, unverified open-source repos
+    INTERNAL = 2  # Internal company documentation, internal notes
+    TRUSTED = 3  # Authenticated developer commands, approved task directives
+    AUTHORITATIVE = 4  # Root security policies, enclave attestation, cryptographic keys
+
+    def can_flow_to(self, target: IntegrityLabel) -> bool:
+        """Biba's flows-to relation: I1 >= I2 (cannot write up to higher integrity without declassification)."""
+        return self.value >= target.value
+
+    def join(self, other: IntegrityLabel) -> IntegrityLabel:
+        """LUB in integrity: the resulting integrity is bounded by the weakest link: min(I1, I2)."""
+        return IntegrityLabel(min(self.value, other.value))
+
+    def meet(self, other: IntegrityLabel) -> IntegrityLabel:
+        """GLB in integrity: max(I1, I2)."""
+        return IntegrityLabel(max(self.value, other.value))
+
+
 # Default sink clearance levels for common tools and protocols
 DEFAULT_SINK_CLEARANCES: dict[str, SecurityLabel] = {
     # Public network endpoints
@@ -60,12 +83,62 @@ DEFAULT_SINK_CLEARANCES: dict[str, SecurityLabel] = {
     "vault_store": SecurityLabel.SECRET,
 }
 
+# Minimum integrity required to execute consequential actions
+DEFAULT_INTEGRITY_REQUIREMENTS: dict[str, IntegrityLabel] = {
+    "execute_shell": IntegrityLabel.INTERNAL,
+    "bash": IntegrityLabel.INTERNAL,
+    "sh": IntegrityLabel.INTERNAL,
+    "subprocess": IntegrityLabel.INTERNAL,
+    "write_file": IntegrityLabel.INTERNAL,
+    "append_file": IntegrityLabel.INTERNAL,
+    "delete_file": IntegrityLabel.TRUSTED,
+    "database_query": IntegrityLabel.INTERNAL,
+    "deploy_service": IntegrityLabel.TRUSTED,
+    "modify_config": IntegrityLabel.TRUSTED,
+}
+
+# Tools that produce untrusted integrity by default
+UNTRUSTED_OUTPUT_TOOLS: set[str] = {
+    "fetch_url",
+    "http_get",
+    "curl",
+    "wget",
+    "web_search",
+    "read_email",
+    "scrape",
+    "read_github_issue",
+    "read_github_pr",
+}
+
+# Tools that read private or internal data
+PRIVATE_DATA_TOOLS: set[str] = {
+    "read_file",
+    "cat",
+    "database_query",
+    "vault_get",
+    "get_secret",
+    "read_env",
+}
+
+_SHELL_EGRESS_PATTERNS = re.compile(
+    r"(?i)\b(curl|wget|nc|ncat|netcat|socat|ssh|scp|sftp|ftp|telnet|invoke-webrequest|invoke-restmethod|fetch|urllib|requests|socket\.connect)\b|/dev/(?:tcp|udp)/"
+)
+
 # Regex for common high-confidence PII/confidential data
 _PII_PATTERNS = [
     ("EMAIL", re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")),
     ("SSN", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
     ("JWT", re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}")),
 ]
+
+
+@dataclass
+class SessionTrifectaState:
+    """Tracks the Lethal Trifecta (Private Data + Untrusted Input + Egress)."""
+
+    has_read_private: bool = False
+    has_untrusted_input: bool = False
+    active_integrity: IntegrityLabel = IntegrityLabel.TRUSTED
 
 
 @dataclass
@@ -82,22 +155,45 @@ class TaintContext:
 
 
 class InformationFlowEngine:
-    """Rigorous information flow tracking and non-interference verifier."""
+    """Rigorous information flow tracking, non-interference, and Lethal Trifecta verifier."""
 
     def __init__(
         self,
         sink_clearances: dict[str, SecurityLabel] | None = None,
         default_sink_clearance: SecurityLabel = SecurityLabel.PUBLIC,
         taint_tracker: Any = None,
+        max_sessions: int = 5_000,
     ) -> None:
         self.sink_clearances = dict(sink_clearances or DEFAULT_SINK_CLEARANCES)
         self.default_sink_clearance = default_sink_clearance
+        self.max_sessions = max_sessions
+        self.trifecta_states: OrderedDict[str, SessionTrifectaState] = OrderedDict()
         if taint_tracker is not None:
             self.taint_tracker = taint_tracker
         else:
             from panoptis.protect.taint_tracker import DynamicTaintTracker
 
             self.taint_tracker = DynamicTaintTracker()
+
+    def _get_or_create_trifecta(self, scope: str | None) -> SessionTrifectaState:
+        key = scope or "default"
+        if key in self.trifecta_states:
+            self.trifecta_states.move_to_end(key)
+            return self.trifecta_states[key]
+        if len(self.trifecta_states) >= self.max_sessions:
+            self.trifecta_states.popitem(last=False)
+        state = SessionTrifectaState()
+        self.trifecta_states[key] = state
+        return state
+
+    def resolve_sink_clearance(self, tool: str, arguments: dict[str, Any]) -> SecurityLabel:
+        """Resolve dynamic sink clearance (e.g. shell command executing network egress)."""
+        base_clearance = self.sink_clearances.get(tool.lower(), self.default_sink_clearance)
+        if tool.lower() in ("execute_shell", "bash", "sh", "terminal", "powershell", "cmd"):
+            for val in arguments.values():
+                if val and _SHELL_EGRESS_PATTERNS.search(str(val)):
+                    return SecurityLabel.PUBLIC
+        return base_clearance
 
     def infer_label(self, value: Any, scope: str | None = None) -> SecurityLabel:
         """Infer security label by static analysis AND dynamic transformation tracking."""
@@ -130,9 +226,24 @@ class InformationFlowEngine:
         return base_label
 
     def record_result(self, tool: str, result: Any, scope: str | None = None) -> None:
-        """Dynamically propagate confidentiality labels when a tool execution produces sensitive data."""
+        """Dynamically propagate confidentiality and integrity labels when a tool execution completes."""
         if self.taint_tracker is not None and result is not None:
             self.taint_tracker.register_from_payload(f"{tool}:output", result, scope=scope)
+
+        state = self._get_or_create_trifecta(scope)
+        t_lower = tool.lower()
+        if t_lower in UNTRUSTED_OUTPUT_TOOLS:
+            state.has_untrusted_input = True
+            state.active_integrity = state.active_integrity.join(IntegrityLabel.UNTRUSTED)
+
+        if t_lower in PRIVATE_DATA_TOOLS:
+            state.has_read_private = True
+        elif result is not None:
+            text = str(result)
+            for _, pat in SECRET_PATTERNS:
+                if pat.search(text):
+                    state.has_read_private = True
+                    break
 
     def verify_flow(
         self,
@@ -140,13 +251,17 @@ class InformationFlowEngine:
         sink_tool: str,
         channel_name: str = "",
         declassified_with: str | None = None,
+        effective_sink_clearance: SecurityLabel | None = None,
     ) -> tuple[bool, Finding | None]:
         """Verify whether data from source_label can legally flow into sink_tool."""
-        sink_label = self.sink_clearances.get(sink_tool, self.default_sink_clearance)
+        sink_label = (
+            effective_sink_clearance
+            if effective_sink_clearance is not None
+            else self.sink_clearances.get(sink_tool.lower(), self.default_sink_clearance)
+        )
 
         # Explicit declassification hook
         if declassified_with:
-            # Verified sanitized / declassified
             return True, None
 
         if source_label.can_flow_to(sink_label):
@@ -179,19 +294,75 @@ class InformationFlowEngine:
         context_label: SecurityLabel = SecurityLabel.PUBLIC,
         scope: str | None = None,
     ) -> tuple[SecurityLabel, list[Finding]]:
-        """Compute the combined taint label of arguments and verify flow into target tool."""
+        """Compute taint, verify Denning non-interference, Biba integrity, and Lethal Trifecta invariant."""
         current_label = context_label
         findings: list[Finding] = []
+        state = self._get_or_create_trifecta(scope)
 
-        # Infer taint of each argument
+        t_lower = tool.lower()
+        if t_lower in PRIVATE_DATA_TOOLS:
+            state.has_read_private = True
+
+        effective_sink_clearance = self.resolve_sink_clearance(tool, arguments)
+        is_egress = effective_sink_clearance == SecurityLabel.PUBLIC
+
+        # 1. Lethal Trifecta Invariant Enforcement
+        if is_egress and state.has_read_private and state.has_untrusted_input:
+            findings.append(
+                Finding(
+                    stage=Stage.THREAT,
+                    code="LETHAL_TRIFECTA_CONVERGENCE",
+                    severity=Severity.CRITICAL,
+                    message=(
+                        f"Lethal Trifecta Invariant Violation: Agent holds private/confidential data "
+                        f"AND has ingested untrusted content, and is now attempting outbound egress '{tool}'. "
+                        f"Potential autonomous indirect exfiltration."
+                    ),
+                    evidence={
+                        "tool": tool,
+                        "has_read_private": state.has_read_private,
+                        "has_untrusted_input": state.has_untrusted_input,
+                        "scope": scope,
+                    },
+                    recommends=Verdict.BLOCK,
+                )
+            )
+
+        # 2. Biba Integrity Verification
+        if t_lower in DEFAULT_INTEGRITY_REQUIREMENTS:
+            req_integrity = DEFAULT_INTEGRITY_REQUIREMENTS[t_lower]
+            if not state.active_integrity.can_flow_to(req_integrity):
+                findings.append(
+                    Finding(
+                        stage=Stage.THREAT,
+                        code="IFC_INTEGRITY_VIOLATION",
+                        severity=Severity.HIGH,
+                        message=(
+                            f"Information Flow Integrity Violation: {state.active_integrity.name} input "
+                            f"cannot invoke {req_integrity.name} execution sink '{tool}' without sanitization."
+                        ),
+                        evidence={
+                            "tool": tool,
+                            "active_integrity": state.active_integrity.name,
+                            "required_integrity": req_integrity.name,
+                            "scope": scope,
+                        },
+                        recommends=Verdict.BLOCK,
+                    )
+                )
+
+        # 3. Denning Non-Interference Confidentiality Flow Verification
         for arg_key, arg_val in arguments.items():
             arg_label = self.infer_label(arg_val, scope=scope)
             current_label = current_label.join(arg_label)
 
-            if not arg_label.can_flow_to(
-                self.sink_clearances.get(tool, self.default_sink_clearance)
-            ):
-                allowed, finding = self.verify_flow(arg_label, tool, channel_name=arg_key)
+            if not arg_label.can_flow_to(effective_sink_clearance):
+                allowed, finding = self.verify_flow(
+                    arg_label,
+                    tool,
+                    channel_name=arg_key,
+                    effective_sink_clearance=effective_sink_clearance,
+                )
                 if not allowed and finding:
                     findings.append(finding)
 
