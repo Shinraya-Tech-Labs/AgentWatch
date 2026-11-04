@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from panoptis.cli.main import main
+import sys
+
+from panopti.cli import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

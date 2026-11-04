@@ -51,13 +51,16 @@ def _guard(fn: Any) -> Any:
     """Turn lookup/validation errors into a clean CLI error instead of a traceback."""
     import functools
 
+    from sqlalchemy.exc import SQLAlchemyError
+
     from panoptis.query.workspace import AmbiguousError, NotFoundError
 
     @functools.wraps(fn)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return fn(*args, **kwargs)
-        except (NotFoundError, AmbiguousError, LookupError, ValueError) as exc:
+        # SQLAlchemyError: an uninitialised store must not dump a traceback
+        except (NotFoundError, AmbiguousError, LookupError, ValueError, SQLAlchemyError) as exc:
             _fail(str(exc))
 
     return wrapper

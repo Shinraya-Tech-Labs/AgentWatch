@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
 from typing import Any
 
 from panopti._banner import print_banner
+from panoptis.cli._utils import ensure_utf8_stdio
 
 
 def _int_flag(argv: list[str], flag: str, *, default: int, minimum: int) -> int:
@@ -80,37 +80,45 @@ def _attest_report(rest: list[str]) -> int:
     return 0
 
 
+def _wants_help(argv: list[str]) -> bool:
+    """True when ``-h``/``--help`` appears after the subcommand."""
+    return any(a in ("-h", "--help") for a in argv[1:])
+
+
 def main(args: list[str] | None = None) -> Any:
     """CLI entrypoint dispatching Panopti-specific commands and delegating to AgentWatch."""
+    ensure_utf8_stdio()
     argv = list(sys.argv[1:] if args is None else args)
 
-    if not argv or argv[0] in ("-h", "--help") and len(argv) == 1:
-        # Check if user specifically called 'panopti --help'
-        prog = Path(sys.argv[0]).stem
-        if "panopti" in prog.lower() and not argv:
-            print_banner()
-            print("Usage: panopti [COMMAND] [ARGS]...\n")
-            print("Panopti Commands:")
-            print(
-                "  demo            Run interactive terminal hypervisor simulation [--theme <name>] [--kill-file <path>]"
-            )
-            print("  playground      Launch zero-dependency local web interactive playground")
-            print("  doctor          Run system, interceptor, and circuit breaker health checks")
-            print(
-                "  top / live      Interactive terminal sentinel monitor [--profile <name>]"
-                " [--cooldown <s>] [--max-failures <n>]"
-            )
-            print("  bench           Measure hypervisor latency overhead [--iterations <n>]")
-            print("  court verify    Verify a cryptographic execution witness proof (.json)")
-            print("  attest verify   Verify an immutable cryptographic policy attestation seal")
-            print("  attest report   Export a seal as a Markdown or HTML report [--format md|html]")
-            print("  replay          Run deterministic shadow replay of an execution tape (.json)")
-            print("  synth           Synthesize invariant contracts from trace (.json)\n")
-            print("Available Profiles: fintech, devops, healthcare, support\n")
-            print("For all core AgentWatch commands, pass standard subcommands.\n")
+    if not argv or (len(argv) == 1 and argv[0] in ("-h", "--help")):
+        print_banner()
+        print("Usage: panopti [COMMAND] [ARGS]...\n")
+        print("Panopti Commands:")
+        print(
+            "  demo            Run interactive terminal hypervisor simulation [--theme <name>] [--kill-file <path>]"
+        )
+        print("  playground      Launch zero-dependency local web interactive playground")
+        print("  doctor          Run system, interceptor, and circuit breaker health checks")
+        print(
+            "  top / live      Interactive terminal sentinel monitor [--profile <name>]"
+            " [--cooldown <s>] [--max-failures <n>]"
+        )
+        print("  bench           Measure hypervisor latency overhead [--iterations <n>]")
+        print("  court verify    Verify a cryptographic execution witness proof (.json)")
+        print("  attest verify   Verify an immutable cryptographic policy attestation seal")
+        print("  attest report   Export a seal as a Markdown or HTML report [--format md|html]")
+        print("  replay          Run deterministic shadow replay of an execution tape (.json)")
+        print("  synth           Synthesize invariant contracts from trace (.json)\n")
+        print("Available Profiles: fintech, devops, healthcare, support\n")
+        print("For all core AgentWatch commands, pass standard subcommands.\n")
+        return 0
 
     if argv and argv[0] == "demo":
         from panopti.demo import run_interactive_demo
+
+        if _wants_help(argv):
+            print("Usage: panopti demo [--theme <name>] [--fast] [--no-color] [--kill-file <path>]")
+            return 0
 
         fast = "--fast" in argv
         no_color = "--no-color" in argv
@@ -129,6 +137,10 @@ def main(args: list[str] | None = None) -> Any:
     if argv and argv[0] == "playground":
         from panopti.playground import launch_local_playground
 
+        if _wants_help(argv):
+            print("Usage: panopti playground [--port <n>]  (default 8080)")
+            return 0
+
         port = 8080
         if len(argv) >= 3 and argv[1] in ("-p", "--port"):
             try:
@@ -139,6 +151,10 @@ def main(args: list[str] | None = None) -> Any:
 
     if argv and argv[0] == "doctor":
         from panopti.doctor import format_doctor_report, run_diagnostics
+
+        if _wants_help(argv):
+            print("Usage: panopti doctor")
+            return 0
 
         diag = run_diagnostics()
         print_banner()
@@ -171,6 +187,12 @@ def main(args: list[str] | None = None) -> Any:
     if argv and argv[0] in ("top", "live"):
         from panopti.presets.profiles import get_profile
         from panoptis.circuit_breaker import CircuitBreaker, CircuitThresholds
+
+        if _wants_help(argv):
+            print(
+                "Usage: panopti top|live [--profile <name>] [--cooldown <s>] [--max-failures <n>]"
+            )
+            return 0
 
         profile_name = "devops"
         if "--profile" in argv:

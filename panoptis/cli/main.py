@@ -23,6 +23,7 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
+from panoptis.cli._utils import ensure_utf8_stdio
 from panoptis.cli.mcp import app as mcp_app
 from panoptis.cli.v3 import evidence_app
 from panoptis.cli.v3 import register as _register_v3
@@ -2694,15 +2695,7 @@ def version() -> None:
 
 
 def main() -> None:
-    for stream in (
-        sys.stdout,
-        sys.stderr,
-    ):  # box-drawing and arrows must not crash legacy Windows consoles
-        if hasattr(stream, "reconfigure") and (stream.encoding or "").lower() not in (
-            "utf-8",
-            "utf8",
-        ):
-            stream.reconfigure(encoding="utf-8", errors="replace")
+    ensure_utf8_stdio()  # box-drawing and arrows must not crash legacy Windows consoles
     app()
 
 

@@ -121,37 +121,36 @@ Then open:
 
 - http://localhost:3000
 
-The demo script does three things:
+This is a **local simulation**. It needs no Docker, no API server, and no `.env`,
+and it never executes the commands it inspects.
 
-1. Confirms the API is reachable
-2. Registers a synthetic agent session
-3. Streams events into the dashboard over the WebSocket feed
+The script does three things:
+
+1. Replays a hardcoded four-step agent transcript
+2. Scores each step's shell command with the real `RiskScorer` and `BlastRadiusEstimator`
+3. Blocks the destructive step (`sudo rm -rf /var/lib/postgresql/data`) before it runs
 
 ### What You Should See
 
-In the terminal, you should see output like:
+In the terminal:
 
-- API connectivity verified
-- Session registered
-- Live events streaming
-- A blocked dangerous command, such as `rm -rf /var/log/*`
-- A final success message showing the pipeline demo completed
+- Three steps reported as allowed
+- A `BLOCKED` line for the database wipe, with its risk score, blast radius, and the rule that triggered
+- A summary panel explaining that the agent was stopped and nothing was deleted
 
-In the dashboard, expect to see:
+### What the Demo Does Not Do
 
-- A new session in the sessions table
-- Live events appearing in real time
-- One or more safety blocks
-- Confidence and cost metrics updating
+It does not contact the API, the database, or the dashboard — there is no
+WebSocket traffic and no session is registered. It is a zero-config way to see
+the safety engine make a decision.
 
-The demo also confirms the dashboard can receive events through the WebSocket stream at `/ws/events`.
+To watch a live session reach the dashboard, start the stack with
+`docker compose up -d` and connect an agent as described in the next section.
 
 ### Common Troubleshooting
 
-- If the demo says it cannot reach `http://localhost:8000`, the API container is not ready yet. Wait a few seconds and try again.
-- If the dashboard is blank, confirm `docker compose up -d` completed successfully and refresh the page.
+- If the dashboard is blank, confirm `docker compose up -d` completed successfully and refresh http://localhost:3000.
 - If port 3000, 8000, 5432, or 6379 is already in use, stop the conflicting service and restart the stack.
-- If the final WebSocket confirmation line mentions the `websockets` package, you can ignore it for a basic walkthrough, or install it with `python -m pip install websockets` and rerun the demo.
 
 ## 3. Connect Your First Agent
 

@@ -3,7 +3,7 @@ Demo agent for AgentWatch — exercises the full watch() → dashboard pipeline.
 
 Usage:
     # Terminal 1: start the API server
-    panoptis serve
+    panoptis server start
 
     # Terminal 2: run this script
     python real_agent.py
