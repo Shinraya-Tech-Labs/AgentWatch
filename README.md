@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://img.shields.io/pypi/v/panoptis?label=PyPI%20v0.3.1&color=blue&style=for-the-badge" alt="PANOPTIS on PyPI" />
+<img src="https://img.shields.io/pypi/v/panoptis?label=PyPI&color=blue&style=for-the-badge" alt="PANOPTIS on PyPI" />
 
 # 👁️ PANOPTIS
 ### *(formerly AgentWatch)*
@@ -15,7 +15,8 @@
 <br/>
 
 [![PyPI Version](https://img.shields.io/pypi/v/panoptis?style=flat-square&color=blue)](https://pypi.org/project/panoptis/)
-[![Tests](https://img.shields.io/badge/tests-3%2C060+_passing-brightgreen?style=flat-square)](https://github.com/Shinraya-Tech-Labs/AgentWatch)
+[![CI](https://github.com/Shinraya-Tech-Labs/AgentWatch/actions/workflows/ci.yml/badge.svg)](https://github.com/Shinraya-Tech-Labs/AgentWatch/actions/workflows/ci.yml)
+[![Bandit](https://github.com/Shinraya-Tech-Labs/AgentWatch/actions/workflows/bandit.yml/badge.svg)](https://github.com/Shinraya-Tech-Labs/AgentWatch/actions/workflows/bandit.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/Shinraya-Tech-Labs/AgentWatch?style=flat-square)](https://codecov.io/gh/Shinraya-Tech-Labs/AgentWatch)
 [![License](https://img.shields.io/badge/license-Apache_2.0-blue?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12+-blue?style=flat-square&logo=python)](https://python.org)
@@ -419,7 +420,7 @@ panoptis check-env               # Validate cryptographic keys, database isolati
 panoptis observe python agent.py # Trace and cryptographically record an agent run
 panoptis inspect latest          # Reconstruct execution steps, confidence, and tokens
 panoptis compare run_A run_B     # Compute earliest point of semantic divergence
-panoptis replay latest --level L2# Shadow replay using immutable evidence cache
+panoptis replay latest --level L2  # Shadow replay using immutable evidence cache
 panoptis session rollback <id>   # Revert filesystem state to a prior git snapshot
 ```
 
@@ -440,10 +441,10 @@ pytest tests/protect/ -v
 pytest tests/test_deep_audit_ecosystem.py -v
 ```
 
-- **3,060+ Unit & Integration Tests Passing**
-- **100% Deterministic Reproducibility**
-- **Zero Known Vulnerabilities** (Gitleaks, Bandit AST, and Pip-Audit verified)
-- **High-Concurrency Validated** (Locust load-tested at enterprise request thresholds)
+- **3,000+ Unit & Integration Tests** — 3,067 collected; the [CI badge](https://github.com/Shinraya-Tech-Labs/AgentWatch/actions/workflows/ci.yml) above is the source of truth, not this line
+- **Deterministic replay** — shadow replay reproduces a run from the evidence cache without re-issuing live API calls
+- **Static analysis in CI** — [Bandit](https://github.com/Shinraya-Tech-Labs/AgentWatch/actions/workflows/bandit.yml) AST scan on every push; run `pip-audit` yourself, we do not gate on it
+- **Load tested with Locust** (`benchmarks/`), not a published SLA
 
 ---
 
