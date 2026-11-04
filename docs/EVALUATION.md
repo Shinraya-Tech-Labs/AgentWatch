@@ -43,7 +43,7 @@ Integrations measured on the dangerous-arguments category:
 
 On this corpus, every attack category is detected with 0 false positives on its benign controls, and every integration agrees. Output sanitization is correct for 7 of 7 attack outputs, and all 5 benign outputs are returned unchanged. Intent findings escalate rather than block, by design.
 
-The overhead of a decision through `enforce_call` (decide, run a no-op tool, inspect, record) is about 0.26–0.36 ms (p50) without evidence recording; an escalation answered by an approver costs about 0.6 ms. With a local SQLite evidence store, a decision is about 1.5–1.8 ms and an approved escalation about 6 ms, and the p99 is dominated by disk writes. Throughput is about 2,800–3,300 decisions/s on the measured machine. See the report for the exact numbers and environment.
+The overhead of a decision through `enforce_call` (decide, run a no-op tool, inspect, record) is about 0.25–0.33 ms (p50) without evidence recording; an escalation answered by an approver costs about 0.6 ms. With a local SQLite evidence store, a decision is about 1.5–1.9 ms and an approved escalation about 6 ms, and the p99 (about 18–60 ms) is dominated by disk writes. Throughput is about 1,900–2,500 decisions/s on the measured machine. See the report for the exact numbers and environment.
 
 ## Read these numbers with care
 
