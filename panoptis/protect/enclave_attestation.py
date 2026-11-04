@@ -1,21 +1,21 @@
-"""Hardware-Attested Confidential Enclave Verification (WP-09).
+"""Reference implementation for handling hardware-enclave attestation documents.
 
-Verifies cryptographic attestation documents issued by hardware confidential
-computing enclaves (AMD SEV-SNP and AWS Nitro Enclaves):
+.. warning::
+   This module does **not** verify hardware attestation. It checks the *shape* of a
+   document: PCR values against configured golden measurements, nonce freshness and
+   timestamp age, plus whether the ``signature`` field is non-empty. It does not
+   verify signatures, X.509 certificate chains, or the hardware root of trust, so a
+   document carrying any non-empty signature string passes. Treat
+   ``is_valid=True`` as "the fields looked plausible", never as proof that code is
+   running inside a TEE.
 
-1. Platform Configuration Registers (PCRs) Verification:
-   PCR0: Enclave kernel / image hash
-   PCR1: Enclave OS / initrd hash
-   PCR2: Agent runtime & governance layer hash
-   Matches against cryptographically authorized golden measurements.
+   With the default config no golden PCRs are configured, so no measurement is
+   compared either.
 
-2. Anti-Replay Nonce Verification:
-   Verifies that attestation documents were freshly minted for the current session,
-   preventing replay attacks.
-
-3. Cryptographic Chain of Trust:
-   Validates the X.509 certificate chain back to the hardware root of trust
-   (AMD VCEK or AWS Nitro Enclave Root CA).
+   Real verification needs the platform verifier (AWS Nitro: COSE Sign1 document and
+   Nitro root CA; AMD SEV-SNP: SNP report signature and VCEK certificate chain) plus
+   published golden measurements. Until that exists this module is for tests, demos
+   and API shape only. Do not deploy it as a security control.
 """
 
 from __future__ import annotations
@@ -98,11 +98,15 @@ class EnclaveVerificationConfig:
     golden_pcr1: list[str] = field(default_factory=list)
     golden_pcr2: list[str] = field(default_factory=list)
     max_attestation_age_seconds: float = 300.0  # 5 minutes
-    allow_emulator: bool = True
+    allow_emulator: bool = False  # emulator documents are rejected unless opted in
 
 
 class EnclaveAttestationVerifier:
-    """Hardware Enclave attestation validator for zero-trust confidential agent governance."""
+    """Structural validator for enclave attestation documents.
+
+    No signature or certificate-chain verification happens here; see the module
+    docstring. Suitable for exercising the decision pipeline, not for trust.
+    """
 
     def __init__(self, config: EnclaveVerificationConfig | None = None) -> None:
         self.config = config or EnclaveVerificationConfig()
@@ -112,7 +116,11 @@ class EnclaveAttestationVerifier:
         doc: EnclaveAttestationDocument,
         expected_nonce: str | None = None,
     ) -> EnclaveVerificationResult:
-        """Formally verify hardware attestation document against golden measurements."""
+        """Check document fields against golden measurements, nonce and age.
+
+        The signature is only checked for presence, and certificate chains are not
+        inspected at all.
+        """
         # 1. Platform validation
         if doc.platform == EnclavePlatform.HARDWARE_EMULATOR and not self.config.allow_emulator:
             finding = Finding(
@@ -204,7 +212,7 @@ class EnclaveAttestationVerifier:
                 finding=finding,
             )
 
-        # 5. Attestation integrity check
+        # 5. Signature presence only — nothing here can validate a hardware root signature
         if not doc.signature:
             finding = Finding(
                 stage=Stage.IDENTITY,
@@ -227,7 +235,7 @@ class EnclaveAttestationVerifier:
             platform=doc.platform,
             pcr_matches=True,
             nonce_matches=True,
-            reason="Hardware confidential enclave successfully verified",
+            reason="Document fields accepted; signature presence checked but NOT verified",
             finding=None,
         )
 
@@ -241,7 +249,11 @@ class EnclaveAttestationVerifier:
         platform: EnclavePlatform = EnclavePlatform.AWS_NITRO,
         user_data: str = "",
     ) -> EnclaveAttestationDocument:
-        """Create a verifiable attestation document for local testing or simulated environments."""
+        """Build a document with plausible-looking PCRs and a fake signature.
+
+        The "signature" is ``sha256(document_hash)`` with no key, so it proves
+        nothing about any hardware root. Use it to exercise validation logic only.
+        """
         doc = EnclaveAttestationDocument(
             platform=platform,
             pcr0=pcr0,

@@ -191,7 +191,7 @@ gantt
 | **Phase 1** | **Ring-0 Kernel & Sandbox** | `panoptis-kernel` eBPF LSM + Landlock sandboxing | **COMPLETED** (Syscall interception overhead $< 5 \mu s$, memory escapes mathematically impossible at OS boundary). |
 | **Phase 2** | **Formal Verification** | Lean 4 decision kernel + Z3 policy verification | **COMPLETED** (Machine-checked proof of zero false negatives under threat grammar; deterministic execution bound $< 100 \mu s$). |
 | **Phase 3** | **Temporal Simulation** | Fast-forward 16-way counterfactual micro-forking | **COMPLETED** (Downstream cascading risk evaluation in $< 15 \text{ ms}$ [P50: 2.1 ms]; multi-step hazard anticipation & signed `CounterfactualHazardProof`). |
-| **Phase 4** | **Hardware & PQC Sovereignty** | Nitro Enclaves + Recursive zk-STARK attestation | **COMPLETED** (Remote hardware-attested trust; NIST FIPS 204 ML-DSA post-quantum lattice signatures; transparent zk-STARK verification $< 5 \text{ ms}$ [P50: 0.8 ms]; silicon-bound PCR2 attestation). |
+| **Phase 4** | **Hardware & PQC Sovereignty** | Nitro Enclaves + Recursive zk-STARK attestation | **SIMULATED** (`panoptis/protect/pqc_attestation.py` and `enclave_attestation.py` are reference implementations over a 4-dimensional toy lattice and a hash chain; they do not implement ML-DSA, zk-STARKs, or hardware attestation and provide no security. Real Nitro/SEV-SNP verification and a vetted ML-DSA library remain open work.) |
 
 ---
 

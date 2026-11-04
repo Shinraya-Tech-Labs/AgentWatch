@@ -94,3 +94,29 @@ def test_enclave_missing_signature_fails():
     assert not res.is_valid
     assert res.finding is not None
     assert res.finding.code == "ENCLAVE_MISSING_SIGNATURE"
+
+
+def test_enclave_emulator_rejected_by_default():
+    """An emulator document is not hardware attestation; it must be opt-in."""
+    verifier = EnclaveAttestationVerifier()
+    doc = verifier.mint_mock_document(platform=EnclavePlatform.HARDWARE_EMULATOR)
+
+    res = verifier.verify_attestation(doc)
+    assert not res.is_valid
+    assert res.finding is not None
+    assert res.finding.code == "ENCLAVE_EMULATOR_DISALLOWED"
+
+
+def test_enclave_verify_does_not_claim_signature_verification():
+    """Known limitation, asserted so nobody mistakes this for real attestation.
+
+    No signature is validated - any non-empty string passes - and the success
+    reason must say so.
+    """
+    verifier = EnclaveAttestationVerifier()
+    doc = verifier.mint_mock_document()
+    doc.signature = "not-a-real-signature"
+
+    res = verifier.verify_attestation(doc)
+    assert res.is_valid
+    assert "NOT verified" in res.reason

@@ -1,12 +1,9 @@
-"""Tests for Post-Quantum Cryptography (NIST ML-DSA / FIPS 204) & Recursive zk-STARK Attestation.
+"""Tests for the simulated PQC / STARK attestation modules.
 
-Pillar III & VII of Top 0.001% Sovereign Tier Architecture.
-Verifies:
-- NIST FIPS 204 ML-DSA lattice digital signatures and constant-time verification.
-- Tamper-evidence of post-quantum signatures against message or key corruption.
-- Transparent zk-STARK execution trace proof generation and sub-5ms verification.
-- Hardware Enclave (AMD SEV-SNP & AWS Nitro) PCR silicon-to-STARK binding.
-- SovereignAttestationEngine end-to-end multi-cloud cryptographic verification.
+These cover the *reference* implementation in ``panoptis.protect.pqc_attestation``:
+a 4-dimensional toy lattice scheme and a hash-chain "proof". They check structural
+consistency and tamper detection only. They do not, and cannot, establish that any
+post-quantum or zero-knowledge property holds - see that module's docstring.
 """
 
 from __future__ import annotations
@@ -44,7 +41,7 @@ def _make_dummy_decision(tool: str, allowed: bool = True, risk: float = 0.1) -> 
 
 
 def test_pqc_ml_dsa_signing_and_verification() -> None:
-    """Verify that NIST ML-DSA lattice signatures correctly sign and verify payloads."""
+    """The toy lattice signature round-trips and detects tampering (not ML-DSA)."""
     signer = PQCSigner(algorithm=PQCAlgorithm.ML_DSA_65)
     message = b"PANOPTIS-TOP-0.001%-SOVEREIGN-AUDIT-ROOT"
 
@@ -65,7 +62,7 @@ def test_pqc_ml_dsa_signing_and_verification() -> None:
 
 
 def test_stark_proof_generation_and_sub_5ms_verification() -> None:
-    """Verify that zk-STARK execution trace proofs verify strictly in < 5ms."""
+    """The hash-chain transcript verifies quickly (not a STARK, not a soundness proof)."""
     signer = PQCSigner(algorithm=PQCAlgorithm.ML_DSA_44)
     prover = StarkRecursiveProver(signer)
     verifier = StarkRecursiveVerifier()
@@ -100,7 +97,7 @@ def test_stark_proof_generation_and_sub_5ms_verification() -> None:
 
 
 def test_stark_proof_fri_tamper_detection() -> None:
-    """Verify that corrupting any FRI reduction commitment round rejects the proof."""
+    """Corrupting a reduction round is rejected by the structural check."""
     signer = PQCSigner()
     prover = StarkRecursiveProver(signer)
     verifier = StarkRecursiveVerifier()
@@ -118,7 +115,7 @@ def test_stark_proof_fri_tamper_detection() -> None:
 
 
 def test_sovereign_attestation_engine_end_to_end() -> None:
-    """Verify unified Hardware Enclave, zk-STARK, and ML-DSA PQC attestation pipeline."""
+    """The three simulated artifacts are checked against each other (no trust implied)."""
     enclave_doc = EnclaveAttestationVerifier.mint_mock_document(
         platform=EnclavePlatform.AWS_NITRO,
         nonce="challenge-nonce-001",
@@ -142,10 +139,11 @@ def test_sovereign_attestation_engine_end_to_end() -> None:
         policy_root="verified-sovereign-policy-root-hash",
     )
 
-    # 1. Full Sovereign Verification passes
+    # 1. Consistent artifacts "verify" - and the message must not claim otherwise
     valid, msg = engine.verify_sovereign_certificate(cert, expected_nonce="challenge-nonce-001")
     assert valid is True
-    assert "Sovereign Tier verification succeeded" in msg
+    assert "Simulated verification succeeded" in msg
+    assert "NOT hardware or post-quantum verification" in msg
 
     # 2. Replay protection: mismatched nonce fails
     invalid_nonce, msg_nonce = engine.verify_sovereign_certificate(

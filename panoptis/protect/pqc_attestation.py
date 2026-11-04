@@ -1,12 +1,31 @@
-"""Post-Quantum Cryptography (NIST ML-DSA / FIPS 204) & Recursive zk-STARK Attestation.
+"""Simulated post-quantum and "zk-STARK" attestation — NOT cryptography.
 
-Pillar III & VII of Top 0.001% Sovereign Tier Architecture:
-1. Post-Quantum Cryptography: NIST FIPS 204 ML-DSA (Module-Lattice Digital Signature Algorithm)
-   implemented via Module-LWE (Learning With Errors) algebraic commitments over modulus Q=8380417.
-2. Recursive zk-STARKs: Transparent, zero-trusted-setup algebraic proofs proving that N agent
-   actions conformed strictly to the formally verified policy lattice without revealing private payloads.
-3. Hardware Enclave Silicon Binding: Anchors the STARK public inputs directly to AMD SEV-SNP
-   and AWS Nitro Enclave PCR measurements.
+.. warning::
+   The class and constant names in this module match NIST and STARK vocabulary, but
+   the implementation provides **no security**. It exists to exercise the shape of a
+   sovereign attestation pipeline (keypair -> signature -> proof -> certificate), not
+   to protect anything.
+
+   What is actually implemented, and why it is not the real thing:
+
+   * :class:`PQCSigner` is a 4-dimensional toy module-LWE scheme. ML-DSA-65
+     (FIPS 204) operates over 256 coefficient rings with k=6, l=5 and a ~2^256
+     challenge space; here ``K_DIM = 4`` and the Fiat-Shamir challenge is an integer
+     in ``[1, 250]``. There is no rejection sampling, no norm bound, no hint, and no
+     side-channel hardening — Python big-int arithmetic is not constant time. The
+     ``PQCAlgorithm`` label only appears in the signature prefix; it changes nothing
+     about the arithmetic.
+   * :class:`StarkRecursiveProver` does not build an execution trace, a polynomial
+     commitment, or a FRI low-degree test. Its "rounds" are a SHA-256 hash chain, and
+     :meth:`StarkRecursiveVerifier.verify_proof` recomputes that same chain from the
+     proof it was given. A verifier that re-runs the prover's own arithmetic proves
+     nothing about the trace, provides no soundness, and reveals everything — there
+     is no zero-knowledge.
+
+   Do not use this module for signatures, integrity, compliance evidence, or any
+   claim of post-quantum security. Replace it with a vetted implementation
+   (``liboqs``/``dilithium-py`` for ML-DSA, a real STARK library) before any such
+   claim is made.
 """
 
 from __future__ import annotations
@@ -37,7 +56,11 @@ K_DIM = 4
 
 
 class PQCAlgorithm(str, Enum):
-    """NIST Post-Quantum Cryptography standards (FIPS 203 & FIPS 204)."""
+    """NIST algorithm names used as labels by the simulation.
+
+    The values are real standard names; the arithmetic behind them is not the
+    standard (see module docstring). The label only sets the signature prefix.
+    """
 
     ML_DSA_44 = "ML-DSA-44"  # NIST Security Level 2 (Dilithium2)
     ML_DSA_65 = "ML-DSA-65"  # NIST Security Level 3 (Dilithium3)
@@ -56,10 +79,11 @@ class PQCKeyPair:
 
 
 class PQCSigner:
-    """NIST ML-DSA (FIPS 204) Post-Quantum Module-LWE lattice signature engine.
+    """Toy 4-dimensional module-LWE signature scheme. Not ML-DSA; see module docstring.
 
-    ponytail: Pure Python Module-LWE lattice arithmetic over Z_q (Q=8380417, dim=4) with
-    Fiat-Shamir challenge reconstruction. Constant-time algebraic verification with zero C-deps.
+    ponytail: keeps a hash-based 4-dim lattice scheme so the attestation pipeline has
+    the right shape with zero C-deps. Not a security boundary — replace with
+    dilithium-py before trusting any signature it produces.
     """
 
     def __init__(
@@ -99,7 +123,7 @@ class PQCSigner:
         )
 
     def sign(self, message: bytes) -> str:
-        """Generate an ML-DSA lattice signature (z, c) over message."""
+        """Produce a toy lattice signature (z, c) over message. Not ML-DSA."""
         s_part, rho_hex = self.keypair.secret_key_hex.split(":")
         s = [int(v) for v in s_part.split(",")]
         matrix_a = self._expand_matrix_a(bytes.fromhex(rho_hex))
@@ -122,7 +146,7 @@ class PQCSigner:
 
     @classmethod
     def verify(cls, public_key_hex: str, message: bytes, signature_str: str) -> bool:
-        """Verify an ML-DSA lattice signature against public key (rho, t)."""
+        """Verify the toy lattice signature. Not ML-DSA."""
         try:
             parts = signature_str.split("$")
             if len(parts) != 3:
@@ -228,7 +252,12 @@ class StarkProof:
 
 
 class StarkRecursiveProver:
-    """Generates zero-knowledge STARK proofs over agent decision traces and hardware measurements."""
+    """Builds a hash-chain "proof" over a decision trace. Not a STARK.
+
+    There is no execution trace commitment beyond a Merkle root of row hashes, no
+    polynomial, and no low-degree test. The output is a deterministic transcript for
+    pipeline-shape testing only.
+    """
 
     def __init__(self, signer: PQCSigner | None = None) -> None:
         self.signer = signer or PQCSigner()
@@ -239,7 +268,7 @@ class StarkRecursiveProver:
         policy_root: str,
         enclave_pcr2: str,
     ) -> StarkProof:
-        """Prove that all decisions satisfied the policy lattice without revealing arguments."""
+        """Commit to the decisions and hash-chain the result. Adds no zero-knowledge."""
         t0 = time.perf_counter()
         trace_length = len(decisions)
         if trace_length == 0:
@@ -329,11 +358,15 @@ class StarkRecursiveProver:
 
 
 class StarkRecursiveVerifier:
-    """Verifies zk-STARK proofs in < 5ms on edge/mobile devices."""
+    """Recomputes the prover's hash chain. Structural check only, not proof verification."""
 
     @staticmethod
     def verify_proof(proof: StarkProof, public_key_pqc: str | None = None) -> tuple[bool, str]:
-        """Verify algebraic boundary, transition constraints, FRI soundness, and PQC signature."""
+        """Check structural consistency of the transcript and, optionally, the toy signature.
+
+        Because every value is recomputed from the proof itself, this cannot detect a
+        forged proof. It only catches accidental corruption.
+        """
         t0 = time.perf_counter()
 
         # 1. Structural check
@@ -362,18 +395,19 @@ class StarkRecursiveVerifier:
         if public_key_pqc:
             sig_payload = f"{proof.proof_id}:{proof.execution_trace_root}:{proof.enclave_pcr2}:{json.dumps(pub, sort_keys=True)}".encode()
             if not PQCSigner.verify(public_key_pqc, sig_payload, proof.pqc_signature):
-                return False, "ML-DSA Post-Quantum signature verification failed"
+                return False, "Toy lattice signature does not verify"
 
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         return (
             True,
-            f"zk-STARK proof successfully verified in {elapsed_ms:.2f}ms",
+            f"Structural consistency check passed in {elapsed_ms:.2f}ms "
+            "(no zero-knowledge or soundness guarantee)",
         )
 
 
 @dataclass
 class SovereignAttestationCertificate:
-    """Unified Tier 0.001% Sovereign Attestation Document."""
+    """Container binding a simulated enclave document to a simulated proof transcript."""
 
     certificate_id: str
     platform: EnclavePlatform
@@ -396,7 +430,12 @@ class SovereignAttestationCertificate:
 
 
 class SovereignAttestationEngine:
-    """Top 0.001% Sovereign Attestation Engine: unifies Hardware TEEs, PQC, and zk-STARKs."""
+    """Simulation glue: enclave document + hash-chain transcript + toy signature.
+
+    Every component is reference-only (see module docstring); a successful
+    ``verify_sovereign_certificate`` means the pieces are mutually consistent, not
+    that any hardware or post-quantum guarantee holds.
+    """
 
     def __init__(
         self,
@@ -414,7 +453,7 @@ class SovereignAttestationEngine:
         enclave_doc: EnclaveAttestationDocument,
         policy_root: str,
     ) -> SovereignAttestationCertificate:
-        """Mint a sovereign attestation certificate binding hardware TEE, STARK proof, and PQC."""
+        """Mint a simulated certificate binding enclave document, transcript and toy signature."""
         stark_proof = self.stark_prover.prove_execution_trace(
             decisions=decisions,
             policy_root=policy_root,
@@ -438,7 +477,7 @@ class SovereignAttestationEngine:
         cert: SovereignAttestationCertificate,
         expected_nonce: str | None = None,
     ) -> tuple[bool, str]:
-        """End-to-end verification of hardware enclave, zk-STARK proof, and post-quantum signature."""
+        """Check that the three simulated artifacts agree with each other."""
         enclave_res: EnclaveVerificationResult = self.enclave_verifier.verify_attestation(
             cert.enclave_document, expected_nonce=expected_nonce
         )
@@ -456,9 +495,10 @@ class SovereignAttestationEngine:
             cert.stark_proof, public_key_pqc=cert.pqc_public_key
         )
         if not stark_valid:
-            return False, f"zk-STARK verification failed: {stark_reason}"
+            return False, f"Transcript consistency check failed: {stark_reason}"
 
         return (
             True,
-            "Sovereign Tier verification succeeded: Hardware TEE, zk-STARK, and ML-DSA PQC verified valid",
+            "Simulated verification succeeded: document fields, hash-chain transcript and toy "
+            "signature are consistent. This is NOT hardware or post-quantum verification.",
         )
