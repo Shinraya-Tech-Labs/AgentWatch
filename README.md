@@ -44,7 +44,7 @@ panopti playground
 
 <br/>
 
-[**Interactive Demo**](#-instant-interactive-demo) · [**Architecture**](#-architecture--dual-plane-design) · [**Security Gauntlet**](#-inline-pre-execution-security-pipeline) · [**Evidence & Merkle Attestation**](#-cryptographic-witness-attestation) · [**Quick Start**](#-quick-start) · [**Supported Frameworks**](#-supported-frameworks) · [**Comparative Benchmark**](#-how-panoptis-compares) · [**Community**](#-community)
+[**Interactive Demo**](#-instant-interactive-demo) · [**Architecture**](#-architecture--dual-plane-design) · [**Target Architecture**](#-target-architecture) · [**Security Gauntlet**](#-inline-pre-execution-security-pipeline) · [**Evidence & Merkle Attestation**](#-cryptographic-witness-attestation) · [**Quick Start**](#-quick-start) · [**Supported Frameworks**](#-supported-frameworks) · [**Comparative Benchmark**](#-how-panoptis-compares) · [**Community**](#-community)
 
 </div>
 
@@ -264,6 +264,58 @@ sequenceDiagram
         Note over Replay: Result: STOCHASTIC_MODEL_DIVERGENCE
     end
 ```
+
+---
+
+## 🧭 Target Architecture
+
+> **This section describes where PANOPTIS is going, not what ships today.** Execution cells, leases, label-based information flow, the temporal engine and witnessed evidence checkpoints are design targets. For what is implemented and how it is verified, see [docs/CLAIMS.md](docs/CLAIMS.md), [docs/ADAPTER_SUPPORT.md](docs/ADAPTER_SUPPORT.md) and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+
+In the end state, agents run without ambient authority, every effect passes one deterministic enforcement kernel, and every decision leaves evidence anyone can verify independently.
+
+### System architecture
+
+**Agents reach the world only through the enforcement node.** Dashed borders sit outside the trusted base.
+
+<p align="center">
+  <img src="docs/images/target-architecture/system-architecture.png" alt="Target system architecture. Execution cells send Actions to the enforcement node, which holds the gateways, the sandbox supervisor, the egress proxy, the enforcement kernel, the evidence writer and the control agent. The egress proxy is the only path to the untrusted world. The control plane exchanges evidence, policy, leases and approvals with the node, and independent verifiers receive bundles and signed checkpoints." width="760"/>
+</p>
+
+The numbers identify the components: (1) agent adapters, (2) execution gateway, (3) identity and authorization, (4) policy engine, (5) temporal engine, (6) information-flow engine, (7) content inspection and advisors, (8) file, process and network sandbox, (9) approval service, (10) emergency control, (11) evidence and verification, (12) tenant-aware storage, (13) API and MCP gateway, (14) dashboard and CLI, (15) deployment and observability.
+
+### Execution lifecycle
+
+**No effect is released before its decision is durable.** Every effect follows the same twelve steps, whichever agent, framework or protocol proposed it. Only the path down the left column releases an effect, and every failure leaves a record.
+
+<p align="center">
+  <img src="docs/images/target-architecture/execution-lifecycle.png" alt="The twelve-step lifecycle: propose, normalise, admit, authorize, evaluate state, consult advisors, combine, approve when required, record, execute, observe and verify, inspect and deliver. Failures end in one of four outcomes: refused and recorded; no grant and cell paused; killed and session halted; or result withheld." width="760"/>
+</p>
+
+Verdicts form a chain, `ALLOW` < `CONSTRAIN` < `APPROVE` < `DENY` < `HALT`, and the decision is the strictest verdict with the narrowest grant. Advisors can only raise a verdict or narrow a grant, so a manipulated model costs availability, not security.
+
+### Information flow
+
+**Untrusted and secret data reach the planner only as typed, labelled values.** The planner's context stays clean enough to act, and every effect it proposes still passes the flow check.
+
+<p align="center">
+  <img src="docs/images/target-architecture/context-splitting.png" alt="Untrusted content and secret data go to a quarantined worker with no effect tools. It returns a typed value, whose schema and size are checked, to the planner context. Every effect the planner proposes passes a flow check before reaching egress destinations, tools with effects or other agents." width="760"/>
+</p>
+
+### Emergency governance
+
+**Anyone in scope can stop; resuming always takes two people.** Each scope (global, tenant, agent or session) holds one of these states, and every change raises its epoch. A node whose lease lapses behaves as stopped until a fresh lease arrives.
+
+<p align="center">
+  <img src="docs/images/target-architecture/emergency-control.png" alt="Control states: running, suspended, locked down, stopped and recovering. One person can stop from any of the first three. Resuming, lifting a lockdown and leaving stopped each take two people, and recovering returns to running once checks pass." width="760"/>
+</p>
+
+### Deployment topologies
+
+**One node binary everywhere; only cell strength and state location change.**
+
+<p align="center">
+  <img src="docs/images/target-architecture/deployment-topologies.png" alt="Three deployments compared by layer. Workstation: OS cells, panoptisd user service, embedded control plane, SQLite. Self-hosted: OS or VM cells, a node per runner or worker, stateless API replicas, PostgreSQL and object store. Hosted multi-tenant: a VM cell per session, node pools per region, regional control planes, row-level security and per-tenant keys." width="760"/>
+</p>
 
 ---
 
