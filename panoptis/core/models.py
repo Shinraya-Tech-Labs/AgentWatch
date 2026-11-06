@@ -24,8 +24,12 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    and_,
+    case,
+    func,
     text,
 )
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.dialects.postgresql import JSONB as _PG_JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -35,6 +39,26 @@ logger = logging.getLogger(__name__)
 # JSONB on PostgreSQL (unchanged), JSON elsewhere: the schema also runs on SQLite
 # (local development, tests).
 JSONB = JSON().with_variant(_PG_JSONB(), "postgresql")
+
+
+# The longest tenant id ``panoptis.api.tenancy`` accepts, and the width of ``panoptis.storage``.
+TENANT_ID_MAX_LENGTH = 64
+# A row with no tenant belongs to ``default``, as in ``panoptis.api.tenancy``.
+_UNTAGGED_TENANT = "default"
+_INSERTS = {"postgresql": postgresql.insert, "sqlite": sqlite.insert}
+# How a concurrent or repeated write merges into an existing session row. A writer can hold an
+# older copy of the session, so a row never moves backwards: see docs/PERSISTENCE.md.
+_SESSION_COUNTERS = ("total_events", "total_tokens", "estimated_cost_usd")
+_SESSION_KEPT_WHEN_ABSENT = ("agent_name", "goal", "ended_at", "final_confidence")
+_SESSION_FIXED = ("session_id", "tenant_id", "started_at")
+
+
+class SessionOwnershipError(Exception):
+    """The session id already belongs to another tenant."""
+
+
+class EventConflictError(Exception):
+    """The event id already belongs to another session."""
 
 
 class Base(DeclarativeBase):
@@ -50,7 +74,9 @@ class SessionRecord(Base):
     __tablename__ = "agent_sessions"
 
     session_id = Column(String(36), primary_key=True)
-    tenant_id = Column(String(36), index=True, nullable=True)  # Cloud multi-tenancy
+    tenant_id = Column(
+        String(TENANT_ID_MAX_LENGTH), index=True, nullable=True
+    )  # Cloud multi-tenancy
     agent_id = Column(String(128), nullable=False, index=True)
     agent_name = Column(String(256))
     framework = Column(String(64), nullable=False, index=True)
@@ -78,7 +104,9 @@ class EventRecord(Base):
     __tablename__ = "agent_events"
 
     event_id = Column(String(36), primary_key=True)
-    tenant_id = Column(String(36), index=True, nullable=True)  # Cloud multi-tenancy
+    tenant_id = Column(
+        String(TENANT_ID_MAX_LENGTH), index=True, nullable=True
+    )  # Cloud multi-tenancy
     session_id = Column(
         String(36),
         ForeignKey("agent_sessions.session_id", ondelete="CASCADE"),
@@ -160,7 +188,9 @@ class MemoryEntryRecord(Base):
     __tablename__ = "memory_entries"
 
     entry_id = Column(String(36), primary_key=True)
-    tenant_id = Column(String(36), index=True, nullable=True)  # Cloud multi-tenancy
+    tenant_id = Column(
+        String(TENANT_ID_MAX_LENGTH), index=True, nullable=True
+    )  # Cloud multi-tenancy
     agent_id = Column(String(128), nullable=False, index=True)
     memory_type = Column(String(32), nullable=False, index=True)
     content = Column(Text, nullable=False)
@@ -249,6 +279,16 @@ class AuditLogRecord(Base):
 # ─────────────────────────────────────────────
 
 
+# Commit order is not send order, so events are always read in this one defined order.
+_EVENT_ORDER = (EventRecord.step_number, EventRecord.timestamp, EventRecord.event_id)
+
+
+def _same_owner(row_tenant: Any, new_tenant: Any) -> Any:
+    return func.coalesce(row_tenant, _UNTAGGED_TENANT) == func.coalesce(
+        new_tenant, _UNTAGGED_TENANT
+    )
+
+
 class Repository:
     """
     Data access layer for AgentWatch storage.
@@ -258,27 +298,76 @@ class Repository:
     def __init__(self, session: AsyncSession):
         self._session = session
 
+    def _insert(self, table: Any, values: dict[str, Any]) -> Any:
+        return _INSERTS[self._session.get_bind().dialect.name](table).values(**values)
+
+    def _merged_session(self, new: Any, provided: dict[str, Any]) -> dict[str, Any]:
+        """The SET clause for an update: a stale writer cannot move the row backwards."""
+        row = SessionRecord.__table__.c
+        postgres = self._session.get_bind().dialect.name == "postgresql"
+        larger = func.greatest if postgres else func.max
+        changes: dict[str, Any] = {}
+        for name in provided:
+            if name in _SESSION_FIXED:
+                continue
+            if name in _SESSION_COUNTERS:
+                changes[name] = larger(func.coalesce(row[name], 0), func.coalesce(new[name], 0))
+            elif name in _SESSION_KEPT_WHEN_ABSENT:
+                changes[name] = func.coalesce(new[name], row[name])
+            elif name == "status":
+                stale = and_(row.ended_at.is_not(None), new.ended_at.is_(None))
+                changes[name] = case((stale, row.status), else_=new.status)
+            else:
+                changes[name] = new[name]
+        return changes
+
+    async def _write_session(self, session_data: dict[str, Any], *, update: bool) -> None:
+        """One statement, so the database decides who owns a session id: no window between
+        looking for the row and writing it, for two writers to pass through together."""
+        table = SessionRecord.__table__
+        values = {k: v for k, v in session_data.items() if k in table.c}
+        stmt = self._insert(table, values)
+        new = stmt.excluded
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[table.c.session_id],
+            set_=self._merged_session(new, values) if update else {"session_id": new.session_id},
+            where=_same_owner(table.c.tenant_id, new.tenant_id),
+        ).returning(table.c.session_id)
+        if (await self._session.execute(stmt)).first() is None:
+            raise SessionOwnershipError(values["session_id"])
+
     async def upsert_session(self, session_data: dict[str, Any]) -> None:
-        existing = await self._session.get(SessionRecord, session_data["session_id"])
-        if existing:
-            for k, v in session_data.items():
-                if hasattr(existing, k):
-                    setattr(existing, k, v)
-        else:
-            record = SessionRecord(
-                **{k: v for k, v in session_data.items() if hasattr(SessionRecord, k)}
-            )
-            self._session.add(record)
-        await self._session.flush()
+        """Create the session, or update it if it is the same tenant's.
+
+        Raises :class:`SessionOwnershipError` when the id belongs to another tenant.
+        """
+        await self._write_session(session_data, update=True)
+
+    async def claim_session(self, session_data: dict[str, Any]) -> None:
+        """Create the session if it is new, and never change an existing row.
+
+        Raises :class:`SessionOwnershipError` when the id belongs to another tenant.
+        """
+        await self._write_session(session_data, update=False)
 
     async def insert_event(self, event_data: dict[str, Any]) -> None:
-        """Insert an event; idempotent on ``event_id`` (a retried write is not an error)."""
-        event_id = event_data.get("event_id")
-        if event_id and await self._session.get(EventRecord, event_id) is not None:
-            return
-        record = EventRecord(**{k: v for k, v in event_data.items() if hasattr(EventRecord, k)})
-        self._session.add(record)
-        await self._session.flush()
+        """Store an event once. The same event again changes nothing, so a retry is safe.
+
+        Raises :class:`EventConflictError` when the id belongs to another session, and so
+        possibly another tenant: that event would otherwise be lost while its sender was told
+        it was stored. A session has one tenant, so comparing sessions is enough.
+        """
+        table = EventRecord.__table__
+        values = {k: v for k, v in event_data.items() if k in table.c}
+        stmt = self._insert(table, values)
+        new = stmt.excluded
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[table.c.event_id],
+            set_={"event_id": new.event_id},
+            where=table.c.session_id == new.session_id,
+        ).returning(table.c.event_id)
+        if (await self._session.execute(stmt)).first() is None:
+            raise EventConflictError(values["event_id"])
 
     async def get_session(self, session_id: str) -> SessionRecord | None:
         return await self._session.get(SessionRecord, session_id)
@@ -294,7 +383,7 @@ class Repository:
         q = select(EventRecord).where(EventRecord.session_id == session_id)
         if event_type:
             q = q.where(EventRecord.event_type == event_type)
-        q = q.order_by(EventRecord.step_number).limit(limit)
+        q = q.order_by(*_EVENT_ORDER).limit(limit)
         result = await self._session.execute(q)
         return list(result.scalars())
 
@@ -496,6 +585,16 @@ class Repository:
         """Delete a single session (and its task dependencies). Returns 1 if deleted."""
         return await self.prune_sessions([session_id])
 
+    async def erase_events(self, where: dict[str, str]) -> int:
+        """Delete the events matching every column in ``where``, in any session."""
+        from sqlalchemy import delete
+
+        if not where:
+            return 0
+        filters = [getattr(EventRecord, column) == value for column, value in where.items()]
+        result = await self._session.execute(delete(EventRecord).where(*filters))
+        return result.rowcount or 0
+
     async def erase_session(self, session_id: str, *, tenant_id: str | None) -> int:
         """Erase one session and everything recorded under it, only if ``tenant_id`` owns it.
 
@@ -638,6 +737,11 @@ class TenantRepository:
             session_data["tenant_id"] = self._tenant_id
         await self._repo.upsert_session(session_data)
 
+    async def claim_session(self, session_data: dict[str, Any]) -> None:
+        if self._tenant_id:
+            session_data["tenant_id"] = self._tenant_id
+        await self._repo.claim_session(session_data)
+
     async def insert_event(self, event_data: dict[str, Any]) -> None:
         if self._tenant_id:
             # Always enforce tenant_id — overwrite any mismatched value
@@ -665,7 +769,7 @@ class TenantRepository:
             )
             if event_type:
                 q = q.where(EventRecord.event_type == event_type)
-            q = q.order_by(EventRecord.step_number).limit(limit)
+            q = q.order_by(*_EVENT_ORDER).limit(limit)
             result = await self._session.execute(q)
             return list(result.scalars())
         return await self._repo.get_events(session_id, event_type, limit)
@@ -744,6 +848,107 @@ class TenantRepository:
 # ─────────────────────────────────────────────
 
 
+_POSTGRES_GUARDS = (
+    "SELECT pg_advisory_xact_lock(hashtext('agentwatch.ownership_guards'))",
+    """
+    CREATE OR REPLACE FUNCTION agentwatch_session_tenant_fixed() RETURNS trigger AS $$
+    BEGIN
+        IF OLD.tenant_id IS NOT NULL AND NEW.tenant_id IS DISTINCT FROM OLD.tenant_id THEN
+            RAISE EXCEPTION 'agent_sessions.tenant_id cannot change once set'
+                USING ERRCODE = 'integrity_constraint_violation';
+        END IF;
+        RETURN NEW;
+    END $$ LANGUAGE plpgsql
+    """,
+    """
+    CREATE OR REPLACE FUNCTION agentwatch_event_tenant_matches() RETURNS trigger AS $$
+    BEGIN
+        IF COALESCE(NEW.tenant_id, 'default') IS DISTINCT FROM (
+            SELECT COALESCE(tenant_id, 'default')
+            FROM agent_sessions WHERE session_id = NEW.session_id
+        ) THEN
+            RAISE EXCEPTION 'agent_events.tenant_id must match its session'
+                USING ERRCODE = 'integrity_constraint_violation';
+        END IF;
+        RETURN NEW;
+    END $$ LANGUAGE plpgsql
+    """,
+    """
+    DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'agent_sessions_tenant_fixed') THEN
+            CREATE TRIGGER agent_sessions_tenant_fixed
+                BEFORE UPDATE OF tenant_id ON agent_sessions
+                FOR EACH ROW EXECUTE FUNCTION agentwatch_session_tenant_fixed();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'agent_events_tenant_matches') THEN
+            CREATE TRIGGER agent_events_tenant_matches
+                BEFORE INSERT ON agent_events
+                FOR EACH ROW EXECUTE FUNCTION agentwatch_event_tenant_matches();
+        END IF;
+    END $$
+    """,
+)
+_SQLITE_GUARDS = (
+    """
+    CREATE TRIGGER IF NOT EXISTS agent_sessions_tenant_fixed
+    BEFORE UPDATE OF tenant_id ON agent_sessions
+    WHEN OLD.tenant_id IS NOT NULL AND NEW.tenant_id IS NOT OLD.tenant_id
+    BEGIN SELECT RAISE(ABORT, 'agent_sessions.tenant_id cannot change once set'); END
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS agent_events_tenant_matches
+    BEFORE INSERT ON agent_events
+    WHEN COALESCE(NEW.tenant_id, 'default') IS NOT (
+        SELECT COALESCE(tenant_id, 'default')
+        FROM agent_sessions WHERE session_id = NEW.session_id
+    )
+    BEGIN SELECT RAISE(ABORT, 'agent_events.tenant_id must match its session'); END
+    """,
+)
+
+
+async def _install_ownership_guards(conn: Any) -> None:
+    """Make the database itself refuse a cross-tenant write, whatever code path attempts it.
+
+    Tables are created with ``create_all``, which leaves existing tables alone, so these are
+    added on every start and an existing database gets them too. A row with no tenant can
+    still be given one: that is how an operator backfills old rows.
+    """
+    guards = {"postgresql": _POSTGRES_GUARDS, "sqlite": _SQLITE_GUARDS}
+    for statement in guards[conn.dialect.name]:
+        await conn.execute(text(statement))
+
+
+async def _warn_about_narrow_tenant_columns(conn: Any) -> None:
+    """Say so when an existing database still has narrower tenant columns than this code.
+
+    ``create_all`` leaves existing tables alone, and production data is never migrated
+    automatically, so a longer tenant id is refused there until an operator widens the columns.
+    """
+    if conn.dialect.name != "postgresql":
+        return
+    narrow = await conn.execute(
+        text(
+            """
+            SELECT table_name FROM information_schema.columns
+            WHERE table_schema = current_schema() AND column_name = 'tenant_id'
+              AND table_name IN ('agent_sessions', 'agent_events', 'memory_entries')
+              AND character_maximum_length < :width
+            ORDER BY table_name
+            """
+        ),
+        {"width": TENANT_ID_MAX_LENGTH},
+    )
+    tables = list(narrow.scalars())
+    if tables:
+        logger.warning(
+            "tenant_id is narrower than %d characters on %s: writes for longer tenant ids will "
+            "fail until the columns are widened. See docs/PERSISTENCE.md.",
+            TENANT_ID_MAX_LENGTH,
+            ", ".join(tables),
+        )
+
+
 async def init_db(database_url: str) -> async_sessionmaker:
     """Initialize database, create tables, return session factory."""
     engine = create_async_engine(database_url, echo=False, pool_pre_ping=True)
@@ -780,6 +985,10 @@ async def init_db(database_url: str) -> async_sessionmaker:
                     "pgvector not available: %s. Memory retrieval uses in-process fallback.",
                     exc,
                 )
+
+    async with engine.begin() as conn:
+        await _install_ownership_guards(conn)
+        await _warn_about_narrow_tenant_columns(conn)
 
     factory = async_sessionmaker(engine, expire_on_commit=False)
     return factory

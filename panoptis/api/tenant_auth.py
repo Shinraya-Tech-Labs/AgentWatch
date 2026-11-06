@@ -141,9 +141,10 @@ class TenantStore:
         api_key.last_used_at = datetime.now(UTC)
         return api_key
 
-    def revoke_api_key(self, key_id: str) -> bool:
+    def revoke_api_key(self, key_id: str, tenant_id: str | None = None) -> bool:
+        """Revoke a key. With ``tenant_id``, only a key of that tenant."""
         api_key = self._api_keys.get(key_id)
-        if not api_key:
+        if not api_key or (tenant_id is not None and api_key.tenant_id != tenant_id):
             return False
         api_key.revoked = True
         logger.info("Revoked API key %s for tenant %s", key_id, api_key.tenant_id)

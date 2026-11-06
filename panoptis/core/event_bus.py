@@ -109,6 +109,7 @@ class EventBus:
     """
 
     def __init__(self) -> None:
+        self._background: set[asyncio.Task] = set()
         """Create an empty bus with in-memory event logging."""
         self._handlers: dict[str, HandlerRegistration] = {}
         self._type_index: dict[EventType, set[str]] = defaultdict(set)
@@ -325,10 +326,29 @@ class EventBus:
         """
         try:
             loop = asyncio.get_running_loop()
-            task = loop.create_task(self.publish(event))
-            task.add_done_callback(self._log_task_exception)
         except RuntimeError:
             asyncio.run(self.publish(event))
+            return
+        task = loop.create_task(self.publish(event))
+        self._background.add(task)  # the loop keeps only a weak reference
+        task.add_done_callback(self._background.discard)
+        task.add_done_callback(self._log_task_exception)
+
+    async def drain(self, timeout: float) -> int:
+        """Wait for events published without awaiting, on this loop, to reach their handlers.
+
+        Args:
+            timeout: Seconds to wait before giving up. Unfinished work keeps running.
+
+        Returns:
+            How many are still in flight, 0 when everything finished.
+        """
+        loop = asyncio.get_running_loop()
+        self._background -= {t for t in self._background if t.get_loop().is_closed()}
+        pending = {t for t in self._background if t.get_loop() is loop and not t.done()}
+        if pending:
+            _, pending = await asyncio.wait(pending, timeout=timeout)
+        return len(pending)
 
     def get_recent_events(
         self,

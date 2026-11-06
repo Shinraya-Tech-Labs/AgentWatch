@@ -68,15 +68,17 @@ class Trace:
         self.trace_id = session.session_id
         self.session = session
         self.spans: list[TraceSpan] = []
+        self._by_event_id: dict[str, TraceSpan] = {}
         self._event_count = 0
 
     def add_event(self, event: AgentEvent) -> TraceSpan:
         """Add an event; a retried event (same ``event_id``) is recorded once."""
-        for existing in reversed(self.spans[-256:]):
-            if existing.span_id == event.event_id:
-                return existing
+        existing = self._by_event_id.get(event.event_id)
+        if existing is not None:
+            return existing
         span = TraceSpan(event)
         self.spans.append(span)
+        self._by_event_id[event.event_id] = span
         self._event_count += 1
         return span
 
@@ -176,6 +178,7 @@ class TraceCollector:
                 if len(self._traces) > self._max_traces:
                     oldest_key = next(iter(self._traces))
                     del self._traces[oldest_key]
+                    self._session_index.pop(oldest_key, None)
 
             event_tenant = (event.metadata or {}).get("tenant_id")
             session_tenant = trace.session.metadata.get("tenant_id") or "default"
@@ -189,7 +192,10 @@ class TraceCollector:
                     "dropped an event for session %s from another tenant", event.session_id
                 )
                 return
+            counted = trace.event_count
             trace.add_event(event)
+            if trace.event_count == counted:
+                return  # a retry: its tokens and cost are already in the totals
             trace.session.total_events = trace.event_count
 
             if event.event_type == EventType.SESSION_START:

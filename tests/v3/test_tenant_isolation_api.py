@@ -136,25 +136,25 @@ def _event(session_id: str, **meta) -> dict:
 
 def test_v1_events_are_tagged_with_the_authenticated_tenant(client, cloud):
     a = {"X-Api-Key": cloud["raw_a"]}
-    r = client.post("/api/v1/events", json=_event("sess-a1", tenant_id="spoofed"), headers=a)
+    sid = _sid("sess-a1")
+    r = client.post("/api/v1/events", json=_event(sid, tenant_id="spoofed"), headers=a)
     assert r.status_code == 200, r.text
-    trace = server._collector.get_trace("sess-a1")
+    trace = server._collector.get_trace(sid)
     assert trace is not None
     assert trace.session.metadata["tenant_id"] == cloud["a"].tenant_id
-    events = server._collector.get_events("sess-a1")
+    events = server._collector.get_events(sid)
     assert events and all(e.metadata["tenant_id"] == cloud["a"].tenant_id for e in events)
 
 
 def test_v1_tenant_cannot_append_to_or_claim_another_tenants_session(client, cloud):
     a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
-    client.post("/api/v1/events", json=_event("sess-owned-by-a"), headers=a)
-    before = server._collector.get_trace("sess-owned-by-a").event_count
-    assert (
-        client.post("/api/v1/events", json=_event("sess-owned-by-a"), headers=b).status_code == 404
-    )
-    session = {"session_id": "sess-owned-by-a", "agent_id": "bot", "framework": "custom"}
+    sid = _sid("sess-owned-by-a")
+    client.post("/api/v1/events", json=_event(sid), headers=a)
+    before = server._collector.get_trace(sid).event_count
+    assert client.post("/api/v1/events", json=_event(sid), headers=b).status_code == 404
+    session = {"session_id": sid, "agent_id": "bot", "framework": "custom"}
     assert client.post("/api/v1/sessions", json=session, headers=b).status_code == 409
-    assert server._collector.get_trace("sess-owned-by-a").event_count == before
+    assert server._collector.get_trace(sid).event_count == before
 
 
 async def test_collector_drops_a_racing_event_from_another_tenant():
@@ -183,7 +183,7 @@ async def test_collector_drops_a_racing_event_from_another_tenant():
 
 def test_v1_events_are_teed_into_the_tenants_v3_store(client, cloud):
     a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
-    client.post("/api/v1/events", json=_event("sess-tee"), headers=a)
+    client.post("/api/v1/events", json=_event(_sid("sess-tee")), headers=a)
     assert client.get("/api/v3/status", headers=a).json()["observations"] >= 1
     assert client.get("/api/v3/status", headers=b).json()["observations"] == 0
 
@@ -221,12 +221,13 @@ def test_v1_session_actions_are_tenant_scoped(client, cloud, suffix):
 
 def test_v1_session_list_shows_only_the_callers_sessions(client, cloud):
     a, b = {"X-Api-Key": cloud["raw_a"]}, {"X-Api-Key": cloud["raw_b"]}
-    client.post("/api/v1/events", json=_event("sess-list-a"), headers=a)
-    client.post("/api/v1/events", json=_event("sess-list-b"), headers=b)
+    sid_a, sid_b = _sid("sess-list-a"), _sid("sess-list-b")
+    client.post("/api/v1/events", json=_event(sid_a), headers=a)
+    client.post("/api/v1/events", json=_event(sid_b), headers=b)
     ids_a = {x["session_id"] for x in client.get("/api/v1/sessions", headers=a).json()["sessions"]}
     ids_b = {x["session_id"] for x in client.get("/api/v1/sessions", headers=b).json()["sessions"]}
-    assert "sess-list-a" in ids_a and "sess-list-b" not in ids_a
-    assert "sess-list-b" in ids_b and "sess-list-a" not in ids_b
+    assert sid_a in ids_a and sid_b not in ids_a
+    assert sid_b in ids_b and sid_a not in ids_b
 
 
 OPERATOR_GETS = [

@@ -20,6 +20,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# A checkpoint with no tenant belongs to ``default``, as in ``panoptis.api.tenancy``.
+_DEFAULT_TENANT = "default"
+
 
 class CheckpointType(str, Enum):
     FILESYSTEM = "filesystem"
@@ -48,11 +51,17 @@ class Checkpoint:
     memory_snapshot: dict[str, Any] | None = None
     working_dir: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    tenant_id: str | None = None
+
+    def owned_by(self, tenant_id: str | None) -> bool:
+        """Whether this tenant owns it. None is a local caller, which has no tenant to check."""
+        return tenant_id is None or (self.tenant_id or _DEFAULT_TENANT) == tenant_id
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "checkpoint_id": self.checkpoint_id,
             "session_id": self.session_id,
+            "tenant_id": self.tenant_id,
             "step_number": self.step_number,
             "checkpoint_type": self.checkpoint_type.value,
             "created_at": self.created_at.isoformat(),
@@ -227,6 +236,7 @@ class RollbackEngine:
         memory_snapshot: dict[str, Any] | None = None,
         checkpoint_type: CheckpointType = CheckpointType.COMPOSITE,
         label: str | None = None,
+        tenant_id: str | None = None,
     ) -> Checkpoint:
         """Create a checkpoint of current system state."""
         checkpoint_id = f"ckpt-{uuid.uuid4().hex[:12]}"
@@ -240,6 +250,7 @@ class RollbackEngine:
             working_dir=str(cwd),
             memory_snapshot=memory_snapshot,
             metadata={"label": label or f"Step {step_number}"},
+            tenant_id=tenant_id,
         )
 
         snapshot_dir = self._checkpoint_snapshot_dir(checkpoint_id)
@@ -290,14 +301,26 @@ class RollbackEngine:
         checkpoint_id: str,
         restore_filesystem: bool = True,
         restore_git: bool = True,
+        *,
+        session_id: str | None = None,
+        tenant_id: str | None = None,
     ) -> RollbackResult:
-        """Rollback to a specific checkpoint."""
+        """Rollback to a specific checkpoint.
+
+        A checkpoint id is not a credential. A caller acting for a tenant passes the session
+        it proved it owns and that tenant, and a checkpoint outside them answers exactly as an
+        unknown id does, before anything is restored. Only local callers may omit them.
+        """
         import time
 
         start = time.monotonic()
 
         cp = self._checkpoints.get(checkpoint_id)
-        if cp is None:
+        if (
+            cp is None
+            or (session_id is not None and cp.session_id != session_id)
+            or not cp.owned_by(tenant_id)
+        ):
             return RollbackResult(
                 checkpoint_id=checkpoint_id,
                 status=RollbackStatus.FAILED,
@@ -344,12 +367,14 @@ class RollbackEngine:
         self,
         session_id: str,
         to_step: int | None = None,
+        *,
+        tenant_id: str | None = None,
     ) -> RollbackResult:
         """
         Rollback a session to its latest checkpoint (or to a specific step).
         """
-        checkpoint_ids = self._session_checkpoints.get(session_id, [])
-        if not checkpoint_ids:
+        checkpoints = self.list_checkpoints(session_id, tenant_id=tenant_id)
+        if not checkpoints:
             return RollbackResult(
                 checkpoint_id="",
                 status=RollbackStatus.FAILED,
@@ -358,11 +383,7 @@ class RollbackEngine:
 
         if to_step is not None:
             # Find closest checkpoint at or before the requested step
-            candidates = [
-                self._checkpoints[cid]
-                for cid in checkpoint_ids
-                if cid in self._checkpoints and self._checkpoints[cid].step_number <= to_step
-            ]
+            candidates = [cp for cp in checkpoints if cp.step_number <= to_step]
             if not candidates:
                 return RollbackResult(
                     checkpoint_id="",
@@ -372,13 +393,52 @@ class RollbackEngine:
             target = max(candidates, key=lambda c: c.step_number)
         else:
             # Use the most recent checkpoint
-            target = self._checkpoints[checkpoint_ids[-1]]
+            target = checkpoints[-1]
 
-        return await self.rollback(target.checkpoint_id)
+        return await self.rollback(target.checkpoint_id, session_id=session_id, tenant_id=tenant_id)
 
-    def list_checkpoints(self, session_id: str) -> list[Checkpoint]:
+    def list_checkpoints(
+        self, session_id: str, *, tenant_id: str | None = None
+    ) -> list[Checkpoint]:
         ids = self._session_checkpoints.get(session_id, [])
-        return [self._checkpoints[i] for i in ids if i in self._checkpoints]
+        found = [self._checkpoints[i] for i in ids if i in self._checkpoints]
+        return [cp for cp in found if cp.owned_by(tenant_id)]
+
+    def sessions_of(self, tenant_id: str) -> set[str]:
+        """Sessions with a checkpoint this tenant owns, in memory or on disk."""
+        owned = {cp.session_id for cp in self._checkpoints.values() if cp.owned_by(tenant_id)}
+        for session_id, checkpoints in self._checkpoints_on_disk().items():
+            if any((tenant or _DEFAULT_TENANT) == tenant_id for _, tenant in checkpoints):
+                owned.add(session_id)
+        return owned
+
+    def unattributed(self, session_ids: list[str]) -> int:
+        """How many checkpoints of these sessions carry no tenant, in memory or on disk."""
+        on_disk = self._checkpoints_on_disk()
+        found: set[str] = set()
+        for session_id in session_ids:
+            found.update(cid for cid, tenant in on_disk.get(session_id, []) if tenant is None)
+            for cid in self._session_checkpoints.get(session_id, []):
+                checkpoint = self._checkpoints.get(cid)
+                if checkpoint is not None and checkpoint.tenant_id is None:
+                    found.add(cid)
+        return len(found)
+
+    def _checkpoints_on_disk(self) -> dict[str, list[tuple[str, str | None]]]:
+        """session id -> [(checkpoint id, tenant)] from the metadata files."""
+        found: dict[str, list[tuple[str, str | None]]] = {}
+        meta_dir = self._checkpoints_dir / "meta"
+        if meta_dir.exists():
+            for path in meta_dir.glob("*.json"):
+                try:
+                    with open(path) as f:
+                        data = json.load(f)
+                    sid = data.get("session_id")
+                    if sid:
+                        found.setdefault(sid, []).append((path.stem, data.get("tenant_id")))
+                except Exception as exc:
+                    logger.warning("Failed to read checkpoint meta %s: %s", path, exc)
+        return found
 
     def get_checkpoint(self, checkpoint_id: str) -> Checkpoint | None:
         return self._checkpoints.get(checkpoint_id)
@@ -402,18 +462,26 @@ class RollbackEngine:
             checkpoint_type=CheckpointType(data["checkpoint_type"]),
             working_dir=data.get("working_dir"),
             metadata=data.get("metadata", {}),
+            tenant_id=data.get("tenant_id"),
         )
         if data.get("snapshot_path"):
             cp.snapshot_path = Path(data["snapshot_path"])
         cp.git_commit_ref = data.get("git_commit_ref")
         return cp
 
-    async def prune_checkpoints(self, session_ids: list[str], dry_run: bool = False) -> int:
+    async def prune_checkpoints(
+        self,
+        session_ids: list[str],
+        dry_run: bool = False,
+        tenant_id: str | None = None,
+    ) -> int:
         """Remove checkpoints for specific sessions from memory and disk.
 
         Args:
             session_ids (list[str]): The IDs of the sessions to delete checkpoints for.
             dry_run (bool): If True, only return the count of files that would be deleted.
+            tenant_id (str | None): When given, only this tenant's checkpoints go. One with
+                no tenant belongs to ``default``.
 
         Returns:
             int: The number of files (metadata and snapshots) that were (or would be) deleted.
@@ -421,58 +489,66 @@ class RollbackEngine:
         import shutil
 
         # Scan all meta files to discover checkpoints on disk not in memory
-        meta_dir = self._checkpoints_dir / "meta"
-        disk_checkpoints = {}
-        if meta_dir.exists():
-            for path in meta_dir.glob("*.json"):
-                try:
-                    with open(path) as f:
-                        data = json.load(f)
-                    sid = data.get("session_id")
-                    if sid:
-                        if sid not in disk_checkpoints:
-                            disk_checkpoints[sid] = []
-                        disk_checkpoints[sid].append(path.stem)
-                except Exception as exc:
-                    logger.warning("Failed to read checkpoint meta %s: %s", path, exc)
+        disk_checkpoints = self._checkpoints_on_disk()
 
         count = 0
         for session_id in session_ids:
-            checkpoint_ids = set(self._session_checkpoints.get(session_id, []))
-            checkpoint_ids.update(disk_checkpoints.get(session_id, []))
+            tenants = dict(disk_checkpoints.get(session_id, []))
+            for cid in self._session_checkpoints.get(session_id, []):
+                if cid in self._checkpoints:
+                    tenants[cid] = self._checkpoints[cid].tenant_id
+                else:
+                    tenants.setdefault(cid, None)
+            kept = {
+                cid
+                for cid, stamped in tenants.items()
+                if tenant_id is not None and (stamped or _DEFAULT_TENANT) != tenant_id
+            }
 
-            for cid in list(checkpoint_ids):
-                # Delete metadata JSON
+            for cid in set(tenants) - kept:
+                # Delete snapshot directory and tarball
+                snapshot_dir = self._checkpoints_dir / "snapshots" / cid
+                snapshot_file = snapshot_dir / f"{cid}.tar.gz"
+                gone = True
+                if snapshot_dir.exists():
+                    has_tarball = snapshot_file.exists()
+                    if not dry_run:
+                        try:
+                            shutil.rmtree(snapshot_dir)
+                        except Exception as exc:
+                            gone = False
+                            logger.error(
+                                "Failed to delete snapshot directory %s: %s", snapshot_dir, exc
+                            )
+                    if has_tarball and gone:
+                        count += 1
+
+                # Delete metadata JSON last: it is what finds a snapshot that would not delete
                 meta_path = self._checkpoints_dir / "meta" / f"{cid}.json"
-                if meta_path.exists():
+                if meta_path.exists() and gone:
                     if not dry_run:
                         try:
                             meta_path.unlink()
                             count += 1
                         except Exception as exc:
+                            gone = False
                             logger.error("Failed to delete checkpoint meta %s: %s", meta_path, exc)
                     else:
                         count += 1
 
-                # Delete snapshot directory and tarball
-                snapshot_dir = self._checkpoints_dir / "snapshots" / cid
-                snapshot_file = snapshot_dir / f"{cid}.tar.gz"
-                if snapshot_dir.exists():
-                    if snapshot_file.exists():
-                        count += 1
-                    if not dry_run:
-                        try:
-                            shutil.rmtree(snapshot_dir)
-                        except Exception as exc:
-                            logger.error(
-                                "Failed to delete snapshot directory %s: %s", snapshot_dir, exc
-                            )
-
-                if not dry_run:
+                if not dry_run and gone:
                     self._checkpoints.pop(cid, None)
 
             if not dry_run:
-                self._session_checkpoints.pop(session_id, None)
+                remaining = [
+                    cid
+                    for cid in self._session_checkpoints.get(session_id, [])
+                    if cid in self._checkpoints
+                ]
+                if remaining:
+                    self._session_checkpoints[session_id] = remaining
+                else:
+                    self._session_checkpoints.pop(session_id, None)
 
         return count
 

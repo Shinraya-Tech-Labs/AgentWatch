@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from panoptis.governance.gdpr import ErasureStore
+from panoptis.governance.gdpr import ErasureStore, PartialErasureError
 
 
 @dataclass
@@ -175,14 +175,24 @@ async def drop_memory_entries(
     identifier: str, *, scope: str = "user_id", tenant_id: str | None = None
 ) -> int:
     """Delete every memory entry matching ``identifier`` in ``scope`` (exact match) in the
-    stores of ``tenant_id``. Returns the number deleted. Only memory is touched: the
-    evidence ledger is append-only and keeps its own erasure path (crypto-shredding)."""
+    stores of ``tenant_id`` registered in this process. Returns the number deleted, and raises
+    :class:`PartialErasureError` if any store could not delete a match: the other stores are still
+    processed. Stores in other processes are not reachable from here. Only memory is touched:
+    the evidence ledger is append-only and keeps its own erasure path (crypto-shredding)."""
     if not identifier or not identifier.strip():
         raise ValueError("an erasure needs a non-empty identifier")
-    removed = 0
+    removed, failures = 0, []
     for store, tenant in _stores(tenant_id):
-        for e in [e for e in store.all_entries() if _matches(e, identifier, scope, tenant)]:
-            removed += bool(store.remove(e.entry_id))
+        try:
+            for e in [e for e in store.all_entries() if _matches(e, identifier, scope, tenant)]:
+                if store.remove(e.entry_id):
+                    removed += 1
+                else:
+                    failures.append(f"entry {e.entry_id} was not removed")
+        except Exception as exc:  # noqa: BLE001 - reported below; other stores must still run
+            failures.append(f"{type(store).__name__}: {exc}")
+    if failures:
+        raise PartialErasureError("; ".join(failures[:5]), erased=removed)
     return removed
 
 

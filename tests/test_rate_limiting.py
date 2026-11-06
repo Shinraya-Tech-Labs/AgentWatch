@@ -8,13 +8,16 @@ Covers two layers:
 
 from __future__ import annotations
 
-import os
-
 import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
+from starlette.datastructures import Headers
 
-from panoptis.api.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
+from panoptis.api.middleware.rate_limiter import (
+    RateLimiter,
+    RateLimitMiddleware,
+    client_ip,
+)
 
 
 class TestRateLimiter:
@@ -97,8 +100,10 @@ def rate_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     import panoptis.api.server as server
 
-    server.RATE_WRITE = int(os.getenv("API_RATE_LIMIT_WRITE", "10"))
-    server.RATE_READ = int(os.getenv("API_RATE_LIMIT_READ", "1000"))
+    # monkeypatch restores these even when a test fails; assigning them leaked a 10-write limit
+    # into every later test in the process
+    monkeypatch.setattr(server, "RATE_WRITE", 10)
+    monkeypatch.setattr(server, "RATE_READ", 1000)
     server.reset_rate_limiter_for_tests()
 
     return TestClient(server.app, raise_server_exceptions=False)
@@ -153,14 +158,51 @@ def test_429_body_matches_spec(rate_client: TestClient) -> None:
     assert "Retry-After" in last.headers
 
 
-def test_client_ip_prefers_forwarded_for() -> None:
-    import panoptis.api.server as server
+class _Peer:
+    host = "10.0.0.1"
 
-    class _Request:
-        client = None
-        headers = {"x-forwarded-for": "203.0.113.9, 70.41.3.18"}
 
-    assert server._client_ip(_Request()) == "203.0.113.9"  # type: ignore[arg-type]
+class _ForwardedRequest:
+    client = _Peer()
+    headers = Headers({"x-forwarded-for": "203.0.113.9, 70.41.3.18"})
+
+
+def test_client_ip_ignores_forwarded_for_from_an_unknown_peer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("AGENTWATCH_TRUSTED_PROXIES", raising=False)
+    assert client_ip(_ForwardedRequest()) == "10.0.0.1"  # type: ignore[arg-type]
+
+
+def test_client_ip_takes_the_hop_a_trusted_proxy_saw(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENTWATCH_TRUSTED_PROXIES", "10.0.0.1")
+    # the first entry is whatever the sender wrote; the proxy appended the last one
+    assert client_ip(_ForwardedRequest()) == "70.41.3.18"  # type: ignore[arg-type]
+
+
+def test_client_ip_walks_past_every_trusted_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENTWATCH_TRUSTED_PROXIES", "10.0.0.1, 70.41.3.18")
+    assert client_ip(_ForwardedRequest()) == "203.0.113.9"  # type: ignore[arg-type]
+
+
+def test_client_ip_reads_every_forwarded_line(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENTWATCH_TRUSTED_PROXIES", "10.0.0.1")
+
+    class _TwoLines(_ForwardedRequest):
+        headers = Headers(
+            raw=[(b"x-forwarded-for", b"6.6.6.6"), (b"x-forwarded-for", b"70.41.3.18")]
+        )
+
+    assert client_ip(_TwoLines()) == "70.41.3.18"  # type: ignore[arg-type]
+
+
+def test_client_ip_never_returns_a_forged_bucket_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENTWATCH_TRUSTED_PROXIES", "10.0.0.1")
+
+    class _Forged(_ForwardedRequest):
+        headers = Headers({"x-forwarded-for": "tenant:acme"})
+
+    assert client_ip(_Forged()) == "10.0.0.1"  # type: ignore[arg-type]
 
 
 def test_limiter_prunes_stale_buckets() -> None:
