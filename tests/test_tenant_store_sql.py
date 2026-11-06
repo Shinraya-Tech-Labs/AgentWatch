@@ -217,13 +217,28 @@ def test_a_newer_schema_is_refused(url):
 @pytest.fixture
 def fresh_singleton(monkeypatch, tmp_path):
     from panoptis.api import tenant_auth
+    from panoptis.api import v3 as v3api
+    from panoptis.runtime.engine import Engine
+    from panoptis.storage.store import Store
 
     for var in ("AGENTWATCH_TENANT_STORE", "AGENTWATCH_STORE", "AGENTWATCH_CLOUD_MODE"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("AGENTWATCH_HOME", str(tmp_path / "home"))
     tenant_auth.reset_tenant_store_for_tests()
+    # With AGENTWATCH_STORE cleared, the v3 API would open ./data/agentwatch-v3.db, which is the
+    # real store when the tests run from a checkout.
+    store = Store(f"sqlite:///{(tmp_path / 'v3.db').as_posix()}")
+    v3api.set_engine(Engine(store))
     yield tenant_auth
+    v3api.set_engine(None)
+    store.close()
     tenant_auth.reset_tenant_store_for_tests()
+
+
+def test_v3_store_stays_in_the_test_directory(fresh_singleton, tmp_path):
+    from panoptis.api import v3 as v3api
+
+    assert v3api.get_engine().store.url.endswith(f"{tmp_path.as_posix()}/v3.db")
 
 
 def test_self_hosted_default_is_in_memory(fresh_singleton):
