@@ -80,8 +80,16 @@ def _attest_report(rest: list[str]) -> int:
     return 0
 
 
+def _tolerate_any_console() -> None:
+    """A console that cannot encode a character shows a substitute instead of crashing."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
+
+
 def main(args: list[str] | None = None) -> Any:
     """CLI entrypoint dispatching Panopti-specific commands and delegating to AgentWatch."""
+    _tolerate_any_console()
     argv = list(sys.argv[1:] if args is None else args)
 
     if not argv or argv[0] in ("-h", "--help") and len(argv) == 1:
@@ -92,7 +100,7 @@ def main(args: list[str] | None = None) -> Any:
             print("Usage: panopti [COMMAND] [ARGS]...\n")
             print("Panopti Commands:")
             print(
-                "  demo            Run interactive terminal hypervisor simulation [--theme <name>] [--kill-file <path>]"
+                "  demo            Run a scripted terminal illustration (not the real pipeline) [--theme <name>] [--kill-file <path>]"
             )
             print("  playground      Launch zero-dependency local web interactive playground")
             print("  doctor          Run system, interceptor, and circuit breaker health checks")
@@ -100,7 +108,7 @@ def main(args: list[str] | None = None) -> Any:
                 "  top / live      Interactive terminal sentinel monitor [--profile <name>]"
                 " [--cooldown <s>] [--max-failures <n>]"
             )
-            print("  bench           Measure hypervisor latency overhead [--iterations <n>]")
+            print("  bench           Measure interception latency overhead [--iterations <n>]")
             print("  court verify    Verify a cryptographic execution witness proof (.json)")
             print("  attest verify   Verify an immutable cryptographic policy attestation seal")
             print("  attest report   Export a seal as a Markdown or HTML report [--format md|html]")

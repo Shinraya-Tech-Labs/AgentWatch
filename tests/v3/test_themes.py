@@ -114,8 +114,8 @@ def test_demo_with_theme_matrix():
         code = run_interactive_demo(fast=True, theme="matrix", no_color=True)
     assert code == 0
     out = buf.getvalue()
-    assert "PANOPTI ACTIVE SENTINEL" in out
-    assert "OUTCOME: PRODUCTION DATABASE SAVED" in out
+    assert "PANOPTI SCRIPTED ILLUSTRATION" in out
+    assert "OUTCOME: SIMULATED COMMAND VETOED, NO DATABASE INVOLVED" in out
 
 
 def test_demo_with_theme_amber():
@@ -124,8 +124,8 @@ def test_demo_with_theme_amber():
         code = run_interactive_demo(fast=True, theme="amber", no_color=True)
     assert code == 0
     out = buf.getvalue()
-    assert "PANOPTI ACTIVE SENTINEL" in out
-    assert "OUTCOME: PRODUCTION DATABASE SAVED" in out
+    assert "PANOPTI SCRIPTED ILLUSTRATION" in out
+    assert "OUTCOME: SIMULATED COMMAND VETOED, NO DATABASE INVOLVED" in out
 
 
 def test_cli_demo_with_theme_flag():
@@ -134,5 +134,5 @@ def test_cli_demo_with_theme_flag():
         code = main(["demo", "--fast", "--theme", "matrix", "--no-color"])
     assert code == 0
     out = buf.getvalue()
-    assert "PANOPTI ACTIVE SENTINEL" in out
-    assert "TAMPER-PROOF AUDIT RECORD SEALED" in out
+    assert "PANOPTI SCRIPTED ILLUSTRATION" in out
+    assert "WITNESS RECORD SIGNED WITH AN EPHEMERAL DEMO KEY" in out

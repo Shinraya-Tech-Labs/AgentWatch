@@ -1,9 +1,9 @@
-"""Panopti Interactive Terminal Simulation Demo.
+"""Panopti terminal illustration.
 
-Runs a real-time, colorized interactive hypervisor demonstration where an
-autonomous agent attempts a destructive action (DROP TABLE users;), and
-Panopti's Active Sentinel intercepts, vetoes, decays confidence, and seals
-the tamper-proof forensic Merkle witness in real-time.
+A scripted story, not the product: no database exists, no tool runs and the protection
+pipeline is not called. A small pattern matcher vetoes a literal SQL string and a demo witness
+record is signed with a throwaway key. For the real pipeline, API, MCP gateway and evidence
+verifier, run ``examples/walkthrough/live_demo.py``.
 
 Governed by ponytail: ultra (pure Python standard library).
 """
@@ -52,7 +52,7 @@ class GuardVerdict:
 
 
 class ActiveSentinel:
-    """Pure standard-library active pre-execution hypervisor."""
+    """A three-pattern string matcher for this illustration."""
 
     def __init__(
         self,
@@ -135,7 +135,7 @@ def run_interactive_demo(
     )
     p(
         _c_theme(
-            "  👁️  PANOPTI ACTIVE SENTINEL: PRE-EXECUTION RUNTIME HYPERVISOR DEMO",
+            "  👁️  PANOPTI SCRIPTED ILLUSTRATION: NOT THE REAL PIPELINE",
             palette.BOLD + palette.WHITE,
             use_color,
         )
@@ -159,7 +159,7 @@ def run_interactive_demo(
     p()
     p(
         _c_theme("[SYSTEM INIT]", palette.CYAN, use_color)
-        + " Initializing Panopti Active Hypervisor Pipeline..."
+        + " Starting the scripted illustration (no database, no tools)..."
     )
     time.sleep(delay)
 
@@ -171,9 +171,7 @@ def run_interactive_demo(
         kill_switch=kill_switch,
     )
 
-    p(
-        f"  • Pre-Execution Intercept : {_c_theme('ONLINE (0.01ms overhead)', palette.GREEN, use_color)}"
-    )
+    p(f"  • Pre-Execution Intercept : {_c_theme('ONLINE', palette.GREEN, use_color)}")
     p(f"  • Circuit Breaker FSM     : {_c_theme('CLOSED (Nominal)', palette.GREEN, use_color)}")
     p(
         f"  • Merkle Witness Court    : {_c_theme('ACTIVE (Genesis Hash: ' + witness_court.GENESIS_HASH[:16] + '...)', palette.GREEN, use_color)}"
@@ -193,7 +191,7 @@ def run_interactive_demo(
     )
     p(
         _c_theme(
-            "SCENARIO: Autonomous SQL Agent 'Agent-Alpha' connected to production database.",
+            "SCENARIO: A scripted agent, 'Agent-Alpha', proposes SQL. No database is connected.",
             palette.YELLOW,
             use_color,
         )
@@ -301,10 +299,7 @@ def run_interactive_demo(
         f"  • Circuit Breaker  : {_c_theme('TRIPPED -> OPEN (All subsequent agent calls suspended)', palette.RED, use_color)}"
     )
     p(
-        f"  • Confidence Score : {_c_theme('0.85 -> 0.10', palette.YELLOW, use_color)} (Floor 0.40 breached!)"
-    )
-    p(
-        f"  • Pre-Execution Veto: {_c_theme('ENFORCED (Execution blocked before hitting DB driver)', palette.RED + palette.BOLD, use_color)}"
+        f"  • Pre-Execution Veto: {_c_theme('SIMULATED (a string match; nothing would have run)', palette.RED + palette.BOLD, use_color)}"
     )
     time.sleep(delay)
 
@@ -334,7 +329,7 @@ def run_interactive_demo(
     p(f"  • Forensic Seal ID   : {_c_theme(seal.seal_id, palette.CYAN, use_color)}")
     p(f"  • HMAC-SHA256 Sig    : {_c_theme(seal.signature[:32] + '...', palette.CYAN, use_color)}")
     p(
-        f"  • Verification Status: {_c_theme('TAMPER-PROOF AUDIT RECORD SEALED', palette.GREEN + palette.BOLD, use_color)}"
+        f"  • Verification Status: {_c_theme('WITNESS RECORD SIGNED WITH AN EPHEMERAL DEMO KEY', palette.GREEN + palette.BOLD, use_color)}"
     )
     time.sleep(delay)
 
@@ -349,21 +344,21 @@ def run_interactive_demo(
     )
     p(
         _c_theme(
-            "  🛡️  OUTCOME: PRODUCTION DATABASE SAVED — ZERO DATA LOSS",
+            "  🛡️  OUTCOME: SIMULATED COMMAND VETOED, NO DATABASE INVOLVED",
             palette.BOLD + palette.GREEN,
             use_color,
         )
     )
     p(
         _c_theme(
-            "  Without Panopti : Rogue agent executes DROP TABLE -> Outage & catastrophic loss.",
+            "  This was a scripted illustration of a pattern match.",
             palette.RED,
             use_color,
         )
     )
     p(
         _c_theme(
-            "  With Panopti    : 0.01ms pre-execution intercept -> Vetoed -> Cryptographically sealed.",
+            "  For the real pipeline, run: python examples/walkthrough/live_demo.py",
             palette.GREEN,
             use_color,
         )

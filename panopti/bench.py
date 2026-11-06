@@ -1,4 +1,4 @@
-"""Panopti bench: measure the hot-path overhead of the hypervisor checks.
+"""Panopti bench: measure the hot-path overhead of the interception checks.
 
 Times three things an agent action passes through, using only the standard library:
 a destructive-pattern regex check, a circuit breaker ``observe()`` on a healthy event,

@@ -7,8 +7,9 @@ Run it with no setup at all::
     python demo.py
 
 No Docker, no ``.env``, no API keys. It uses AgentWatch's built-in safety
-auditor (zero config) to inspect each step a simulated agent tries to run, and
-blocks the destructive one *before* it would execute.
+auditor (zero config) to score each step a simulated agent proposes, and stops
+at the destructive one. This is a simulation: no command is ever executed and
+no database exists. ``examples/walkthrough/live_demo.py`` runs the real pipeline.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ console = Console()
 
 # Each step is (human description, shell command). A command of None is plain
 # narration with nothing to run. Step 3 is destructive: the agent "resets" an
-# account by wiping the production database directory.
+# account by wiping a database directory. No command here is ever executed.
 AgentStep = tuple[str, str | None]
 
 
@@ -82,12 +83,12 @@ def _print_block(step: int, command: str, risk_score: float, reasons: list[str],
 def _print_summary(command: str, reason: str) -> None:
     console.print(
         Panel(
-            "AgentWatch checked every action the agent tried to take and "
-            "[bold]blocked a destructive command before it ran[/bold].\n\n"
+            "AgentWatch scored each step this simulated agent proposed and "
+            "[bold]stopped at the destructive command[/bold].\n\n"
             f"[bold]Blocked command:[/bold] [red]{command}[/red]\n"
             f"[bold]Why:[/bold] {reason}\n\n"
-            "Nothing was deleted. In a real deployment this is the step that "
-            "would have wiped your database — AgentWatch caught it live.",
+            "This was a simulation: no command runs and no database exists. "
+            "A real deployment is protected only for calls routed through it.",
             title="[bold green]✔ What just happened[/bold green]",
             border_style="green",
             padding=(1, 2),
@@ -101,7 +102,7 @@ async def main() -> None:
 
     console.print(
         "\n[bold cyan]🤖 Agent running...[/bold cyan] "
-        "[dim](AgentWatch is auditing every step)[/dim]\n"
+        "[dim](simulated: AgentWatch scores each proposed step)[/dim]\n"
     )
 
     step = 0

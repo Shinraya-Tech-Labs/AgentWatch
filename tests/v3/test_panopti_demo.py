@@ -41,10 +41,10 @@ def test_run_interactive_demo_fast():
         code = run_interactive_demo(fast=True, no_color=True)
     assert code == 0
     output = buf.getvalue()
-    assert "PANOPTI ACTIVE SENTINEL" in output
+    assert "PANOPTI SCRIPTED ILLUSTRATION" in output
     assert "DROP TABLE users;" in output
     assert "PANOPTI INTERCEPT TRIGGERED" in output
-    assert "OUTCOME: PRODUCTION DATABASE SAVED" in output
+    assert "OUTCOME: SIMULATED COMMAND VETOED, NO DATABASE INVOLVED" in output
 
 
 def test_cli_demo_subcommand():
@@ -53,5 +53,5 @@ def test_cli_demo_subcommand():
         code = main(["demo", "--fast", "--no-color"])
     assert code == 0
     output = buf.getvalue()
-    assert "PANOPTI ACTIVE SENTINEL" in output
-    assert "TAMPER-PROOF AUDIT RECORD SEALED" in output
+    assert "PANOPTI SCRIPTED ILLUSTRATION" in output
+    assert "WITNESS RECORD SIGNED WITH AN EPHEMERAL DEMO KEY" in output

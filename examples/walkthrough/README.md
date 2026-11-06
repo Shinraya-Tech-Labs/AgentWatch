@@ -15,6 +15,47 @@ The committed output of a real run is in [`output/`](output/):
 - `console.txt` (the console);
 - `screenshots/`.
 
+## Live demo
+
+`live_demo.py` is the version for an audience: the same attack twice, then the controls behind it. It takes about 12 seconds with `--fast`, or a few minutes at presenting pace.
+
+```bash
+python examples/walkthrough/live_demo.py --check        # preflight, run this first
+python examples/walkthrough/live_demo.py --interactive  # press Enter between scenes
+python examples/walkthrough/live_demo.py --fast         # rehearsal, no pauses
+python examples/walkthrough/live_demo.py --dashboard    # approve in the browser in scene 3
+python examples/walkthrough/live_demo.py --screenshots  # capture dashboard and terminal
+python examples/walkthrough/drive_dashboard.py --out <dir>  # --dashboard, Approve clicked by Playwright
+```
+
+### Check counts
+
+| Mode | Checks | Why |
+|---|---:|---|
+| Default, `--fast`, `--interactive`, `--screenshots` | 24 | All checks |
+| `--dashboard`, Approve clicked | 23 | "The approval names exactly that action" runs only when approving through the API |
+| `--dashboard`, nobody clicks | 22, one fails | Also skips the tenant probe, which needs an approved request. "Ran exactly once" fails, as it should |
+
+`run_walkthrough.py` is a separate script with its own 23 checks.
+
+| # | Scene | What the audience sees |
+|---|---|---|
+| 1 | The attack, unprotected | A poisoned issue makes the agent send a fake key to a local server and delete a throwaway project |
+| 2 | The same attack, with PANOPTIS | The injected lines never reach the agent; forced commands are blocked; nothing is sent or deleted |
+| 3 | A human in the loop | A force-push waits for approval of its exact digest, then runs once |
+| 4 | MCP interception | A real MCP client and server; the server's own log shows the blocked call never arrived |
+| 5 | Emergency stop | An operator stops an agent in another process; a tenant key cannot |
+| 6 | Evidence | The chain verifies, then a rewritten database and an edited bundle are both rejected |
+| 7 | Tenant isolation | Two tenants see only their own decisions and approvals |
+
+What to say honestly:
+
+- **The agent is scripted.** It obeys any "run:" line, which is what a successfully injected agent does. No model is involved.
+- **The attack is real but contained.** The deletion and the upload happen, inside a temporary directory and to a server on `127.0.0.1`. The "shell" only understands the demo's commands.
+- **Rules are pattern-based.** The demo shows known attack forms being stopped, not that every attack is caught.
+
+A scene that fails is reported in red and the demo moves on, so one problem does not end a talk. The exit status is non-zero if any check failed. Results go to `--out`: `results.json`, `transcript.html`, `transcript.svg`, and with `--screenshots`, images. `--dashboard` and `--screenshots` need a dashboard build (see [Setup](#setup)).
+
 ## What it does
 
 A temporary deployment directory holds the following:
