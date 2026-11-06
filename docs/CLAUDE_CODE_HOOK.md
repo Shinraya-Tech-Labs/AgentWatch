@@ -50,6 +50,8 @@ The command it installs is the absolute path of the current Python interpreter r
 
 The entry script uses only the standard library until it imports AgentWatch, so a broken install still exits 2. A plain `python -m …` would exit 1, which Claude Code treats as a non-blocking error.
 
+> **Fail-open warning.** Before Claude Code 2.1.295, a hook that fails to start or times out lets the tool run. Do not describe this integration as fail-closed unless the CLI is 2.1.295 or later and the hook was installed with `--on-failure-block`. The hook contract is tested, but no end-to-end run against a real signed-in CLI has been done on any version. The development machine used for this release has Claude Code 2.1.229, which is in the fail-open range.
+
 **What the hook cannot control:** if the hook command cannot start at all (the interpreter was deleted) or times out (default 30 s), Claude Code runs the tool anyway. Claude Code 2.1.295 and later support `"onFailure": "block"`:
 
 ```bash

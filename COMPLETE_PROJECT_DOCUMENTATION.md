@@ -1,10 +1,12 @@
+> **Historical compilation.** This file gathers design documents as written at the time, and many of its claims were never implemented or have been withdrawn. Current claims are in [docs/CLAIMS.md](docs/CLAIMS.md).
+
 # PANOPTIS (FORMERLY AGENTWATCH) — COMPLETE MASTER TECHNICAL DOCUMENTATION & HISTORICAL RECORD
 
-> **Document Status**: Canonical Project Record & Architectural Specification  
-> **Date of Generation**: 2026-10-31 23:57:04  
+> **Document Status**: Historical compilation, not a statement of current claims  
+> **Date of Generation**: 2026-11-06 16:05:40  
 > **Target Audience**: Software Architects, Principal AI Engineers, Security Auditors, and Technical Investors  
-> **Total Historical Commits**: 578  
-> **Total Source Modules Audited**: 293  
+> **Total Historical Commits**: 844  
+> **Total Source Modules Audited**: 340  
 > **Architectural Decision Records (ADRs)**: 18  
 > **Historical Sub-Specifications Integrated**: 30 deep-dive modules  
 
@@ -76,7 +78,7 @@ The project founders recognized that **passive monitoring is insufficient**: rec
 ### 1.4 Initial Vision & Primary Objectives
 
 The foundational vision of AgentWatch / Panoptis was built on three core pillars:
-1. **Pre-Execution Hypervision**: Intercept every tool call *before* it reaches the operating system or network. If an action violates security regexes, frequency clamps, or temporal logic invariants, abort it synchronously with zero runtime overhead.
+1. **Pre-Execution Checks**: Check tool calls routed through an enforcing integration *before* they reach the operating system or network. If an action violates security regexes, frequency clamps, or temporal logic invariants, abort it synchronously with zero runtime overhead.
 2. **Zero Supply Chain Bloat (The Ponytail Ultra Discipline)**: The core interceptor and verification engines must rely exclusively on the Python standard library (`hashlib`, `hmac`, `json`, `dataclasses`, `time`, `typing`). No heavyweight dependencies inside the hot execution path.
 3. **Mathematical & Cryptographic Proof**: Software execution must produce immutable, tamper-evident Merkle witness chains and HMAC attestation seals, allowing third-party auditors and regulatory bodies to verify compliance without trusting the AI model.
 
@@ -12449,14 +12451,280 @@ Below is the complete historical git commit record of the repository (all 578 co
 
 | Commit Hash | Date | Author | Commit Message |
 |---|---|---|---|
-| `210b2d9` | 2026-10-30 | SHAURYASANYAL3 | fix(adapters): report failed generic CLI runs as failures |
-| `1df507c` | 2026-10-30 | SHAURYASANYAL3 | feat(cli): support `--agent opencode` |
-| `a5f8fca` | 2026-10-30 | SHAURYASANYAL3 | fix(adapters): resolve the claude CLI shim before spawning |
-| `5d141b9` | 2026-10-30 | SHAURYASANYAL3 | fix(cli): run the configured agent in `session watch` |
-| `6c48433` | 2026-10-30 | SHAURYASANYAL3 | test: follow panoptis rename and the redteam move under safety |
-| `f197dd7` | 2026-10-30 | SHAURYASANYAL3 | fix(cli): drop sys.path hack that shadowed stdlib platform |
-| `cfb8a5f` | 2026-10-30 | SHAURYASANYAL3 | refactor!: rename agentwatch package and PyPI distribution to panoptis |
-| `f38cbd8` | 2026-10-30 | SHAURYASANYAL3 | fix(cli): register redteam under the safety command group |
+| `9627068` | 2026-11-04 | S.Sreerevanth | Merge pull request #845 from Shinraya-Tech-Labs/feat/protect-runtime-security |
+| `ab42bf8` | 2026-11-04 | sreerevanth | docs(readme): rebuild around verified claims, with redrawn workflows and fresh benchmarks |
+| `984b75b` | 2026-11-04 | github-actions[bot] | chore: update contributors |
+| `5d412c7` | 2026-11-04 | github-actions[bot] | chore: update contributors |
+| `32f7697` | 2026-11-04 | S.Sreerevanth | Merge pull request #844 from Shinraya-Tech-Labs/feat/protect-runtime-security |
+| `54ec3de` | 2026-11-04 | sreerevanth | docs(readme): add the target architecture diagrams and execution workflow |
+| `a2d5e0b` | 2026-11-03 | github-actions[bot] | chore: update contributors |
+| `81e1fd1` | 2026-11-03 | SHAURYASANYAL3 | fix(security): enforce database tenant scoping, pre-execution stego defense, and LTL trajectory remediation |
+| `3200806` | 2026-11-03 | SHAURYASANYAL3 | fix(docs): resolve Mermaid syntax style directives in README |
+| `5f38b84` | 2026-11-03 | SHAURYASANYAL3 | docs: modernize README with v0.3.1 architecture, interactive diagrams, and security benchmarks |
+| `94fc519` | 2026-11-03 | github-actions[bot] | chore: update contributors |
+| `9bd73d3` | 2026-11-03 | SHAURYASANYAL3 | Merge remote-tracking branch 'origin/main' |
+| `8b72b1d` | 2026-11-03 | SHAURYASANYAL3 | fix(security): allowlist test_deep_audit_remediation in gitleaks config |
+| `59983b8` | 2026-11-03 | github-actions[bot] | chore: update contributors |
+| `5a1ac33` | 2026-11-03 | SHAURYASANYAL3 | fix(security): resolve gitleaks false positives in audit doc and ecosystem test |
+| `d42768a` | 2026-11-03 | SHAURYASANYAL3 | fix(security): sanitize stego bit references and update gitleaks path regex |
+| `8772ee6` | 2026-11-03 | SHAURYASANYAL3 | Merge remote-tracking branch 'origin/main' |
+| `e2f7f01` | 2026-11-03 | SHAURYASANYAL3 | fix(ci): resolve bandit assert warnings and sanitize audit doc for gitleaks |
+| `d8d0d67` | 2026-11-03 | github-actions[bot] | chore: update contributors |
+| `add84b5` | 2026-11-03 | SHAURYASANYAL3 | chore(release): bump version to 0.3.1 and update changelog |
+| `23f3b6d` | 2026-11-03 | SHAURYASANYAL3 | Merge remote-tracking branch 'origin/main' |
+| `da849a2` | 2026-11-03 | SHAURYASANYAL3 | docs: add Before vs Now Comparative Audit (Top 1% to Top 0.001% tier) |
+| `5d10def` | 2026-11-03 | github-actions[bot] | chore: update contributors |
+| `4769f7a` | 2026-11-03 | SHAURYASANYAL3 | Merge remote-tracking branch 'origin/main' |
+| `5502509` | 2026-11-03 | SHAURYASANYAL3 | fix(security): remediate ecosystem deep audit vectors AUDIT-09 to AUDIT-14 |
+| `1bb7120` | 2026-11-03 | SHAURYASANYAL3 | fix(protect): remediate deep audit vectors VULN-01 to VULN-08 (stego neutralizer, dynamic taint, MTL AST delta) |
+| `461f4d4` | 2026-11-02 | github-actions[bot] | chore: update contributors |
+| `39a5ac2` | 2026-11-02 | Shaurya Sanyal (Mr Fool) | Merge pull request #839 from Shinraya-Tech-Labs/feat/protect-runtime-security |
+| `678d8fd` | 2026-11-02 | SHAURYASANYAL3 | fix(storage): gracefully handle concurrent idempotency key race conditions in store.append |
+| `3e618b7` | 2026-11-02 | SHAURYASANYAL3 | fix(ci): declare opentelemetry-api in otel extra and update ARCHITECTURE_MAP for wired evidence modules |
+| `cd68862` | 2026-11-02 | SHAURYASANYAL3 | fix(security): allowlist mock ghp tokens in gitleaks config |
+| `30e7479` | 2026-11-02 | SHAURYASANYAL3 | docs: use absolute repository links for files outside docs directory for mkdocs strict |
+| `6846910` | 2026-11-02 | SHAURYASANYAL3 | fix(security): resolve bandit static analysis warnings and update gitleaks allowlist |
+| `c4f55a3` | 2026-11-02 | SHAURYASANYAL3 | fix(protect): resolve merge conflicts with main, pass coverage floor and import checks |
+| `fbf039b` | 2026-11-02 | SHAURYASANYAL3 | Merge branch 'main' into feat/protect-runtime-security |
+| `a9172b6` | 2026-11-02 | sreerevanth | fix(api): Postgres persistence and erasure failures that only showed with DATABASE_URL set (TO-039) |
+| `383eadd` | 2026-11-02 | github-actions[bot] | chore: update contributors |
+| `d44c848` | 2026-11-02 | sreerevanth | feat(walkthrough): reproducible end-to-end walkthrough against a live deployment (TO-038) |
+| `5e214f3` | 2026-11-02 | sreerevanth | docs: correct product claims (pattern counts, block vs observe, auditor scope); threat model, claims-to-evidence map and evaluation write-up (TO-035, TO-036, TO-037) |
+| `e01b3c6` | 2026-11-02 | sreerevanth | bench: reproducible protection evaluation and overhead benchmark with a versioned synthetic corpus, raw results and report (TO-036, TO-037) |
+| `5ff9d14` | 2026-11-02 | sreerevanth | fix(protect): remove an injected HTML comment, not the whole line around it |
+| `4f50104` | 2026-11-02 | sreerevanth | fix(protect): a relative path that climbs into a sensitive system file (../../../../etc/shadow) escalates like the absolute one |
+| `56c9d86` | 2026-11-02 | sreerevanth | fix(protect): ApprovalBroker.list reported the wrong record id (or crashed) after a loop-variable rename |
+| `a5ab557` | 2026-11-02 | sreerevanth | ci: run CI on feature-branch pushes; docs: TO-032/033 (in progress: GitHub runs pending) and TO-034 (DONE) evidence |
+| `3fd7f49` | 2026-11-02 | sreerevanth | docs+test: architecture map of entry points, dependency direction and every unwired module, guarded by a reachability test (TO-034) |
+| `2bbe3bc` | 2026-11-02 | sreerevanth | refactor: remove three unused, untested modules; deprecate the cost shims; wire the support matrix into the CLI (TO-034) |
+| `fd67716` | 2026-11-02 | sreerevanth | ci(release): one gated release path: full CI on the tag commit, gates, single build with checksums and provenance, publish exactly those files (TO-033) |
+| `6ff999d` | 2026-11-02 | sreerevanth | ci: blocking lint, types, Bandit, import and pip checks, secret scan, coverage floors, package integrity and frontend tests; least privilege; hardened PR reports (TO-032) |
+| `892549c` | 2026-11-02 | sreerevanth | fix: Bandit-clean and type-checked protect modules (TO-032) |
+| `69feafc` | 2026-11-02 | sreerevanth | chore(lint): the whole repository passes ruff check and ruff format, including panopti/, tests and scripts (TO-032) |
+| `b9affc6` | 2026-11-02 | SHAURYASANYAL3 | feat(protect): implement Phase 4 - Post-Quantum ML-DSA signatures, transparent zk-STARK trace proofs, and hardware enclave binding |
+| `dcb922e` | 2026-11-02 | sreerevanth | docs: TO-030 and TO-031 evidence and status (DONE) |
+| `b323c2a` | 2026-11-02 | sreerevanth | test+docs: memory erasure through the endpoint, tenant isolation, failure visibility, evidence untouched (TO-031) |
+| `3602707` | 2026-11-02 | sreerevanth | fix(gdpr): memory erasure works: the registry functions exist, match exactly, are tenant-scoped; SQL erasure scoped in self-hosted multi-tenant mode (TO-031) |
+| `26cf3d7` | 2026-11-02 | sreerevanth | docs: packaging, dependency floors, clean-install verification and audit results (TO-030) |
+| `7baf49d` | 2026-11-02 | sreerevanth | fix(dashboard): upgrade Next.js 14.2.30 -> 16.4.4 (React 18), ESLint 9 flat config (TO-030) |
+| `80d7f8e` | 2026-11-02 | sreerevanth | fix(packaging): declare every runtime import, raise vulnerable dependency floors, trim the sdist, add clean-install and import checks (TO-030) |
+| `49e87b3` | 2026-11-02 | SHAURYASANYAL3 | feat(protect): implement Phase 3 - 16-way counterfactual temporal simulation and downstream blast-radius evaluator |
+| `d95e4b7` | 2026-11-02 | SHAURYASANYAL3 | feat(protect): add MemorySentry, CrescendoDriftMonitor, and RAGSanitizer defeating 2025/2026 academic attack papers |
+| `53f6f52` | 2026-11-02 | SHAURYASANYAL3 | docs: add academic research defeat proofs ledger and empirical verification matrix |
+| `2092b50` | 2026-11-02 | SHAURYASANYAL3 | feat(protect): mitigate academic gaps: dynamic taint tracking, LTL multi-hop trajectory verifier, 2PC speculative mock transactor, and memory integrity guard |
+| `9409820` | 2026-11-02 | SHAURYASANYAL3 | feat(protect): implement top 0.001% sovereign governance: formal verification, counterfactual forking, IFC lattice, recursive proofs, and hardware enclaves |
+| `dbfbf0a` | 2026-11-02 | SHAURYASANYAL3 | feat(protect): implement Ring-0 Landlock kernel sandbox and WASI CoW rollback micro-worker |
+| `651a078` | 2026-11-02 | Shaurya Sanyal (Mr Fool) | Merge pull request #812 from pallamanohar2006-arch/feat/issue-737-awbench-sufficiency |
+| `3f3fb7b` | 2026-11-02 | Shaurya Sanyal (Mr Fool) | Merge pull request #811 from pallamanohar2006-arch/feat/issue-736-hyperedge-relation-store |
+| `ea4e11c` | 2026-11-02 | github-actions[bot] | chore: update contributors |
+| `9adb9d8` | 2026-11-02 | Shaurya Sanyal (Mr Fool) | Merge pull request #810 from pallamanohar2006-arch/feat/issue-734-mfotl-engine |
+| `3e23b51` | 2026-11-02 | Manohar Palla | feat(benchmarks): AWBench-Sufficiency adversarial missingness oracle & blind split verification |
+| `4e1abe9` | 2026-11-02 | Manohar Palla | feat(storage): distributed hyperedge relation store with O(1) bi-directional lineage traversal |
+| `b372758` | 2026-11-02 | Manohar Palla | feat(contracts): implement metric first-order temporal logic (MFOTL) engine with open-world quantifiers |
+| `da87c26` | 2026-11-02 | sreerevanth | docs: dashboard guide; TO-029 evidence and status (DONE); dashboard items of TO-019/022/024/025/026 delivered |
+| `efe779a` | 2026-11-02 | sreerevanth | test(dashboard): browser E2E (Playwright, Chromium) against a running API, the production Next build and a real agent; screenshots (TO-029) |
+| `87554bc` | 2026-11-02 | sreerevanth | fix(dashboard): data hooks subscribe to the signed-in key, so every view loads after sign-in (TO-029) |
+| `c4a4210` | 2026-11-02 | sreerevanth | test(dashboard): component and accessibility tests for the security views (jest-axe) (TO-029) |
+| `8114883` | 2026-11-02 | sreerevanth | feat(dashboard): security views over the real protection API: overview, agents and discovery, decisions with loops and intent, approvals, policy, MCP, evidence, emergency controls (TO-029) |
+| `34e7f8c` | 2026-11-02 | sreerevanth | docs: TO-027 and TO-028 evidence and status (DONE) |
+| `b995a09` | 2026-11-02 | sreerevanth | test+docs: CLI smoke tests against a real uvicorn API and a real agent sharing the store; command reference (TO-028) |
+| `4217d7f` | 2026-11-02 | sreerevanth | feat(cli): protect status, decisions, agents, approvals, rbac validate/permissions/check and doctor, in API mode (server-authorized) or local mode (TO-028) |
+| `8212b1c` | 2026-11-02 | sreerevanth | test+docs: protection API over real pipeline records, two tenants, malformed input, auth and store failure; endpoint contracts (TO-027) |
+| `633e6ca` | 2026-11-02 | sreerevanth | feat(api): tenant-scoped protection API: status, decisions (filters, cursor), call detail, loops, intent, agents, MCP, discovery and evidence (TO-027) |
+| `d74e840` | 2026-11-02 | sreerevanth | docs: TO-026 evidence and status (DONE) |
+| `b81bd05` | 2026-11-02 | sreerevanth | test(evidence): PostgreSQL guards every envelope column and verifies version-2 segments (TO-026) |
+| `270458e` | 2026-11-02 | sreerevanth | test+docs: evidence tampering matrix against the store and the independent verifier; integrity model (TO-026) |
+| `37c1001` | 2026-11-02 | sreerevanth | test(api): reset the per-user middleware rate limiter between tests |
+| `cd114e3` | 2026-11-02 | sreerevanth | feat(evidence): auto-sealing ledger, anchored verification, bundle export and a standalone stdlib verifier (TO-026) |
+| `57930b8` | 2026-11-02 | sreerevanth | fix(evidence): leaves cover the whole envelope, segments bind their leaf version, verify checks the index, order, orphans and an expected head (TO-026) |
+| `a0d61fa` | 2026-11-02 | sreerevanth | docs: TO-002, TO-023, TO-024, TO-025 evidence and status (DONE); dashboard items reference TO-029 (was mis-numbered TO-028) |
+| `374d969` | 2026-11-02 | sreerevanth | test+docs: kill switch across paths, processes, restarts, concurrency, approvals, streams, tenants, API and CLI (TO-025) |
+| `01de2eb` | 2026-11-02 | sreerevanth | feat(api,cli): emergency stop and suspension endpoints and 'panoptis protect control' (TO-025) |
+| `1cfdd49` | 2026-11-02 | sreerevanth | fix(api): a tenant key is not the operator credential on self-hosted operator routes |
+| `fde7989` | 2026-11-02 | sreerevanth | fix(protect): emergency stop is re-checked before execution, withdraws pending approvals, ends streams; the kill file is the shared host state; suspensions are tenant-scoped (TO-025) |
+| `6bd8769` | 2026-11-02 | sreerevanth | test+docs: discovery fixtures, fake processes, malformed sources, secrets, wrap; platform support and boundaries (TO-024) |
+| `9e9debc` | 2026-11-02 | sreerevanth | feat(cli): panoptis protect discover [--json---record] and discover wrap [--apply]; psutil as the discovery extra; mcp>=1.8 (TO-024) |
+| `682d6ae` | 2026-11-02 | sreerevanth | feat(protect): local agent and MCP discovery with evidence-based MONITORED/UNMONITORED/UNKNOWN/UNSUPPORTED (TO-024) |
+| `37a96e4` | 2026-11-02 | sreerevanth | docs: MCP gateway setup, transports, failure handling and security model (TO-023); CLI surface; wrap-robust dry-run assertion |
+| `f2327d8` | 2026-11-02 | sreerevanth | refactor(core): watch(agent) without protection runs its SafetyEngine gate inside the shared pipeline (TO-002) |
+| `a36de1a` | 2026-11-02 | sreerevanth | test(protect): MCP gateway protocol tests and SDK client -> gateway -> SDK server E2E over stdio and HTTP (TO-023) |
+| `60679d6` | 2026-11-02 | sreerevanth | feat(cli): panoptis protect mcp-gateway stdio-http-config-status (TO-023) |
+| `720c462` | 2026-11-02 | sreerevanth | feat(protect): standalone MCP gateway, stdio and Streamable HTTP, enforcing tools/call through the shared boundary (TO-023) |
+| `3295893` | 2026-11-02 | sreerevanth | fix(security): redact credentials assigned to credential-named keys (aws_secret_access_key=..., "api_key": ...) in arguments, output and evidence |
+| `48f3f24` | 2026-11-02 | github-actions[bot] | chore: update contributors |
+| `bc0392d` | 2026-11-02 | SHAURYASANYAL3 | benchmarks: add AI agent runtime governance benchmark suite and harden argument threat detection |
+| `a7bc934` | 2026-11-02 | sreerevanth | docs: TO-022 evidence and status (DONE; dashboard view in TO-028) |
+| `a927d19` | 2026-11-02 | sreerevanth | docs: RBAC policy, rules, tenant binding, validation, reload and API (TO-022) |
+| `c8f6a64` | 2026-11-02 | sreerevanth | test(protect): RBAC tool matrix, restricted arguments, rate limits, validation, reload, tenants and API (TO-022) |
+| `7401e53` | 2026-11-02 | sreerevanth | feat(api): tenant-scoped RBAC policy, effective permissions and dry-run check endpoints; the pipeline passes tenant and session to RBAC (TO-022) |
+| `fffc83b` | 2026-11-02 | sreerevanth | fix(protect): RBAC binds roles and rate limits to the tenant, adds session limits, rejects ambiguous policies and reloads safely (TO-022) |
+| `0e8128a` | 2026-11-02 | sreerevanth | docs: TO-020 and TO-021 evidence and status (DONE); baseline after merging main |
+| `63f4491` | 2026-11-02 | sreerevanth | docs: intent grounding objective, findings, similarity rule, verifier and limits (TO-021) |
+| `dafb9e8` | 2026-11-02 | sreerevanth | test(protect): intent grounding for aligned, unrelated, destructive, ambiguous and adversarial actions (TO-021) |
+| `e3b2021` | 2026-11-02 | sreerevanth | fix(protect): session objectives are recorded in their tenant, set_objective on an unknown session is an error, and authorized context reaches grounding (TO-021) |
+| `a7cf32a` | 2026-11-02 | sreerevanth | fix(protect): intent grounding escalates ambiguous high-risk calls, checks destructive targets, bounds the verifier and records confidence (TO-021 |
+| `36e27f0` | 2026-11-02 | sreerevanth | docs: loop detection thresholds, progress rules, enforcement and limitations (TO-020) |
+| `a4588b4` | 2026-11-02 | sreerevanth | Merge remote-tracking branch 'origin/main' into feat/protect-runtime-security |
+| `bb7fce0` | 2026-11-02 | sreerevanth | test(protect): the loop-detection matrix, including productive polling, isolation and memory bounds (TO-020) |
+| `8f4b351` | 2026-11-02 | sreerevanth | fix(protect): loop detection counts progress correctly, scopes call ids per session and bounds memory (TO-020) |
+| `f099e90` | 2026-11-02 | github-actions[bot] | chore: update contributors |
+| `0f24005` | 2026-11-02 | SHAURYASANYAL3 | feat(ops,alerting): add Celery multi-AZ Redis failover resilience, automated segment sealing tasks, and doctor test alerts |
+| `d2fe0d5` | 2026-11-02 | github-actions[bot] | chore: update contributors |
+| `98574c7` | 2026-11-02 | SHAURYASANYAL3 | feat(security,storage): add schema upgrade/downgrade tooling, webhook verification with idempotency, and concurrency benchmark |
+| `368630b` | 2026-11-02 | github-actions[bot] | chore: update contributors |
+| `99e5250` | 2026-11-02 | SHAURYASANYAL3 | feat(storage): add schema migration verification and safe rollback tooling |
+| `9f12664` | 2026-11-02 | github-actions[bot] | chore: update contributors |
+| `6281ce4` | 2026-11-02 | SHAURYASANYAL3 | fix(cli): restore Live context in animator table rows and menu |
+| `2726e39` | 2026-11-02 | sreerevanth | docs: TO-019 evidence and status (DONE; UI test in TO-028) |
+| `75fd112` | 2026-11-02 | sreerevanth | docs: approval request, outcomes, binding and API (TO-019) |
+| `fadcdc8` | 2026-11-02 | sreerevanth | test(protect): the approval lifecycle end to end, including the HTTP API with a waiting agent (TO-019) |
+| `d4fcad9` | 2026-11-02 | sreerevanth | feat(api): tenant-scoped approval endpoints for escalated tool calls (TO-019) |
+| `1457acd` | 2026-11-02 | sreerevanth | fix(protect): approvals are bound to the exact action, tenant-scoped, cancellable and timestamped (TO-019) |
+| `39ae369` | 2026-11-02 | sreerevanth | feat(protect): ledger query/find can read a given tenant (TO-019) |
+| `78b0682` | 2026-11-02 | sreerevanth | fix(claude-hook): use the standard AGENTWATCH_STORE variable for the evidence store (TO-012) |
+| `d493b67` | 2026-11-02 | sreerevanth | docs: TO-018 evidence and status (DONE) |
+| `89b656f` | 2026-11-02 | sreerevanth | docs: output inspection: detection, per-type behaviour, oversize, evidence, failure and limits (TO-018) |
+| `5597c25` | 2026-11-02 | sreerevanth | test(protect): output inspection across result types, oversize, evasion, exact agent value and evidence (TO-018) |
+| `79ff7a9` | 2026-11-02 | sreerevanth | fix(protect): output inspection never hands back uninspected or rebuilt-unsafe results (TO-018) |
+| `e7d000a` | 2026-11-02 | sreerevanth | fix(injection): single zero-width / soft-hyphen characters no longer split detection (TO-018) |
+| `e0faee4` | 2026-11-02 | sreerevanth | docs: TO-017 evidence and status (DONE) |
+| `ce2054d` | 2026-11-02 | sreerevanth | docs: threat analysis: parsing, detector families, scoring, evidence, failure and false-positive behaviour (TO-017) |
+| `3e3fe22` | 2026-11-02 | sreerevanth | docs: TO-016 evidence and status (DONE) |
+| `5cc9dae` | 2026-11-02 | sreerevanth | feat(protect): decisions record the threat-rule version; detector failures fail closed (TO-017) |
+| `fa9e317` | 2026-11-02 | sreerevanth | fix(protect): close threat-analysis bypasses found by probing (TO-017) |
+| `5d5de77` | 2026-11-02 | sreerevanth | docs: protect_tool(), nested and runtime-registered tools, double wrapping, observe mode (TO-016) |
+| `a32d908` | 2026-11-02 | sreerevanth | test(protect): generic and direct tools against the enforcement contract (TO-016) |
+| `1c7ebd1` | 2026-11-02 | sreerevanth | feat(protect): ProtectedToolRegistry protects tools registered at runtime (TO-016) |
+| `7159e6a` | 2026-11-02 | sreerevanth | feat(protect): explicit observation-only mode, visibly distinct from enforcement (TO-016) |
+| `284f958` | 2026-11-02 | sreerevanth | fix(watcher): watch(agent, protection=) never degrades to an unprotected agent (TO-016) |
+| `4248c79` | 2026-11-02 | sreerevanth | docs: TO-012 evidence; BLOCKED until the claude CLI is signed in for the real E2E |
+| `e96520a` | 2026-11-02 | sreerevanth | docs: Claude Code hook installation, verdict mapping, failure behaviour and limits; opt-in real-CLI marker-file E2E (TO-012) |
+| `c976ddb` | 2026-11-02 | sreerevanth | feat(cli): panoptis protect claude-hook install / uninstall / print (TO-012) |
+| `0f0cb5b` | 2026-11-02 | sreerevanth | fix(claude-code): a policy violation found in the stream is a detection, not a block (TO-012) |
+| `de4328d` | 2026-11-02 | sreerevanth | feat(protect): Claude Code PreToolUse/PostToolUse hook decides with the shared pipeline (TO-012) |
+| `b24cc36` | 2026-11-02 | sreerevanth | docs: TO-011, TO-013, TO-014, TO-015 evidence and status (DONE) |
+| `f872cdf` | 2026-11-02 | sreerevanth | test(protect): protected framework tools keep streaming, callbacks and error semantics (TO-013, TO-014, TO-015) |
+| `2035770` | 2026-11-02 | sreerevanth | test(protect): escalated, rejected and mutated calls through LangGraph, smolagents and AutoGen (TO-013, TO-014, TO-015) |
+| `ef8b62e` | 2026-11-02 | sreerevanth | feat(protect): nested protected calls record their parent call id (TO-016) |
+| `25fc32a` | 2026-11-02 | sreerevanth | docs: integration support matrix with tested enforcement boundaries (TO-011, TO-035) |
+| `b555a36` | 2026-11-02 | sreerevanth | feat(protect): streamed tool results are sanitized chunk by chunk; cancellation is recorded (TO-011, TO-018) |
+| `90ef6db` | 2026-11-02 | sreerevanth | docs: record the hardening of the owner's legacy Docker stack (no secrets) |
+| `17e96b7` | 2026-11-02 | sreerevanth | feat(watcher): watch(agent, protection=) enforces on LangGraph, AutoGen, smolagents and LangChain agents' tools (TO-011) |
+| `bbf9750` | 2026-11-02 | sreerevanth | feat(protect): LangChain, LangGraph, smolagents and AutoGen tool execution enforce the shared pipeline (TO-011, TO-013, TO-014, TO-015) |
+| `ce61c17` | 2026-11-02 | sreerevanth | docs: TO-010 evidence and status (DONE) |
+| `a6c0129` | 2026-11-02 | sreerevanth | test: reset API rate-limit counters per test; dry-run test expects the loopback default |
+| `0a55eda` | 2026-11-02 | sreerevanth | docs: request and payload limits with their settings (TO-010) |
+| `8eaacca` | 2026-11-02 | sreerevanth | fix(cli): 'server start' binds 127.0.0.1 by default (TO-009/TO-010) |
+| `822d8d1` | 2026-11-02 | sreerevanth | feat(api): request body, batch, depth, string and WebSocket message limits (TO-010) |
+| `3c567ff` | 2026-11-02 | sreerevanth | docs: TO-009 evidence and status (DONE); flag the owner's exposed legacy stack |
+| `8468857` | 2026-11-02 | sreerevanth | docs: deployment security profiles for Compose and Kubernetes (TO-009) |
+| `22376f2` | 2026-11-02 | sreerevanth | fix(helm): credentials only from a required Secret; restrictive pod security context (TO-009) |
+| `85258de` | 2026-11-02 | sreerevanth | feat(deploy): compose exposure checker and deployment smoke probe (TO-009) |
+| `aa234bd` | 2026-11-02 | sreerevanth | fix(deploy): compose binds every port to loopback, requires Postgres/Redis passwords, Redis auth (TO-009) |
+| `5e1093d` | 2026-11-02 | sreerevanth | docs: TO-008 evidence and status (DONE) |
+| `d32bd2e` | 2026-11-02 | sreerevanth | docs(api): safety dry-run and WebSocket entries reflect authentication and tenant scoping (TO-008, TO-003) |
+| `ec21f6b` | 2026-11-02 | sreerevanth | docs: trust model of the policy dry-run endpoint (TO-008) |
+| `6d6e9ff` | 2026-11-02 | sreerevanth | fix(api): the safety dry-run endpoint no longer discloses the policy to tenants; bounded and rate limited (TO-008) |
+| `737d72c` | 2026-11-02 | sreerevanth | docs: TO-007 evidence and status (DONE) |
+| `1408747` | 2026-11-02 | sreerevanth | fix(api): event ingestion is idempotent on event_id, so retrying after an outage is safe (TO-007) |
+| `9a0d999` | 2026-11-02 | sreerevanth | docs: persistence modes, database failure behaviour and recovery (TO-007) |
+| `53a271b` | 2026-11-02 | sreerevanth | fix(api): a configured database that fails never becomes a silent in-memory deployment (TO-007) |
+| `657074a` | 2026-11-01 | github-actions[bot] | chore: update contributors |
+| `10c6e3e` | 2026-11-02 | S.Sreerevanth | Merge pull request #826 from Shinraya-Tech-Labs/feat/protect-runtime-security |
+| `e1bc369` | 2026-11-02 | sreerevanth | docs: TO-006 evidence and status (DONE) |
+| `81415d3` | 2026-11-02 | sreerevanth | docs: durable tenant/key storage, bootstrap, failure behaviour and recovery (TO-006) |
+| `4120657` | 2026-11-02 | sreerevanth | fix(api): each tenant gets its own copy of the plan defaults; tenant store tests (TO-006) |
+| `f9661b9` | 2026-11-02 | sreerevanth | fix(api): cloud mode stores tenants and keys durably; tenant key routes work and can be bootstrapped (TO-006) |
+| `df38938` | 2026-11-02 | sreerevanth | feat(api): durable SQL tenant and API-key store (TO-006) |
+| `40903d6` | 2026-11-02 | sreerevanth | docs: TO-005 evidence and status (DONE) |
+| `cf8838a` | 2026-11-02 | sreerevanth | fix(attest): seal reports show the signing key id and version; report tests use a test keyring (TO-005) |
+| `7a38e11` | 2026-11-02 | sreerevanth | fix(attest): quickstart notebook uses a generated key; keyring API exported from panopti (TO-005) |
+| `7ba0e9c` | 2026-11-02 | sreerevanth | docs: attestation key generation, configuration, rotation, backup and incident response (TO-005) |
+| `620539b` | 2026-11-02 | sreerevanth | feat(attest): standalone stdlib-only seal verifier for auditors (TO-005) |
+| `f8bacc9` | 2026-11-02 | sreerevanth | feat(attest): the API refuses to start with an unsafe attestation key configuration (TO-005) |
+| `e085f35` | 2026-11-02 | sreerevanth | fix(attest): CLI verify and the demo no longer use keys published in source (TO-005) |
+| `023b496` | 2026-11-02 | sreerevanth | fix(attest): version-2 seals signed by a named key; no public default key (TO-005) |
+| `45764be` | 2026-11-02 | sreerevanth | feat(attest): signing keyring with key ids, rotation, revocation and strength checks (TO-005) |
+| `2f9c23b` | 2026-11-02 | sreerevanth | docs: TO-004 evidence and status (DONE); record the panoptis port |
+| `8745911` | 2026-11-02 | sreerevanth | docs: erasure paths, tenant rule, scopes and the unknown-vs-foreign guarantee (TO-004) |
+| `8cadd74` | 2026-11-02 | sreerevanth | test(evidence): v3 subject crypto-shredding stays within the caller's tenant (TO-004) |
+| `1337770` | 2026-11-02 | sreerevanth | test(erasure): every scope erases exactly what it counted and nothing of the other tenant (TO-004) |
+| `aa4e62a` | 2026-11-02 | sreerevanth | fix(api): GDPR erasure also evicts the caller's sessions from the trace cache (TO-004) |
+| `762ffe8` | 2026-11-02 | sreerevanth | fix(models): erasure filters match nothing for unknown keys; user_id scope matches the user's sessions (TO-004) |
+| `d6b2121` | 2026-11-01 | github-actions[bot] | chore: update contributors |
+| `af1b097` | 2026-11-02 | S.Sreerevanth | Merge pull request #825 from Shinraya-Tech-Labs/feat/protect-runtime-security |
+| `0ebcff1` | 2026-11-02 | sreerevanth | fix(api): GDPR session erasure can no longer delete another tenant's session (TO-004) |
+| `c37aa28` | 2026-11-02 | sreerevanth | fix(models): JSONB columns fall back to JSON off PostgreSQL so the v1 schema runs on SQLite (TO-004) |
+| `94d612b` | 2026-11-02 | sreerevanth | docs: paths follow the panoptis package rename |
+| `4c2025d` | 2026-11-02 | sreerevanth | merge: port feat/protect-runtime-security onto main's panoptis package layout |
+| `6b9593a` | 2026-11-02 | sreerevanth | docs: TO-003 evidence and status (DONE) |
+| `8178f43` | 2026-11-02 | sreerevanth | docs: tenancy after TO-003, with AGENTWATCH_TENANT_KEYS and AGENTWATCH_ADMIN_KEY documented |
+| `971b2e8` | 2026-11-02 | sreerevanth | test(cli): tenant-taking commands read only their tenant; others only 'default' (TO-003) |
+| `eabb16d` | 2026-11-02 | sreerevanth | fix(api): /ws/events authenticates tenant keys and streams only the connection's tenant's events (TO-003) |
+| `9728660` | 2026-11-02 | sreerevanth | fix(api): cross-tenant and global routes require an operator credential in cloud mode (TO-003) |
+| `ddd7d5d` | 2026-11-02 | sreerevanth | fix(api): v1 session reads, actions and listing are scoped to the caller's tenant (TO-003) |
+| `19f7e0d` | 2026-11-02 | sreerevanth | fix(api): v1 events and sessions are tagged with the authenticated tenant; no cross-tenant appends (TO-003) |
+| `2c4cea4` | 2026-11-02 | sreerevanth | fix(api): v3 tenant comes from the credential; X-Tenant-ID can no longer select a tenant (TO-003) |
+| `3fbf0f1` | 2026-11-02 | sreerevanth | test(protect): approval path - approve-then-execute order, reject, timeout, re-inspected approver edits (TO-002) |
+| `46fa441` | 2026-11-02 | sreerevanth | feat(api): tenant resolution from credentials, never from a header (TO-003) |
+| `bff42c8` | 2026-11-02 | sreerevanth | docs: tenancy trust model and route-by-route tenant audit (TO-003) |
+| `79e7cef` | 2026-11-02 | sreerevanth | docs: TO-002 evidence and status (boundary done; integration adoption in progress) |
+| `a1a349b` | 2026-11-02 | sreerevanth | perf(forwarder): back off after a connection failure instead of retrying on every event (TO-002) |
+| `9dc1fd6` | 2026-11-02 | sreerevanth | feat(watcher): watch(agent, protection=pipeline) routes tool calls through the shared enforcement boundary (TO-002) |
+| `040eefb` | 2026-11-01 | sreerevanth | feat(protect): require_context blocks calls with no supplied agent/session identity (TO-002) |
+| `f80a467` | 2026-11-01 | sreerevanth | feat(protect): public protect_tool() API with identity context and a default pipeline (TO-002) |
+| `c5620d9` | 2026-11-01 | sreerevanth | feat(protect): decisions record which argument paths a mutation changed (TO-002) |
+| `e55d5c4` | 2026-11-01 | sreerevanth | feat(protect): record each tool execution (outcome, duration, error type, mutation) as evidence (TO-002) |
+| `7daeabe` | 2026-11-01 | sreerevanth | feat(protect): actions carry tenant, trace and parent-call identity; session state is per tenant (TO-002) |
+| `3df851e` | 2026-11-01 | sreerevanth | feat(protect): shared enforcement boundary for every integration (TO-002) |
+| `7c49790` | 2026-11-01 | github-actions[bot] | chore: update contributors |
+| `ceded21` | 2026-11-01 | S.Sreerevanth | Merge pull request #824 from Shinraya-Tech-Labs/feat/protect-runtime-security |
+| `92c2a6c` | 2026-11-01 | sreerevanth | docs: TO-001 evidence and task status (DONE) |
+| `30846c9` | 2026-11-01 | sreerevanth | test(watcher): sync and async paths fail closed and decide identically (TO-001) |
+| `012f4fb` | 2026-11-01 | sreerevanth | test(protect): ActionBlocked is caught by existing AgentWatchBlockedError handlers (TO-001) |
+| `dbbb134` | 2026-11-01 | sreerevanth | feat(watcher): fail-closed blocks are published as SAFETY_BLOCK events (TO-001) |
+| `7340060` | 2026-11-01 | sreerevanth | test(watcher): allowed calls run exactly once and blocked calls never run, on sync, async and streaming paths (TO-001) |
+| `8e992bf` | 2026-11-01 | sreerevanth | fix(watcher): a safety policy that cannot load blocks tool calls instead of leaving the agent unwrapped (TO-001) |
+| `aa76269` | 2026-11-01 | sreerevanth | fix(watcher): malformed safety verdicts block instead of reading as 'not blocked' (TO-001) |
+| `6ac18fc` | 2026-11-01 | sreerevanth | fix(watcher): a safety decision that does not arrive in time blocks the call (TO-001) |
+| `823ff22` | 2026-11-01 | sreerevanth | fix(watcher): async safety-check failures block the call (TO-001) |
+| `60de76f` | 2026-11-01 | sreerevanth | fix(watcher): sync safety-check failures block the call instead of running the tool (TO-001) |
+| `e760d0f` | 2026-11-01 | sreerevanth | docs: implementation evidence ledger with recorded baseline (CTRL-001, CTRL-003) |
+| `1a19a26` | 2026-11-01 | sreerevanth | docs: add the master engineering task list to the repository (CTRL-007) |
+| `6d6bb4d` | 2026-11-01 | sreerevanth | docs: repository security and quality audit (2026-11-01) |
+| `a6383db` | 2026-11-01 | sreerevanth | test(protect): threat analysis and synthetic output-inspection suites |
+| `9cb58bd` | 2026-11-01 | sreerevanth | feat(protect): unified fail-closed enforcement pipeline |
+| `365a4ea` | 2026-11-01 | sreerevanth | feat(protect): cross-process kill switch, suspension and approval broker |
+| `a5dce3c` | 2026-11-01 | sreerevanth | feat(protect): security evidence ledger on the v3 Merkle store |
+| `b129d9b` | 2026-11-01 | sreerevanth | feat(protect): per-agent RBAC with validated, atomic policy reload |
+| `49d911e` | 2026-11-01 | sreerevanth | feat(protect): reasoning-to-action intent grounding |
+| `22d31ca` | 2026-11-01 | sreerevanth | feat(protect): per-session semantic loop and stuck-state detector |
+| `91576c3` | 2026-11-01 | sreerevanth | feat(protect): post-execution output inspection and sanitization |
+| `0d1743b` | 2026-11-01 | sreerevanth | feat(protect): threat classifier with legacy pattern reuse and secret handling |
+| `b1731a6` | 2026-11-01 | sreerevanth | feat(protect): structured argument analysis for shell, Python, SQL, paths and URLs |
+| `3a8897a` | 2026-11-01 | sreerevanth | feat(protect): decision model - verdicts, findings, actions, decisions |
+| `d3d35c9` | 2026-11-01 | github-actions[bot] | chore: update contributors |
+| `adea1bd` | 2026-11-01 | SHAURYASANYAL3 | refactor(cli): consolidate command surface into 7 primary verbs |
+| `6c273c2` | 2026-11-01 | SHAURYASANYAL3 | fix(cli): move entry point invocation to module end to register all v3 commands |
+| `40c2b5a` | 2026-11-01 | github-actions[bot] | chore: update contributors |
+| `55dc440` | 2026-11-01 | SHAURYASANYAL3 | docs: add competitive implementation analysis and full project documentation |
+| `151d5eb` | 2026-11-01 | SHAURYASANYAL3 | fix(deps): add missing dependencies, fix tests, and update repository URLs |
+| `bd3b0e9` | 2026-11-01 | SHAURYASANYAL3 | fix(api): enforce authentication on gdpr erase and tenant api keys endpoints |
+| `f91de59` | 2026-11-01 | SHAURYASANYAL3 | feat(mcp): implement real persistent memory and store_memory tool with mcp 2.x support |
+| `ab3a0c0` | 2026-11-01 | SHAURYASANYAL3 | fix(cli): add top-level watch, help, and tui commands with encoding-safe banners |
+| `75af1b6` | 2026-10-30 | SHAURYASANYAL3 | fix(adapters): report failed generic CLI runs as failures |
+| `80e0f7c` | 2026-10-30 | SHAURYASANYAL3 | feat(cli): support `--agent opencode` |
+| `33a3611` | 2026-10-30 | SHAURYASANYAL3 | fix(adapters): resolve the claude CLI shim before spawning |
+| `09d1b74` | 2026-10-30 | SHAURYASANYAL3 | fix(cli): run the configured agent in `session watch` |
+| `66da7a8` | 2026-10-30 | SHAURYASANYAL3 | test: follow panoptis rename and the redteam move under safety |
+| `20294a5` | 2026-10-30 | SHAURYASANYAL3 | fix(cli): drop sys.path hack that shadowed stdlib platform |
+| `db95c31` | 2026-10-30 | SHAURYASANYAL3 | refactor!: rename agentwatch package and PyPI distribution to panoptis |
+| `fb15375` | 2026-10-30 | SHAURYASANYAL3 | fix(cli): register redteam under the safety command group |
+| `8d5cf12` | 2026-11-01 | github-actions[bot] | chore: update contributors |
+| `7a57b6c` | 2026-11-01 | shauryasanyal3 | fix(tests): bind health check version assertion to __version__ instead of static 0.2.0 |
+| `6d24f28` | 2026-10-31 | github-actions[bot] | chore: update contributors |
+| `f1a7474` | 2026-11-01 | sreerevanth | docs: add project remaining tasks audit |
+| `9a6b9fd` | 2026-10-31 | github-actions[bot] | chore: update contributors |
 | `080ac44` | 2026-10-30 | github-actions[bot] | chore: update contributors |
 | `e973caf` | 2026-10-30 | Shaurya Sanyal (Mr Fool) | Merge pull request #809 from pallamanohar2006-arch/feat/issue-733-witness-timeline |
 | `68f5653` | 2026-10-30 | github-actions[bot] | chore: update contributors |
@@ -13084,7 +13352,7 @@ flowchart TD
     F -->|Breached| G
     B -->|All Invariants Hold| H[Execute Tool On Host/API]
     H --> I[Capture Output & Duration]
-    I --> J[RFC 8785 Canonical JSON]
+    I --> J[Canonical JSON]
     J --> K[Append to Merkle Witness Court]
     K --> L[Asyncpg Storage & Broadcaster]
     L --> M[Next.js Dashboard & Prometheus]
@@ -13094,7 +13362,7 @@ flowchart TD
 
 # PART IV — COMPLETE SOURCE CODE ANALYSIS
 
-The `panoptis` package comprises **293 Python modules** spanning core safety, runtime interception, formal temporal contracts, cryptographic proofs, storage, CLI interfaces, and API endpoints. Below is the systematic, file-by-file technical audit of all major subsystems.
+The `panoptis` package comprises **340 Python modules** spanning core safety, runtime interception, formal temporal contracts, cryptographic proofs, storage, CLI interfaces, and API endpoints. Below is the systematic, file-by-file technical audit of all major subsystems.
 
 ### 4.2 Subsystem: `panoptis.adapters`
 
@@ -13130,7 +13398,7 @@ AutoGen emits messages through `generate_reply`, `send`, and `receive`.
 
 #### Module: `panoptis/adapters/claude_code.py`
 
-- **Lines of Code**: 503
+- **Lines of Code**: 516
 - **Docstring Summary**: AgentWatch Claude Code Adapter
 Intercepts Claude Code agent execution, normalizes events to the
 Universal Event Schema, and enforces safety policies.
@@ -13223,11 +13491,11 @@ Contains 3 modules.
 
 #### Module: `panoptis/alerting/engine.py`
 
-- **Lines of Code**: 184
+- **Lines of Code**: 220
 - **Docstring Summary**: Alert routing for Slack and PagerDuty webhooks.
 - **Classes Defined**:
   - `AlertingConfig`: methods -> `None`
-  - `AlertingEngine`: methods -> `__init__, alert_event, alert_abuse, _build_abuse_payload, _should_page (+2 more)`
+  - `AlertingEngine`: methods -> `__init__, alert_event, alert_abuse, send_test_alert, _build_abuse_payload (+3 more)`
 
 ### 4.2 Subsystem: `panoptis.analysis`
 
@@ -13302,7 +13570,7 @@ VALIDATED/PRODUCTION label whose evidence file is missing.
 
 ### 4.2 Subsystem: `panoptis.api`
 
-Contains 8 modules.
+Contains 15 modules.
 
 #### Module: `panoptis/api/__init__.py`
 
@@ -13355,6 +13623,31 @@ Opt-in: a no-op when no license public key is configured, fail-closed in
 production.
 - **Functions Defined**: `_public_key, entitlement_enforcement_enabled, authenticate_entitlement, require_entitlement`
 
+#### Module: `panoptis/api/limits.py`
+
+- **Lines of Code**: 172
+- **Docstring Summary**: Request and payload limits (TO-010).
+
+* :class:`BodySizeLimitMiddleware`: a pure ASGI middleware. A request whose
+  ``Content-Length`` exceeds the limit is answered 413 before any of its body is read; a
+  chunked (or lying) body is counted as it streams and cut off with 413 once it passes the
+  limit, so the server never buffers more than the limit.
+* :func:`check_json_limits`: structural bounds for parsed payloads (item count, nesting
+  depth, string length), checked iteratively (no recursion limit to exhaust).
+
+Defaults (environment):
+
+    AGENTWATCH_MAX_BODY_BYTES      10485760  (10 MiB)
+    AGENTWATCH_MAX_BATCH_ITEMS     5000      observations per batch
+    AGENTWATCH_MAX_JSON_DEPTH      64
+    AGENTWATCH_MAX_STRING_BYTES    4194304   (4 MiB; larger payloads still fit the blob store)
+    AGENTWATCH_WS_MAX_BYTES        1048576   (1 MiB per WebSocket message, via uvicorn)
+- **Classes Defined**:
+  - `PayloadTooLarge`: methods -> `None`
+  - `BodySizeLimitMiddleware`: methods -> `__init__, limit, __call__`
+  - `_BodyTooLargeError`: methods -> `None`
+- **Functions Defined**: `_env_int, max_body_bytes, max_batch_items, max_json_depth, max_string_bytes, ws_max_bytes, check_json_limits, _reply`
+
 #### Module: `panoptis/api/middleware/__init__.py`
 
 - **Lines of Code**: 0
@@ -13362,7 +13655,7 @@ production.
 
 #### Module: `panoptis/api/middleware/rate_limiter.py`
 
-- **Lines of Code**: 276
+- **Lines of Code**: 315
 - **Docstring Summary**: Rate Limiting Middleware
 
 Per-user and global rate limiting over a pluggable counter backend. The default
@@ -13374,11 +13667,98 @@ interface is identical for both.
   - `InMemoryBackend`: methods -> `__init__, _current, hit, peek`
   - `RedisBackend`: methods -> `__init__, hit, peek`
   - `RateLimiter`: methods -> `__init__, from_redis_url, _quota, check_rate_limit, get_remaining_quota`
-  - `RateLimitMiddleware`: methods -> `__init__, dispatch, _extract_user_id, _build_rate_limit_headers`
+  - `RateLimitMiddleware`: methods -> `__init__, dispatch, _build_rate_limit_headers`
+- **Functions Defined**: `client_ip, _is_address`
+
+#### Module: `panoptis/api/protect_api.py`
+
+- **Lines of Code**: 450
+- **Docstring Summary**: Protection API: decisions, agents, loops, intent, MCP, discovery and evidence (TO-027).
+
+All routes are versioned under ``/api/v1/protect``, authenticated, and scoped to the
+caller's tenant: records of other tenants are never read. They serve the records the
+agents' pipelines write to the shared evidence store (``AGENTWATCH_STORE``):
+
+``GET /status``                         one-screen summary for the tenant
+``GET /decisions``                      decisions, newest first; filters and an ``after`` cursor
+``GET /decisions/{call_id}``            one call: decision, approval, execution, output records
+``GET /loops``  ``GET /intent``          decisions with loop / intent-grounding findings
+``GET /agents``                         agents and sessions seen, with counts and suspension state
+``GET /mcp``                            MCP gateway activity per server
+``GET /discovery``                      the latest recorded discovery inventory
+``GET /evidence/verify``                verify the tenant's evidence chain (optionally sealing first)
+``GET /evidence/head``                  the current head, to keep as an anchor
+``GET /evidence/proof/{obs_id}``        inclusion proof of one of the tenant's records
+
+Approvals, RBAC and emergency controls have their own routers
+(``protect_approvals``, ``protect_rbac``, ``protect_control``).
+- **Classes Defined**:
+  - `FindingOut`: methods -> `None`
+  - `DecisionOut`: methods -> `None`
+  - `DecisionPage`: methods -> `None`
+- **Functions Defined**: `get_ledger, set_ledger, _finding, _decision, _decisions, build_router, _control_status`
+
+#### Module: `panoptis/api/protect_approvals.py`
+
+- **Lines of Code**: 103
+- **Docstring Summary**: Approval API for escalated tool calls (TO-019).
+
+``GET  /api/v1/protect/approvals``                 the tenant's recent requests and their state
+``GET  /api/v1/protect/approvals/{request_id}``    one request, with the exact action bound to it
+``POST /api/v1/protect/approvals/{request_id}``    approve or reject it
+
+Requests are written by the agent's pipeline into its tenant's evidence ledger; this API
+reads and decides them in the same store (``AGENTWATCH_STORE``), so the waiting agent
+picks the decision up. Every route is scoped to the caller's authenticated tenant: a
+request of another tenant does not exist for it. A decision must name the
+``action_digest`` it was made for, so an approval can never cover an action the approver
+did not see.
+- **Classes Defined**:
+  - `ApprovalDecisionRequest`: methods -> `None`
+- **Functions Defined**: `get_broker, set_broker, build_router`
+
+#### Module: `panoptis/api/protect_control.py`
+
+- **Lines of Code**: 100
+- **Docstring Summary**: Emergency controls API (TO-025).
+
+``GET  /api/v1/protect/control``                          kill-switch state and the caller tenant's suspensions
+``GET  /api/v1/protect/control/history``                  the control audit trail (operator)
+``POST /api/v1/protect/control/kill``     {"reason"}       stop every agent (operator)
+``POST /api/v1/protect/control/reset``    {"reason"}       lift the emergency stop (operator)
+``POST /api/v1/protect/control/agents/{agent_id}/suspend|resume``      {"reason"}
+``POST /api/v1/protect/control/sessions/{session_id}/suspend|resume``  {"reason"}
+
+The global switch is operator-only. Suspensions are scoped to the caller's authenticated
+tenant: a tenant can stop its own agents and sessions, never another tenant's. Every
+action is an append-only ``protect.control`` record naming its actor; agents sharing the
+store (``AGENTWATCH_STORE``) pick it up before their next tool call, and agents on this
+host see the kill switch immediately through the kill file.
+- **Classes Defined**:
+  - `ControlRequest`: methods -> `None`
+- **Functions Defined**: `get_control, set_control, build_router`
+
+#### Module: `panoptis/api/protect_rbac.py`
+
+- **Lines of Code**: 109
+- **Docstring Summary**: RBAC inspection API for the protection pipeline (TO-022).
+
+``GET  /api/v1/protect/rbac/policy``                         the active policy, as it applies to the caller's tenant
+``GET  /api/v1/protect/rbac/agents/{agent_id}/permissions``  an agent's effective permissions in the caller's tenant
+``POST /api/v1/protect/rbac/check``                          would this call be authorized, and if not, why
+
+The policy is the one agents enforce: ``AGENTWATCH_POLICY_FILE`` (re-read when it
+changes). Every route is scoped to the caller's authenticated tenant; the check is a dry
+run (it counts against no rate limit) and runs the same argument analysis the pipeline
+uses, so restricted commands, paths and hosts are explained exactly as they would be
+enforced.
+- **Classes Defined**:
+  - `RBACCheckRequest`: methods -> `None`
+- **Functions Defined**: `get_engine, set_policy_store, build_router`
 
 #### Module: `panoptis/api/server.py`
 
-- **Lines of Code**: 1923
+- **Lines of Code**: 2716
 - **Docstring Summary**: AgentWatch API Server
 FastAPI-based REST API for the observability dashboard, CLI, and integrations.
 - **Classes Defined**:
@@ -13390,25 +13770,62 @@ FastAPI-based REST API for the observability dashboard, CLI, and integrations.
   - `RollbackRequest`: methods -> `None`
   - `SafetyPolicyUpdate`: methods -> `None`
   - `SimulateRequest`: methods -> `None`
-  - `SafetyCheckRequest`: methods -> `None`
+  - `SafetyCheckRequest`: methods -> `_bounded_arguments`
   - `EntitlementUsageReport`: methods -> `None`
   - `ThreatPathNode`: methods -> `None`
   - `SafetyCheckResponse`: methods -> `None`
-  - `_SessionErasureTarget`: methods -> `__init__, count_matching, erase_matching`
-  - `_MemoryErasureTarget`: methods -> `__init__, count_matching, erase_matching`
-- **Functions Defined**: `reset_rate_limiter_for_tests, _client_ip, _rate_limit_key, _session_to_pg, _event_to_pg, _pg_write_session, _pg_write_event, _init_default_schemas, _key_matches, _require_api_key, _require_tenant_context, _require_tenant_ownership, _record_budget, _after_publish, _seed_demo_data, lifespan, _v3_tenant, _panoptis_http_exception_handler, rl_headers, record_metrics, system_status, health, metrics, list_sessions, prune_sessions_api, create_session, get_session, get_events, _v3_tee, ingest_event, get_trace, get_confidence, get_reasoning_audit, get_cost_budget, get_replay, simulate_session, list_checkpoints, rollback_session, get_safety_policy, update_safety_policy, get_blocked_events, check_safety_command, dashboard_summary, dashboard_top, compliance_report, report_entitlement_usage, eu_ai_act_report, compliance_audit_log_csv, seed_demo, _sanitize_event, websocket_events, create_tenant, list_tenants, get_tenant, create_api_key, list_api_keys, revoke_api_key, get_usage, ingestion_metrics, _get_erasure_secret, _build_erasure_service, gdpr_erase, create_app`
+  - `_SessionErasureTarget`: methods -> `__init__, _where, count_matching, erase_matching`
+  - `_TraceCacheErasureTarget`: methods -> `__init__, _matching, count_matching, erase_matching`
+  - `_RuntimeStateErasureTarget`: methods -> `__init__, _sessions, _checkpoint_files, count_matching, erase_matching`
+  - `_MemoryErasureTarget`: methods -> `__init__, _scope, count_matching, erase_matching`
+  - `_PersistedMemoryErasureTarget`: methods -> `__init__, _matching, count_matching, erase_matching`
+- **Functions Defined**: `reset_rate_limiter_for_tests, _key_digest, _remember_verified_key, _rate_limit_identity, _rate_limit_key, _session_to_pg, _event_to_pg, _note_write_failure, _require_persisted, _is_contention, _write_retrying, _pg_write_session, _session_for, _pg_claim_session, _event_id_taken, _pg_write_event, _init_default_schemas, _key_matches, _parse_tenant_keys, _tenant_keys, _cloud_tenant_of, _principal, _require_api_key, _is_operator_key, _require_api_key_or_operator, _require_operator, _require_tenant_context, _require_tenant_ownership, _json_depth, _record_budget, _pg_tenant, _after_publish, _seed_demo_data, _loop_heartbeat, lifespan, _request_tenant, _owner, _stored_owner, _require_session_owner, _v3_tenant, _panoptis_http_exception_handler, rl_headers, _metric_endpoint, record_metrics, system_status, health, metrics, list_sessions, prune_sessions_api, create_session, get_session, get_events, _v3_tee, ingest_event, get_trace, get_confidence, get_reasoning_audit, get_cost_budget, get_replay, simulate_session, list_checkpoints, rollback_session, get_safety_policy, update_safety_policy, get_blocked_events, check_safety_command, dashboard_summary, dashboard_top, compliance_report, report_entitlement_usage, eu_ai_act_report, compliance_audit_log_csv, seed_demo, _sanitize_event, websocket_events, create_tenant, list_tenants, get_tenant, create_api_key, list_api_keys, revoke_api_key, get_usage, ingestion_metrics, _get_erasure_secret, _build_erasure_service, gdpr_erase, create_app`
+
+#### Module: `panoptis/api/tenancy.py`
+
+- **Lines of Code**: 105
+- **Docstring Summary**: Resolve the tenant a request acts for from its credential (see docs/TENANCY.md).
+
+A tenant is never chosen by the caller. ``X-Tenant-ID`` is accepted only as a selector
+that repeats the credential's tenant; anything else is a 403.
+- **Classes Defined**:
+  - `TenancyError`: methods -> `__init__`
+  - `Principal`: methods -> `None`
+- **Functions Defined**: `parse_tenant_keys, tenant_keys_from_env, match_key, check_selector, resolve`
 
 #### Module: `panoptis/api/tenant_auth.py`
 
-- **Lines of Code**: 222
+- **Lines of Code**: 266
 - **Docstring Summary**: Tenant-aware authentication and API key management for AgentWatch Cloud.
 - **Classes Defined**:
   - `TenantStore`: methods -> `__init__, create_tenant, get_tenant, list_tenants, update_tenant (+8 more)`
-- **Functions Defined**: `get_tenant_store`
+- **Functions Defined**: `tenant_store_url, get_tenant_store, reset_tenant_store_for_tests`
+
+#### Module: `panoptis/api/tenant_store_sql.py`
+
+- **Lines of Code**: 530
+- **Docstring Summary**: Durable tenant and API-key store (TO-006).
+
+Same interface as :class:`panoptis.api.tenant_auth.TenantStore`, backed by SQL (SQLite or
+PostgreSQL through SQLAlchemy). Tenants, API-key metadata, revocations, usage and an
+append-only audit trail survive restarts and are shared by every API replica that points
+at the same database.
+
+Security properties:
+
+* Only the PBKDF2 ``salt:hash`` of a key is stored; the raw key is returned once, at
+  creation, and never persisted or logged.
+* ``key_prefix`` is unique (lookup index); a collision on creation is retried.
+* Revocation and suspension are single transactions and are recorded in the audit table.
+* A database failure while *validating* a key denies it (fail closed, logged); a failure
+  while *writing* raises, so a caller never believes a change was saved when it was not.
+- **Classes Defined**:
+  - `SqlTenantStore`: methods -> `__init__, migrate, close, _audit, audit_log (+14 more)`
+- **Functions Defined**: `_aware, _config_dict`
 
 #### Module: `panoptis/api/v3.py`
 
-- **Lines of Code**: 828
+- **Lines of Code**: 838
 - **Docstring Summary**: AgentWatch v3 HTTP API.
 
 Every endpoint reads through :class:`~panoptis.query.workspace.Workspace`, the read model
@@ -13418,7 +13835,7 @@ supplied by the host app; a caller can never choose another tenant.
 Re-execution (replay L2/L3, branch execution, executed counterfactuals) runs recorded
 commands on the server and is therefore disabled unless ``AGENTWATCH_ALLOW_REEXECUTION=1``.
 - **Classes Defined**:
-  - `ObservationBatch`: methods -> `None`
+  - `ObservationBatch`: methods -> `_bounded`
   - `ReplayRequest`: methods -> `None`
   - `BranchRequest`: methods -> `None`
   - `CounterfactualRequest`: methods -> `None`
@@ -13606,7 +14023,7 @@ tool calls or cycling between alternating parameters (e.g. A -> B -> A -> B).
 
 ### 4.2 Subsystem: `panoptis.cli`
 
-Contains 10 modules.
+Contains 11 modules.
 
 #### Module: `panoptis/cli/__init__.py`
 
@@ -13629,17 +14046,11 @@ Validates arguments against a strict whitelist to prevent command-injection risk
 
 #### Module: `panoptis/cli/animator.py`
 
-- **Lines of Code**: 181
-- **Docstring Summary**: Terminal animation helpers for the AgentWatch CLI.
+- **Lines of Code**: 117
+- **Docstring Summary**: Terminal animation and presentation helpers for the AgentWatch CLI.
 
-This module is an internal presentation layer: a small collection of Rich/ANSI
-animation utilities used by the CLI commands to render cinematic output (the
-matrix-style "decryption" text effect, the animated logo reveal, and the
-systematic command menu). It exposes **no user-facing command** of its own; the
-functions here are called by the commands defined in :mod:`panoptis.cli.main`.
-
-All functions write directly to stdout or the shared Rich ``console`` and are
-side-effecting (they sleep and animate in place); none returns a value.
+This module provides clean, cross-platform Rich terminal presentations
+and menus for the interactive command center.
 - **Functions Defined**: `cinematic_logo_reveal, matrix_type_print, animate_table_rows, glitch_ascii_art, print_systematic_menu`
 
 #### Module: `panoptis/cli/demo.py`
@@ -13660,28 +14071,48 @@ and advanced orchestration multi-agent task execution loops.
 
 #### Module: `panoptis/cli/main.py`
 
-- **Lines of Code**: 2724
+- **Lines of Code**: 3218
 - **Docstring Summary**: AgentWatch CLI
 Rich terminal interface for session inspection, replay, safety review, and management.
 - **Classes Defined**:
   - `ExportFormat`: methods -> `None`
-- **Functions Defined**: `main_callback, _start_repl_session, _status_color, _risk_color, _load_session_file, _api_headers, _handle_http_status_error, _dry_run_print, watch, replay, sessions, export, share, confidence, safety, _local_policy_verdict, safety_policies_list, safety_config_generate, cost_report, _print_cost_report_table, eval_run, _print_eval_report, serve, top, status, compare, verify_env, redteam, _license_public_key, _active_entitlement, _ensure_premium, upgrade, _print_live_event, _print_replay_step, _print_session_summary, _print_sessions_table, session_rollback, _parse_older_than_to_hours, session_prune, compliance_export_csv, compliance_export_local, version, main, doctor, export_csv`
+- **Functions Defined**: `_ws_max_bytes, main_callback, _start_repl_session, _status_color, _risk_color, _load_session_file, _api_headers, _handle_http_status_error, _dry_run_print, watch, help_command, tui_command, replay, sessions, export, share, confidence, safety, _local_policy_verdict, safety_policies_list, safety_config_generate, cost_report, _print_cost_report_table, eval_run, _print_eval_report, serve, top, status, compare, verify_env, redteam, _license_public_key, _active_entitlement, _ensure_premium, upgrade, _print_live_event, _print_replay_step, _print_session_summary, _print_sessions_table, session_rollback, _parse_older_than_to_hours, session_prune, compliance_export_csv, compliance_export_local, version, main, doctor, export_csv, claude_hook_install, claude_hook_uninstall, claude_hook_print, protect_mcp_gateway, protect_discover, protect_discover_wrap, _actor, _control_state, control_status, control_history, control_kill, control_reset, _scoped_control, _make_scoped, protect_support`
 
 #### Module: `panoptis/cli/mcp.py`
 
-- **Lines of Code**: 105
+- **Lines of Code**: 200
 - **Docstring Summary**: AgentWatch MCP CLI
 Runs the AgentWatch Model Context Protocol (MCP) server over standard IO.
 - **Functions Defined**: `mcp_server`
 
+#### Module: `panoptis/cli/protect_ops.py`
+
+- **Lines of Code**: 513
+- **Docstring Summary**: ``panoptis protect status|decisions|agents|approvals|rbac|doctor`` (TO-028).
+
+Every inspection command runs in one of two modes:
+
+* **API mode** (``--api URL`` or ``AGENTWATCH_API_URL``, with ``--key`` or
+  ``AGENTWATCH_API_KEY``): the command calls the protection API, so it is authorized
+  exactly like the API (tenant from the key, operator-only routes refused to tenants);
+* **local mode** (default): the command reads the evidence store directly
+  (``--store`` / ``AGENTWATCH_STORE``). Access to the store file is operator access.
+
+Errors (an unreachable API, a refused key, an unreadable store) print one line and exit
+with a non-zero status; secrets are never printed (keys are never echoed, records are
+already redacted at storage).
+- **Classes Defined**:
+  - `Api`: methods -> `__init__, request`
+- **Functions Defined**: `_out, _die, _detail, _api, _ledger, _local, _get, register`
+
 #### Module: `panoptis/cli/v3.py`
 
-- **Lines of Code**: 1143
+- **Lines of Code**: 1217
 - **Docstring Summary**: AgentWatch v3 CLI commands: a debugging interface over the canonical v3 model.
 
 All commands read through :class:`panoptis.query.workspace.Workspace`, the same read
 model used by the API and the frontend.
-- **Functions Defined**: `_ws, _out, _fail, _guard, _short, _event_line, observe, ingest, _detect_format, runs, inspect, events, show, graph, provenance, dependents, compare, motifs, genome, drift, _causal_print, causes, effects, replay, _parse_value, branch, branches, counterfactual, states, forecast, query, status, v3_health, evidence_verify, evidence_seal, evidence_purge, evidence_erase_subject, evidence_show, reprocess, register`
+- **Functions Defined**: `_ws, _out, _fail, _guard, _short, _event_line, observe, ingest, _detect_format, runs, inspect, events, show, graph, provenance, dependents, compare, motifs, genome, drift, _causal_print, causes, effects, replay, _parse_value, branch, branches, counterfactual, states, forecast, query, status, v3_health, evidence_verify, evidence_export, evidence_verify_bundle, evidence_proof, evidence_seal, evidence_purge, evidence_erase_subject, evidence_show, reprocess, register`
 
 #### Module: `panoptis/cli/verify_env.py`
 
@@ -13721,11 +14152,11 @@ occurrence order (difflib's longest-matching-block alignment), then reports:
 
 ### 4.2 Subsystem: `panoptis.contracts`
 
-Contains 8 modules.
+Contains 9 modules.
 
 #### Module: `panoptis/contracts/__init__.py`
 
-- **Lines of Code**: 75
+- **Lines of Code**: 149
 - **Docstring Summary**: AgentWatch Temporal Contract and Evidence Sufficiency Module (v3.1 EvidenceLab).
 
 #### Module: `panoptis/contracts/coverage.py`
@@ -13771,6 +14202,57 @@ already been pruned, the monitor answers INCONCLUSIVE instead of guessing.
 - **Classes Defined**:
   - `IrreversibleInvariantMonitor`: methods -> `__init__, buffered_witnesses, _bucket, observe, check_trace (+3 more)`
 - **Functions Defined**: `_event_time`
+
+#### Module: `panoptis/contracts/mfotl.py`
+
+- **Lines of Code**: 1614
+- **Docstring Summary**: Metric First-Order Temporal Logic (MFOTL) Engine with Open-World Quantifiers (v3.1 EvidenceLab).
+
+Enterprise-grade first-order metric temporal logic verification for complex, parameterized
+multi-agent behavioral invariants under open-world epistemic uncertainty.
+
+Features:
+- Full First-Order AST: Predicates, typed terms, comparisons, quantifiers (forall, exists).
+- Metric Temporal Modalities: Past (Once, Historically, Since, Previous) and Future (Eventually, Always, Until, Next).
+- Strong Kleene Three-Valued Valuation (True, False, Unknown) with open-world missingness preservation.
+- Combinatoric Witness Slicing: Extracts minimal satisfying / falsifying event and artifact IDs.
+- Resource Bounds: Polynomial join budgets with RESOURCE_EXCEEDED fail-closed semantics.
+- Differential Testing Harness against reference closed-world monitors.
+- **Classes Defined**:
+  - `TriValued`: methods -> `from_bool, to_verdict`
+  - `ResourceExceededError`: methods -> `None`
+  - `MFOTLParseError`: methods -> `None`
+  - `MFOTLBudget`: methods -> `None`
+  - `WitnessSlice`: methods -> `to_dict, empty, resource_exhausted`
+  - `Term`: methods -> `evaluate`
+  - `Var`: methods -> `evaluate, __str__`
+  - `Const`: methods -> `evaluate, __str__`
+  - `FieldAccess`: methods -> `evaluate, __str__`
+  - `Formula`: methods -> `free_variables, __str__`
+  - `Predicate`: methods -> `free_variables, __str__`
+  - `Comparison`: methods -> `free_variables, __str__`
+  - `Not`: methods -> `free_variables, __str__`
+  - `And`: methods -> `free_variables, __str__`
+  - `Or`: methods -> `free_variables, __str__`
+  - `Implies`: methods -> `free_variables, __str__`
+  - `Exists`: methods -> `free_variables, __str__`
+  - `Forall`: methods -> `free_variables, __str__`
+  - `MetricInterval`: methods -> `contains, __str__`
+  - `Previous`: methods -> `free_variables, __str__`
+  - `Next`: methods -> `free_variables, __str__`
+  - `Once`: methods -> `free_variables, __str__`
+  - `Historically`: methods -> `free_variables, __str__`
+  - `Eventually`: methods -> `free_variables, __str__`
+  - `Always`: methods -> `free_variables, __str__`
+  - `Since`: methods -> `free_variables, __str__`
+  - `Until`: methods -> `free_variables, __str__`
+  - `Token`: methods -> `None`
+  - `MFOTLParser`: methods -> `__init__, current, consume, match, parse (+9 more)`
+  - `TracePoint`: methods -> `None`
+  - `TraceDatabase`: methods -> `__init__, is_predicate_complete`
+  - `OpenWorldMFOTLMonitor`: methods -> `__init__, evaluate, evaluate_at, _evaluate_empty, _check_budget (+13 more)`
+  - `ReferenceMFOTLMonitor`: methods -> `__init__, evaluate, _eval`
+- **Functions Defined**: `kleene_not, kleene_and, kleene_or, kleene_implies, _tokenize, parse_mfotl`
 
 #### Module: `panoptis/contracts/order.py`
 
@@ -13866,19 +14348,19 @@ Above-threshold blast radius requires approval.
 
 #### Module: `panoptis/core/event_bus.py`
 
-- **Lines of Code**: 384
+- **Lines of Code**: 404
 - **Docstring Summary**: AgentWatch Event Bus
 Central publish/subscribe system for all agent events.
 Supports sync and async handlers, filtering, and persistence hooks.
 - **Classes Defined**:
   - `EventFilter`: methods -> `__init__, matches`
   - `HandlerRegistration`: methods -> `__init__`
-  - `EventBus`: methods -> `__init__, subscribe, subscribe_fn, unsubscribe, publish (+7 more)`
+  - `EventBus`: methods -> `__init__, subscribe, subscribe_fn, unsubscribe, publish (+8 more)`
 - **Functions Defined**: `get_event_bus`
 
 #### Module: `panoptis/core/http_forwarder.py`
 
-- **Lines of Code**: 66
+- **Lines of Code**: 99
 - **Docstring Summary**: HTTP event forwarder — cross-process delivery to the AgentWatch API server.
 
 When watch() wraps an agent in a user script, events are published on that
@@ -13887,12 +14369,12 @@ isolated bus.  This module bridges them: it subscribes a handler on the local
 bus that POSTs each event to POST /api/v1/events on the running server, which
 re-publishes it on the server's bus so it reaches the collector and dashboard.
 - **Classes Defined**:
-  - `HttpEventForwarder`: methods -> `__init__, forward`
+  - `HttpEventForwarder`: methods -> `__init__, _headers, forward`
 - **Functions Defined**: `register_http_forwarder`
 
 #### Module: `panoptis/core/injection.py`
 
-- **Lines of Code**: 143
+- **Lines of Code**: 145
 - **Docstring Summary**: SAF-006 — Prompt Injection Detector.
 
 Detect injection in tool outputs / retrieved content. Flags indirect context
@@ -13915,11 +14397,13 @@ Detect infinite agent loops. Alert and break loop automatically.
 
 #### Module: `panoptis/core/models.py`
 
-- **Lines of Code**: 763
+- **Lines of Code**: 1044
 - **Docstring Summary**: AgentWatch Storage Layer
 SQLAlchemy models, database schema, and repository pattern
 for PostgreSQL persistence.
 - **Classes Defined**:
+  - `SessionOwnershipError`: methods -> `None`
+  - `EventConflictError`: methods -> `None`
   - `Base`: methods -> `None`
   - `SessionRecord`: methods -> `None`
   - `EventRecord`: methods -> `None`
@@ -13928,10 +14412,10 @@ for PostgreSQL persistence.
   - `PluginRecord`: methods -> `None`
   - `TaskRecord`: methods -> `None`
   - `AuditLogRecord`: methods -> `None`
-  - `Repository`: methods -> `__init__, upsert_session, insert_event, get_session, get_events (+11 more)`
+  - `Repository`: methods -> `__init__, _insert, _merged_session, _write_session, upsert_session (+18 more)`
   - `SqlAlchemyAuditStore`: methods -> `__init__, read_head, write, read_all`
-  - `TenantRepository`: methods -> `__init__, _session, _scope, upsert_session, insert_event (+7 more)`
-- **Functions Defined**: `init_db, get_database_url`
+  - `TenantRepository`: methods -> `__init__, _session, _scope, upsert_session, claim_session (+8 more)`
+- **Functions Defined**: `_same_owner, _install_ownership_guards, _warn_about_narrow_tenant_columns, init_db, get_database_url`
 
 #### Module: `panoptis/core/policy_dsl.py`
 
@@ -14039,7 +14523,7 @@ All agent events are normalized into this schema regardless of framework.
 
 #### Module: `panoptis/core/watcher.py`
 
-- **Lines of Code**: 738
+- **Lines of Code**: 1131
 - **Docstring Summary**: AgentWatch Universal watch() — FOUND-001
 
 One-line agent instrumentation:
@@ -14065,8 +14549,10 @@ Unknown frameworks fall back to GenericAdapter (best-effort wrapping
 of any object with `.run`, `.invoke`, `.__call__`, or `astream`).
 - **Classes Defined**:
   - `AgentWatchBlockedError`: methods -> `__init__`
-  - `GenericAdapter`: methods -> `__init__, _maybe_redact, _redact_event, attach, _wrap (+2 more)`
-- **Functions Defined**: `_is_tool_like, _build_tool_call_data, detect_framework, detect_framework_label, _attach_langchain, _attach_langgraph, _attach_autogen, _attach_smolagents, watch`
+  - `_LegacyGateThreats`: methods -> `__init__, analyze`
+  - `_UnavailableSafetyEngine`: methods -> `__init__, _fail, check_tool_call_sync, check_event`
+  - `GenericAdapter`: methods -> `__init__, _enforcement_failure, _async_deadline, _valid_sync_verdict, _valid_checked_event (+14 more)`
+- **Functions Defined**: `_is_tool_like, _build_tool_call_data, detect_framework, detect_framework_label, _legacy_finding, _attach_langchain, _attach_langgraph, _attach_autogen, _attach_smolagents, watch`
 
 ### 4.2 Subsystem: `panoptis.cost`
 
@@ -14090,8 +14576,8 @@ Early warning for runaway agents.
 
 #### Module: `panoptis/cost/caching.py`
 
-- **Lines of Code**: 3
-- **Docstring Summary**: No module docstring.
+- **Lines of Code**: 13
+- **Docstring Summary**: Deprecated alias of :mod:`panoptis.cost.semantic_cache` (kept for old imports).
 
 #### Module: `panoptis/cost/comparator.py`
 
@@ -14186,7 +14672,7 @@ Track:
 
 #### Module: `panoptis/cost/router.py`
 
-- **Lines of Code**: 8
+- **Lines of Code**: 16
 - **Docstring Summary**: Legacy compatibility wrapper for ModelRouter.
 Please use panoptis.infrastructure.router instead.
 
@@ -14199,11 +14685,12 @@ Please use panoptis.infrastructure.router instead.
 
 #### Module: `panoptis/cost/tracker.py`
 
-- **Lines of Code**: 176
+- **Lines of Code**: 222
 - **Docstring Summary**: Per-session token and cost budget tracking.
 - **Classes Defined**:
   - `SessionBudget`: methods -> `to_dict`
-  - `CostTracker`: methods -> `__init__, configure_session, ingest_event, get_session, stats (+3 more)`
+  - `CostTracker`: methods -> `__init__, configure_session, ingest_event, get_session, sessions_of (+7 more)`
+- **Functions Defined**: `_budget_key`
 
 ### 4.2 Subsystem: `panoptis.entities`
 
@@ -14444,11 +14931,11 @@ that distinction visible.
 
 ### 4.2 Subsystem: `panoptis.evidence`
 
-Contains 11 modules.
+Contains 14 modules.
 
 #### Module: `panoptis/evidence/__init__.py`
 
-- **Lines of Code**: 28
+- **Lines of Code**: 36
 - **Docstring Summary**: AgentWatch v3 evidence plane.
 
 Raw observations are immutable evidence. Nothing in this package imports the rest of
@@ -14539,6 +15026,19 @@ chain, is unchanged, but the payload can no longer be read.
 - **Docstring Summary**: Monotonic ULID generation (stdlib only).
 - **Functions Defined**: `_encode, new_ulid, ulid_timestamp_ms`
 
+#### Module: `panoptis/evidence/jcs.py`
+
+- **Lines of Code**: 83
+- **Docstring Summary**: JSON Canonicalization Scheme (RFC 8785).
+
+Object keys are sorted by their UTF-16 code units, strings use the minimal JSON escapes,
+numbers use the ECMAScript ``Number`` to string conversion and there is no insignificant
+whitespace. Input outside the I-JSON domain the RFC assumes is rejected rather than
+altered: non-finite numbers, integers beyond 2**53, lone surrogates and non-string keys.
+
+This is not the encoding the evidence store hashes (see :mod:`panoptis.evidence.canonical`).
+- **Functions Defined**: `_number, _string, _utf16_key, dumps`
+
 #### Module: `panoptis/evidence/merkle.py`
 
 - **Lines of Code**: 186
@@ -14595,9 +15095,31 @@ No code path can mutate a stored observation in place.
   - `RawObservation`: methods -> `payload, declared_ids, declared, verify_hash, erased (+2 more)`
 - **Functions Defined**: `parse_ts, idempotency_key`
 
+#### Module: `panoptis/evidence/recursive_proof.py`
+
+- **Lines of Code**: 193
+- **Docstring Summary**: Recursive Succinct Cryptographic Audit Proofs (WP-08).
+
+Compresses batches of individual Merkle inclusion proofs and hash commitments into
+a single succinct recursive audit certificate with selective disclosure:
+
+1. Succinct Batch Proof Compression:
+   Aggregates N audit proofs into one constant-sized cryptographic certificate
+   authenticated by recursive domain-separated SHA-256 / Ed25519 commitments.
+
+2. Zero-Knowledge Selective Disclosure:
+   Enables third-party auditors and regulatory bodies to mathematically verify that
+   N agent actions strictly complied with safety invariants (e.g. verdicts allowed,
+   human escalation respected, no secret leakage) WITHOUT revealing proprietary
+   prompts, tool parameters, or user PII.
+- **Classes Defined**:
+  - `ProvenInvariant`: methods -> `None`
+  - `RecursiveProofCertificate`: methods -> `to_dict`
+  - `RecursiveProofCompressor`: methods -> `__init__, generate_batch_proof, verify_batch_certificate`
+
 #### Module: `panoptis/evidence/redaction.py`
 
-- **Lines of Code**: 140
+- **Lines of Code**: 149
 - **Docstring Summary**: Edge redaction and payload policy.
 
 Redaction runs *before* an observation is stored and produces a new payload plus a
@@ -14611,17 +15133,22 @@ shared with other handlers.
 
 #### Module: `panoptis/evidence/segments.py`
 
-- **Lines of Code**: 111
+- **Lines of Code**: 160
 - **Docstring Summary**: Hash-sealed evidence segments.
 
 Observations are appended without coordination. Periodically a sealer closes a
 segment: it computes a Merkle root over the segment's observations (ordered by
-``obs_id``) and chains the segment to its predecessor. Any later change to a sealed
-observation's payload, id or idempotency key breaks verification.
+``obs_id``) and chains the segment to its predecessor.
+
+Leaf version 1 covers an observation's id, payload hash, idempotency key and tenant.
+Leaf version 2 (every segment sealed by this version) covers the whole envelope: also
+its kind, sensor, timestamps, clock, content type, declared ids, redaction manifest and
+sampling, so changing any of them breaks verification. The version is bound into the
+segment hash, so a segment cannot be downgraded to the weaker check.
 - **Classes Defined**:
   - `Segment`: methods -> `to_dict`
   - `VerifyReport`: methods -> `to_dict`
-- **Functions Defined**: `leaf_hash, merkle_root, merkle_proof, verify_proof, segment_hash`
+- **Functions Defined**: `leaf_v2, leaf_hash, merkle_root, merkle_proof, verify_proof, segment_hash`
 
 #### Module: `panoptis/evidence/shredding.py`
 
@@ -14658,6 +15185,32 @@ erasure (logs, exports, backups, caches) is out of reach.
   - `ErasureReceipt`: methods -> `None`
   - `ShreddingVault`: methods -> `__init__, encrypt, decrypt, erase`
 - **Functions Defined**: `seal_segment`
+
+#### Module: `panoptis/evidence/verifier.py`
+
+- **Lines of Code**: 238
+- **Docstring Summary**: Independent verifier for exported AgentWatch evidence (TO-026).
+
+Standard library only, and no AgentWatch imports: copy this one file anywhere and run
+
+    python verifier.py bundle.json [--expect-head SEQ:SEGMENT_HASH]
+    python verifier.py --proof proof.json
+
+A bundle (``panoptis protect evidence export``) holds a tenant's sealed segments and
+their observations exactly as stored. The verifier recomputes everything itself:
+
+* every payload's SHA-256 against the recorded ``payload_sha256``;
+* every leaf (version 1: id, payload hash, idempotency key, tenant; version 2: the whole
+  envelope), every segment's Merkle root, observation count, first/last ids and hash;
+* the hash chain from the genesis value through every segment, without gaps;
+* optionally, that a head known from elsewhere (an earlier export, a signed audit token)
+  is still part of the chain, so a chain cut back or rewritten below it is rejected.
+
+A proof file (``panoptis protect evidence proof``) is checked the same way for one record:
+its leaf from the envelope, the path to the Merkle root, and the segment hash.
+
+Exit status 0 means valid; 1 means tampered, incomplete or malformed.
+- **Functions Defined**: `_h, leaf, merkle_root, segment_hash, verify_bundle, verify_proof, _head, main`
 
 ### 4.2 Subsystem: `panoptis.forecasting`
 
@@ -14760,7 +15313,7 @@ Technical documentation generator, decision logs, conformity assessment.
 
 #### Module: `panoptis/governance/gdpr.py`
 
-- **Lines of Code**: 423
+- **Lines of Code**: 442
 - **Docstring Summary**: CMP-001 — GDPR Data Handling.
 
 - PII detection across all traces
@@ -14772,6 +15325,7 @@ Technical documentation generator, decision logs, conformity assessment.
   - `RedactionResult`: methods -> `None`
   - `ErasureScope`: methods -> `None`
   - `ErasureReceipt`: methods -> `None`
+  - `PartialErasureError`: methods -> `__init__`
   - `ErasureStore`: methods -> `erase_user_data`
   - `ErasureRequest`: methods -> `__post_init__`
   - `ErasureTargetResult`: methods -> `None`
@@ -15190,7 +15744,7 @@ replaces the former TemporalDecayManager.
 
 #### Module: `panoptis/memory/engine.py`
 
-- **Lines of Code**: 631
+- **Lines of Code**: 636
 - **Docstring Summary**: AgentWatch Memory Engine
 Layered persistent memory: episodic, semantic, and procedural.
 Cross-session continuity with semantic retrieval and contradiction handling.
@@ -15209,7 +15763,7 @@ Cross-session continuity with semantic retrieval and contradiction handling.
 
 #### Module: `panoptis/memory/governance.py`
 
-- **Lines of Code**: 119
+- **Lines of Code**: 209
 - **Docstring Summary**: MEM-008 — Memory Governance.
 
 Retention policies, deletion schedules, and GDPR right-to-erasure.
@@ -15218,6 +15772,7 @@ Retention policies, deletion schedules, and GDPR right-to-erasure.
   - `ErasureRequest`: methods -> `None`
   - `ErasureReceipt`: methods -> `None`
   - `MemoryGovernance`: methods -> `__init__, add_policy, policy_for, apply_retention, erase (+1 more)`
+- **Functions Defined**: `register_memory_store, memory_stores_registered, _stores, _matches, list_memory_entries, drop_memory_entries`
 
 #### Module: `panoptis/memory/graph_query.py`
 
@@ -15347,7 +15902,7 @@ Contains 3 modules.
 
 #### Module: `panoptis/models/tenant.py`
 
-- **Lines of Code**: 226
+- **Lines of Code**: 230
 - **Docstring Summary**: Tenant, API key, and usage tracking models for AgentWatch Cloud.
 
 Architecture
@@ -15363,8 +15918,9 @@ persisted or logged.
 
 Migration Strategy
 ~~~~~~~~~~~~~~~~~~
-1. Add ``tenant_id`` column (nullable ``VARCHAR(36)``) to ``agent_sessions``,
-   ``agent_events``, ``agent_checkpoints``, and ``memory_entries`` tables.
+1. Add ``tenant_id`` column (nullable ``VARCHAR(64)``) to ``agent_sessions``,
+   ``agent_events``, and ``memory_entries`` tables. ``checkpoints`` has no such
+   column: a checkpoint row belongs to its session's tenant.
 2. Run a backfill script: assign all existing rows to a default migration
    tenant (``tenant_id = '00000000-0000-0000-0000-000000000001'``).
 3. After backfill, set the column to ``NOT NULL`` with a server default.
@@ -15724,6 +16280,894 @@ permission is granted.
   - `PermissionEnforcer`: methods -> `__init__, _check, safe_open, safe_exec, restricted_import (+2 more)`
 - **Functions Defined**: `_build_allowed_modules`
 
+### 4.2 Subsystem: `panoptis.protect`
+
+Contains 36 modules.
+
+#### Module: `panoptis/protect/__init__.py`
+
+- **Lines of Code**: 230
+- **Docstring Summary**: AgentWatch Protect: unified runtime enforcement for AI agent tool calls.
+
+Quick start::
+
+    from panoptis.protect import ProtectionPipeline
+
+    pipeline = ProtectionPipeline()
+
+
+    @pipeline.guard(agent_id="coder", session_id="s1", objective="fix the failing test")
+    def run_shell(command: str) -> str: ...
+
+See :mod:`panoptis.protect.pipeline` for the stage order and failure behaviour.
+
+#### Module: `panoptis/protect/approvals.py`
+
+- **Lines of Code**: 433
+- **Docstring Summary**: Human approval for escalated actions (HITL).
+
+An escalated action is held until a human approves or rejects it, the request expires,
+or it is cancelled; anything but an approval is a rejection (fail closed). Approvals
+work across processes: the request is a ``protect.approval.request`` record in the
+requesting tenant's ledger, the dashboard/CLI/API appends a ``protect.approval.decision``
+record, and the waiting agent or gateway picks it up. The first decision recorded wins;
+later ones are ignored.
+
+Binding and one-time use (TO-019):
+
+* every request carries ``action_digest``: a SHA-256 over the tenant, agent, session,
+  call id, tool and canonical arguments. An approver may state the digest it saw
+  (``expected_digest``); a decision for a different action is refused.
+* the pipeline re-checks the digest against the action it is about to run, so an
+  approval never covers arguments that changed after it was requested.
+* an approval belongs to one ``call_id``, and the pipeline runs a call id at most once,
+  so an approval cannot be replayed for another call.
+* a request past its expiry can no longer be approved: deciding it records the timeout.
+
+An approver can also edit the arguments ("approve with changes"); the action then runs
+with the edited arguments, which are inspected again before execution.
+
+For single-process use (tests, notebooks, a CLI prompt) a synchronous ``approver``
+callable can decide directly.
+- **Classes Defined**:
+  - `ApprovalError`: methods -> `None`
+  - `ApprovalRequest`: methods -> `to_dict`
+  - `ApprovalOutcome`: methods -> `to_dict`
+  - `ApprovalBroker`: methods -> `__init__, request, wait, resolve, cancel (+7 more)`
+- **Functions Defined**: `action_digest, _outcome, _state`
+
+#### Module: `panoptis/protect/arguments.py`
+
+- **Lines of Code**: 1699
+- **Docstring Summary**: Structured analysis of tool-call arguments (WP-01).
+
+Regex over a flattened string misses structure: ``rm -rf "$DIR"`` inside ``$(...)``, a
+``DELETE`` with no ``WHERE`` in the second of two stacked statements, ``os.system`` reached
+through an alias in a code argument. This module extracts every string from the arguments
+(recursively, decoding base64 and URL encoding, normalising homoglyphs), recognises what
+kind of content each one is, and parses it:
+
+* shell commands are split into pipelines/command lists, command substitutions are
+  recursed into, wrappers (``sudo``, ``env``, ``xargs``, ...) are unwrapped, and each
+  command is classified by its name and flags;
+* Python code is parsed with :mod:`ast` and dangerous calls are resolved through imports
+  and aliases;
+* SQL is split into statements and destructive statements (``DROP``, ``TRUNCATE``,
+  ``DELETE``/``UPDATE`` without a ``WHERE``, tautological ``WHERE``) are recognised;
+* file paths and URLs are extracted and checked for sensitive locations, traversal,
+  private/metadata hosts and known exfiltration endpoints.
+
+The output is a list of :class:`Finding` plus an :class:`ArgumentProfile` that later stages
+(RBAC argument restrictions, intent grounding) reuse, so the arguments are parsed once.
+- **Classes Defined**:
+  - `ShellCommand`: methods -> `None`
+  - `ArgumentProfile`: methods -> `text, command_names`
+  - `ArgumentAnalyzer`: methods -> `analyze, _shell, _classify_command, _python, _sql (+3 more)`
+- **Functions Defined**: `_decoded_variants, extract_strings, _key_of, _split_segments, split_command_line, _sets_setuid, _flags, _operands, is_system_path, sensitive_path, _host_of, _parse_ipv4_part, canonical_host, _is_private_host, _dedupe`
+
+#### Module: `panoptis/protect/claude_hook.py`
+
+- **Lines of Code**: 284
+- **Docstring Summary**: Claude Code ``PreToolUse`` / ``PostToolUse`` hook: the shared pipeline decides before the
+CLI runs a tool (TO-012).
+
+Claude Code runs the hook command with the event as JSON on stdin. The hook answers:
+
+==================  ===================================================================
+pipeline verdict    hook answer (``hookSpecificOutput.permissionDecision``)
+==================  ===================================================================
+ALLOW               no decision: Claude Code's own permission rules and prompts apply
+BLOCK               ``deny`` with the reason; the tool does not run
+ESCALATE_HITL       ``ask``: Claude Code's permission prompt is the approval channel
+                    (in ``-p`` runs, where nobody can answer, the CLI denies the call)
+MUTATE_AND_ALLOW    ``ask`` with ``updatedInput`` (the redacted arguments); set
+                    ``AGENTWATCH_HOOK_MUTATION=allow`` to run them without a prompt
+==================  ===================================================================
+
+``PostToolUse`` inspects the tool's result: when it carries a prompt injection or a
+secret, the hook returns ``updatedToolOutput`` with the sanitized result. The tool has
+already run by then; only what Claude sees changes. ``PostToolUseFailure`` records the
+failure.
+
+The hook fails closed. Any error while deciding (bad input, policy that does not load,
+an exception in the pipeline) exits with code 2, which Claude Code treats as a block.
+Claude Code itself proceeds when the hook command cannot start or times out, unless
+the hook is installed with ``"onFailure": "block"`` (Claude Code 2.1.295 or later).
+See docs/CLAUDE_CODE_HOOK.md.
+
+Settings (environment):
+
+``AGENTWATCH_AGENT_ID``        agent id for decisions (default ``claude-code``)
+``AGENTWATCH_TENANT_ID``       tenant (default ``default``)
+``AGENTWATCH_OBJECTIVE``       the session's objective, for intent grounding
+``AGENTWATCH_POLICY_FILE``     RBAC policy (YAML/JSON); no file means no RBAC stage
+``AGENTWATCH_STORE``       evidence store (default: the AgentWatch home database)
+``AGENTWATCH_HOOK_MUTATION``   ``ask`` (default) or ``allow``
+- **Functions Defined**: `tool_name, build_pipeline, action_for, _pre, _post, handle, hook_command, hook_settings, install, uninstall, main`
+
+#### Module: `panoptis/protect/claude_hook_entry.py`
+
+- **Lines of Code**: 21
+- **Docstring Summary**: Entry point Claude Code runs as a script file: ``python <this file>``.
+
+It uses only the standard library until the hook module is imported, so a broken or
+missing AgentWatch install still blocks the tool call (exit code 2) instead of letting
+it through, which is what a failing ``python -m`` import would do (exit code 1).
+
+#### Module: `panoptis/protect/control.py`
+
+- **Lines of Code**: 268
+- **Docstring Summary**: Emergency controls: global kill switch and per-agent / per-session suspension.
+
+Two channels, both checked before every action:
+
+* the local :class:`panopti.killswitch.EmergencyKillSwitch` (a kill-file sentinel and,
+  on POSIX, ``SIGUSR1``): works with no database and no network;
+* ``protect.control`` records in the ledger, so an operator can stop an agent running in
+  another process or on another host from the dashboard or CLI.
+
+Suspension stops an agent or a session from *acting*; it never terminates a process.
+Suspensions are scoped to a tenant (``<tenant>/<agent>``, ``<tenant>/<session>``); the
+global kill switch stops every tenant. Records are append-only, so the state is the fold
+of the record sequence; it is refreshed incrementally (only records newer than the last
+one seen) at most every ``refresh_s``.
+
+The kill file is the shared state between processes on one host: it exists exactly while
+the switch is tripped, so a reset by any process (which removes it) resumes all of them.
+- **Classes Defined**:
+  - `ControlSnapshot`: methods -> `to_dict`
+  - `ControlState`: methods -> `__init__, snapshot, local_kill, emergency, _command (+8 more)`
+- **Functions Defined**: `default_kill_file, fold`
+
+#### Module: `panoptis/protect/counterfactual.py`
+
+- **Lines of Code**: 306
+- **Docstring Summary**: Real-Time Counterfactual Temporal Forking (WP-07).
+
+Speculative Pre-Execution Sandbox:
+Before committing state-altering tool operations (destructive shell commands,
+bulk file updates, configuration mutations), the agent runtime transparently forks
+an ephemeral shadow branch/workspace.
+
+The tool executes inside the isolated counterfactual fork. If the post-execution delta
+violates any safety invariants (data destruction, privilege escalation, unauthorized
+persistence, secret leakage), the fork is vaporized and the action is terminated
+BEFORE any real syscall or state corruption can occur on the host system.
+
+If verified safe, the speculative state can either be promoted atomically (zero double-
+execution overhead) or discarded cleanly.
+- **Classes Defined**:
+  - `CounterfactualConfig`: methods -> `None`
+  - `CounterfactualResult`: methods -> `to_dict`
+  - `CounterfactualEngine`: methods -> `__init__, fork_and_evaluate, _mirror_workspace, _remap_args_to_fork, _promote_fork`
+
+#### Module: `panoptis/protect/crescendo_drift.py`
+
+- **Lines of Code**: 255
+- **Docstring Summary**: Panoptis Crescendo Multi-Turn Drift & Context Erosion Sentry.
+
+Defeats:
+- "The Crescendo Multi-Turn Jailbreak Attack" (Russinovich et al., Microsoft / USENIX Security 2025)
+
+Key defenses:
+1. Conversation Intent Anchoring (Session Objective Anchor).
+2. Monotonic Risk & Semantic Drift Velocity Tracking across turns.
+3. Cumulative Divergence Integral over multi-turn conversation traces.
+4. Early Trajectory Interception before policy breach boundary is crossed.
+- **Classes Defined**:
+  - `DriftStatus`: methods -> `None`
+  - `ConversationTurn`: methods -> `None`
+  - `DriftAssessment`: methods -> `None`
+  - `CrescendoDriftMonitor`: methods -> `__init__, register_session_anchor, _compute_risk_score, _compute_anchor_divergence, record_and_evaluate_turn`
+- **Functions Defined**: `_tokenize`
+
+#### Module: `panoptis/protect/discovery.py`
+
+- **Lines of Code**: 621
+- **Docstring Summary**: Local agent and MCP discovery (TO-024).
+
+Finds agent runtimes and MCP servers on this machine and says, for each one, whether
+AgentWatch actually enforces on it. Detection is never taken as protection:
+
+``MONITORED``    evidence that enforcement is in place: an MCP server whose configured
+                 command runs the AgentWatch gateway, a Claude Code settings file with the
+                 AgentWatch PreToolUse hook, a running AgentWatch gateway process.
+``UNMONITORED``  a supported runtime or MCP server without that evidence.
+``UNKNOWN``      the status cannot be determined (a URL-only server, an unreadable file,
+                 a process whose working directory cannot be read).
+``UNSUPPORTED``  a known runtime AgentWatch has no enforcement integration for (its own
+                 built-in tools run outside any hook; only MCP servers behind the gateway
+                 are covered).
+
+Sources, all bounded and read-only:
+
+* known MCP / agent configuration files (Claude Desktop, Claude Code, Cursor, VS Code,
+  Windsurf), at fixed paths under the home directory and the given project roots;
+* running processes (``psutil``, if installed): name and command line only, matched
+  against known runtime signatures; at most ``max_processes`` are examined;
+* listening TCP ports, only for processes already recognised above.
+
+What is never collected: environment variables or their values, file contents other
+than the MCP/hook entries, process memory, and command-line secrets (arguments are
+redacted). Nothing is killed or modified; :func:`wrap_server` rewrites one config entry
+to run behind the gateway only when called with ``apply=True`` (it writes a backup).
+- **Classes Defined**:
+  - `Discovery`: methods -> `to_dict`
+- **Functions Defined**: `redact_args, _appdata, config_locations, _read_json, _is_gateway_command, classify_server, _hook_installed, scan_configs, classify_process, _settings_have_hook, scan_processes, discover, wrap_server, record_inventory`
+
+#### Module: `panoptis/protect/enclave_attestation.py`
+
+- **Lines of Code**: 259
+- **Docstring Summary**: Hardware-Attested Confidential Enclave Verification (WP-09).
+
+EXPERIMENTAL, NOT A SECURITY CONTROL. This compares measurements and a nonce; it does not verify
+any hardware signature or certificate chain.
+
+
+Verifies cryptographic attestation documents issued by hardware confidential
+computing enclaves (AMD SEV-SNP and AWS Nitro Enclaves):
+
+1. Platform Configuration Registers (PCRs) Verification:
+   PCR0: Enclave kernel / image hash
+   PCR1: Enclave OS / initrd hash
+   PCR2: Agent runtime & governance layer hash
+   Matches against cryptographically authorized golden measurements.
+
+2. Anti-Replay Nonce Verification:
+   Verifies that attestation documents were freshly minted for the current session,
+   preventing replay attacks.
+
+3. Cryptographic Chain of Trust:
+   Validates the X.509 certificate chain back to the hardware root of trust
+   (AMD VCEK or AWS Nitro Enclave Root CA).
+- **Classes Defined**:
+  - `EnclavePlatform`: methods -> `None`
+  - `EnclaveAttestationDocument`: methods -> `compute_document_hash, to_dict`
+  - `EnclaveVerificationResult`: methods -> `to_dict`
+  - `EnclaveVerificationConfig`: methods -> `None`
+  - `EnclaveAttestationVerifier`: methods -> `__init__, verify_attestation, mint_mock_document`
+
+#### Module: `panoptis/protect/enforce.py`
+
+- **Lines of Code**: 290
+- **Docstring Summary**: The one enforcement boundary every integration calls.
+
+``enforce_call`` (sync) and ``aenforce_call`` (async) run a tool through the pipeline in a
+fixed order: inspect and decide, apply an approved mutation, execute once, inspect the
+output, return the sanitized result. Integrations (``watch()``, framework adapters,
+``protect_tool``, the MCP gateway) only translate their calling convention into a
+``ToolAction`` and a callable; they never make security decisions themselves.
+- **Classes Defined**:
+  - `_ToolError`: methods -> `__init__`
+- **Functions Defined**: `_with_parent, enforce_call, aenforce_call, _unused, protection_context, current_context, set_default_pipeline, get_default_pipeline, protect_tool, bind_arguments`
+
+#### Module: `panoptis/protect/formal_verifier.py`
+
+- **Lines of Code**: 547
+- **Docstring Summary**: Formal Policy Invariant Verification and Synthesis Engine.
+
+A policy linter: glob and regular-expression analysis, not a theorem prover or an SMT solver.
+
+
+Provides mathematical verification of agent RBAC policies and tool constraints:
+1. Rule Subsumption & Dead Rule Detection: identifies redundant or unreachable rules.
+2. Contradiction & Starvation Detection: flags mutually exclusive allow/block rules.
+3. Non-Bypassability Theorem Prover: proves that adversarial parameter perturbations
+   (traversal, shell wrappers, encoding) cannot reach destructive capabilities.
+4. Autonomous Invariant Synthesizer: derives minimal missing safety constraints to
+   formally guarantee zero-day non-bypassability.
+- **Classes Defined**:
+  - `VerificationStatus`: methods -> `None`
+  - `FormalFinding`: methods -> `None`
+  - `FormalVerificationCertificate`: methods -> `is_sound, to_dict`
+  - `PolicyFormalVerifier`: methods -> `__init__, verify, _check_tool_subsumption, _check_argument_contradictions, _verify_perturbation_reachability (+3 more)`
+
+#### Module: `panoptis/protect/ifc_lattice.py`
+
+- **Lines of Code**: 198
+- **Docstring Summary**: Non-Interference Information Flow Control (IFC) Lattice Engine.
+
+Implements a formal Denning-style Security Lattice:
+    L = <S, <=, join, meet, bottom, top>
+    PUBLIC (bottom) <= INTERNAL <= CONFIDENTIAL <= RESTRICTED <= SECRET (top)
+
+Guarantees Non-Interference:
+Data labeled with security classification L_src cannot flow into sink labeled L_dst
+unless L_src <= L_dst (Flows-To relation), preventing secret exfiltration and covert
+taint propagation across agent tool chains.
+- **Classes Defined**:
+  - `SecurityLabel`: methods -> `can_flow_to, join, meet`
+  - `TaintContext`: methods -> `assign, label_of`
+  - `InformationFlowEngine`: methods -> `__init__, infer_label, record_result, verify_flow, audit_tool_call`
+
+#### Module: `panoptis/protect/integrations.py`
+
+- **Lines of Code**: 317
+- **Docstring Summary**: Framework tool integrations: route the code that actually runs a tool through the
+shared enforcement boundary (TO-011, TO-013, TO-014, TO-015).
+
+Each function wraps the framework's *execution* entry point, not its agent loop, so a
+blocked call never reaches the tool, and the agent receives the sanitized result:
+
+=================  =====================================  ==============================
+framework          execution entry point wrapped           blocked call surfaces as
+=================  =====================================  ==============================
+LangChain          ``StructuredTool.func/coroutine``,      ``ActionBlocked`` raised from
+                   else ``BaseTool._run/_arun``            ``tool.invoke``
+LangGraph          every tool of a ``ToolNode``            ``ActionBlocked`` (the node's
+                   (via the LangChain wrapper)             error handling decides)
+smolagents         ``Tool.forward``                        ``ActionBlocked`` from the tool
+AutoGen            ``FunctionTool.run_json`` (async)       ``ActionBlocked`` from run_json
+=================  =====================================  ==============================
+
+Identity (agent, session, tenant, objective) comes from the arguments given here or from
+:func:`panoptis.protect.enforce.protection_context`. Wrapping is idempotent.
+- **Functions Defined**: `_action, _mark, _named, _wrap_sync, _wrap_async, protect_langchain_tool, _base_run, _base_arun, protect_langgraph_tool_node, protect_smolagents_tool, protect_smolagents_agent, protect_autogen_tool, protect_tools, protect_agent`
+
+#### Module: `panoptis/protect/integrity.py`
+
+- **Lines of Code**: 89
+- **Docstring Summary**: Runtime Memory Integrity and Anti-Tampering Guard (AgenTEE Mitigation).
+
+Implements process-level anti-tampering verification based on AgenTEE (Imperial College London):
+In unshielded user processes, compromised agents or host hooks can attempt runtime monkey-patching
+(e.g. overriding `ProtectionPipeline.evaluate` or `RBACEngine.authorize` in memory).
+
+This module cryptographically seals critical function bytecodes and policy structures at boot
+and performs continuous constant-time integrity checks before any tool execution.
+- **Classes Defined**:
+  - `SealedFunction`: methods -> `None`
+  - `RuntimeIntegrityGuard`: methods -> `__init__, seal_function, verify_integrity`
+
+#### Module: `panoptis/protect/intent.py`
+
+- **Lines of Code**: 674
+- **Docstring Summary**: Reasoning-to-action intent grounding (WP-03).
+
+Question: does this tool call serve the task the user gave, or did the agent drift, get
+hijacked, or decide on its own to do something destructive? Ordinary safety rules cannot
+answer it: ``DELETE FROM orders WHERE customer_id = 999`` is a well-formed, scoped
+statement, and it is still wrong when the user asked to *look up* customer 123.
+
+The grounder extracts from the objective:
+
+* the *task mode*: read-only (find, check, list, summarise, ...), mutating (create, fix,
+  update, ...) or destructive (delete, drop, clean up, ...);
+* explicit prohibitions ("don't delete anything", "read-only", "without modifying");
+* concrete entities: identifiers with values (``customer 123``, ``order #456``,
+  ``id=7``), paths, hosts/URLs, table names, quoted strings.
+
+and compares them with what the call does (its :class:`ArgumentProfile`). Hard,
+explainable mismatches drive the verdict:
+
+``GOAL_ACTION_MISMATCH``  destructive action, read-only objective → BLOCK;
+                          mutating action, read-only objective → ESCALATE.
+``OBJECTIVE_PROHIBITS``   the objective forbids what the call does → BLOCK.
+``ENTITY_MISMATCH``       same kind of identifier, different value → ESCALATE.
+``UNREQUESTED_DESTINATION`` data sent to a host the objective never mentioned while it
+                          names others → ESCALATE.
+
+Lexical similarity between objective and call is reported (``LOW_GOAL_OVERLAP``) but is
+*never* sufficient to block: similarity is not proof of intent, and a dissimilar call can
+be a legitimate step. It only raises an already-risky call to human review.
+
+An optional verifier (a local model, or any callable) can be consulted for high-risk calls;
+its answer is recorded with its reason, and if it fails the heuristic result stands.
+- **Classes Defined**:
+  - `Objective`: methods -> `to_dict`
+  - `GroundingConfig`: methods -> `None`
+  - `IntentGrounder`: methods -> `__init__, ground, _verify`
+- **Functions Defined**: `_leading_verbs, extract_objective, _root, action_entities, _within, openai_compatible_verifier, _action_kind, _confidence`
+
+#### Module: `panoptis/protect/kernel_sandbox.py`
+
+- **Lines of Code**: 271
+- **Docstring Summary**: Ring-0 Linux Kernel Sandbox Interface: Landlock LSM & Seccomp-BPF.
+
+Provides hardware- and kernel-enforced isolation for untrusted AI agent actions.
+When running on modern Linux kernels (Linux 5.13+), permissions are enforced
+directly inside kernel space using Landlock and Seccomp. On non-Linux or
+unsupported platforms, transparently operates in verified emulation mode.
+- **Classes Defined**:
+  - `LandlockRulesetAttr`: methods -> `None`
+  - `LandlockPathBeneathAttr`: methods -> `None`
+  - `KernelSandboxConfig`: methods -> `None`
+  - `KernelSandboxStatus`: methods -> `None`
+  - `KernelSandbox`: methods -> `__init__, _init_platform, is_landlock_available, is_seccomp_available, status (+2 more)`
+
+#### Module: `panoptis/protect/ledger.py`
+
+- **Lines of Code**: 263
+- **Docstring Summary**: Security evidence ledger: protection records in the v3 append-only Merkle store.
+
+Every decision, output inspection, approval request/resolution, kill-switch change,
+policy change and discovery scan is appended as an observation (``source_kind``
+``protect.*``) to the same immutable store the rest of AgentWatch uses. That gives the
+security trail the store's guarantees with no second mechanism:
+
+* append-only, enforced by database triggers;
+* secrets redacted at the edge before storage (with a manifest);
+* Merkle-sealed segments, chain verification and per-record inclusion proofs;
+* a shared medium between processes: an MCP gateway or an SDK-protected agent writes
+  decisions and approval requests; the API server (dashboard, CLI) reads them and
+  appends approvals and kill-switch commands that the agents pick up.
+
+Records are never updated; state (is this request approved? is this agent suspended?)
+is derived from the sequence of records.
+- **Classes Defined**:
+  - `ProtectLedger`: methods -> `__init__, record, _maybe_seal, query, find (+5 more)`
+
+#### Module: `panoptis/protect/loops.py`
+
+- **Lines of Code**: 460
+- **Docstring Summary**: Semantic loop and stuck-state detection (WP-02, TO-020).
+
+The circuit breaker counts *failures*. Agents also get stuck while every call *succeeds*:
+``git status`` ten times, ``ls`` → ``cat`` → ``ls`` → ``cat``, or one failing command
+re-issued with small edits. This detector keeps a sliding window of the last ``window``
+calls per session (default 10) with each call's outcome and output hash, and reports:
+
+``DUPLICATE_CALL_LOOP``
+    The same tool with identical (canonical) arguments ``duplicate_threshold`` times in
+    the window (default 3), while the most recent identical calls made no progress: they
+    failed, or returned the same output. Identical calls whose outputs change (polling a
+    job, tailing a log) are progress and are not flagged. A *new* mutating call in between
+    (a different edit, then the same test run) also counts as progress: only the identical
+    calls after it are counted.
+``OSCILLATION_LOOP``
+    A cycle of 2 or 3 distinct read-only calls repeated ``oscillation_cycles`` times
+    (A→B→A→B, A→B→C→A→B→C), with no new output across the cycles.
+``SEMANTIC_THRASHING_LOOP``
+    Near-identical (not identical) calls to the same tool, similarity strictly above
+    ``similarity_threshold`` (default 0.80) by normalised Levenshtein or token-set Jaccard,
+    where at least ``thrash_failures`` of the similar earlier calls failed *with a
+    repeating error*: the agent keeps tweaking a failing command and the failure does not
+    change.
+``NO_PROGRESS``
+    The last ``no_progress_window`` calls were all non-mutating and produced no output
+    the window had not already seen (informational; recommends ALLOW).
+``REPEATED_FAILURE``
+    The same tool failed ``failure_threshold`` times in a row (any arguments).
+
+Each finding carries the evidence (the repeated calls, similarities, outputs) so the
+dashboard can show *why*. Detection is per session (the pipeline passes the tenant-scoped
+session key), so concurrent sessions never mix. Memory is bounded: ``window`` records per
+session and at most ``max_sessions`` sessions (least recently used are dropped).
+- **Classes Defined**:
+  - `CallRecord`: methods -> `signature`
+  - `LoopConfig`: methods -> `__post_init__`
+  - `LoopDetector`: methods -> `__init__, window, stats, reset, _drop (+8 more)`
+- **Functions Defined**: `canonical_args, _bounded_distance, levenshtein_similarity, token_jaccard, _semantic_text`
+
+#### Module: `panoptis/protect/ltl_trajectory.py`
+
+- **Lines of Code**: 780
+- **Docstring Summary**: Linear Temporal Logic (LTL) Multi-Hop Trajectory Engine.
+
+Implements multi-turn temporal trace verification (based on Siu, He, Song et al.,
+UC Berkeley & Duke, 2026):
+Prevents multi-hop split exfiltration attacks where an agent divides an exploit across
+discrete, seemingly benign turns:
+    Turn 1: Read sensitive credentials
+    Turn 2: Stage data into scratchpad
+    Turn 3: Exfiltrate staged data over network
+
+Formally checks Linear Temporal Logic (LTL) safety properties over the session causal graph:
+    Formula 1 (Confidentiality): G(ReadSensitive -> G(!NetworkEgress))
+    Formula 2 (Integrity):       G(UntrustedIngest -> G(!UncheckedShellExecution))
+    Formula 3 (Persistence):     G(ReadCredentials -> G(!WriteStartupScripts))
+- **Classes Defined**:
+  - `TrajectoryStep`: methods -> `None`
+  - `FileAssembly`: methods -> `add, holds_anything`
+  - `_Antecedent`: methods -> `of`
+  - `SessionFacts`: methods -> `holds_anything`
+  - `_SealedSessions`: methods -> `__init__, _positions, add, __contains__, fill`
+  - `_TenantHistory`: methods -> `None`
+  - `_Tenant`: methods -> `is_sealed`
+  - `LTLTrajectoryVerifier`: methods -> `__init__, traces, modified_files, _admit, _forget_history (+22 more)`
+- **Functions Defined**: `_path_key, _bounded_arguments, _dangerous, _open_prefix`
+
+#### Module: `panoptis/protect/mcp_gateway.py`
+
+- **Lines of Code**: 1012
+- **Docstring Summary**: Standalone MCP gateway: an enforcing proxy between an MCP client and an MCP server (TO-023).
+
+The client connects to the gateway as if it were the server; the gateway connects to the
+real ("upstream") server. Every JSON-RPC message is passed through unchanged (ids,
+errors, notifications, ``initialize``, capabilities and tool schemas are preserved),
+except ``tools/call``:
+
+1. the call is validated and turned into a :class:`ToolAction` (tool name, arguments,
+   the gateway's agent/session/tenant);
+2. it goes through the one enforcement boundary (:func:`aenforce_call`): identity,
+   kill switch, threat analysis, RBAC (with its rate limits), loop detection, intent
+   grounding and, when escalated, human approval;
+3. only an allowed (approved, possibly mutated) call is forwarded upstream, with the
+   arguments the pipeline admitted; a refused call is answered by the gateway with an
+   MCP tool error (``isError: true``) and **never reaches the server**;
+4. the server's result is inspected and sanitized (prompt-injection quarantine, secret
+   redaction, size limits) before the client sees it; the decision and the execution are
+   recorded in the evidence ledger (secrets are redacted before storage).
+
+Transports: stdio (:func:`run_stdio`, the gateway spawns the server) and Streamable HTTP
+(:func:`build_http_app`, the gateway forwards to a server URL). See docs/MCP_GATEWAY.md.
+- **Classes Defined**:
+  - `ProtocolError`: methods -> `__init__`
+  - `UpstreamError`: methods -> `__init__`
+  - `UpstreamClosedError`: methods -> `None`
+  - `GatewayIdentity`: methods -> `None`
+  - `ToolCallGuard`: methods -> `__init__, action, call`
+  - `MCPGateway`: methods -> `__init__, session_id, from_client, _forget_call, _handle_call (+4 more)`
+- **Functions Defined**: `error_response, parse_message, _key, blocked_result, run_stdio, _write_flush, build_http_app, build_pipeline, client_config, gateway_status, main`
+
+#### Module: `panoptis/protect/memory_sentry.py`
+
+- **Lines of Code**: 257
+- **Docstring Summary**: Panoptis Memory Sentry: Sleeper Memory Poisoning & Backdoor Defense.
+
+Defeats:
+- "Hidden in Memory: Sleeper Memory Poisoning in LLM Agents" (ArXiv 2026)
+- "MemPoison: Bypassing Selective Memory Mechanisms to Plant Backdoors in LLM Agents" (ArXiv 2026)
+- "GhostWriter: Memory Poisoning Attacks on LLM Agents" (ArXiv 2026)
+
+Key defenses:
+1. Provenance Attestation & Context Taint Tracking on memory writes.
+2. Dormant Sleeper Trigger Detection (conditional logic embedded in declarative memory).
+3. Entity Masquerading & Security Constant Override Detection.
+4. Quarantined & Neutralized Retrieval Formatting.
+- **Classes Defined**:
+  - `MemoryTrustLevel`: methods -> `None`
+  - `MemoryRiskType`: methods -> `None`
+  - `MemoryInspectionResult`: methods -> `None`
+  - `MemoryRecord`: methods -> `None`
+  - `MemorySentry`: methods -> `__init__, inspect_write, store_memory, inspect_retrieval`
+
+#### Module: `panoptis/protect/model.py`
+
+- **Lines of Code**: 272
+- **Docstring Summary**: Shared data model of the protection pipeline: actions, findings, verdicts, decisions.
+
+Every stage of :class:`panoptis.protect.pipeline.ProtectionPipeline` produces
+:class:`Finding` objects. A finding is explainable by construction: it names the stage and
+rule that produced it, a human-readable message and the evidence (the argument path, the
+matched text, the policy entry) that triggered it. The pipeline folds findings into one
+:class:`Decision`.
+- **Classes Defined**:
+  - `Verdict`: methods -> `None`
+  - `Severity`: methods -> `rank, score`
+  - `Stage`: methods -> `None`
+  - `Finding`: methods -> `to_dict`
+  - `ToolAction`: methods -> `scope, to_dict`
+  - `Decision`: methods -> `allowed, primary, reason, to_dict`
+  - `OutputInspection`: methods -> `to_dict`
+  - `ActionBlocked`: methods -> `__init__`
+- **Functions Defined**: `changed_paths, combine_risk, strongest`
+
+#### Module: `panoptis/protect/output.py`
+
+- **Lines of Code**: 485
+- **Docstring Summary**: Post-execution inspection of tool results (WP-01).
+
+A tool result is untrusted input to the model: a fetched web page, a file, an MCP server's
+answer or another agent's message can carry *indirect prompt injection* (instructions
+addressed to the model), secrets, or exfiltration beacons (markdown images whose URL
+carries data). The inspector walks the whole result (strings, JSON, MCP ``content``
+blocks), scans every string and its decoded variants, and returns a sanitized copy:
+
+* secrets are masked in place (``[REDACTED:<category>]``);
+* lines carrying instruction-override text are removed and replaced by a visible notice,
+  so the model still sees that something was removed and where;
+* invisible characters used to hide instructions (Unicode tag block, bidi controls,
+  zero-width runs) are stripped;
+* markdown images/links pointing to URLs with query data are defanged;
+* with ``on_injection="withhold"`` the whole result is replaced by a notice instead.
+
+The original result never reaches the agent unless it was clean.
+- **Classes Defined**:
+  - `_Rule`: methods -> `None`
+  - `OutputInspector`: methods -> `__init__, inspect, _string, _scan, _object (+1 more)`
+- **Functions Defined**: `_decode_tag_block, _excerpt`
+
+#### Module: `panoptis/protect/pipeline.py`
+
+- **Lines of Code**: 1514
+- **Docstring Summary**: The authoritative enforcement pipeline.
+
+One code path decides each call routed to it, whichever integration proposed it (SDK decorator,
+framework adapter, MCP gateway over stdio or HTTP, CLI)::
+
+    proposal
+      → identity & session validation      (Stage.IDENTITY)
+      → kill switch / suspension / breaker  (Stage.KILLSWITCH, Stage.LOOP)
+      → RBAC authorization                  (Stage.RBAC)
+      → threat & argument analysis          (Stage.THREAT)
+      → loop & stuck-state detection        (Stage.LOOP)
+      → intent grounding                    (Stage.INTENT)
+      → human approval, if escalated        (Stage.HITL)
+      → verdict ─ BLOCK: the tool is never called
+                └ ALLOW / MUTATE_AND_ALLOW: the tool runs exactly once
+      → post-execution inspection & sanitization (Stage.OUTPUT)
+      → evidence record (Merkle ledger) and telemetry
+
+Failure behaviour is explicit: an exception inside any enforcement stage produces a BLOCK
+(``fail_closed=True``, the default); an escalation with no approval channel is blocked; an
+approval that times out is a rejection. A call id executes at most once.
+- **Classes Defined**:
+  - `ProtectionConfig`: methods -> `sovereign, enclave`
+  - `SessionInfo`: methods -> `scope`
+  - `Telemetry`: methods -> `__init__, subscribe, emit, stats`
+  - `ProtectionPipeline`: methods -> `__init__, register_agent, start_session, set_objective, breaker (+22 more)`
+- **Functions Defined**: `_blocked, _last_reason, _looks_successful, _summary, _replay_decision`
+
+#### Module: `panoptis/protect/pqc_attestation.py`
+
+- **Lines of Code**: 467
+- **Docstring Summary**: Post-Quantum Cryptography (NIST ML-DSA / FIPS 204) & Recursive zk-STARK Attestation.
+
+EXPERIMENTAL, NOT A SECURITY CONTROL. This is a simulation: it is not a FIPS 204 implementation
+and not a STARK proof system. Rely on panoptis.evidence for integrity.
+
+What the simulation models:
+1. Post-Quantum Cryptography: NIST FIPS 204 ML-DSA (Module-Lattice Digital Signature Algorithm)
+   implemented via Module-LWE (Learning With Errors) algebraic commitments over modulus Q=8380417.
+2. Recursive zk-STARKs: Transparent, zero-trusted-setup algebraic proofs proving that N agent
+   actions conformed strictly to the formally verified policy lattice without revealing private payloads.
+3. Hardware Enclave Silicon Binding: Anchors the STARK public inputs directly to AMD SEV-SNP
+   and AWS Nitro Enclave PCR measurements.
+- **Classes Defined**:
+  - `PQCAlgorithm`: methods -> `None`
+  - `PQCKeyPair`: methods -> `None`
+  - `PQCSigner`: methods -> `__init__, generate_keypair, sign, verify, _matrix_vector_mul (+2 more)`
+  - `StarkFRICommitment`: methods -> `None`
+  - `StarkProof`: methods -> `to_dict`
+  - `StarkRecursiveProver`: methods -> `__init__, prove_execution_trace, _compute_merkle_root`
+  - `StarkRecursiveVerifier`: methods -> `verify_proof`
+  - `SovereignAttestationCertificate`: methods -> `to_dict`
+  - `SovereignAttestationEngine`: methods -> `__init__, generate_sovereign_certificate, verify_sovereign_certificate`
+
+#### Module: `panoptis/protect/rag_sanitizer.py`
+
+- **Lines of Code**: 185
+- **Docstring Summary**: Panoptis RAG Sanitizer: Retrieval-Augmented Generation Poisoning Defense.
+
+Defeats:
+- "PoisonedRAG: Knowledge Corruption Attacks to Retrieval-Augmented Generation" (USENIX Security 2024/2025)
+
+Key defenses:
+1. Imperative Command Neutralization in retrieved passages.
+2. System Role & Delimiter Injection Stripping.
+3. Zero-Width Unicode & Exfiltration Markdown Sanitization.
+4. Imperative-to-Factual Entropy Ratio Anomaly Detection.
+- **Classes Defined**:
+  - `RAGPoisonStatus`: methods -> `None`
+  - `RAGSanitizationResult`: methods -> `None`
+  - `RAGSanitizer`: methods -> `__init__, _compute_imperative_ratio, sanitize_chunk, sanitize_retrieved_documents`
+
+#### Module: `panoptis/protect/rbac.py`
+
+- **Lines of Code**: 946
+- **Docstring Summary**: Per-agent role-based tool authorization (WP-05).
+
+Policy (YAML or JSON)::
+
+    version: "1.0"
+    default: deny               # deny | allow: agents/tools no rule covers
+    agents:                     # agent id (glob) -> roles
+      coder-*: [coder]
+      research-bot: [researcher]
+    roles:                      # alias: agent_roles
+      researcher:
+        allowed_tools: [web_search, read_file, fetch_url]
+        forbidden_tools: [execute_shell, "write_*"]
+        rate_limits: {max_calls_per_minute: 30, per_session_per_minute: 10, per_tool: {web_search: 10}}
+      coder:
+        allowed_tools: [read_file, write_file, execute_shell, git]
+        require_approval: [git]               # always escalate these tools
+        restricted_arguments:
+          execute_shell:
+            blocked_commands: ["rm -rf*", "sudo *", "curl * | sh"]
+            allowed_commands: [git, pytest, ls, cat, python]  # command names
+            allowed_paths: ["./**", "/workspace/**"]
+            blocked_paths: ["**/.env", "~/.ssh/**"]
+            allowed_hosts: [pypi.org, "*.github.com"]
+            fields: {timeout: {max: 600}, branch: {pattern: "^feature/"}}
+
+    tenants:                    # optional: agent bindings that apply in one tenant only
+      acme:
+        inherit: false          # default true: the top-level agents also apply in acme
+        agents: {coder-*: [coder]}
+
+Tool names and agent ids are matched with shell-style globs. Forbidden beats allowed;
+an agent with several roles is allowed a tool if any role allows it and none forbids it.
+Every decision names the role and rule that produced it. Authorization is bound to the
+call's tenant: an agent's roles are looked up for the tenant the call was authenticated
+for, and rate-limit counters are kept per tenant (and per session for session limits).
+
+:class:`PolicyStore` validates a whole policy before swapping it in atomically; an
+invalid file leaves the previous policy active and reports why. Duplicate keys, unknown
+keys, a tool both allowed and forbidden by one role and unknown roles are errors. A store
+with a file path re-reads it when it changes (at most every ``auto_reload_s``), and only
+activates a file that was stable while it was read. Rate-limit counters survive reloads.
+- **Classes Defined**:
+  - `PolicyError`: methods -> `__init__`
+  - `_UniqueKeyLoader`: methods -> `None`
+  - `ArgumentRestriction`: methods -> `None`
+  - `Role`: methods -> `None`
+  - `RBACPolicy`: methods -> `bindings_for, roles_for, to_dict`
+  - `RateLimiter`: methods -> `__init__, _window, check_and_add, peek, _prune (+1 more)`
+  - `RBACEngine`: methods -> `__init__, authorize, effective_permissions, _restrictions`
+  - `PolicyStore`: methods -> `__init__, policy, set, load_document, reload (+3 more)`
+- **Functions Defined**: `_construct_unique_mapping, _strlist, _nonneg_int, parse_policy, _glob_any, _path_glob`
+
+#### Module: `panoptis/protect/registry.py`
+
+- **Lines of Code**: 62
+- **Docstring Summary**: Tools registered while an agent runs (TO-016).
+
+``watch(agent, protection=...)`` and ``protect_agent`` protect the tools that exist when
+they are called; a tool added to the agent afterwards is not covered. Agents that add
+tools at runtime should keep them in a :class:`ProtectedToolRegistry`: every way of
+putting a tool in it (``reg[name] = t``, ``update``, ``setdefault``, ``register``) protects
+it first, so no registration path skips enforcement. Wrapping is idempotent, so
+registering the same tool twice never wraps it twice.
+- **Classes Defined**:
+  - `ProtectedToolRegistry`: methods -> `__init__, _protect, __setitem__, register`
+- **Functions Defined**: `_is_framework_tool`
+
+#### Module: `panoptis/protect/stego_neutralizer.py`
+
+- **Lines of Code**: 221
+- **Docstring Summary**: Deterministic Steganography & Covert Channel Neutralizer.
+
+Defeats:
+- "Tool Use Enables Undetectable Steganography in Multi-Agent LLM Systems" (arXiv:2606.28425, June 2026)
+- Covert data exfiltration via whitespace modulation (trailing spaces/tabs), zero-width character
+  encoding, non-deterministic JSON key permutation, and unicode homoglyph substitution.
+
+What it does:
+1. Canonical JSON: :meth:`StegoNeutralizer.to_canonical_json_string` is RFC 8785
+   (:mod:`panoptis.evidence.jcs`). Neutralizing a payload sorts keys and never changes a number.
+2. Trailing whitespace stripping removes line-ending modulation.
+3. Unicode NFKC normalization collapses compatibility forms. The pipeline turns this off,
+   because it rewrites legitimate text.
+4. Invisible character cleansing strips tag blocks and zero-width streams, except joiners that
+   shape real text and tags inside a subdivision flag.
+
+This reduces specific channels. It does not eliminate covert channels: text can carry hidden
+information in its wording, which no filter of this kind can detect.
+- **Classes Defined**:
+  - `StegoInspectionResult`: methods -> `had_covert_channel`
+  - `StegoNeutralizer`: methods -> `__init__, neutralize_string, canonicalize_json_value, neutralize, to_canonical_json_string`
+- **Functions Defined**: `_joins_real_text, _is_flag_tag`
+
+#### Module: `panoptis/protect/support.py`
+
+- **Lines of Code**: 209
+- **Docstring Summary**: What each integration actually does to a tool call (TO-011, TO-035).
+
+``PRE_EXECUTION_ENFORCEMENT``  the call is decided before the tool runs; a blocked call
+                               never executes; the result is sanitized before the agent
+                               sees it.
+``POST_EXECUTION_OBSERVATION`` events are recorded; nothing is prevented.
+``UNSUPPORTED``                no integration.
+
+This table is the single source for the support matrix in docs/ADAPTER_SUPPORT.md and
+is checked by tests/protect/test_support_matrix.py: every adapter module must appear, and
+every enforcing entry must name an integration test that exists.
+- **Classes Defined**:
+  - `Support`: methods -> `None`
+- **Functions Defined**: `by_module`
+
+#### Module: `panoptis/protect/taint_tracker.py`
+
+- **Lines of Code**: 152
+- **Docstring Summary**: Dynamic Token and Transformation-Aware Taint Tracker.
+
+Implements the Fides (Microsoft Research / Costa et al.) dynamic information flow model:
+Protects against taint-evasion attacks (base64 encoding, hex dumping, URL encoding,
+token splitting, and substring interleaving) by dynamically propagating confidentiality
+labels across representation transformations.
+- **Classes Defined**:
+  - `TaintRecord`: methods -> `__post_init__`
+  - `DynamicTaintTracker`: methods -> `__init__, records, register_taint, register_from_payload, evaluate_taint`
+
+#### Module: `panoptis/protect/temporal_simulator.py`
+
+- **Lines of Code**: 616
+- **Docstring Summary**: Real-Time 16-Way Counterfactual Temporal Simulation & Downstream Blast-Radius Evaluator.
+
+Experimental and opt-in (``enable_temporal_simulation``). It estimates downstream hazards a few
+steps ahead by running speculative Monte Carlo branches in a model of the action, not in the real
+system, so it can miss hazards the model does not represent. On an invariant violation it produces
+a signed CounterfactualHazardProof, which records what the simulation found and proves nothing
+about real outcomes.
+- **Classes Defined**:
+  - `SimulatedStep`: methods -> `None`
+  - `TrajectoryBranch`: methods -> `None`
+  - `CounterfactualHazardProof`: methods -> `to_dict, verify_signature`
+  - `SimulationConfig`: methods -> `None`
+  - `TemporalSimulationResult`: methods -> `to_dict`
+  - `DownstreamBlastRadiusEvaluator`: methods -> `__init__, evaluate_branch`
+  - `FastForwardSimulationEngine`: methods -> `__init__, simulate_action, _generate_16_branches, _predict_next_action, _create_simulated_step (+1 more)`
+
+#### Module: `panoptis/protect/threats.py`
+
+- **Lines of Code**: 234
+- **Docstring Summary**: Threat classification of a proposed tool call (WP-01, pre-execution).
+
+Combines three sources, each producing explainable findings:
+
+1. structured argument analysis (:mod:`panoptis.protect.arguments`);
+2. the existing AgentWatch risk-pattern library (:class:`panoptis.core.safety.RiskScorer`),
+   so rules users already wrote keep working;
+3. content checks on the arguments themselves: secrets about to leave the process, and
+   injection-shaped text an agent is forwarding (to a sub-agent, an email, a ticket).
+
+It also proposes *argument mutations*: when a secret appears in an argument of a tool that
+does not need it (a file write, a message), the secret is redacted and the call proceeds
+(``MUTATE_AND_ALLOW``). A secret sent to the network is exfiltration and is blocked.
+- **Classes Defined**:
+  - `ThreatReport`: methods -> `None`
+  - `ThreatAnalyzer`: methods -> `__init__, analyze, _legacy_patterns, _secrets, _forwarded_injection`
+- **Functions Defined**: `_rules_version, find_secrets, mask_secrets`
+
+#### Module: `panoptis/protect/transactor.py`
+
+- **Lines of Code**: 100
+- **Docstring Summary**: Two-Phase Commit (2PC) Speculative External Mock Transactor.
+
+Addresses the Stanford ToolEmu (Ruan, Hashimoto et al., ICLR) irreversibility problem:
+In speculative counterfactual executions, external side-effects (outbound HTTP POSTs,
+cloud API calls, database writes) cannot be rolled back by filesystem unlinking.
+
+This module intercepts and virtualizes external network and API side-effects during
+the speculative temporal fork. No network packets or remote mutations leave the host
+until the entire action is proven sound and non-destructive.
+- **Classes Defined**:
+  - `SpeculativeSideEffect`: methods -> `None`
+  - `MockHTTPResponse`: methods -> `__init__, read, readline, close, __enter__ (+1 more)`
+  - `SpeculativeTransactor`: methods -> `__init__, capture_side_effects`
+
+#### Module: `panoptis/protect/wasi_sandbox.py`
+
+- **Lines of Code**: 360
+- **Docstring Summary**: WASI & Copy-on-Write (CoW) Micro-Worker Sandbox.
+
+NOT ISOLATION. No WebAssembly runtime is involved and fuel is a counter: functions and commands
+run in the host process's privileges. It provides snapshot and rollback of a workspace.
+
+
+Provides deterministic micro-sandboxed execution for untrusted AI agent actions
+with strict execution fuel ceilings, physical memory boundaries, and automatic
+Copy-on-Write (CoW) snapshot rollback on invariant failure or exception.
+- **Classes Defined**:
+  - `SandboxExecutionError`: methods -> `__init__`
+  - `SnapshotDiff`: methods -> `has_changes, created, modified, deleted, to_dict`
+  - `SandboxResult`: methods -> `None`
+  - `WasiSandboxConfig`: methods -> `None`
+  - `WorkspaceSnapshot`: methods -> `__init__, _hash_file, _take_snapshot, compute_diff, rollback (+1 more)`
+  - `WasiSandbox`: methods -> `__init__, run_function, run_command`
+
 ### 4.2 Subsystem: `panoptis.protocol`
 
 Contains 5 modules.
@@ -15760,7 +17204,7 @@ privacy-safe aggregation only — no per-user data ever exposed.
 
 #### Module: `panoptis/protocol/mcp_server.py`
 
-- **Lines of Code**: 257
+- **Lines of Code**: 295
 - **Docstring Summary**: PRT-004 — MCP Server Integration.
 
 Expose AgentWatch as an MCP (Model Context Protocol) server.
@@ -15780,7 +17224,7 @@ catalog + a synchronous `dispatch(tool, args)` entry point.
 - **Classes Defined**:
   - `MCPTool`: methods -> `None`
   - `MCPResponse`: methods -> `None`
-  - `AgentWatchMCPServer`: methods -> `__init__, register, tool_catalog, dispatch, _register_default_tools (+7 more)`
+  - `AgentWatchMCPServer`: methods -> `__init__, register, tool_catalog, dispatch, _register_default_tools (+8 more)`
 
 #### Module: `panoptis/protocol/schema_v1.py`
 
@@ -16225,18 +17669,18 @@ Contains 2 modules.
 
 #### Module: `panoptis/rollback/engine.py`
 
-- **Lines of Code**: 507
+- **Lines of Code**: 583
 - **Docstring Summary**: AgentWatch Rollback Engine
 Framework-agnostic rollback support via filesystem snapshots,
 git-backed checkpoints, and transactional execution tracking.
 - **Classes Defined**:
   - `CheckpointType`: methods -> `None`
   - `RollbackStatus`: methods -> `None`
-  - `Checkpoint`: methods -> `to_dict`
+  - `Checkpoint`: methods -> `owned_by, to_dict`
   - `RollbackResult`: methods -> `None`
   - `FilesystemSnapshot`: methods -> `create, restore`
   - `GitCheckpointer`: methods -> `__init__, _run_git, is_git_repo, current_commit, stash (+4 more)`
-  - `RollbackEngine`: methods -> `__init__, _checkpoint_snapshot_dir, create_checkpoint, rollback, rollback_session (+6 more)`
+  - `RollbackEngine`: methods -> `__init__, _checkpoint_snapshot_dir, create_checkpoint, rollback, rollback_session (+9 more)`
 
 ### 4.2 Subsystem: `panoptis.root`
 
@@ -16292,9 +17736,9 @@ the file named by ``AGENTWATCH_OBSERVE_FILE``. Otherwise recording is a no-op un
 
 #### Module: `panoptis/tasks.py`
 
-- **Lines of Code**: 42
-- **Docstring Summary**: Minimal Celery app for Docker compose.
-- **Functions Defined**: `ping, run_redteam`
+- **Lines of Code**: 120
+- **Docstring Summary**: Production Celery application and background task runners.
+- **Functions Defined**: `_task, ping, run_redteam, seal_segments, purge_segments`
 
 ### 4.2 Subsystem: `panoptis.runs`
 
@@ -16401,7 +17845,7 @@ Baseline is the agent's own history, not generic patterns.
 
 ### 4.2 Subsystem: `panoptis.security`
 
-Contains 16 modules.
+Contains 14 modules.
 
 #### Module: `panoptis/security/__init__.py`
 
@@ -16442,17 +17886,6 @@ establishes the binding — this module performs no payment processing.
 - **Lines of Code**: 7
 - **Docstring Summary**: AgentWatch security alias for Egress Guard.
 
-#### Module: `panoptis/security/encryption.py`
-
-- **Lines of Code**: 202
-- **Docstring Summary**: API Key Encryption Module
-
-Provides secure storage and management of API keys using AES-256-GCM encryption.
-Keys are encrypted at rest and decrypted only when needed.
-- **Classes Defined**:
-  - `APIKeyEncryption`: methods -> `__init__, _derive_key, encrypt_key, decrypt_key, hash_key`
-- **Functions Defined**: `rotate_key, get_rotation_history`
-
 #### Module: `panoptis/security/entitlement_store.py`
 
 - **Lines of Code**: 96
@@ -16478,17 +17911,6 @@ Detect when agent tries to send data externally. Block and alert.
 - **Classes Defined**:
   - `ExfilFinding`: methods -> `None`
 - **Functions Defined**: `detect, _parse_obfuscated_ip, _extract_host`
-
-#### Module: `panoptis/security/key_storage.py`
-
-- **Lines of Code**: 58
-- **Docstring Summary**: Secure API Key Storage
-
-Database models and utilities for storing encrypted API keys with audit trails.
-- **Classes Defined**:
-  - `EncryptedAPIKey`: methods -> `None`
-  - `KeyRotationAudit`: methods -> `None`
-  - `KeyAccessAudit`: methods -> `None`
 
 #### Module: `panoptis/security/license.py`
 
@@ -16620,9 +18042,11 @@ involved. Used in the dashboard's onboarding flow.
 
 #### Module: `panoptis/security/webhook_signing.py`
 
-- **Lines of Code**: 16
-- **Docstring Summary**: No module docstring.
-- **Functions Defined**: `generate_webhook_signature`
+- **Lines of Code**: 140
+- **Docstring Summary**: Webhook signature generation, verification, and idempotency tracking.
+- **Classes Defined**:
+  - `WebhookIdempotencyTracker`: methods -> `__init__, _key, _prune, is_duplicate, record_event (+1 more)`
+- **Functions Defined**: `generate_webhook_signature, verify_webhook_signature`
 
 ### 4.2 Subsystem: `panoptis.sensors`
 
@@ -16826,16 +18250,47 @@ Contains 2 modules.
 
 ### 4.2 Subsystem: `panoptis.storage`
 
-Contains 3 modules.
+Contains 5 modules.
 
 #### Module: `panoptis/storage/__init__.py`
 
-- **Lines of Code**: 0
-- **Docstring Summary**: No module docstring.
+- **Lines of Code**: 23
+- **Docstring Summary**: Panoptis Storage and Graph Relation Infrastructure.
+
+#### Module: `panoptis/storage/hyperedge.py`
+
+- **Lines of Code**: 417
+- **Docstring Summary**: Distributed Hyperedge Relation Store with O(1) Bi-Directional Lineage Traversal (Issue #736 / ADR-0005).
+
+Provides high-throughput partitioned hyperedge storage partitioned across:
+- Views: EXECUTION, INFORMATION, CAUSAL
+- Shards: (tenant_id, run_id)
+- Dual-Adjacency Indexing: O(1) forward and reverse traversal lookups
+- Thread-safe append-only concurrency with immutable run sealing
+- Sub-millisecond recursive backward origin and forward impact calculations.
+- **Classes Defined**:
+  - `HyperedgeView`: methods -> `None`
+  - `SealedRunError`: methods -> `None`
+  - `Hyperedge`: methods -> `to_dict, from_dict`
+  - `LineageResult`: methods -> `None`
+  - `ImpactResult`: methods -> `None`
+  - `HyperedgeShard`: methods -> `__init__, append, append_batch, seal, backward_origin (+2 more)`
+  - `HyperedgeRelationStore`: methods -> `__init__, get_or_create_shard, get_shard, append, append_batch (+7 more)`
+
+#### Module: `panoptis/storage/migration.py`
+
+- **Lines of Code**: 189
+- **Docstring Summary**: Database migration and rollback manager for AgentWatch persistent stores.
+
+Provides schema verification, migration state reporting, and safe rollback
+tooling for both SQLite and PostgreSQL backends.
+- **Classes Defined**:
+  - `MigrationStatus`: methods -> `None`
+- **Functions Defined**: `get_migration_status, upgrade_schema, downgrade_schema, rollback_derived_schema`
 
 #### Module: `panoptis/storage/schema.py`
 
-- **Lines of Code**: 344
+- **Lines of Code**: 381
 - **Docstring Summary**: v3 relational schema (SQLAlchemy Core), portable across SQLite and PostgreSQL.
 
 Evidence tables are protected by database triggers: UPDATE is always rejected and
@@ -16844,7 +18299,7 @@ DELETE is only possible for rows in a segment that has an explicit purge authori
 
 #### Module: `panoptis/storage/store.py`
 
-- **Lines of Code**: 1624
+- **Lines of Code**: 1838
 - **Docstring Summary**: v3 store: evidence (append-only) + versioned interpretations, on SQLite or PostgreSQL.
 
 One implementation serves both backends through SQLAlchemy Core. All state lives in
@@ -16853,12 +18308,12 @@ worker processes can share a store.
 - **Classes Defined**:
   - `ImmutableEvidenceError`: methods -> `None`
   - `AppendResult`: methods -> `to_dict`
-  - `Store`: methods -> `__init__, init, close, artifact_key, data_key (+51 more)`
+  - `Store`: methods -> `__init__, init, close, artifact_key, data_key (+55 more)`
 - **Functions Defined**: `_iso, panoptis_home, default_store_url, default_blob_store, _lock_key, _leaf, _interp, _validate_draft, _chunks, _now`
 
 ### 4.2 Subsystem: `panoptis.telemetry`
 
-Contains 6 modules.
+Contains 5 modules.
 
 #### Module: `panoptis/telemetry/__init__.py`
 
@@ -16900,17 +18355,6 @@ never changes between runs: the common fields get their own column and everythin
 else goes into one trailing ``metadata_json`` column.
 - **Functions Defined**: `_neutralize, _text, _confidence, _tool_name, flatten_event, export_to_jsonl, export_to_csv`
 
-#### Module: `panoptis/telemetry/ingestion.py`
-
-- **Lines of Code**: 217
-- **Docstring Summary**: Tenant-aware ingestion pipeline for AgentWatch Cloud.
-
-Provides batched, rate-limited event ingestion with per-tenant isolation.
-- **Classes Defined**:
-  - `IngestionMetrics`: methods -> `None`
-  - `RateLimiter`: methods -> `__init__, allow`
-  - `TenantIngestionPipeline`: methods -> `__init__, add_handler, start, stop, ingest (+4 more)`
-
 #### Module: `panoptis/telemetry/otel.py`
 
 - **Lines of Code**: 653
@@ -16948,7 +18392,7 @@ Surfaces:
 
 #### Module: `panoptis/tracing/collector.py`
 
-- **Lines of Code**: 351
+- **Lines of Code**: 373
 - **Docstring Summary**: AgentWatch Trace Collector
 Collects, stores, and retrieves agent execution traces.
 Compatible with OpenTelemetry concepts (trace_id, span_id).
@@ -17796,7 +19240,7 @@ Payloads (prompts, completions, documents) often contain personal data. v0.2 red
 
 **Encryption and erasure:**
 
-- Payloads and blobs are encrypted with per-tenant data keys. Optionally, when a subject key is declared, per-subject keys are used instead (`security/encryption.py`, `key_storage.py`).
+- Payloads and blobs are encrypted with per-tenant data keys. Optionally, when a subject key is declared, per-subject keys are used instead (`evidence/crypto.py`, keys in the store's `aw3_tenant_keys` / data-key tables).
 - Segment Merkle trees hash the *ciphertext*.
 - **Erasure = destroy the key (crypto-shredding).** The payload becomes unreadable, and the integrity chain still verifies.
 - Derived records that embed payload fragments (artifact previews) are purged and re-derived from the now-unreadable evidence, so they fall back to hashes only.
@@ -18151,7 +19595,7 @@ A declared source becomes `DECLARED_REFERENCE` evidence (STRONG, `HIGH_FIDELITY`
 
 ### 14.1 Operational Status of Core Features
 
-- **Core Hypervisor & Guardrails**: 100% operational in local development and production.
+- **Core Guardrails**: Covered by the automated test suite; see docs/CLAIMS.md for what is verified.
 - **Formal Contracts & MTL**: Fully implemented and validated via automated test suites.
 - **API & Stream Endpoints**: Fully integrated under `/api/v3`.
 - **Frontend Witness Timeline**: Integrated into Next.js 14 dashboard.
@@ -18205,11 +19649,11 @@ The wheel and source distribution for version `0.3.0` build successfully via Hat
 
 | Command Syntax | Subsystem | Description |
 |---|---|---|
-| `panopti demo [--theme <name>]` | `panoptis.demo` | Run interactive terminal hypervisor simulation |
+| `panopti demo [--theme <name>]` | `panoptis.demo` | Run a scripted terminal illustration (not the real pipeline) |
 | `panopti playground [-p <port>]` | `panoptis.playground` | Launch zero-dependency local web interactive playground |
 | `panopti doctor` | `panoptis.doctor` | Run system, interceptor, and circuit breaker health checks |
 | `panopti top / live [--profile <name>]` | `panoptis.cli` | Interactive terminal sentinel monitor |
-| `panopti bench [--iterations <n>]` | `panoptis.bench` | Measure hypervisor latency overhead |
+| `panopti bench [--iterations <n>]` | `panoptis.bench` | Measure interception latency overhead |
 | `panopti court verify <proof.json>` | `panoptis.court` | Verify cryptographic execution witness proof |
 | `panopti attest verify <seal.json>` | `panoptis.attest` | Verify immutable cryptographic attestation seal |
 | `panopti attest report <seal.json>` | `panoptis.reports` | Export attestation seal as Markdown or HTML report |
@@ -18237,7 +19681,7 @@ The wheel and source distribution for version `0.3.0` build successfully via Hat
 - **Circuit Breaker**: A finite state machine preventing repetitive failures from exhausting resources.
 - **Metric Temporal Logic (MTL)**: A formal logic extending propositional logic with temporal operators bounded by real-time intervals.
 - **Merkle Witness Court**: A cryptographic data structure providing non-repudiable audit receipts of execution traces.
-- **RFC 8785 Canonical JSON**: An IETF standard defining unambiguous, deterministic serialization of JSON data for cryptographic hashing.
+- **RFC 8785 Canonical JSON**: An IETF standard for deterministic JSON serialization, implemented in `panoptis/evidence/jcs.py`. The evidence store hashes its own encoding (`panoptis/evidence/canonical.py`).
 - **Epistemic Confidence Decay**: The mathematical erosion of reasoning certainty across multi-hop reasoning chains.
 - **SSRF Guard**: A pre-flight network filter preventing server-side request forgery to private or metadata addresses.
 

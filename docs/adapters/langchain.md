@@ -37,7 +37,7 @@ llm = ChatOpenAI(model="gpt-4", callbacks=[handler])
 ## Key Features
 
 - **Prompt Tracing**: Captures the exact prompts sent to the LLM.
-- **Tool Execution Tracking**: Logs every tool call, including arguments and results.
+- **Tool Execution Tracking**: Logs tool calls seen by the callback, including arguments and results.
 - **Token Usage**: Automatically tracks input and output tokens for cost calculation.
 - **Safety Integration**: If the safety engine is active, dangerous tool calls can be blocked pre-execution.
 

@@ -8,6 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The PyPI publish workflow reads the section matching the release tag from this
 file and uses it as the GitHub Release body, so keep each version's notes here.
 
+## [Unreleased]
+
+### Security
+- Rate limits can no longer be bypassed with a made-up `Authorization` token or `X-Forwarded-For` header. The header counts only from proxies listed in the new `AGENTWATCH_TRUSTED_PROXIES`; **a deployment behind a proxy must set it**, or all its clients share one quota.
+- Traffic without a credential can no longer exhaust the global limit for requests that present one.
+- `/metrics` no longer carries client-supplied agent ids.
+- `/metrics` labels requests by route template, so it no longer exposes session or tenant ids and cannot be grown with invented paths.
+- A tenant can no longer revoke another tenant's API key by id.
+- With tenant keys configured and no operator key, requests and WebSockets without a valid key are refused instead of getting default-tenant and operator access.
+- With several tenants, a session that has left the in-memory collector is checked against the database instead of skipping the owner check.
+- Cost budgets are kept per tenant, and erasure and operator pruning remove them. A budget used to survive erasure and reach whoever registered the session id next.
+- Rollback checks that a checkpoint belongs to the caller's session and tenant before restoring anything. It used to accept any checkpoint id. The API creates no checkpoints today, so this could not be reached through it.
+- Erasure removes the caller's checkpoint metadata and snapshots, and reports a failed target if any remain or if a checkpoint with no tenant was left in place.
+- `tenant_id` holds 64 characters on new databases, the longest id tenant keys allow. **An existing PostgreSQL database needs the one-time migration in `docs/PERSISTENCE.md`** before it can store an id longer than 36 characters.
+- A tenant-scope erasure that names another tenant now erases nothing. It used to erase the caller's own rows.
+- Erasing an agent now reaches its events in sessions that belong to another agent. The signed receipt used to report success while those rows stayed.
+- The RAG sanitizer works on the inspected output, so it can no longer bring back a redacted secret.
+
+### Fixed
+- The test suite no longer writes to `./data`. The audit log and v3 store stay in a temporary directory, and a run that changes either real file fails.
+- Events published without awaiting are no longer lost at shutdown. They were dropped with no log and no count.
+- An event refused for reusing another session's id reaches no subscriber, and a session claim that fails publishes nothing.
+- A retried event no longer adds its tokens and cost to the session totals twice.
+- Events with `status=failure` no longer answer 500 after being stored.
+- `/health` and `/metrics` are exempt from the hourly limit, which failed container healthchecks after 100 checks. Both keep a per-minute limit, which `/metrics` did not have.
+- Production no longer seeds demo data, which sent a false critical alert on every start.
+- The HTTP event forwarder sends `AGENTWATCH_API_KEY`, and reports refused events at WARNING with a count.
+- The API keeps its event loop on a 50 ms timer, so a reset self-pipe on Windows slows it down instead of hanging it. See `docs/PERSISTENCE.md`.
+
+### Changed
+- The test suite ends with every thread's stack if one test runs past `AGENTWATCH_TEST_TIMEOUT` (600 seconds), and fails a test when an earlier one leaked changed API rate limits.
+
 ## [0.3.1] - 2026-11-03
 
 ### Fixed

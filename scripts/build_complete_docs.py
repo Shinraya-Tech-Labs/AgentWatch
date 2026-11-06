@@ -9,8 +9,13 @@ import datetime
 import pathlib
 import subprocess
 
-REPO_ROOT = pathlib.Path("D:/AgentWatch")
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUTPUT_FILE = REPO_ROOT / "COMPLETE_PROJECT_DOCUMENTATION.md"
+HISTORICAL_NOTICE = (
+    "> **Historical compilation.** This file gathers design documents as written at the time, "
+    "and many of its claims were never implemented or have been withdrawn. Current claims are "
+    "in [docs/CLAIMS.md](docs/CLAIMS.md).\n\n"
+)
 
 
 def get_git_log():
@@ -125,11 +130,14 @@ def main():
 
     print("Assembling COMPLETE_PROJECT_DOCUMENTATION.md...")
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        f.write(HISTORICAL_NOTICE)
         # Title and Header
         f.write(
             "# PANOPTIS (FORMERLY AGENTWATCH) — COMPLETE MASTER TECHNICAL DOCUMENTATION & HISTORICAL RECORD\n\n"
         )
-        f.write("> **Document Status**: Canonical Project Record & Architectural Specification  \n")
+        f.write(
+            "> **Document Status**: Historical compilation, not a statement of current claims  \n"
+        )
         f.write(
             f"> **Date of Generation**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  \n"
         )
@@ -316,7 +324,7 @@ def write_part_1(f):
     f.write("### 1.4 Initial Vision & Primary Objectives\n\n")
     f.write("The foundational vision of AgentWatch / Panoptis was built on three core pillars:\n")
     f.write(
-        "1. **Pre-Execution Hypervision**: Intercept every tool call *before* it reaches the operating system or network. If an action violates security regexes, frequency clamps, or temporal logic invariants, abort it synchronously with zero runtime overhead.\n"
+        "1. **Pre-Execution Checks**: Check tool calls routed through an enforcing integration *before* they reach the operating system or network. If an action violates security regexes, frequency clamps, or temporal logic invariants, abort it synchronously with zero runtime overhead.\n"
     )
     f.write(
         "2. **Zero Supply Chain Bloat (The Ponytail Ultra Discipline)**: The core interceptor and verification engines must rely exclusively on the Python standard library (`hashlib`, `hmac`, `json`, `dataclasses`, `time`, `typing`). No heavyweight dependencies inside the hot execution path.\n"
@@ -624,7 +632,7 @@ def write_part_3(f, v3_specs):
     f.write("    F -->|Breached| G\n")
     f.write("    B -->|All Invariants Hold| H[Execute Tool On Host/API]\n")
     f.write("    H --> I[Capture Output & Duration]\n")
-    f.write("    I --> J[RFC 8785 Canonical JSON]\n")
+    f.write("    I --> J[Canonical JSON]\n")
     f.write("    J --> K[Append to Merkle Witness Court]\n")
     f.write("    K --> L[Asyncpg Storage & Broadcaster]\n")
     f.write("    L --> M[Next.js Dashboard & Prometheus]\n")
@@ -1143,7 +1151,7 @@ def write_part_14(f):
     f.write("# PART XIV — CURRENT PROJECT STATUS\n\n")
     f.write("### 14.1 Operational Status of Core Features\n\n")
     f.write(
-        "- **Core Hypervisor & Guardrails**: 100% operational in local development and production.\n"
+        "- **Core Guardrails**: Covered by the automated test suite; see docs/CLAIMS.md for what is verified.\n"
     )
     f.write(
         "- **Formal Contracts & MTL**: Fully implemented and validated via automated test suites.\n"
@@ -1216,7 +1224,7 @@ def write_part_16(f, modules):
     f.write("| Command Syntax | Subsystem | Description |\n")
     f.write("|---|---|---|\n")
     f.write(
-        "| `panopti demo [--theme <name>]` | `panoptis.demo` | Run interactive terminal hypervisor simulation |\n"
+        "| `panopti demo [--theme <name>]` | `panoptis.demo` | Run a scripted terminal illustration (not the real pipeline) |\n"
     )
     f.write(
         "| `panopti playground [-p <port>]` | `panoptis.playground` | Launch zero-dependency local web interactive playground |\n"
@@ -1228,7 +1236,7 @@ def write_part_16(f, modules):
         "| `panopti top / live [--profile <name>]` | `panoptis.cli` | Interactive terminal sentinel monitor |\n"
     )
     f.write(
-        "| `panopti bench [--iterations <n>]` | `panoptis.bench` | Measure hypervisor latency overhead |\n"
+        "| `panopti bench [--iterations <n>]` | `panoptis.bench` | Measure interception latency overhead |\n"
     )
     f.write(
         "| `panopti court verify <proof.json>` | `panoptis.court` | Verify cryptographic execution witness proof |\n"
@@ -1284,7 +1292,7 @@ def write_part_16(f, modules):
         "- **Merkle Witness Court**: A cryptographic data structure providing non-repudiable audit receipts of execution traces.\n"
     )
     f.write(
-        "- **RFC 8785 Canonical JSON**: An IETF standard defining unambiguous, deterministic serialization of JSON data for cryptographic hashing.\n"
+        "- **RFC 8785 Canonical JSON**: An IETF standard for deterministic JSON serialization, implemented in `panoptis/evidence/jcs.py`. The evidence store hashes its own encoding (`panoptis/evidence/canonical.py`).\n"
     )
     f.write(
         "- **Epistemic Confidence Decay**: The mathematical erosion of reasoning certainty across multi-hop reasoning chains.\n"

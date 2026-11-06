@@ -1,10 +1,10 @@
 # Comparative Audit: Single-Turn Heuristic Guard vs. Multi-Layer Sovereign Security Engine
 
-> **Author**: Google DeepMind / Antigravity Autonomous Security Engineering  
+> **Author**: PANOPTIS contributors  
 > **Repository**: [Shinraya-Tech-Labs/AgentWatch](https://github.com/Shinraya-Tech-Labs/AgentWatch)  
 > **Target Subsystems**: `panoptis/protect/`, `panoptis/storage/`, `panoptis/api/`, `panoptis/security/`, `frontend/`  
 > **Date**: November 3, 2026  
-> **Status**: Verified & Enacted in Production  
+> **Status**: Design comparison. Several layers below are opt-in; [CLAIMS.md](CLAIMS.md) records what is verified.  
 
 ---
 
@@ -166,7 +166,6 @@ sequenceDiagram
 | **Trailing Whitespace & Zero-Width Cleansing** | Untouched | **Dual-Zone Neutralization (Arguments & Outputs)** | Hidden line-ending and Unicode tag markers eliminated |
 | **Workspace Snapshot Traversal** | Scanned `.git`, `node_modules`, `.venv` | **Directory Pruning & Stat-Based Diffing** | Dependency dirs skipped; mtime/size caching avoids redundant hashes |
 | **Configuration Complexity** | Manual multi-flag wiring | **One-Line Preset (`ProtectionConfig.sovereign()`)** | Turnkey activation of all defense layers |
-| **Total Automated Test Suite** | ~210 tests | **3,060+ tests passing across repository** | 100% passing test suite across all subsystems |
 
 ---
 
@@ -190,4 +189,4 @@ In `panoptis/protect/ltl_trajectory.py`, execution history is recorded across di
 
 AgentWatch's Panoptis engine has matured from an isolated, single-turn command gate into a **comprehensive multi-layer security runtime**. 
 
-Every layer—from the Copy-on-Write workspace tracking and dynamic taint tracker to the FastAPI endpoints, reverse proxies, and database queries—is backed by **3,060+ automated tests** and verified live in production on `origin/main`.
+What each layer does and does not guarantee is recorded in [CLAIMS.md](CLAIMS.md) and [THREAT_MODEL.md](THREAT_MODEL.md).

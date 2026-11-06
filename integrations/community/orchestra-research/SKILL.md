@@ -1,48 +1,52 @@
 ---
-name: panopti-hypervisor
-description: Active runtime pre-execution hypervisor and forensic witness court for autonomous AI agents. Intercepts destructive tool calls (SQL injections, shell commands, ungrounded actions), evaluates Metric Temporal Logic (MTL) contracts, enforces compounding confidence decay, and cryptographically seals tamper-proof Merkle receipts in real-time with sub-millisecond overhead.
-version: 1.0.0
+name: panopti-guard
+description: Pre-execution checks for AI agent tool calls. Evaluates calls routed through it against risk patterns and contracts such as Disallows and RequiresPrior, and records a hash-chained witness log. It is not a sandbox and does not see calls made outside it.
+version: 1.1.0
 author: Shinraya Tech Labs
 license: Apache-2.0
-tags: [Safety Alignment, Guardrails, AI Agents, Runtime Safety, Pre-Execution Intercept, Formal Verification, Temporal Logic, Merkle Witness, Forensics]
+tags: [Safety Alignment, Guardrails, AI Agents, Runtime Safety, Pre-Execution Checks, Temporal Contracts, Audit Log]
 dependencies: [panoptis]
 ---
 
-# Panopti — Active Pre-Execution Hypervisor for Autonomous AI
+# Panopti: pre-execution checks for AI agent tools
 
-## Quick Start
+## Quick start
 
-Panopti treats every token emitted by an LLM as untrusted user input, interposing active pre-execution guardrails between an agent's reasoning and production mutations.
+Panopti checks a proposed tool call before your code runs it. Your code must call the guard and honour its decision: a call that does not go through the guard is not checked.
 
 **Installation**:
 ```bash
 pip install panoptis
 ```
 
-**Basic Usage (Pre-Execution Intercept)**:
+**Basic usage**:
 ```python
-from panopti.guard import PreExecutionGuard
+from panopti.contracts import Disallows
+from panopti.guard import PanoptiGuard
 
-# Initialize active sentinel
-guard = PreExecutionGuard(
-    confidence_floor=0.40,
-    destructive_patterns=[r"(?i)\b(DROP\s+TABLE|TRUNCATE|DELETE\s+FROM)\b"],
-)
+guard = PanoptiGuard(critical_confidence_floor=0.40)
+guard.register_contract(Disallows(target_tool="drop_table", reason="Schema drops are not allowed."))
 
-# Intercept proposed tool intent
-decision = guard.evaluate_intent(
-    tool_name="execute_sql",
-    arguments={"query": "DROP TABLE users;"},
-    current_confidence=0.85,
-)
+decision = guard.check(tool_name="drop_table", arguments={"table": "users"}, confidence=0.85)
 
-if not decision.allowed:
-    print(f"🛑 VETO ENFORCED: {decision.reason}")
-    # Target database driver is never called!
+if decision.blocked:
+    print(f"Vetoed: {decision.reason}")  # do not run the tool
 ```
 
-**Interactive Simulation**:
+**Illustrations**:
 ```bash
-panopti demo
-panopti playground
+panopti demo        # scripted illustration: no database, no tools, not the real pipeline
+panopti playground  # local browser playground
 ```
+
+`panopti demo` only tells a story. To see the real pipeline, API, MCP gateway and evidence verifier run from a clone of the repository:
+
+```bash
+python examples/walkthrough/live_demo.py
+```
+
+## Limits
+
+- Detection is pattern-based and contract-based, so it does not catch every harmful call.
+- It is not a sandbox and does not isolate the agent's process.
+- The witness log is tamper-evident only against a head kept outside it.
