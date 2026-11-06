@@ -13,8 +13,9 @@ persisted or logged.
 
 Migration Strategy
 ~~~~~~~~~~~~~~~~~~
-1. Add ``tenant_id`` column (nullable ``VARCHAR(36)``) to ``agent_sessions``,
-   ``agent_events``, ``agent_checkpoints``, and ``memory_entries`` tables.
+1. Add ``tenant_id`` column (nullable ``VARCHAR(64)``) to ``agent_sessions``,
+   ``agent_events``, and ``memory_entries`` tables. ``checkpoints`` has no such
+   column: a checkpoint row belongs to its session's tenant.
 2. Run a backfill script: assign all existing rows to a default migration
    tenant (``tenant_id = '00000000-0000-0000-0000-000000000001'``).
 3. After backfill, set the column to ``NOT NULL`` with a server default.

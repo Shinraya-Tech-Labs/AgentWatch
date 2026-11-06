@@ -39,9 +39,13 @@ A tenant is never chosen by the caller. It comes from a validated credential:
 |---|---|---|
 | `/api/v3/*` | tenant from the credential; a forged or mismatched `X-Tenant-ID` gets 403; a missing, revoked, expired or suspended key gets 401 | `tests/v3/test_tenant_isolation_api.py`, `tests/test_tenancy_resolver.py` |
 | v1 ingestion | events and sessions tagged with the authenticated tenant (any client value is overwritten); no appends to, or re-registration of, another tenant's session (re-checked under the collector lock); the tee writes into the caller's tenant | same file |
-| v1 session routes | 404 unless the session is the caller's; the list shows only the caller's sessions | same file (11 route tests, all of which fail on the old code) |
-| Operator routes | cloud mode requires `AGENTWATCH_ADMIN_KEY`, and they are closed when it is unset; a tenant may read only its own tenant record | same file |
-| `WS /ws/events` | tenant key required (4001); a mismatched `X-Tenant-ID` closes with 4003; only the connection tenant's events are streamed | same file |
+| v1 persistence | the database decides who owns a session id, so ownership survives a restart and holds across workers and concurrent creation; a trigger stops a session's tenant changing; every multi-tenant deployment tags rows with their tenant (see [`PERSISTENCE.md`](PERSISTENCE.md#session-ownership)) | `tests/test_session_event_persistence.py` |
+| Cost budgets | kept per (tenant, session), so a budget cannot pass to a later holder of the id; no tenant means `default`. Erasure removes it | `tests/test_runtime_tenant_isolation.py` |
+| Checkpoints | `rollback` itself checks that the checkpoint belongs to the session and tenant before restoring anything; another tenant's checkpoint answers as an unknown id does. A checkpoint with no tenant belongs to `default`. Erasure removes the caller's metadata and snapshots. The API creates no checkpoints today, so these routes find none | `tests/test_runtime_tenant_isolation.py` |
+| API keys | a tenant can only revoke its own keys; with tenant keys configured, every request and WebSocket needs a valid key, even with no operator key set. Operator routes then answer nobody until `AGENTWATCH_API_KEY` is set | `tests/test_api_hardening.py` |
+| v1 session routes | 404 unless the session is the caller's; the list shows only the caller's sessions | `tests/v3/test_tenant_isolation_api.py` (11 route tests, all of which fail on the old code) |
+| Operator routes | cloud mode requires `AGENTWATCH_ADMIN_KEY`, and they are closed when it is unset; a tenant may read only its own tenant record | `tests/v3/test_tenant_isolation_api.py` |
+| `WS /ws/events` | tenant key required (4001); a mismatched `X-Tenant-ID` closes with 4003; only the connection tenant's events are streamed | `tests/v3/test_tenant_isolation_api.py` |
 | CLI | tenant-taking commands read only that tenant; the others read only `default` | `tests/v3/test_cli_tenant_scope.py` |
 
 **Configuration:**

@@ -408,12 +408,13 @@ class SqlTenantStore:
             )
             return None
 
-    def revoke_api_key(self, key_id: str) -> bool:
+    def revoke_api_key(self, key_id: str, tenant_id: str | None = None) -> bool:
+        """Revoke a key. With ``tenant_id``, only a key of that tenant."""
         with self.engine.begin() as conn:
             r = conn.execute(
                 select(api_keys.c.tenant_id).where(api_keys.c.key_id == key_id)
             ).first()
-            if r is None:
+            if r is None or (tenant_id is not None and r[0] != tenant_id):
                 return False
             conn.execute(
                 update(api_keys)

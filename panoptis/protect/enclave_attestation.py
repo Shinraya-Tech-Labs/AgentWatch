@@ -1,5 +1,9 @@
 """Hardware-Attested Confidential Enclave Verification (WP-09).
 
+EXPERIMENTAL, NOT A SECURITY CONTROL. This compares measurements and a nonce; it does not verify
+any hardware signature or certificate chain.
+
+
 Verifies cryptographic attestation documents issued by hardware confidential
 computing enclaves (AMD SEV-SNP and AWS Nitro Enclaves):
 

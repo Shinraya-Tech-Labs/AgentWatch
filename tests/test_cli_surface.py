@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import difflib
 import os
+import subprocess
+import sys
 from pathlib import Path, PurePath
 
 import pytest
@@ -93,9 +95,27 @@ def _capture() -> str:
     return "\n".join(out) + "\n"
 
 
-def test_cli_surface_is_unchanged() -> None:
+def _capture_with_product_defaults(cwd: Path) -> str:
+    """Capture in a new process, because ``tests/conftest.py`` moves the audit log to a temp
+    directory and a CLI default is fixed at import. The golden file records the shipped default."""
+    env = {k: v for k, v in os.environ.items() if k != "AGENTWATCH_AUDIT_LOG_PATH"}
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parent.parent)
+    env["PYTHONUTF8"] = "1"
+    run = subprocess.run(  # noqa: S603 - fixed argv
+        [sys.executable, str(Path(__file__).resolve())],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=120,
+    )
+    assert run.returncode == 0, run.stderr
+    return run.stdout
+
+
+def test_cli_surface_is_unchanged(tmp_path: Path) -> None:
     """The CLI surface must match the golden file exactly."""
-    actual = _capture()
+    actual = _capture_with_product_defaults(tmp_path)
 
     if os.environ.get("UPDATE_CLI_SURFACE"):
         GOLDEN.write_text(actual, encoding="utf-8", newline="\n")
@@ -147,3 +167,7 @@ def test_every_command_has_a_callback() -> None:
 
     walk(root, [])
     assert not broken, "commands with no callable behind them:\n" + "\n".join(broken)
+
+
+if __name__ == "__main__":
+    sys.stdout.write(_capture())

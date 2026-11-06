@@ -9,10 +9,13 @@ interface is identical for both.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
+import os
 import threading
 import time
 from collections import defaultdict
+from collections.abc import Callable, Collection
 from typing import Any, Protocol, runtime_checkable
 
 from fastapi import Request, status
@@ -22,6 +25,31 @@ from starlette.responses import JSONResponse
 logger = logging.getLogger(__name__)
 
 _REDIS_KEY_PREFIX = "panoptis:ratelimit:"
+
+
+def client_ip(request: Request) -> str:
+    """The address a request came from. X-Forwarded-For is whatever the sender wrote, so it
+    counts only when the peer is a proxy named in AGENTWATCH_TRUSTED_PROXIES, and then the
+    client is the last address no trusted proxy added."""
+    peer = request.client.host if request.client else "unknown"
+    trusted = {p.strip() for p in (os.getenv("AGENTWATCH_TRUSTED_PROXIES") or "").split(",")} - {""}
+    if peer not in trusted:
+        return peer
+    # a proxy may append its own header line, so every line counts, not just the first
+    lines = request.headers.getlist("x-forwarded-for")
+    hops = [hop.strip() for line in lines for hop in line.split(",")]
+    for hop in reversed(hops):
+        if hop and hop not in trusted:
+            return hop if _is_address(hop) else peer
+    return peer
+
+
+def _is_address(text: str) -> bool:
+    try:
+        ipaddress.ip_address(text)
+    except ValueError:
+        return False
+    return True
 
 
 @runtime_checkable
@@ -154,20 +182,29 @@ class RateLimiter:
             "global_remaining": max(0, self.global_limit - global_count),
         }
 
-    def check_rate_limit(self, user_id: str) -> tuple[bool, dict[str, int]]:
+    def check_rate_limit(
+        self, user_id: str, *, credentialed: bool = False
+    ) -> tuple[bool, dict[str, int]]:
         """
         Check if user and global limits are not exceeded.
 
+        The global limit protects against load that carries no credential. A request that
+        presents one is limited by its own bucket only, so that traffic can never lock a tenant
+        out, even in the moment before its key has been verified.
+
         Args:
             user_id: The user identifier
+            credentialed: Whether the request presents a credential
 
         Returns:
             Tuple of (is_allowed, quota_info) where quota_info contains:
             - user_limit, user_remaining, global_limit, global_remaining
         """
-        global_count = self.backend.hit(self._GLOBAL_KEY, self.window_sec)
         user_count = self.backend.hit(f"user:{user_id}", self.window_sec)
-
+        if credentialed:
+            global_count = self.backend.peek(self._GLOBAL_KEY, self.window_sec)
+            return user_count <= self.user_limit, self._quota(user_count, global_count)
+        global_count = self.backend.hit(self._GLOBAL_KEY, self.window_sec)
         allowed = user_count <= self.user_limit and global_count <= self.global_limit
         return allowed, self._quota(user_count, global_count)
 
@@ -189,16 +226,26 @@ class RateLimiter:
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Middleware to enforce rate limits on API requests."""
 
-    def __init__(self, app, limiter: RateLimiter) -> None:
+    def __init__(
+        self,
+        app,
+        limiter: RateLimiter,
+        identify: Callable[[Request], str | None] | None = None,
+        exempt: Collection[str] = (),
+    ) -> None:
         """
         Initialize middleware with rate limiter instance.
 
         Args:
             app: FastAPI application
             limiter: RateLimiter instance to use for all requests
+            identify: Returns the verified principal of a request, or None if anonymous
+            exempt: Paths never counted, such as probes on a fixed schedule
         """
         super().__init__(app)
         self.limiter = limiter
+        self.identify = identify
+        self.exempt = frozenset(exempt)
 
     async def dispatch(self, request: Request, call_next):
         """
@@ -211,11 +258,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             Response with rate limit headers, or 429 if limit exceeded
         """
-        # Extract user ID from request (from Authorization header or IP)
-        user_id = self._extract_user_id(request)
+        if request.url.path in self.exempt:
+            return await call_next(request)
+
+        principal = self.identify(request) if self.identify else None
+        user_id = principal or client_ip(request)
 
         # Check rate limits
-        allowed, quota = self.limiter.check_rate_limit(user_id)
+        credentialed = bool(principal) or "x-api-key" in request.headers
+        allowed, quota = self.limiter.check_rate_limit(user_id, credentialed=credentialed)
 
         # Store quota info in request state for response headers
         request.state.rate_limit_quota = quota
@@ -236,31 +287,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         return response
 
-    def _extract_user_id(self, request: Request) -> str:
-        """
-        Extract user ID from request.
-
-        Args:
-            request: HTTP request object
-
-        Returns:
-            User ID string (from Authorization header or IP address)
-        """
-        # Try to get from Authorization header first
-        auth_header = request.headers.get("authorization", "")
-        if auth_header.startswith("Bearer "):
-            return auth_header[7:]
-
-        # Fall back to client IP address
-        forwarded = request.headers.get("x-forwarded-for")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-
-        if request.client:
-            return request.client.host
-
-        return "unknown"
-
     def _build_rate_limit_headers(self, quota: dict[str, int]) -> dict[str, str]:
         """
         Build HTTP headers with rate limit info.
@@ -280,6 +306,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 __all__ = [
+    "client_ip",
     "RateLimitBackend",
     "InMemoryBackend",
     "RedisBackend",

@@ -35,6 +35,15 @@ class HttpEventForwarder:
         self.backoff_s = backoff_s if backoff_s is not None else (float(env) if env else 30.0)
         self._down_until = 0.0
         self.skipped = 0
+        self.refused = 0
+
+    @staticmethod
+    def _headers() -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        key = os.getenv("AGENTWATCH_API_KEY")
+        if key:
+            headers["X-Api-Key"] = key
+        return headers
 
     async def forward(self, event: AgentEvent) -> None:
         if time.monotonic() < self._down_until:
@@ -45,10 +54,13 @@ class HttpEventForwarder:
                 resp = await client.post(
                     f"{self.api_url}/api/v1/events",
                     content=event.model_dump_json(exclude_none=True),
-                    headers={"Content-Type": "application/json"},
+                    headers=self._headers(),
                 )
                 if resp.status_code >= 400:
-                    logger.debug("Event forwarder: server returned HTTP %d", resp.status_code)
+                    self.refused += 1
+                    logger.warning(
+                        "Event forwarder: server refused event with HTTP %d", resp.status_code
+                    )
         except httpx.TransportError as exc:
             self._down_until = time.monotonic() + self.backoff_s
             logger.debug(

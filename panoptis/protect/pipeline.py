@@ -1,6 +1,6 @@
 """The authoritative enforcement pipeline.
 
-One code path decides every tool call, whichever integration proposed it (SDK decorator,
+One code path decides each call routed to it, whichever integration proposed it (SDK decorator,
 framework adapter, MCP gateway over stdio or HTTP, CLI)::
 
     proposal
@@ -294,7 +294,10 @@ class ProtectionPipeline:
         if self.config.enable_stego_neutralizer:
             from panoptis.protect.stego_neutralizer import StegoNeutralizer
 
-            self.stego: StegoNeutralizer | None = StegoNeutralizer()
+            # arguments and results are real content: NFKC would rewrite it silently
+            self.stego: StegoNeutralizer | None = StegoNeutralizer(
+                normalize_unicode=False, preserve_markdown_breaks=True
+            )
         else:
             self.stego = None
         if self.config.enable_crescendo_drift:
@@ -468,12 +471,13 @@ class ProtectionPipeline:
                         action.tool, action.arguments, scope=action.scope
                     )[1],
                 )
-            if self.stego is not None and not _blocked(findings):
+            stego = self.stego
+            if stego is not None and not _blocked(findings):
 
                 def stego_check() -> list[Finding]:
                     nonlocal mutated
                     target_args = mutated if mutated is not None else action.arguments
-                    stego_res = self.stego.neutralize(target_args)
+                    stego_res = stego.neutralize(target_args)
                     if stego_res.bits_neutralized_est > 0 or stego_res.had_covert_channel:
                         mutated = stego_res.cleaned_payload
                         if stego_res.findings:
@@ -607,30 +611,11 @@ class ProtectionPipeline:
                 and self.temporal_simulator is not None
                 and not _blocked(findings)
             ):
-                session_ctx = {
-                    "has_read_sensitive": (
-                        any(
-                            s.reads_sensitive
-                            for s in (
-                                getattr(self.ltl, "traces", {}).get(action.scope)
-                                or getattr(self.ltl, "traces", {}).get(action.session_id, [])
-                            )
-                        )
-                        if self.ltl is not None
-                        else False
-                    ),
-                    "has_untrusted_ingest": (
-                        any(
-                            s.untrusted_ingest
-                            for s in (
-                                getattr(self.ltl, "traces", {}).get(action.scope)
-                                or getattr(self.ltl, "traces", {}).get(action.session_id, [])
-                            )
-                        )
-                        if self.ltl is not None
-                        else False
-                    ),
-                }
+                session_ctx = (
+                    self.ltl.session_context(action)
+                    if self.ltl is not None
+                    else {"has_read_sensitive": False, "has_untrusted_ingest": False}
+                )
                 findings += timed(
                     "temporal_simulation",
                     lambda: self.temporal_simulator.simulate_action(action, session_ctx).findings,
@@ -1011,12 +996,18 @@ class ProtectionPipeline:
         if (
             self.rag_sanitizer is not None
             and result is not None
+            and not inspection.withheld
             and action.tool
             in ("search", "fetch_web", "read_kb", "query_docs", "rag_query", "web_search")
         ):
             from panoptis.protect.rag_sanitizer import RAGPoisonStatus
 
-            rag_res = self.rag_sanitizer.sanitize_chunk(str(result), source_id=action.tool)
+            # the inspected text, not the raw result: this output replaces it below, and must
+            # not bring back what output inspection redacted
+            inspected = inspection.sanitized_output
+            rag_res = self.rag_sanitizer.sanitize_chunk(
+                str(result if inspected is None else inspected), source_id=action.tool
+            )
             if (
                 rag_res.status == RAGPoisonStatus.POISON_DETECTED_BLOCKED
                 or rag_res.verdict is Verdict.BLOCK

@@ -1,0 +1,52 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.4",
+  "logical_cpus": 16,
+  "backend": "sqlite+aiosqlite",
+  "first_start_seconds": 0.137,
+  "load": [
+    {
+      "concurrency": 1,
+      "events": 1000,
+      "seconds": 7.79,
+      "events_per_second": 128.3,
+      "p50_ms": 7.28,
+      "p99_ms": 14.19,
+      "max_ms": 94.07,
+      "cpu_seconds": 6.48,
+      "rss_mib": 127.1,
+      "not_stored": 0
+    },
+    {
+      "concurrency": 5,
+      "events": 1000,
+      "seconds": 16.88,
+      "events_per_second": 59.2,
+      "p50_ms": 48.38,
+      "p99_ms": 100.51,
+      "max_ms": 197.49,
+      "cpu_seconds": 8.12,
+      "rss_mib": 130.7,
+      "not_stored": 0
+    },
+    {
+      "concurrency": 20,
+      "events": 1000,
+      "seconds": 16.0,
+      "events_per_second": 62.5,
+      "p50_ms": 143.07,
+      "p99_ms": 376.4,
+      "max_ms": 458.44,
+      "cpu_seconds": 9.69,
+      "rss_mib": 133.5,
+      "not_stored": 0
+    }
+  ],
+  "restart_seconds_with_rows": 0.012,
+  "idle": {
+    "seconds": 10.0,
+    "cpu_seconds_without_heartbeat": 0.0,
+    "cpu_seconds_with_heartbeat": 0.0,
+    "percent_of_one_core": 0.0
+  }
+}

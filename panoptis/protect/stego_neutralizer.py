@@ -5,22 +5,28 @@ Defeats:
 - Covert data exfiltration via whitespace modulation (trailing spaces/tabs), zero-width character
   encoding, non-deterministic JSON key permutation, and unicode homoglyph substitution.
 
-Mathematical & Cryptographic Guarantees:
-1. RFC 8785 JSON Canonicalization (Deterministic key ordering, IEEE 754 float representation, minimal separators).
-2. Trailing Whitespace Stripping: Completely destroys line-ending binary modulation channels ($H(W) \to 0$).
-3. Unicode NFKC Normalization: Eliminates cross-alphabet homoglyph channel capacity.
-4. Invisible Tag & Zero-Width Cleansing: Strips Unicode tag blocks and hidden zero-width streams.
+What it does:
+1. Canonical JSON: :meth:`StegoNeutralizer.to_canonical_json_string` is RFC 8785
+   (:mod:`panoptis.evidence.jcs`). Neutralizing a payload sorts keys and never changes a number.
+2. Trailing whitespace stripping removes line-ending modulation.
+3. Unicode NFKC normalization collapses compatibility forms. The pipeline turns this off,
+   because it rewrites legitimate text.
+4. Invisible character cleansing strips tag blocks and zero-width streams, except joiners that
+   shape real text and tags inside a subdivision flag.
+
+This reduces specific channels. It does not eliminate covert channels: text can carry hidden
+information in its wording, which no filter of this kind can detect.
 """
 
 from __future__ import annotations
 
-import json
 import re
 import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from panoptis.evidence import jcs
 from panoptis.protect.model import Finding, Severity, Stage, Verdict
 
 # Invisible characters used for hidden binary/ASCII steganography
@@ -29,6 +35,22 @@ _INVISIBLE_RE = re.compile(
 )
 # Trailing whitespace on any line (including spaces, tabs, non-breaking spaces)
 _TRAILING_WHITESPACE_RE = re.compile(r"[ \t\u00a0\u2000-\u200a]+$", re.MULTILINE)
+# A Markdown hard line break: exactly two spaces after visible text
+_MARKDOWN_BREAK_RE = re.compile(r"(?<=\S)  $", re.MULTILINE)
+_JOINERS = "\u200c\u200d"
+
+
+def _joins_real_text(text: str, start: int) -> bool:
+    """A joiner between two non-ASCII characters shapes text (Persian, Indic, emoji)."""
+    return 0 < start < len(text) - 1 and ord(text[start - 1]) > 127 and ord(text[start + 1]) > 127
+
+
+def _is_flag_tag(text: str, start: int) -> bool:
+    """Tag characters are legitimate inside a subdivision flag, which opens with U+1F3F4."""
+    i = start
+    while i > 0 and 0xE0000 <= ord(text[i - 1]) <= 0xE007F:
+        i -= 1
+    return i > 0 and text[i - 1] == "\U0001f3f4"
 
 
 @dataclass(frozen=True)
@@ -53,6 +75,7 @@ class StegoNeutralizer:
         strip_trailing_whitespace: bool = True,
         strip_invisible_chars: bool = True,
         normalize_unicode: bool = True,
+        preserve_markdown_breaks: bool = False,
         canonicalize_json: bool = True,
         detect_high_whitespace_entropy: bool = True,
         whitespace_bits_threshold: int = 16,
@@ -60,6 +83,7 @@ class StegoNeutralizer:
         self.strip_trailing_whitespace = strip_trailing_whitespace
         self.strip_invisible_chars = strip_invisible_chars
         self.normalize_unicode = normalize_unicode
+        self.preserve_markdown_breaks = preserve_markdown_breaks
         self.canonicalize_json = canonicalize_json
         self.detect_high_whitespace_entropy = detect_high_whitespace_entropy
         self.whitespace_bits_threshold = whitespace_bits_threshold
@@ -81,11 +105,17 @@ class StegoNeutralizer:
 
         # 2. Invisible Zero-Width & Tag Block Cleansing
         if self.strip_invisible_chars:
-            matches = list(_INVISIBLE_RE.finditer(cleaned))
+            matches = [
+                m
+                for m in _INVISIBLE_RE.finditer(cleaned)
+                if not (m.group() in _JOINERS and _joins_real_text(cleaned, m.start()))
+                and not _is_flag_tag(cleaned, m.start())
+            ]
             if matches:
                 # Each zero-width or tag character can carry 1 to 7 bits of entropy
                 bits_neutralized += len(matches) * 4
-                cleaned = _INVISIBLE_RE.sub("", cleaned)
+                for m in reversed(matches):
+                    cleaned = cleaned[: m.start()] + cleaned[m.end() :]
                 findings.append(
                     Finding(
                         stage=Stage.THREAT,
@@ -99,7 +129,13 @@ class StegoNeutralizer:
 
         # 3. Trailing Whitespace Modulation Neutralization
         if self.strip_trailing_whitespace:
-            trailing_matches = list(_TRAILING_WHITESPACE_RE.finditer(cleaned))
+            trailing_matches = [
+                m
+                for m in _TRAILING_WHITESPACE_RE.finditer(cleaned)
+                if not (
+                    self.preserve_markdown_breaks and _MARKDOWN_BREAK_RE.match(cleaned, m.start())
+                )
+            ]
             if trailing_matches:
                 # Quantify bits: e.g. each space/tab variation on line-end carries 1-2 bits
                 total_trailing_chars = sum(len(m.group(0)) for m in trailing_matches)
@@ -127,22 +163,22 @@ class StegoNeutralizer:
                             recommends=Verdict.MUTATE_AND_ALLOW,
                         )
                     )
-                cleaned = _TRAILING_WHITESPACE_RE.sub("", cleaned)
+                for m in reversed(trailing_matches):
+                    cleaned = cleaned[: m.start()] + cleaned[m.end() :]
 
         return cleaned, bits_neutralized, findings
 
     def canonicalize_json_value(self, value: Any) -> Any:
-        """Deterministic RFC 8785 Canonical JSON representation."""
+        """``value`` with mapping keys sorted as RFC 8785 sorts them. Values are unchanged."""
         if isinstance(value, Mapping):
-            # Sort dictionary keys lexicographically
-            return {k: self.canonicalize_json_value(v) for k, v in sorted(value.items())}
+            items = sorted(
+                value.items(), key=lambda kv: str(kv[0]).encode("utf-16-be", "surrogatepass")
+            )
+            return {k: self.canonicalize_json_value(v) for k, v in items}
+        if isinstance(value, tuple):
+            return tuple(self.canonicalize_json_value(item) for item in value)
         if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
             return [self.canonicalize_json_value(item) for item in value]
-        if isinstance(value, float):
-            # Round IEEE 754 floats to deterministic representation
-            if value.is_integer():
-                return int(value)
-            return round(value, 10)
         return value
 
     def neutralize(self, payload: Any) -> StegoInspectionResult:
@@ -152,10 +188,8 @@ class StegoNeutralizer:
 
         def walk(node: Any) -> Any:
             nonlocal total_bits
-            if node is None or isinstance(node, (bool, int)):
+            if node is None or isinstance(node, (bool, int, float)):
                 return node
-            if isinstance(node, float):
-                return self.canonicalize_json_value(node) if self.canonicalize_json else node
             if isinstance(node, str):
                 cleaned_str, bits, str_findings = self.neutralize_string(node)
                 total_bits += bits
@@ -163,8 +197,14 @@ class StegoNeutralizer:
                 return cleaned_str
             if isinstance(node, Mapping):
                 # Canonical key ordering + recursive walk
-                items = sorted(node.items()) if self.canonicalize_json else node.items()
+                items = (
+                    sorted(node.items(), key=lambda kv: str(kv[0]))
+                    if self.canonicalize_json
+                    else node.items()
+                )
                 return {k: walk(v) for k, v in items}
+            if isinstance(node, tuple):
+                return tuple(walk(item) for item in node)
             if isinstance(node, Sequence) and not isinstance(node, (str, bytes, bytearray)):
                 return [walk(item) for item in node]
             return node
@@ -177,6 +217,5 @@ class StegoNeutralizer:
         )
 
     def to_canonical_json_string(self, obj: Any) -> str:
-        """Convert any JSON-serializable object into an RFC 8785 canonical string with zero covert jitter."""
-        canonical_obj = self.canonicalize_json_value(obj)
-        return json.dumps(canonical_obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        """``obj`` as RFC 8785 canonical JSON. Values it cannot represent exactly are refused."""
+        return jcs.dumps(obj)

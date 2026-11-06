@@ -1,0 +1,64 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.4",
+  "logical_cpus": 16,
+  "backend": "postgresql+asyncpg",
+  "first_start_seconds": 0.316,
+  "load": [
+    {
+      "concurrency": 1,
+      "events": 2000,
+      "seconds": 18.21,
+      "events_per_second": 109.8,
+      "p50_ms": 8.74,
+      "p99_ms": 14.31,
+      "max_ms": 95.51,
+      "cpu_seconds": 7.56,
+      "rss_mib": 128.4,
+      "not_stored": 0
+    },
+    {
+      "concurrency": 5,
+      "events": 2000,
+      "seconds": 12.0,
+      "events_per_second": 166.6,
+      "p50_ms": 20.61,
+      "p99_ms": 47.46,
+      "max_ms": 129.82,
+      "cpu_seconds": 6.95,
+      "rss_mib": 132.3,
+      "not_stored": 0
+    },
+    {
+      "concurrency": 20,
+      "events": 2000,
+      "seconds": 21.84,
+      "events_per_second": 91.6,
+      "p50_ms": 132.6,
+      "p99_ms": 264.31,
+      "max_ms": 309.5,
+      "cpu_seconds": 14.19,
+      "rss_mib": 132.0,
+      "not_stored": 0
+    },
+    {
+      "concurrency": 50,
+      "events": 2000,
+      "seconds": 17.15,
+      "events_per_second": 116.6,
+      "p50_ms": 219.35,
+      "p99_ms": 508.1,
+      "max_ms": 560.5,
+      "cpu_seconds": 11.14,
+      "rss_mib": 134.1,
+      "not_stored": 0
+    }
+  ],
+  "restart_seconds_with_rows": 0.054,
+  "idle": {
+    "seconds": 10.0,
+    "cpu_seconds_without_heartbeat": 0.0,
+    "cpu_seconds_with_heartbeat": 0.016,
+    "percent_of_one_core": 0.156
+  }
+}

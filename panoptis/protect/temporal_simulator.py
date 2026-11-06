@@ -1,9 +1,10 @@
 """Real-Time 16-Way Counterfactual Temporal Simulation & Downstream Blast-Radius Evaluator.
 
-Pillar IV of Top 0.001% Sovereign Tier Architecture:
-Anticipates cascading downstream hazards 5-10 steps ahead before any real state mutation.
-Executes 16 speculative Monte Carlo micro-fork branches concurrently in < 15ms.
-Produces a cryptographically signed CounterfactualHazardProof on invariant violation.
+Experimental and opt-in (``enable_temporal_simulation``). It estimates downstream hazards a few
+steps ahead by running speculative Monte Carlo branches in a model of the action, not in the real
+system, so it can miss hazards the model does not represent. On an invariant violation it produces
+a signed CounterfactualHazardProof, which records what the simulation found and proves nothing
+about real outcomes.
 """
 
 from __future__ import annotations

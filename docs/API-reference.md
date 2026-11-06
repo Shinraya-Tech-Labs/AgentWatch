@@ -115,6 +115,8 @@ solving locally in one route.
 
 ### Rate-limit headers
 
+Callers with a valid `X-Api-Key` are limited per tenant. Anyone else is limited per client address. Only requests with no key count towards the global limit. `X-Forwarded-For` is used only when the connection comes from a proxy in `AGENTWATCH_TRUSTED_PROXIES`. `/health` and `/metrics` are not counted here, and keep their per-minute limit.
+
 Every response — including successful ones and the `429` itself — carries four headers:
 
 ```
@@ -276,6 +278,21 @@ older_than_hours: integer, required
 
 dry_run: boolean, default is false
 
+Right to Erasure
+Endpoint: POST /api/v1/gdpr/erase
+
+Description: Erases a subject's v1 data in the caller's tenant and returns an HMAC-signed receipt. Answers 200 when every target completed and 207 when any target failed, with the signed receipt in both cases. An unknown id and another tenant's id produce the same receipt. The receipt lists what was reached and what was not; see [ERASURE.md](ERASURE.md).
+
+Request Body:
+
+identifier: string, required, not blank
+
+scope: user_id (default), agent_id, session_id or tenant_id
+
+reason: string, default is right_to_erasure
+
+initiated_by: string, optional
+
 Ingestion Engine Metrics
 Endpoint: GET /api/v1/ingestion/metrics
 
@@ -316,12 +333,12 @@ Guardrails and Safety Management
 Enumerate Git or File State Checkpoints
 Endpoint: GET /api/v1/sessions/{session_id}/checkpoints
 
-Description: Looks up isolated filesystem checkpointing logs captured during runtime tracking.
+Description: Lists the session's checkpoints, for the caller's tenant only. The API process creates no checkpoints today, so this list is empty.
 
 Trigger State Rollback
 Endpoint: POST /api/v1/sessions/{session_id}/rollback
 
-Description: Automatically rolls back file adjustments and system actions to reverse unwanted or destructive agent behaviors.
+Description: Restores a checkpoint of this session in the caller's tenant. Any other checkpoint id answers as an unknown one. The API process creates no checkpoints today, so this answers `failed`.
 
 Command Execution Safety Check
 Endpoint: POST /api/v1/safety/check

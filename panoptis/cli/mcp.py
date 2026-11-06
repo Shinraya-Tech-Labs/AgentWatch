@@ -148,8 +148,7 @@ def mcp_server() -> None:
             if not events:
                 raise ValueError(f"Session {sid} not found")
             for event in events:
-                cost_tracker.ingest_event(event)
-            budget = cost_tracker.get_session(sid)
+                budget = cost_tracker.ingest_event(event, tenant_id="default")
         if budget:
             return budget.to_dict()
         budget_dict = {

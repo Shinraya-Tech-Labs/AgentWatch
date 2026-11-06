@@ -93,6 +93,17 @@ class ErasureReceipt:
     audit_signature: str = ""
     failure_count: int = 0
     failed_targets: list[str] = field(default_factory=list)
+    # exactly what this erasure covered: the targets it completed, and what it did not reach
+    targets_reached: list[str] = field(default_factory=list)
+    not_reached: list[str] = field(default_factory=list)
+
+
+class PartialErasureError(RuntimeError):
+    """A target erased some matches but not all of them."""
+
+    def __init__(self, message: str, erased: int) -> None:
+        super().__init__(message)
+        self.erased = erased
 
 
 @runtime_checkable
@@ -138,18 +149,20 @@ def _sign_receipt(
     request: ErasureRequest,
     results: list[ErasureTargetResult],
     secret: bytes,
+    not_reached: Iterable[str] = (),
 ) -> str:
     """Generate an HMAC-SHA256 erasure receipt signature.
 
     The signature covers the request identity, the per-target erased counts,
     and errors so the receipt cannot be forged or replayed across runs.
     """
-    return _sign_erasure_payload(_erasure_payload(request, results), secret)
+    return _sign_erasure_payload(_erasure_payload(request, results, not_reached), secret)
 
 
 def _erasure_payload(
     request: ErasureRequest,
     results: list[ErasureTargetResult],
+    not_reached: Iterable[str] = (),
 ) -> bytes:
     """Stable wire-format payload signed for an erasure receipt."""
     total_erased = sum(r.erased_items for r in results)
@@ -159,6 +172,7 @@ def _erasure_payload(
             "scope": request.scope.value,
             "total_erased": total_erased,
             "results": [(r.target_name, r.erased_items, r.error) for r in results],
+            "not_reached": sorted(not_reached),
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -194,7 +208,8 @@ def verify_erasure_signature(
         ``True`` iff the receipt signature matches the recomputed payload.
     """
     resolved = key.encode("utf-8") if isinstance(key, str) else key
-    expected = _sign_erasure_payload(_erasure_payload(request, results), resolved)
+    payload = _erasure_payload(request, results, receipt.not_reached)
+    expected = _sign_erasure_payload(payload, resolved)
     return hmac.compare_digest(expected, receipt.audit_signature)
 
 
@@ -314,7 +329,7 @@ class CrossSessionErasureService:
     This is the high-level entry point for GDPR ``/api/v1/gdpr/erase``.
     It coordinates erasure sessions, events, and memory entries tied to a
     particular identifier (user_id, agent_id, session_id, or tenant_id),
-    generates an HMAC-signed receipt, and persists the audit log.
+    and generates an HMAC-signed receipt.
 
     Usage::
 
@@ -330,6 +345,7 @@ class CrossSessionErasureService:
         targets: Iterable[ErasureTarget],
         signing_secret: bytes = b"",
         min_signing_secret_bytes: int = 16,
+        not_reached: Iterable[str] = (),
     ):
         if not signing_secret:
             raise ValueError(
@@ -344,6 +360,7 @@ class CrossSessionErasureService:
             )
         self._targets = list(targets)
         self._secret = signing_secret
+        self._not_reached = list(not_reached)
 
     async def erase(self, request: ErasureRequest) -> ErasureReceipt:
         """Execute the erasure across all registered targets.
@@ -374,7 +391,7 @@ class CrossSessionErasureService:
                     ErasureTargetResult(
                         target_name=target.name,
                         total_items=-1,
-                        erased_items=0,
+                        erased_items=getattr(exc, "erased", 0),
                         error=str(exc),
                     )
                 )
@@ -382,7 +399,7 @@ class CrossSessionErasureService:
         completed = datetime.now(UTC)
         total_erased = sum(r.erased_items for r in results)
         failed = [r.target_name for r in results if r.error is not None]
-        signature = _sign_receipt(request, results, self._secret)
+        signature = _sign_receipt(request, results, self._secret, self._not_reached)
 
         return ErasureReceipt(
             user_id=request.identifier,
@@ -393,6 +410,8 @@ class CrossSessionErasureService:
             audit_signature=signature,
             failure_count=len(failed),
             failed_targets=list(failed),
+            targets_reached=[r.target_name for r in results if r.error is None],
+            not_reached=list(self._not_reached),
         )
 
     @property

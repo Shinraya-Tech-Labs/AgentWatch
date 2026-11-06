@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import functools
+import hashlib
 import hmac
 import json
 import logging
@@ -15,6 +16,7 @@ import os
 import re
 import time
 from collections import defaultdict
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -45,13 +47,25 @@ from panoptis.api import tenancy as _tenancy
 from panoptis.api.auth import require_permission
 from panoptis.api.entitlement import require_entitlement
 from panoptis.api.limits import BodySizeLimitMiddleware, PayloadTooLarge, check_json_limits
-from panoptis.api.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
+from panoptis.api.middleware.rate_limiter import (
+    RateLimiter,
+    RateLimitMiddleware,
+    client_ip,
+)
 from panoptis.api.tenant_auth import get_tenant_store
 from panoptis.api.v3 import build_router as build_v3_router
 from panoptis.api.v3 import get_engine as get_v3_engine
 from panoptis.core.config import get_cloud_config
 from panoptis.core.event_bus import get_event_bus
-from panoptis.core.models import Repository, TenantRepository, init_db
+from panoptis.core.models import (
+    EventConflictError,
+    EventRecord,
+    Repository,
+    SessionOwnershipError,
+    SessionRecord,
+    TenantRepository,
+    init_db,
+)
 from panoptis.core.safety import RiskScorer, SafetyEngine, SafetyPolicy
 from panoptis.core.schema import (
     AgentEvent,
@@ -73,6 +87,7 @@ from panoptis.governance.gdpr import (
     ErasureReceipt,
     ErasureRequest,
     ErasureScope,
+    PartialErasureError,
 )
 from panoptis.models.tenant import TenantPlan
 from panoptis.monitoring.metrics import (
@@ -146,22 +161,48 @@ def reset_rate_limiter_for_tests() -> None:
     """Clear in-memory counters between tests (test-only helper): the route limiter and
     the per-user middleware limiter, whose 100/hour budget otherwise carried over."""
     _limiter.reset()
+    globals().get("_verified_cloud_keys", {}).clear()
     mw = globals().get("_rate_limiter")
     if mw is not None and hasattr(mw.backend, "_buckets"):
         mw.backend._buckets.clear()
 
 
-def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
+_verified_cloud_keys: dict[str, tuple[float, str]] = {}
+_VERIFIED_KEY_SECONDS = 60.0
+
+
+def _key_digest(key: str) -> str:
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def _remember_verified_key(key: str, tenant_id: str) -> None:
+    """Route auth proved this key. Cloud keys cost a PBKDF2 hash and a database read to verify,
+    too much to repeat on the event loop before the limiter decides, so the limiter only ever
+    recognises what a route already verified. This chooses a bucket, it authorizes nothing."""
+    if len(_verified_cloud_keys) >= 4096:
+        _verified_cloud_keys.clear()
+    _verified_cloud_keys[_key_digest(key)] = (
+        time.monotonic() + _VERIFIED_KEY_SECONDS,
+        f"tenant:{tenant_id}",
+    )
+
+
+def _rate_limit_identity(request: Request) -> str | None:
+    """Who a request proves to be, for its rate-limit bucket. Authorization stays at the route."""
+    key = request.headers.get("x-api-key")
+    if not key:
+        return None
+    tenant = _tenancy.match_key(key, _tenant_keys())
+    if tenant is not None:
+        return f"tenant:{tenant}"
+    if _is_operator_key(key) or (_API_KEY is not None and _key_matches(key)):
+        return "operator"
+    remembered = _verified_cloud_keys.get(_key_digest(key))
+    return remembered[1] if remembered and remembered[0] > time.monotonic() else None
 
 
 def _rate_limit_key(request: Request, suffix: str) -> str:
-    return f"{_client_ip(request)}:{suffix}"
+    return f"{client_ip(request)}:{suffix}"
 
 
 _db_session_factory = None
@@ -234,12 +275,15 @@ def _event_to_pg(event: AgentEvent) -> dict:
 # design. "connected": writes go to the database. "fallback": DATABASE_URL is set but
 # could not be reached and AGENTWATCH_ALLOW_MEMORY_FALLBACK=1 allowed starting anyway
 # (never in production); health then reports degraded.
-_persistence: dict[str, Any] = {"state": "not_configured", "error": None}
+_persistence: dict[str, Any] = {"state": "not_configured", "error": None, "events_not_stored": 0}
 
 # Write failures of the current request; handlers append to it, the route checks it.
 _write_failures: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
     "agentwatch_write_failures", default=None
 )
+
+
+_EVENT_REFUSED = "event-refused"
 
 
 def _note_write_failure(what: str) -> None:
@@ -250,6 +294,8 @@ def _note_write_failure(what: str) -> None:
 
 def _require_persisted(failures: list[str]) -> None:
     """503 when the database is configured but this request's writes did not persist."""
+    if _EVENT_REFUSED in failures:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="event id unavailable")
     if failures:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -262,52 +308,138 @@ def _require_persisted(failures: list[str]) -> None:
         )
 
 
+_WRITE_ATTEMPTS = 3
+_CONTENTION_SQLSTATES = frozenset({"40001", "40P01"})  # serialization failure, deadlock
+
+
+def _is_contention(exc: Exception) -> bool:
+    """Whether the database is asking the caller to try again, rather than refusing."""
+    cause = getattr(exc, "orig", None)
+    return getattr(cause, "sqlstate", None) in _CONTENTION_SQLSTATES or "database is locked" in str(
+        cause
+    )
+
+
+async def _write_retrying(write: Callable[[Any], Awaitable[None]]) -> None:
+    """One write in its own transaction, tried again if it lost to contention. Retrying is
+    safe because session and event writes are idempotent."""
+    for attempt in range(1, _WRITE_ATTEMPTS + 1):
+        try:
+            async with _db_session_factory() as db:
+                await write(db)
+                await db.commit()
+            return
+        except Exception as exc:
+            if attempt == _WRITE_ATTEMPTS or not _is_contention(exc):
+                raise
+            await asyncio.sleep(0.05 * attempt)
+
+
 async def _pg_write_session(session: AgentSession, tenant_id: str | None = None) -> None:
+    """Raises :class:`SessionOwnershipError` when the id belongs to another tenant."""
     if _db_session_factory is None:
         return
+
+    async def write(db: Any) -> None:
+        data = _session_to_pg(session)
+        if tenant_id:
+            data["tenant_id"] = tenant_id
+        await TenantRepository(Repository(db), tenant_id=tenant_id).upsert_session(data)
+
     try:
-        async with _db_session_factory() as db:
-            repo = TenantRepository(Repository(db), tenant_id=tenant_id)
-            data = _session_to_pg(session)
-            if tenant_id:
-                data["tenant_id"] = tenant_id
-            await repo.upsert_session(data)
-            await db.commit()
+        await _write_retrying(write)
+    except SessionOwnershipError:
+        raise
     except Exception:
         logger.error("PG session write failed", exc_info=True)
         _note_write_failure("session")
 
 
+def _session_for(event: AgentEvent, tenant_id: str | None) -> dict[str, Any]:
+    """The row for a session first seen through an event."""
+    data = _session_to_pg(
+        AgentSession(
+            session_id=event.session_id,
+            agent_id=event.agent_id,
+            metadata={"tenant_id": tenant_id} if tenant_id else {},
+        )
+    )
+    if tenant_id:
+        data["tenant_id"] = tenant_id
+    return data
+
+
+async def _pg_claim_session(event: AgentEvent, tenant_id: str | None) -> None:
+    """Take a new session id for this tenant, before the collector or anything else sees the
+    event. The collector's guard only knows this process and is empty after a restart.
+
+    Raises :class:`SessionOwnershipError` when the id belongs to another tenant.
+    """
+    if _db_session_factory is None:
+        return
+
+    async def write(db: Any) -> None:
+        repo = TenantRepository(Repository(db), tenant_id=tenant_id)
+        await repo.claim_session(_session_for(event, tenant_id))
+
+    try:
+        await _write_retrying(write)
+    except SessionOwnershipError:
+        raise
+    except Exception:
+        logger.error("PG session write failed", exc_info=True)
+        _note_write_failure("session")
+
+
+async def _event_id_taken(event: AgentEvent) -> bool:
+    """Whether this event id is already stored for another session. Asked before anything sees
+    the event, so a refused event reaches no subscriber. insert_event stays the atomic check."""
+    if _db_session_factory is None:
+        return False
+    try:
+        async with _db_session_factory() as db:
+            stored = await db.get(EventRecord, event.event_id)
+    except Exception:
+        logger.error("PG event lookup failed: event %s", event.event_id, exc_info=True)
+        return False  # the write that follows reports the database failure
+    return stored is not None and stored.session_id != event.session_id
+
+
 async def _pg_write_event(event: AgentEvent, tenant_id: str | None = None) -> None:
     if _db_session_factory is None:
         return
-    try:
-        async with _db_session_factory() as db:
-            repo = TenantRepository(Repository(db), tenant_id=tenant_id)
-            event_data = _event_to_pg(event)
+
+    async def write(db: Any) -> None:
+        repo = TenantRepository(Repository(db), tenant_id=tenant_id)
+        event_data = _event_to_pg(event)
+        if tenant_id:
+            event_data["tenant_id"] = tenant_id
+        # the session row first: agent_events.session_id references it, and a session first
+        # seen through an event has no row yet. The collector is another subscriber of the
+        # same event, so its trace may not exist yet: then only create the row if it is new.
+        trace = _collector.get_trace(event.session_id)
+        if trace is None:
+            await repo.claim_session(_session_for(event, tenant_id))
+        else:
+            session_data = _session_to_pg(trace.session)
             if tenant_id:
-                event_data["tenant_id"] = tenant_id
-            # the session row first: agent_events.session_id references it, and a session
-            # first seen through an event has no row yet
-            # The collector is another subscriber of the same event, so its trace may not
-            # exist yet: then write a minimal session row (never over an existing one).
-            trace = _collector.get_trace(event.session_id)
-            if trace is not None or await repo.get_session(event.session_id) is None:
-                session = trace.session if trace is not None else None
-                session = session or AgentSession(
-                    session_id=event.session_id,
-                    agent_id=event.agent_id,
-                    metadata={"tenant_id": tenant_id} if tenant_id else {},
-                )
-                session_data = _session_to_pg(session)
-                if tenant_id:
-                    session_data["tenant_id"] = tenant_id
-                await repo.upsert_session(session_data)
-            await repo.insert_event(event_data)
-            await db.commit()
+                session_data["tenant_id"] = tenant_id
+            await repo.upsert_session(session_data)
+        await repo.insert_event(event_data)
+
+    try:
+        await _write_retrying(write)
+        return
+    except (SessionOwnershipError, EventConflictError) as exc:
+        # retrying cannot help, and the sender must not be told it was stored
+        logger.error("event %s refused: %s", event.event_id, type(exc).__name__)
+        _note_write_failure(_EVENT_REFUSED)
     except Exception:
-        logger.error("PG event write failed", exc_info=True)
+        logger.error("PG event write failed: event %s", event.event_id, exc_info=True)
         _note_write_failure("event")
+    if _write_failures.get() is None:
+        # no request to answer, so nobody was told: this is the only record of the loss
+        _persistence["events_not_stored"] += 1
 
 
 _collector = TraceCollector()
@@ -402,7 +534,10 @@ def _tenant_keys() -> dict[str, str]:
 
 def _cloud_tenant_of(raw_key: str | None) -> str | None:
     key = get_tenant_store().validate_api_key(raw_key) if raw_key else None
-    return key.tenant_id if key else None
+    if key is None:
+        return None
+    _remember_verified_key(raw_key, key.tenant_id)
+    return key.tenant_id
 
 
 def _principal(api_key: str | None, tenant_header: str | None) -> _tenancy.Principal:
@@ -441,6 +576,7 @@ def _require_api_key(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or revoked API key.",
             )
+        _remember_verified_key(x_api_key, api_key.tenant_id)
         return
 
     # Legacy mode
@@ -451,7 +587,7 @@ def _require_api_key(
             detail="Server misconfiguration: API key is required in production.",
         )
 
-    if _API_KEY is not None and not _key_matches(x_api_key):
+    if (_API_KEY is not None or _tenant_keys()) and not _key_matches(x_api_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid API key. Supply the key in the X-Api-Key header.",
@@ -697,20 +833,22 @@ def _record_budget(event: AgentEvent) -> None:
 
 
 def _pg_tenant(metadata: dict[str, Any] | None) -> str | None:
-    """The tenant to tag a self-hosted row with: the authenticated owner when tenant keys
-    partition the deployment (so erasure can be scoped to it), else none (single tenant)."""
-    return _owner(metadata) if _tenant_keys() else None
+    """The tenant to tag a row with: the authenticated owner whenever the deployment has
+    several tenants, so that the database can enforce ownership and erasure can be scoped to
+    it, else none (single tenant)."""
+    return _owner(metadata) if _CLOUD_MODE or _tenant_keys() else None
 
 
 async def _after_publish(event: AgentEvent) -> None:
     _record_budget(event)
-    await _pg_write_event(event, tenant_id=None if _CLOUD_MODE else _pg_tenant(event.metadata))
+    await _pg_write_event(event, tenant_id=_pg_tenant(event.metadata))
     if event.is_blocked or (event.safety and event.safety.risk_level.value in {"high", "critical"}):
         await _alerting.alert_event(event)
 
 
 def _seed_demo_data() -> None:
-    if _collector.list_sessions(limit=1):
+    # the demo events include a blocked critical call, which pages whoever is on call
+    if _IS_PROD or _collector.list_sessions(limit=1):
         return
 
     session_id = "demo-session"
@@ -813,6 +951,22 @@ def _seed_demo_data() -> None:
         _record_budget(event)
 
 
+_SHUTDOWN_DRAIN_SECONDS = 10.0
+_HEARTBEAT_SECONDS = 0.05
+
+
+async def _loop_heartbeat() -> None:
+    """Never let the loop sleep without a timer.
+
+    Threads wake the loop through its self-pipe, and asyncio ignores errors writing to it. On
+    Windows that pipe is a TCP connection, which has been seen reset from outside the process.
+    Results from threads, such as every aiosqlite call, then wait in the ready queue until
+    something else wakes the loop, which may be never. A timer bounds that wait.
+    """
+    while True:
+        await asyncio.sleep(_HEARTBEAT_SECONDS)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _db_session_factory
@@ -867,14 +1021,23 @@ async def lifespan(app: FastAPI):
     bus.subscribe_fn(_collector.ingest, handler_id="api.collector")
     bus.subscribe_fn(_after_publish, handler_id="api.post_publish")
     _seed_demo_data()
+    heartbeat = asyncio.create_task(_loop_heartbeat(), name="api.loop-heartbeat")
     logger.info("AgentWatch API started")
     yield
+    # publishers that do not await are still writing: closing the database now would drop them
+    unfinished = await bus.drain(_SHUTDOWN_DRAIN_SECONDS)
+    if unfinished:
+        logger.error(
+            "shutdown: %d published event(s) still in flight, maybe not stored", unfinished
+        )
+        _persistence["events_not_stored"] += unfinished
     if _db_session_factory is not None:
         # release the pool: its connections belong to this event loop, which ends here
         engine = _db_session_factory.kw.get("bind")
         _db_session_factory = None
         if engine is not None:
             await engine.dispose()
+    heartbeat.cancel()
     logger.info("AgentWatch API shutdown")
 
 
@@ -899,8 +1062,14 @@ _rate_limiter = RateLimiter(
     window_sec=RATE_LIMIT_WINDOW_SEC,
 )
 
-# Add rate limiting middleware
-app.add_middleware(RateLimitMiddleware, limiter=_rate_limiter)
+# Add rate limiting middleware. Probes run on a schedule, so counting them would fail a healthy
+# container's healthcheck after a quota's worth of checks. Both keep their per-minute route limit.
+app.add_middleware(
+    RateLimitMiddleware,
+    limiter=_rate_limiter,
+    identify=_rate_limit_identity,
+    exempt=("/health", "/metrics"),
+)
 
 
 def _request_tenant(
@@ -916,10 +1085,36 @@ def _owner(metadata: dict[str, Any] | None) -> str:
     return str((metadata or {}).get("tenant_id") or _tenancy.DEFAULT_TENANT)
 
 
-def _require_session_owner(session_id: str, tenant_id: str) -> None:
-    """404 unless the session exists in the caller's tenant (existence is not leaked)."""
+async def _stored_owner(session_id: str) -> str | None:
+    """The tenant the database holds for a session, or None if it holds no such session."""
+    if _db_session_factory is None:
+        return None
+    try:
+        async with _db_session_factory() as db:
+            row = await db.get(SessionRecord, session_id)
+    except Exception as exc:
+        logger.error("PG session owner lookup failed", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable"
+        ) from exc
+    return None if row is None else row.tenant_id or _tenancy.DEFAULT_TENANT
+
+
+async def _require_session_owner(session_id: str, tenant_id: str) -> None:
+    """404 unless the session exists in the caller's tenant (existence is not leaked).
+
+    A session can leave the collector through a restart or eviction, which any tenant can cause
+    by creating sessions. With several tenants the database then decides, and when it cannot,
+    nobody passes. With one tenant there is nobody to protect the session from.
+    """
     trace = _collector.get_trace(session_id)
-    if trace is not None and _owner(trace.session.metadata) != tenant_id:
+    if trace is not None:
+        owner: str | None = _owner(trace.session.metadata)
+    elif _CLOUD_MODE or _tenant_keys():
+        owner = await _stored_owner(session_id)
+    else:
+        return
+    if owner != tenant_id:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
 
@@ -982,11 +1177,17 @@ async def rl_headers(request: Request, call_next):
     return response
 
 
+def _metric_endpoint(request: Request) -> str:
+    """The route template, never the raw path: /metrics is public, and paths carry session ids
+    and tenant ids. Anyone can also invent paths, which would add metric series without limit."""
+    route = request.scope.get("route")
+    return getattr(route, "path", "unmatched")
+
+
 @app.middleware("http")
 async def record_metrics(request: Request, call_next):
     """Record API latency metrics for all requests including failures."""
     start_time = time.time()
-    endpoint = request.url.path
     response = None
 
     try:
@@ -995,14 +1196,14 @@ async def record_metrics(request: Request, call_next):
     except Exception as exc:
         # Record failure before re-raising
         duration = time.time() - start_time
-        record_api_latency(endpoint, duration)
-        record_failure(endpoint, 500, str(exc))
+        record_api_latency(_metric_endpoint(request), duration)
+        record_failure(_metric_endpoint(request), 500, str(exc))
         raise
     finally:
         # Record latency for successful responses
         if response is not None:
             duration = time.time() - start_time
-            record_api_latency(endpoint, duration)
+            record_api_latency(_metric_endpoint(request), duration)
 
 
 # CORS configuration.
@@ -1118,8 +1319,9 @@ async def health(request: Request) -> JSONResponse:
 
 
 @app.get("/metrics")
-async def metrics() -> Response:
+async def metrics(request: Request) -> Response:
     """Expose Prometheus metrics endpoint."""
+    _limiter.check(_rate_limit_key(request, "r"), RATE_READ, request)
     return Response(content=generate_latest(), media_type="text/plain; version=0.0.4")
 
 
@@ -1192,6 +1394,7 @@ async def prune_sessions_api(
                     if not dry_run:
                         pruned_db_sessions = await repo.prune_sessions(session_ids)
                         await db.commit()
+                        _cost_tracker.forget_everywhere(session_ids)
                     else:
                         pruned_db_sessions = len(session_ids)
         else:
@@ -1205,6 +1408,8 @@ async def prune_sessions_api(
                 pruned_checkpoint_files = await _rollback_engine.prune_checkpoints(
                     session_ids, dry_run=dry_run
                 )
+                if not dry_run:
+                    _cost_tracker.forget_everywhere(session_ids)
     except Exception as exc:
         logger.error("Failed to prune sessions: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to prune sessions")
@@ -1230,17 +1435,18 @@ async def create_session(
         # never let one tenant overwrite (or learn about) another tenant's session
         raise HTTPException(status_code=409, detail="session id unavailable")
     session.metadata["tenant_id"] = tenant_id
-    _collector.register_session(session)
     failures: list[str] = []
     token = _write_failures.set(failures)
     try:
-        await _pg_write_session(
-            session, tenant_id=None if _CLOUD_MODE else _pg_tenant(session.metadata)
-        )
+        # the database decides first: it survives a restart and is shared by every worker
+        await _pg_write_session(session, tenant_id=_pg_tenant(session.metadata))
+    except SessionOwnershipError as exc:
+        raise HTTPException(status_code=409, detail="session id unavailable") from exc
     finally:
         _write_failures.reset(token)
     if _db_session_factory is not None or _persistence["state"] == "fallback":
         _require_persisted(failures)
+    _collector.register_session(session)
     return {"status": "registered", "session": session.model_dump(mode="json")}
 
 
@@ -1251,7 +1457,7 @@ async def get_session(
     _auth: None = Depends(_require_api_key),
     tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
-    _require_session_owner(session_id, tenant_id)
+    await _require_session_owner(session_id, tenant_id)
     _limiter.check(_rate_limit_key(request, "r"), RATE_READ, request)
     trace = _collector.get_trace(session_id)
     if not trace:
@@ -1268,7 +1474,7 @@ async def get_events(
     _auth: None = Depends(_require_api_key),
     tenant_id: str = Depends(_request_tenant),
 ) -> TraceResponse:
-    _require_session_owner(session_id, tenant_id)
+    await _require_session_owner(session_id, tenant_id)
     _limiter.check(_rate_limit_key(request, "r"), RATE_READ, request)
     events = _collector.get_events(session_id, event_type=event_type, limit=limit)
     return TraceResponse(
@@ -1313,6 +1519,8 @@ async def ingest_event(
     existing = _collector.get_trace(event.session_id)
     if existing is not None and _owner(existing.session.metadata) != tenant_id:
         raise HTTPException(status_code=404, detail=f"Session {event.session_id} not found")
+    if await _event_id_taken(event):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="event id unavailable")
     if event.event_type == EventType.TOOL_CALL and event.tool_call is not None:
         schema_key = event.framework.value.replace("_", "-")
         if _schema_validator.get_schema(schema_key) is not None:
@@ -1326,7 +1534,16 @@ async def ingest_event(
     failures: list[str] = []
     token = _write_failures.set(failures)
     try:
+        if existing is None:
+            await _pg_claim_session(event, _pg_tenant(event.metadata))
+            if failures:
+                # the database did not decide the owner: nothing may see this event yet
+                _require_persisted(failures)
         await get_event_bus().publish(event)
+    except SessionOwnershipError as exc:
+        raise HTTPException(
+            status_code=404, detail=f"Session {event.session_id} not found"
+        ) from exc
     finally:
         _write_failures.reset(token)
     _v3_tee(event, tenant_id)
@@ -1335,7 +1552,7 @@ async def ingest_event(
 
     if event.agent_id and hasattr(event, "status"):
         if getattr(event, "status", None) == ExecutionStatus.FAILURE:
-            record_failure(event.agent_id)
+            record_failure("agent_event", status.HTTP_200_OK)  # /metrics is public: no client ids
 
     return {"status": "accepted", "event_id": event.event_id}
 
@@ -1346,7 +1563,7 @@ async def get_trace(
     _auth: None = Depends(_require_api_key),
     tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
-    _require_session_owner(session_id, tenant_id)
+    await _require_session_owner(session_id, tenant_id)
     trace = _collector.get_trace(session_id)
     if not trace:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
@@ -1359,7 +1576,7 @@ async def get_confidence(
     _auth: None = Depends(_require_api_key),
     tenant_id: str = Depends(_request_tenant),
 ) -> ConfidenceResponse:
-    _require_session_owner(session_id, tenant_id)
+    await _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=2000)
     if not events:
         raise HTTPException(status_code=404, detail=f"No events for session {session_id}")
@@ -1382,7 +1599,7 @@ async def get_reasoning_audit(
     _auth: None = Depends(_require_api_key),
     tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
-    _require_session_owner(session_id, tenant_id)
+    await _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=5000)
     if not events:
         raise HTTPException(status_code=404, detail=f"No events for session {session_id}")
@@ -1395,15 +1612,15 @@ async def get_cost_budget(
     _auth: None = Depends(_require_api_key),
     tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
-    _require_session_owner(session_id, tenant_id)
-    budget = _cost_tracker.get_session(session_id)
+    await _require_session_owner(session_id, tenant_id)
+    budget = _cost_tracker.get_session(session_id, tenant_id=tenant_id)
     if not budget:
         events = _collector.get_events(session_id, limit=5000)
         if not events:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-        for event in events:
-            _cost_tracker.ingest_event(event)
-        budget = _cost_tracker.get_session(session_id)
+        for event in events:  # they passed the owner check: count them for the caller
+            _cost_tracker.ingest_event(event, tenant_id=tenant_id)
+        budget = _cost_tracker.get_session(session_id, tenant_id=tenant_id)
     return budget.to_dict() if budget else {"session_id": session_id}
 
 
@@ -1413,7 +1630,7 @@ async def get_replay(
     _auth: None = Depends(_require_api_key),
     tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
-    _require_session_owner(session_id, tenant_id)
+    await _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=5000)
     trace = _collector.get_trace(session_id)
     if not events or not trace:
@@ -1450,7 +1667,7 @@ async def simulate_session(
     _auth: None = Depends(_require_api_key),
     tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
-    _require_session_owner(session_id, tenant_id)
+    await _require_session_owner(session_id, tenant_id)
     events = _collector.get_events(session_id, limit=5000)
     trace = _collector.get_trace(session_id)
     if not events or not trace:
@@ -1488,8 +1705,8 @@ async def list_checkpoints(
     _auth: None = Depends(_require_api_key),
     tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
-    _require_session_owner(session_id, tenant_id)
-    checkpoints = _rollback_engine.list_checkpoints(session_id)
+    await _require_session_owner(session_id, tenant_id)
+    checkpoints = _rollback_engine.list_checkpoints(session_id, tenant_id=tenant_id)
     return {
         "session_id": session_id,
         "checkpoints": [checkpoint.to_dict() for checkpoint in checkpoints],
@@ -1503,15 +1720,19 @@ async def rollback_session(
     _auth: None = Depends(_require_api_key),
     tenant_id: str = Depends(_request_tenant),
 ) -> dict[str, Any]:
-    _require_session_owner(session_id, tenant_id)
+    await _require_session_owner(session_id, tenant_id)
     if request.checkpoint_id:
         result = await _rollback_engine.rollback(
             request.checkpoint_id,
             restore_filesystem=request.restore_filesystem,
             restore_git=request.restore_git,
+            session_id=session_id,
+            tenant_id=tenant_id,
         )
     else:
-        result = await _rollback_engine.rollback_session(session_id, to_step=request.to_step)
+        result = await _rollback_engine.rollback_session(
+            session_id, to_step=request.to_step, tenant_id=tenant_id
+        )
 
     _governance.record_action(
         principal_id="api",
@@ -1943,7 +2164,7 @@ async def websocket_events(websocket: WebSocket) -> None:
             logger.warning("WebSocket connection rejected: invalid or missing tenant key")
             await websocket.close(code=4001, reason="Unauthorized")
             return
-    elif _API_KEY and not _key_matches(supplied_key):
+    elif (_API_KEY or _tenant_keys()) and not _key_matches(supplied_key):
         logger.warning("WebSocket connection rejected: invalid or missing API key")
         await websocket.close(code=4001, reason="Unauthorized")
         return
@@ -2062,7 +2283,7 @@ async def revoke_api_key(
     _tenant: str = Depends(_require_tenant_ownership),
 ) -> dict[str, Any]:
     store = get_tenant_store()
-    ok = store.revoke_api_key(key_id)
+    ok = store.revoke_api_key(key_id, tenant_id=tenant_id)
     if not ok:
         raise HTTPException(status_code=404, detail="API key not found")
     return {"revoked": True}
@@ -2150,22 +2371,32 @@ class _SessionErasureTarget:
             )
         self._tenant_id = tenant_id
 
+    def _where(self, scope: ErasureScope, identifier: str) -> dict[str, str] | None:
+        """The rows this request may touch, or None when it names nothing the caller owns."""
+        if scope == ErasureScope.TENANT_ID:
+            # naming another tenant must match nothing, not quietly erase the caller's own rows
+            if self._tenant_id is not None and identifier != self._tenant_id:
+                return None
+            return {"tenant_id": identifier}
+        column = {
+            ErasureScope.SESSION_ID: "session_id",
+            ErasureScope.AGENT_ID: "agent_id",
+            ErasureScope.USER_ID: "user_id",
+        }.get(scope)
+        if column is None:
+            return None
+        where = {column: identifier}
+        if self._tenant_id is not None:
+            where["tenant_id"] = self._tenant_id
+        return where
+
     async def count_matching(self, identifier: str, scope: ErasureScope) -> int:
         try:
             async with _db_session_factory() as db:
                 repo = Repository(db)
-                if scope == ErasureScope.SESSION_ID:
-                    where = {"session_id": identifier}
-                elif scope == ErasureScope.AGENT_ID:
-                    where = {"agent_id": identifier}
-                elif scope == ErasureScope.USER_ID:
-                    where = {"user_id": identifier}
-                elif scope == ErasureScope.TENANT_ID:
-                    where = {"tenant_id": identifier}
-                else:
+                where = self._where(scope, identifier)
+                if where is None:
                     return 0
-                if self._tenant_id is not None:
-                    where["tenant_id"] = self._tenant_id
                 sessions = await repo.count_sessions(where)
                 if scope == ErasureScope.SESSION_ID:
                     return sessions
@@ -2179,18 +2410,9 @@ class _SessionErasureTarget:
             async with _db_session_factory() as db:
                 repo = Repository(db)
                 erased = 0
-                if scope == ErasureScope.SESSION_ID:
-                    where = {"session_id": identifier}
-                elif scope == ErasureScope.AGENT_ID:
-                    where = {"agent_id": identifier}
-                elif scope == ErasureScope.USER_ID:
-                    where = {"user_id": identifier}
-                elif scope == ErasureScope.TENANT_ID:
-                    where = {"tenant_id": identifier}
-                else:
+                where = self._where(scope, identifier)
+                if where is None:
                     return 0
-                if self._tenant_id is not None:
-                    where["tenant_id"] = self._tenant_id
                 # Every scope erases through Repository.erase_session, whose DELETEs carry
                 # the tenant constraint themselves (no fetch-then-delete window).
                 if scope == ErasureScope.SESSION_ID:
@@ -2199,6 +2421,9 @@ class _SessionErasureTarget:
                     session_ids = await repo.get_session_ids(where)
                 for sid in session_ids:
                     erased += await repo.erase_session(sid, tenant_id=self._tenant_id)
+                if scope != ErasureScope.SESSION_ID and "user_id" not in where:
+                    # an agent's events can sit in a session that belongs to another agent
+                    erased += await repo.erase_events(where)
                 await db.commit()
                 return erased
         except Exception as exc:  # noqa: BLE001 — surfaced via ErasureTargetResult
@@ -2246,6 +2471,66 @@ class _TraceCacheErasureTarget:
         return len(ids)
 
 
+class _RuntimeStateErasureTarget:
+    """ErasureTarget for what this process keeps per session: cost budgets and checkpoints.
+
+    It runs before the other targets, because the rows and traces it reads to find the
+    subject's sessions are what they delete. Only the caller's tenant is ever touched.
+    """
+
+    name = "runtime_state"
+
+    def __init__(self, tenant_id: str, sql_tenant: str | None) -> None:
+        self._tenant_id = tenant_id
+        self._sql_tenant = sql_tenant
+
+    async def _sessions(self, identifier: str, scope: ErasureScope) -> tuple[set[str], str | None]:
+        """The subject's sessions, and why the database could not add to them, if it could not."""
+        tenant = self._tenant_id
+        if scope == ErasureScope.TENANT_ID and identifier != tenant:
+            return set(), None
+        ids = set(_TraceCacheErasureTarget(tenant)._matching(identifier, scope))  # noqa: SLF001
+        held = set(_cost_tracker.sessions_of(tenant)) | _rollback_engine.sessions_of(tenant)
+        if scope == ErasureScope.TENANT_ID:
+            ids |= held
+        elif scope == ErasureScope.SESSION_ID and identifier in held:
+            ids.add(identifier)
+        if _db_session_factory is None:
+            return ids, None
+        try:
+            sql = _SessionErasureTarget(tenant_id=self._sql_tenant)
+            where = sql._where(scope, identifier)  # noqa: SLF001
+            if where is not None:
+                async with _db_session_factory() as db:
+                    ids |= set(await Repository(db).get_session_ids(where))
+        except Exception as exc:  # noqa: BLE001 — surfaced via ErasureTargetResult
+            return ids, f"could not list the subject's sessions: {type(exc).__name__}"
+        return ids, None
+
+    async def _checkpoint_files(self, ids: set[str]) -> int:
+        return await _rollback_engine.prune_checkpoints(
+            sorted(ids), dry_run=True, tenant_id=self._tenant_id
+        )
+
+    async def count_matching(self, identifier: str, scope: ErasureScope) -> int:
+        ids, _ = await self._sessions(identifier, scope)
+        return _cost_tracker.count(ids, self._tenant_id) + await self._checkpoint_files(ids)
+
+    async def erase_matching(self, identifier: str, scope: ErasureScope) -> int:
+        ids, problem = await self._sessions(identifier, scope)
+        erased = _cost_tracker.forget(ids, self._tenant_id)
+        erased += await _rollback_engine.prune_checkpoints(sorted(ids), tenant_id=self._tenant_id)
+        left = await self._checkpoint_files(ids)  # a failed delete is only logged by the engine
+        if left:
+            problem = f"{left} checkpoint file(s) could not be deleted"
+        unattributed = _rollback_engine.unattributed(sorted(ids))
+        if unattributed:  # they belong to default, so this tenant may not delete them
+            problem = f"{unattributed} checkpoint(s) with no tenant were left in place"
+        if problem:
+            raise PartialErasureError(problem, erased)
+        return erased
+
+
 class _MemoryErasureTarget:
     """ErasureTarget for the memory engines of this process (``panoptis.memory``).
 
@@ -2282,14 +2567,83 @@ class _MemoryErasureTarget:
         return await drop_memory_entries(identifier, scope=s, tenant_id=self._tenant_id)
 
 
+_ERASURE_DELETE_BATCH = 1_000
+
+
+class _PersistedMemoryErasureTarget:
+    """ErasureTarget for the SQL ``memory_entries`` table, in the caller's tenant only."""
+
+    name = "persisted_memory"
+
+    def __init__(self, tenant_id: str | None = None) -> None:
+        self._tenant_id = tenant_id
+
+    async def _matching(self, db: Any, identifier: str, scope: ErasureScope) -> list[str]:
+        from sqlalchemy import select
+
+        from panoptis.core.models import MemoryEntryRecord as Entry
+
+        if scope == ErasureScope.TENANT_ID and self._tenant_id not in (None, identifier):
+            return []  # a tenant can only erase itself
+        q = select(Entry.entry_id, Entry.entry_metadata)
+        if self._tenant_id is not None:
+            q = q.where(Entry.tenant_id == self._tenant_id)
+        if scope == ErasureScope.AGENT_ID:
+            q = q.where(Entry.agent_id == identifier)
+        elif scope == ErasureScope.SESSION_ID:
+            q = q.where(Entry.session_id == identifier)
+        elif scope == ErasureScope.TENANT_ID:
+            q = q.where(Entry.tenant_id == identifier)
+        rows = (await db.execute(q)).all()
+        if scope == ErasureScope.USER_ID:
+            rows = [r for r in rows if str((r[1] or {}).get("user_id")) == identifier]
+        return [r[0] for r in rows]
+
+    async def count_matching(self, identifier: str, scope: ErasureScope) -> int:
+        async with _db_session_factory() as db:
+            return len(await self._matching(db, identifier, scope))
+
+    async def erase_matching(self, identifier: str, scope: ErasureScope) -> int:
+        from sqlalchemy import delete
+
+        from panoptis.core.models import MemoryEntryRecord as Entry
+
+        async with _db_session_factory() as db:
+            ids = await self._matching(db, identifier, scope)
+            if ids:
+                # one transaction, batched: a subject can exceed the driver's parameter limit
+                for start in range(0, len(ids), _ERASURE_DELETE_BATCH):
+                    batch = ids[start : start + _ERASURE_DELETE_BATCH]
+                    await db.execute(delete(Entry).where(Entry.entry_id.in_(batch)))
+                await db.commit()
+            return len(ids)
+
+
+# What POST /api/v1/gdpr/erase can never reach, stated on every receipt.
+_ERASURE_NEVER_REACHES = (
+    "memory stores in other processes",
+    "traces, cost budgets and checkpoints held by other API processes",
+    "git branches created for checkpoints",
+    "the operator's in-memory buffer of recent events",
+    "the governance audit log, which can name a session",
+    "evidence ledger (use POST /api/v3/evidence/erase)",
+    "backups, exports and copies held outside this deployment",
+)
+
+
 async def _build_erasure_service(
     tenant_id: str | None = None,
     cache_tenant: str | None = None,
 ) -> CrossSessionErasureService:
     targets: list = [_TraceCacheErasureTarget(cache_tenant or tenant_id or _tenancy.DEFAULT_TENANT)]
+    not_reached = list(_ERASURE_NEVER_REACHES)
+    if _db_session_factory is not None and (_CLOUD_MODE or _tenant_keys()):
+        not_reached.append("database rows stored before rows carried a tenant")
     if _db_session_factory is not None:
         targets.append(_SessionErasureTarget(tenant_id=tenant_id))
+        targets.append(_PersistedMemoryErasureTarget(tenant_id=tenant_id))
     else:
+        not_reached.append("database: none configured")
         logger.warning(
             "Database session factory is not initialised; portability-and-events target omitted from erasure service."
         )
@@ -2297,6 +2651,8 @@ async def _build_erasure_service(
 
     if memory_stores_registered():
         targets.append(_MemoryErasureTarget(cache_tenant or tenant_id or _tenancy.DEFAULT_TENANT))
+    else:
+        not_reached.append("in-process memory: no store registered in this process")
     if len(targets) == 1:
         logger.warning("Only the in-memory trace cache can be erased: no database is configured")
     if not targets:
@@ -2305,9 +2661,14 @@ async def _build_erasure_service(
             "silent no-op erasure. Configure at least one backend before exposing "
             "the /api/v1/gdpr/erase endpoint."
         )
+    targets.insert(
+        0,
+        _RuntimeStateErasureTarget(cache_tenant or tenant_id or _tenancy.DEFAULT_TENANT, tenant_id),
+    )
     return CrossSessionErasureService(
         targets=targets,
         signing_secret=_get_erasure_secret(),
+        not_reached=not_reached,
     )
 
 
@@ -2324,8 +2685,8 @@ async def gdpr_erase(
     tenant_id: str | None = Depends(_require_tenant_context),
     principal_tenant: str = Depends(_request_tenant),
 ) -> ErasureReceipt:
-    """Execute a right-to-erasure (right-to-be-forgotten) action across all
-    session, event, and memory data for the given identifier.
+    """Execute a right-to-erasure (right-to-be-forgotten) action on the registered
+    targets for the given identifier. The receipt names what was and was not reached.
 
     The response is an HMAC-SHA256 signed erasure receipt suitable for
     compliance audit trails. If any registered target reports an error the

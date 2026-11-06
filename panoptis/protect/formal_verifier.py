@@ -1,5 +1,8 @@
 """Formal Policy Invariant Verification and Synthesis Engine.
 
+A policy linter: glob and regular-expression analysis, not a theorem prover or an SMT solver.
+
+
 Provides mathematical verification of agent RBAC policies and tool constraints:
 1. Rule Subsumption & Dead Rule Detection: identifies redundant or unreachable rules.
 2. Contradiction & Starvation Detection: flags mutually exclusive allow/block rules.

@@ -1,6 +1,9 @@
 """Post-Quantum Cryptography (NIST ML-DSA / FIPS 204) & Recursive zk-STARK Attestation.
 
-Pillar III & VII of Top 0.001% Sovereign Tier Architecture:
+EXPERIMENTAL, NOT A SECURITY CONTROL. This is a simulation: it is not a FIPS 204 implementation
+and not a STARK proof system. Rely on panoptis.evidence for integrity.
+
+What the simulation models:
 1. Post-Quantum Cryptography: NIST FIPS 204 ML-DSA (Module-Lattice Digital Signature Algorithm)
    implemented via Module-LWE (Learning With Errors) algebraic commitments over modulus Q=8380417.
 2. Recursive zk-STARKs: Transparent, zero-trusted-setup algebraic proofs proving that N agent
@@ -373,7 +376,7 @@ class StarkRecursiveVerifier:
 
 @dataclass
 class SovereignAttestationCertificate:
-    """Unified Tier 0.001% Sovereign Attestation Document."""
+    """Combined attestation document (experimental simulation)."""
 
     certificate_id: str
     platform: EnclavePlatform
@@ -396,7 +399,7 @@ class SovereignAttestationCertificate:
 
 
 class SovereignAttestationEngine:
-    """Top 0.001% Sovereign Attestation Engine: unifies Hardware TEEs, PQC, and zk-STARKs."""
+    """Experimental engine combining the simulated enclave, PQC and STARK attestations."""
 
     def __init__(
         self,

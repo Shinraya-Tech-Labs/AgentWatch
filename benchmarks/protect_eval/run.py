@@ -545,10 +545,20 @@ def environment() -> dict[str, Any]:
             check=False,
             cwd=Path(__file__).resolve().parents[2],
         ).stdout.strip()  # noqa: S603, S607
+        dirty = bool(
+            subprocess.run(
+                ["git", "status", "--porcelain", "--untracked-files=no"],  # noqa: S607 - read-only
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=Path(__file__).resolve().parents[2],
+            ).stdout.strip()
+        )
     except OSError:
-        commit = None
+        commit, dirty = None, False
     return {
         "commit": commit,
+        "uncommitted_changes": dirty,
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "machine": platform.machine(),
@@ -625,7 +635,7 @@ def report(r: dict[str, Any]) -> str:
         "",
         "## Environment",
         "",
-        f"- commit `{env['commit']}`; Python {env['python']}; {env['platform']}; {env['machine']} ({env['processor']}), {env['cpu_count']} CPUs",
+        f"- commit `{env['commit']}`{' plus uncommitted changes' if env.get('uncommitted_changes') else ''}; Python {env['python']}; {env['platform']}; {env['machine']} ({env['processor']}), {env['cpu_count']} CPUs",
         "- packages: " + ", ".join(f"{k} {v}" for k, v in env["packages"].items()),
         f"- seed {env['seed']} (no randomness is used); command: `{env['command']}`",
         "",

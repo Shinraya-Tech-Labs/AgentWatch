@@ -66,7 +66,7 @@ class WitnessChain:
         payload: dict[str, Any] | None = None,
         timestamp: float | None = None,
     ) -> WitnessEntry:
-        """Record and seal a new agent event into the tamper-proof witness chain."""
+        """Record and seal a new agent event into the tamper-evident witness chain."""
         step = len(self._entries) + 1
         ts = timestamp if timestamp is not None else time.time()
         p_bytes = canonical_json_bytes(payload or {})

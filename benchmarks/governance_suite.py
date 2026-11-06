@@ -1,8 +1,8 @@
 """Panoptis (AgentWatch) AI Agent Governance & Runtime Security Benchmark Suite.
 
 Evaluates pre-execution inline latency, OWASP Agentic Top 10 attack detection efficacy,
-false-positive rates, and compares performance against published figures for AEGIS,
-AgentGuard, Microsoft Defender for AI, Lakera Guard, and Langfuse.
+and false-positive rates on a project-written corpus. It reports PANOPTIS only: no other
+system was measured here, so none is compared.
 """
 
 from __future__ import annotations
@@ -444,10 +444,10 @@ def run_governance_benchmark(iterations: int = 1) -> dict[str, Any]:
     fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
     accuracy = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) > 0 else 0.0
 
-    # ── Competitor Reference Benchmarks ──────────────────────────────────────
+    # ── Measured Results ──────────────────────────────────────
     competitors = {
         "Panoptis (AgentWatch)": {
-            "tier": "Top 1% Kernel",
+            "tier": "In-process pipeline",
             "median_latency_ms": round(p50, 2),
             "p99_latency_ms": round(p99, 2),
             "attack_block_rate": f"{recall * 100:.1f}%",
@@ -455,56 +455,11 @@ def run_governance_benchmark(iterations: int = 1) -> dict[str, Any]:
             "llm_inline_calls": 0,
             "architecture": "In-Process AST/Regex Triage + Merkle Ledger",
         },
-        "AEGIS (arXiv 2603.12621)": {
-            "tier": "Top 1% Firewall",
-            "median_latency_ms": 8.30,
-            "p99_latency_ms": 22.40,
-            "attack_block_rate": "100.0%",
-            "false_positive_rate": "1.2%",
-            "llm_inline_calls": 0,
-            "architecture": "Zero-LLM Pre-Execution Argument Decoder",
-        },
-        "AgentGuard": {
-            "tier": "Top 5% Proxy",
-            "median_latency_ms": 18.50,
-            "p99_latency_ms": 48.00,
-            "attack_block_rate": "91.5%",
-            "false_positive_rate": "3.4%",
-            "llm_inline_calls": 0,
-            "architecture": "Stdio MCP Proxy + YAML Policy",
-        },
-        "Microsoft Defender for AI": {
-            "tier": "Top 10% Cloud",
-            "median_latency_ms": 210.00,
-            "p99_latency_ms": 450.00,
-            "attack_block_rate": "94.2%",
-            "false_positive_rate": "2.1%",
-            "llm_inline_calls": 1,
-            "architecture": "Cloud Gateway Proxy (Azure ML Service)",
-        },
-        "Lakera Guard / Zenity": {
-            "tier": "Top 10% Cloud",
-            "median_latency_ms": 68.00,
-            "p99_latency_ms": 145.00,
-            "attack_block_rate": "93.0%",
-            "false_positive_rate": "2.8%",
-            "llm_inline_calls": 0,
-            "architecture": "SaaS HTTP Reverse Proxy Filter",
-        },
-        "Langfuse / Arize Phoenix": {
-            "tier": "Passive OTel",
-            "median_latency_ms": 0.00,
-            "p99_latency_ms": 0.00,
-            "attack_block_rate": "0.0%",
-            "false_positive_rate": "0.0%",
-            "llm_inline_calls": 0,
-            "architecture": "Post-Facto OpenTelemetry Trace Collector",
-        },
     }
 
     # ── Display Results in Rich Table ────────────────────────────────────────
     comp_table = Table(
-        title="AI Agent Governance & Runtime Security: Industry Benchmark",
+        title="PANOPTIS Governance Benchmark",
         header_style="bold magenta",
         border_style="cyan",
     )
@@ -608,24 +563,19 @@ def run_governance_benchmark(iterations: int = 1) -> dict[str, Any]:
 def generate_markdown_report(data: dict[str, Any]) -> str:
     m = data["panoptis_metrics"]
     c = data["industry_comparison"]
-    return f"""# Panoptis AI Agent Governance & Runtime Security: Industry Benchmark Report
+    return f"""# PANOPTIS Governance Benchmark Report
 
 **Benchmark Timestamp:** {data["timestamp"]}  
 **Test Hardware:** {data["platform"]["machine"]} | Python {data["platform"]["python_version"]} ({data["platform"]["os"]})  
-**Evaluation Suite:** 100 Handcrafted Scenarios (50 Safe Baselines, 50 OWASP Agentic Top 10 Exploits)  
+**Evaluation Suite:** 100 project-written synthetic scenarios (50 safe baselines, 50 attacks modelled on the OWASP Agentic Top 10). Not an independent or held-out evaluation.  
 
 ---
 
-## 1. Executive Summary & Competitive Comparison
+## 1. Summary
 
 | System | Architecture Tier | Median Latency (P50) | P99 Latency | Attack Block Rate | False Positive Rate | Inline LLM Calls |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Panoptis (AgentWatch)** | **Top 1% Kernel** | **{c["Panoptis (AgentWatch)"]["median_latency_ms"]} ms** | **{c["Panoptis (AgentWatch)"]["p99_latency_ms"]} ms** | **{c["Panoptis (AgentWatch)"]["attack_block_rate"]}** | **{c["Panoptis (AgentWatch)"]["false_positive_rate"]}** | **0** |
-| **AEGIS (arXiv 2603.12621)** | Top 1% Firewall | 8.30 ms | 22.40 ms | 100.0% | 1.2% | 0 |
-| **AgentGuard** | Top 5% Stdio Proxy | 18.50 ms | 48.00 ms | 91.5% | 3.4% | 0 |
-| **Microsoft Defender for AI** | Top 10% Cloud Gateway | 210.00 ms | 450.00 ms | 94.2% | 2.1% | 1 |
-| **Lakera Guard / Zenity** | Top 10% SaaS Proxy | 68.00 ms | 145.00 ms | 93.0% | 2.8% | 0 |
-| **Langfuse / Phoenix** | Passive OTel Collector | 0.00 ms | 0.00 ms | 0.0% (passive) | 0.0% | 0 |
+| **Panoptis (AgentWatch)** | **In-process pipeline** | **{c["Panoptis (AgentWatch)"]["median_latency_ms"]} ms** | **{c["Panoptis (AgentWatch)"]["p99_latency_ms"]} ms** | **{c["Panoptis (AgentWatch)"]["attack_block_rate"]}** | **{c["Panoptis (AgentWatch)"]["false_positive_rate"]}** | **0** |
 
 ---
 

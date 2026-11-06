@@ -104,8 +104,8 @@ def hero():
         text(476, 36, "What happens", size=13, weight=600, fill=INK),
         accent(324, 56, 112, 272, ""),
         text(380, 178, "PANOPTIS", size=14, weight=600, fill=INK, anchor="middle"),
-        text(380, 198, "one decision", anchor="middle"),
-        text(380, 214, "per tool call,", anchor="middle"),
+        text(380, 198, "decides each", anchor="middle"),
+        text(380, 214, "routed call", anchor="middle"),
         text(380, 230, "before it runs", anchor="middle"),
     ]
     for y, call, verdict, why, colour in rows:
@@ -202,7 +202,7 @@ def architecture():
         arrow("M188 144V198"),
         text(196, 176, "every enforced tool call"),
         container(24, 200, 328, 192, "Enforcement plane: panoptis.protect", tinted=True),
-        box(40, 232, 140, 64, "Pipeline", ["every tool call"]),
+        box(40, 232, 140, 64, "Pipeline", ["each routed call"]),
         box(196, 232, 140, 64, "Approvals", ["digest-bound"]),
         box(40, 312, 140, 64, "Emergency stop", ["and suspensions"]),
         box(196, 312, 140, 64, "Output checks", ["before the agent"]),

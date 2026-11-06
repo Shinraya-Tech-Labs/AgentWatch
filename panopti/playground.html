@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panopti Sentinel — Interactive Hypervisor Playground</title>
+  <title>Panopti Sentinel — Interactive Playground</title>
   <style>
     :root {
       --bg: #090d16;
@@ -447,11 +447,11 @@
       <div class="logo-badge">👁️</div>
       <div>
         <div class="brand-title">PANOPTI <span>SENTINEL</span></div>
-        <div class="brand-tagline">Pre-Execution Runtime Hypervisor & Invariant Court</div>
+        <div class="brand-tagline">Pre-execution checks (local playground)</div>
       </div>
     </div>
     <div>
-      <span class="tag-safe">HYPERVISOR ACTIVE</span>
+      <span class="tag-safe">PLAYGROUND ACTIVE</span>
     </div>
   </header>
 
@@ -495,10 +495,10 @@
       <button class="btn-run" onclick="runIntercept()">Intercept & Execute</button>
     </div>
 
-    <!-- RIGHT: Hypervisor Status & Forensics -->
+    <!-- RIGHT: Status & Forensics -->
     <div class="card status-panel">
       <div class="card-header">
-        <span>2. Hypervisor Runtime Status</span>
+        <span>2. Runtime Status</span>
         <span id="latencyTag" style="font-family: var(--font-mono); font-size: 11px; color: var(--accent);">0.01ms</span>
       </div>
 
@@ -556,7 +556,7 @@
         <div class="log-line" data-tag="INIT" data-veto="false">
           <span class="log-time">[00:00:01]</span>
           <span class="log-tag-info">[INIT]</span>
-          <span>Panopti Pre-Execution Sentinel Hypervisor initialized.</span>
+          <span>Panopti playground initialized.</span>
         </div>
         <div id="emptyLogMsg" class="empty-log-msg" style="display: none;">
           ⚡ No audit events matching current filter or search criteria.
