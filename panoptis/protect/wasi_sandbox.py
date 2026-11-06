@@ -1,5 +1,9 @@
 """WASI & Copy-on-Write (CoW) Micro-Worker Sandbox.
 
+NOT ISOLATION. No WebAssembly runtime is involved and fuel is a counter: functions and commands
+run in the host process's privileges. It provides snapshot and rollback of a workspace.
+
+
 Provides deterministic micro-sandboxed execution for untrusted AI agent actions
 with strict execution fuel ceilings, physical memory boundaries, and automatic
 Copy-on-Write (CoW) snapshot rollback on invariant failure or exception.
@@ -108,7 +112,7 @@ SNAPSHOT_IGNORE_DIRS: frozenset[str] = frozenset(
 
 
 class WorkspaceSnapshot:
-    """Copy-on-Write state tracker for workspace directories with fast-path tree pruning."""
+    """Copy-on-Write state tracker for workspace directories, comparing content hashes."""
 
     def __init__(
         self,
@@ -120,7 +124,6 @@ class WorkspaceSnapshot:
             frozenset(ignore_dirs) if ignore_dirs is not None else SNAPSHOT_IGNORE_DIRS
         )
         self.file_hashes: dict[str, str] = {}
-        self.file_stats: dict[str, tuple[int, int]] = {}  # rel_path -> (mtime_ns, size)
         self.backup_dir = Path(tempfile.mkdtemp(prefix="panoptis_cow_"))
         self._take_snapshot()
 
@@ -143,11 +146,6 @@ class WorkspaceSnapshot:
             for file in files:
                 full_path = Path(root) / file
                 rel_path = full_path.relative_to(self.workspace).as_posix()
-                try:
-                    st = full_path.stat()
-                    self.file_stats[rel_path] = (st.st_mtime_ns, st.st_size)
-                except OSError:
-                    pass
                 fhash = self._hash_file(full_path)
                 self.file_hashes[rel_path] = fhash
 
@@ -170,20 +168,8 @@ class WorkspaceSnapshot:
             for file in files:
                 full_path = Path(root) / file
                 rel_path = full_path.relative_to(self.workspace).as_posix()
-                # Fast-path: if stat (mtime_ns, size) is unchanged, reuse cached hash
-                try:
-                    st = full_path.stat()
-                    stat_key = (st.st_mtime_ns, st.st_size)
-                    if (
-                        rel_path in self.file_stats
-                        and self.file_stats[rel_path] == stat_key
-                        and rel_path in self.file_hashes
-                    ):
-                        current_files[rel_path] = self.file_hashes[rel_path]
-                        continue
-                except OSError:
-                    pass
-
+                # Always hash: mtime and size miss a same-size write in one clock tick, and a
+                # tool can restore them with os.utime.
                 current_files[rel_path] = self._hash_file(full_path)
 
         for rel, fhash in current_files.items():

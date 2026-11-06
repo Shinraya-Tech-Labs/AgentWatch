@@ -1,0 +1,144 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.4",
+  "logical_cpus": 16,
+  "scenarios": {
+    "baseline": {
+      "seconds": 3.819999983534217e-05,
+      "before": {
+        "rss_mib": 66.6796875,
+        "private_mib": 53.21484375
+      },
+      "after": {
+        "rss_mib": 66.6796875,
+        "private_mib": 53.21484375
+      },
+      "grew_rss_mib": 0.0,
+      "grew_private_mib": 0.0,
+      "tenants": 0,
+      "sessions_with_facts": 0,
+      "tracked_files": 0,
+      "sealed_sessions": 0,
+      "history_steps": 0,
+      "history_sessions": 0
+    },
+    "one_tenant_full": {
+      "seconds": 0.42555480000009993,
+      "before": {
+        "rss_mib": 66.671875,
+        "private_mib": 53.23828125
+      },
+      "after": {
+        "rss_mib": 81.37109375,
+        "private_mib": 67.265625
+      },
+      "grew_rss_mib": 14.69921875,
+      "grew_private_mib": 14.02734375,
+      "tenants": 1,
+      "sessions_with_facts": 4096,
+      "tracked_files": 8192,
+      "sealed_sessions": 1,
+      "history_steps": 16388,
+      "history_sessions": 4097
+    },
+    "typical_16_tenants": {
+      "seconds": 8.721082100000785,
+      "before": {
+        "rss_mib": 66.765625,
+        "private_mib": 52.04296875
+      },
+      "after": {
+        "rss_mib": 132.2421875,
+        "private_mib": 117.04296875
+      },
+      "grew_rss_mib": 65.4765625,
+      "grew_private_mib": 65.0,
+      "tenants": 16,
+      "sessions_with_facts": 65536,
+      "tracked_files": 65536,
+      "sealed_sessions": 0,
+      "history_steps": 25000,
+      "history_sessions": 5000
+    },
+    "history_full_of_largest_steps": {
+      "seconds": 7.427233800000067,
+      "before": {
+        "rss_mib": 66.54296875,
+        "private_mib": 52.1484375
+      },
+      "after": {
+        "rss_mib": 762.203125,
+        "private_mib": 749.8359375
+      },
+      "grew_rss_mib": 695.66015625,
+      "grew_private_mib": 697.6875,
+      "tenants": 0,
+      "sessions_with_facts": 0,
+      "tracked_files": 0,
+      "sealed_sessions": 0,
+      "history_steps": 50000,
+      "history_sessions": 50
+    },
+    "latency_at_capacity": {
+      "seconds": 2.3055703999998514,
+      "before": {
+        "rss_mib": 65.73046875,
+        "private_mib": 50.8125
+      },
+      "after": {
+        "rss_mib": 74.8671875,
+        "private_mib": 60.578125
+      },
+      "grew_rss_mib": 9.13671875,
+      "grew_private_mib": 9.765625,
+      "tenants": 1,
+      "sessions_with_facts": 4096,
+      "tracked_files": 4096,
+      "sealed_sessions": 50000,
+      "history_steps": 5000,
+      "history_sessions": 5000,
+      "steps_per_second": 22495.795085983835,
+      "p50_us": 36.80000008898787,
+      "p99_us": 62.00000007083872,
+      "max_us": 716.7000003391877
+    },
+    "all_tenants_full": {
+      "seconds": 130.15604770000027,
+      "before": {
+        "rss_mib": 66.97265625,
+        "private_mib": 52.703125
+      },
+      "after": {
+        "rss_mib": 1956.33203125,
+        "private_mib": 1969.328125
+      },
+      "grew_rss_mib": 1889.359375,
+      "grew_private_mib": 1916.625,
+      "tenants": 256,
+      "sessions_with_facts": 1048576,
+      "tracked_files": 2097152,
+      "sealed_sessions": 256,
+      "history_steps": 20000,
+      "history_sessions": 5000
+    },
+    "everything_full": {
+      "seconds": 146.38259479999942,
+      "before": {
+        "rss_mib": 67.34375,
+        "private_mib": 52.5078125
+      },
+      "after": {
+        "rss_mib": 2669.265625,
+        "private_mib": 2661.04296875
+      },
+      "grew_rss_mib": 2601.921875,
+      "grew_private_mib": 2608.53515625,
+      "tenants": 256,
+      "sessions_with_facts": 1048576,
+      "tracked_files": 2097152,
+      "sealed_sessions": 256,
+      "history_steps": 50000,
+      "history_sessions": 50
+    }
+  }
+}

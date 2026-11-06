@@ -94,7 +94,8 @@ MATRIX: tuple[Support, ...] = (
         "PreToolUse deny/ask/updatedInput; PostToolUse updatedToolOutput",
         "tests/protect/test_claude_hook.py",
         "a hook command that cannot start or times out lets the tool run unless installed "
-        "with onFailure=block (Claude Code 2.1.295+); per-process loop/rate state",
+        "with onFailure=block (Claude Code 2.1.295+); earlier versions fail open; real-CLI "
+        "end-to-end test not run; per-process loop/rate state",
     ),
     Support(
         "MCP servers via the AgentWatch gateway (stdio)",
