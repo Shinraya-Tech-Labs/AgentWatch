@@ -15,7 +15,6 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.pdfgen import canvas
 from reportlab.platypus import (
     HRFlowable,
-    KeepTogether,
     PageBreak,
     Paragraph,
     SimpleDocTemplate,
@@ -32,7 +31,7 @@ class NumberedCanvas(canvas.Canvas):
         super().__init__(*args, **kwargs)
         self._saved_page_states: list[dict] = []
 
-    def showPage(self):
+    def showPage(self):  # noqa: N802
         self._saved_page_states.append(dict(self.__dict__))
         self._startPage()
 
@@ -104,9 +103,6 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
     c_primary = colors.HexColor("#0F172A")  # Slate Navy 900
     c_secondary = colors.HexColor("#1E293B")  # Slate Navy 800
     c_teal = colors.HexColor("#0D9488")  # Teal 600
-    c_emerald = colors.HexColor("#059669")  # Emerald 600
-    c_crimson = colors.HexColor("#DC2626")  # Red 600
-    c_amber = colors.HexColor("#D97706")  # Amber 600
     c_dark_text = colors.HexColor("#1E293B")
     c_muted_text = colors.HexColor("#475569")
     c_light_bg = colors.HexColor("#F8FAFC")
@@ -170,13 +166,6 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
         textColor=c_dark_text,
         spaceAfter=4,
     )
-    bullet_style = ParagraphStyle(
-        "BulletText",
-        parent=body_style,
-        leftIndent=12,
-        firstLineIndent=-8,
-        spaceAfter=3,
-    )
     callout_style = ParagraphStyle(
         "CalloutText",
         parent=base_styles["Normal"],
@@ -209,9 +198,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
         leading=9.8,
         textColor=c_dark_text,
     )
-    tb_bold = ParagraphStyle(
-        "TableCellBold", parent=tb_style, fontName="Helvetica-Bold"
-    )
+    tb_bold = ParagraphStyle("TableCellBold", parent=tb_style, fontName="Helvetica-Bold")
 
     story = []
 
@@ -254,9 +241,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
         ],
         [
             Paragraph("<b>Lead Authors:</b> Shaurya & Antigravity", meta_style),
-            Paragraph(
-                "<b>Technical Reviewer:</b> Sreerevanth (Verified)", meta_style
-            ),
+            Paragraph("<b>Technical Reviewer:</b> Sreerevanth (Verified)", meta_style),
         ],
         [
             Paragraph("<b>Audit Date:</b> November 2026", meta_style),
@@ -309,9 +294,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
     story.append(abstract_table)
     story.append(Spacer(1, 8))
 
-    story.append(
-        Paragraph("1. The Autonomous Frontier & The Agentic Paradox", h1_style)
-    )
+    story.append(Paragraph("1. The Autonomous Frontier & The Agentic Paradox", h1_style))
     story.append(
         HRFlowable(
             width="100%",
@@ -347,9 +330,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
         [
             Paragraph("<b>Capabilities</b>", tb_bold),
             Paragraph("Generates text, markdown, static code", tb_style),
-            Paragraph(
-                "Executes Bash, Python, SQL, REST APIs, Git", tb_style
-            ),
+            Paragraph("Executes Bash, Python, SQL, REST APIs, Git", tb_style),
         ],
         [
             Paragraph("<b>Failure Mode</b>", tb_bold),
@@ -362,9 +343,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
         [
             Paragraph("<b>Defensive Perimeter</b>", tb_bold),
             Paragraph("Input/Output token filtering (Guardrails)", tb_style),
-            Paragraph(
-                "<b>Runtime Hypervisor & Execution Boundary</b>", tb_style
-            ),
+            Paragraph("<b>Runtime Hypervisor & Execution Boundary</b>", tb_style),
         ],
     ]
     comp_table = Table(comp_data, colWidths=[100, 214, 222])
@@ -501,9 +480,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
     story.append(arch_table)
     story.append(Spacer(1, 6))
 
-    story.append(
-        Paragraph("Tri-State Verdict & Human-In-The-Loop Mediation", h2_style)
-    )
+    story.append(Paragraph("Tri-State Verdict & Human-In-The-Loop Mediation", h2_style))
     story.append(
         Paragraph(
             "Unlike binary pass/fail guardrails, Panoptis produces three formal execution verdicts: "
@@ -514,9 +491,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
         )
     )
 
-    story.append(
-        Paragraph("Fail-Closed Invariant & Finite State Machine", h2_style)
-    )
+    story.append(Paragraph("Fail-Closed Invariant & Finite State Machine", h2_style))
     story.append(
         Paragraph(
             "If any safety engine crashes, policy fails to parse, or an unhandled exception occurs, Panoptis enforces "
@@ -531,9 +506,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
     # PAGE 3: MATHEMATICAL & THEORETICAL SUBSYSTEMS
     # =========================================================================
     story.append(PageBreak())
-    story.append(
-        Paragraph("3. Mathematical & Theoretical Subsystems", h1_style)
-    )
+    story.append(Paragraph("3. Mathematical & Theoretical Subsystems", h1_style))
     story.append(
         HRFlowable(
             width="100%",
@@ -544,9 +517,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
         )
     )
 
-    story.append(
-        Paragraph("A. Dual-Lattice Information Flow Control (IFC)", h2_style)
-    )
+    story.append(Paragraph("A. Dual-Lattice Information Flow Control (IFC)", h2_style))
     story.append(
         Paragraph(
             "Panoptis defines two orthogonal security lattices to govern data movement: a <b>Confidentiality Lattice</b> "
@@ -588,9 +559,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
         )
     )
 
-    story.append(
-        Paragraph("B. Metric Temporal Logic (MTL) Trajectory Verification", h2_style)
-    )
+    story.append(Paragraph("B. Metric Temporal Logic (MTL) Trajectory Verification", h2_style))
     story.append(
         Paragraph(
             "Sophisticated attackers execute piecewise attacks across multiple turns. Panoptis maintains bounded LRU state "
@@ -602,9 +571,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
         )
     )
 
-    story.append(
-        Paragraph("C. CUSUM Sequential Drift & Crescendo Defense", h2_style)
-    )
+    story.append(Paragraph("C. CUSUM Sequential Drift & Crescendo Defense", h2_style))
     story.append(
         Paragraph(
             "Crescendo attacks slowly steer an LLM's alignment over dozens of turns using subtle semantic drift. "
@@ -615,9 +582,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
         )
     )
 
-    story.append(
-        Paragraph("D. Zero-Click Exfiltration Defanging & Steganography", h2_style)
-    )
+    story.append(Paragraph("D. Zero-Click Exfiltration Defanging & Steganography", h2_style))
     story.append(
         Paragraph(
             "Convert channels in tool responses are eliminated prior to context ingestion: "
@@ -634,9 +599,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
     # PAGE 4: FORENSIC WITNESS COURT & GOOGLE ECOSYSTEM INTEGRATION
     # =========================================================================
     story.append(PageBreak())
-    story.append(
-        Paragraph("4. Forensic Witness Court & Immutable Evidence", h1_style)
-    )
+    story.append(Paragraph("4. Forensic Witness Court & Immutable Evidence", h1_style))
     story.append(
         HRFlowable(
             width="100%",
@@ -659,9 +622,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
         )
     )
 
-    story.append(
-        Paragraph("5. Google ADK & Framework Integration Matrix", h1_style)
-    )
+    story.append(Paragraph("5. Google ADK & Framework Integration Matrix", h1_style))
     story.append(
         HRFlowable(
             width="100%",
@@ -783,9 +744,7 @@ def build_pdf(filename: str = "PANOPTIS_SECURITY_ARCHITECTURE_WHITEPAPER.pdf") -
     # PAGE 5: EMPIRICAL BENCHMARKS, RUNBOOKS & CONCLUSION
     # =========================================================================
     story.append(PageBreak())
-    story.append(
-        Paragraph("6. Empirical Benchmarks & Engineering Boundaries", h1_style)
-    )
+    story.append(Paragraph("6. Empirical Benchmarks & Engineering Boundaries", h1_style))
     story.append(
         HRFlowable(
             width="100%",
