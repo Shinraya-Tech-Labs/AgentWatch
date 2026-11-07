@@ -97,6 +97,14 @@ MATRIX: tuple[Support, ...] = (
         "with onFailure=block (Claude Code 2.1.295+); per-process loop/rate state",
     ),
     Support(
+        "Google Agent Development Kit (ADK)",
+        PRE,
+        "panoptis.adapters.google_adk",
+        "intercepts tool execution via before_tool_callback / PanoptisADKGuard",
+        "tests/protect/test_google_adk_adapter.py",
+        "callbacks must be attached to the ADK Agent or Runner lifecycle",
+    ),
+    Support(
         "MCP servers via the AgentWatch gateway (stdio)",
         PRE,
         "panoptis.protect.mcp_gateway.run_stdio",

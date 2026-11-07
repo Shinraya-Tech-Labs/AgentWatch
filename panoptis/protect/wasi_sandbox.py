@@ -103,6 +103,8 @@ SNAPSHOT_IGNORE_DIRS: frozenset[str] = frozenset(
         ".ruff_cache",
         ".tox",
         ".mypy_cache",
+        ".panoptis_cow",
+        ".agentwatch",
     }
 )
 
