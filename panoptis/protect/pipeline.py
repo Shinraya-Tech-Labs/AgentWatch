@@ -468,12 +468,13 @@ class ProtectionPipeline:
                         action.tool, action.arguments, scope=action.scope
                     )[1],
                 )
-            if self.stego is not None and not _blocked(findings):
+            stego = self.stego
+            if stego is not None and not _blocked(findings):
 
                 def stego_check() -> list[Finding]:
                     nonlocal mutated
                     target_args = mutated if mutated is not None else action.arguments
-                    stego_res = self.stego.neutralize(target_args)
+                    stego_res = stego.neutralize(target_args)
                     if stego_res.bits_neutralized_est > 0 or stego_res.had_covert_channel:
                         mutated = stego_res.cleaned_payload
                         if stego_res.findings:

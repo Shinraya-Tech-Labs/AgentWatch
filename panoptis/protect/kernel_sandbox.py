@@ -217,7 +217,8 @@ class KernelSandbox:
                 if not p.exists():
                     continue
                 try:
-                    fd = os.open(str(p), os.O_PATH | os.O_CLOEXEC)
+                    o_flags = getattr(os, "O_PATH", 0) | getattr(os, "O_CLOEXEC", 0)
+                    fd = os.open(str(p), o_flags)
                 except OSError:
                     continue
                 try:
@@ -241,7 +242,8 @@ class KernelSandbox:
                 if not p.exists():
                     continue
                 try:
-                    fd = os.open(str(p), os.O_PATH | os.O_CLOEXEC)
+                    o_flags = getattr(os, "O_PATH", 0) | getattr(os, "O_CLOEXEC", 0)
+                    fd = os.open(str(p), o_flags)
                 except OSError:
                     continue
                 try:
