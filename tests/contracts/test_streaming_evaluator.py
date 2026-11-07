@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import UTC, datetime, timedelta
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
@@ -386,3 +387,208 @@ def test_panopti_guard_streaming_evaluator_integration():
     assert guard2.streaming_evaluator is None
     guard2.streaming_evaluator = stream_evaluator
     assert guard2.streaming_evaluator is stream_evaluator
+
+
+@pytest.mark.parametrize("buffered", [False, True], ids=["pending", "buffered"])
+@pytest.mark.parametrize("offset", [-30.001, -30, -1, 0, 1, 5, 5.001, None])
+def test_preceding_witness_occurrence_window(payment_contract, buffered, offset):
+    """Arrival lateness must not extend the inclusive preceding occurrence window."""
+    contract = replace(payment_contract, rule=replace(payment_contract.rule, max_window_seconds=30))
+    evaluator = StreamingContractEvaluator(contracts=[contract], lateness_tolerance_seconds=5)
+    t0 = datetime(2026, 11, 1, 10, tzinfo=UTC)
+    target = make_test_event(
+        "target", "payments.transfer", t0, "obs-target", {"transaction_id": "tx"}
+    )
+    witness = make_test_event(
+        "approval", "approval.granted", t0, "obs-approval", {"transaction_id": "tx"}
+    )
+    witness = replace(
+        witness,
+        time=TemporalInfo(start=t0 + timedelta(seconds=offset) if offset is not None else None),
+    )
+    events = [witness, target] if buffered else [target, witness]
+    deltas = [delta for event in events for delta in evaluator.ingest(event)]
+    supported = offset is not None and -30 <= offset <= 0
+
+    if supported:
+        assert len(deltas) == 1
+        delta = deltas[0]
+        assert delta.contract_name == contract.name
+        assert delta.target_event_id == target.event_id
+        assert delta.previous_state == ObligationState.PENDING
+        assert delta.current_state == ObligationState.SUPPORTED
+        assert delta.verdict == EvidenceVerdict.SUPPORTED
+        assert set(delta.witness_ids) == {"obs-target", "obs-approval"}
+        assert evaluator.pending_count == 0
+    else:
+        assert deltas == []
+        assert evaluator.pending_count == 1
+        assert evaluator.get_pending_obligations()[0].state == ObligationState.PENDING
+
+    assessment = evaluator.assess()[0]
+    assert assessment.verdict == (
+        EvidenceVerdict.SUPPORTED if supported else EvidenceVerdict.INCONCLUSIVE
+    )
+    assert set(assessment.support_obs_ids) == (
+        {"obs-target", "obs-approval"} if supported else set()
+    )
+    assert evaluator.ingest(witness) == []  # retained duplicate cannot emit another transition
+    if offset == 1:
+        assert evaluate_contract(events, contract).verdict == EvidenceVerdict.REFUTED
+
+
+@pytest.mark.parametrize(
+    "target_naive,witness_naive", [(False, False), (True, False), (False, True), (True, True)]
+)
+def test_preceding_witness_timezone_normalization(payment_contract, target_naive, witness_naive):
+    """Naive timestamps mean UTC; offset-aware instants retain their actual meaning."""
+    evaluator = StreamingContractEvaluator(contracts=[payment_contract])
+    t0 = datetime(2026, 11, 1, 10, tzinfo=UTC)
+    target_time = (
+        t0.replace(tzinfo=None) if target_naive else t0.astimezone(timezone(timedelta(hours=-4)))
+    )
+    witness_time = t0 - timedelta(seconds=1)
+    witness_time = (
+        witness_time.replace(tzinfo=None)
+        if witness_naive
+        else witness_time.astimezone(timezone(timedelta(hours=5, minutes=30)))
+    )
+    target = make_test_event(
+        "target", "payments.transfer", t0, "obs-target", {"transaction_id": "tx"}
+    )
+    witness = make_test_event(
+        "approval", "approval.granted", t0, "obs-approval", {"transaction_id": "tx"}
+    )
+    target = replace(target, time=TemporalInfo(start=target_time))
+    witness = replace(witness, time=TemporalInfo(start=witness_time))
+    assert evaluator.ingest(target) == []
+    deltas = evaluator.ingest(witness)
+    assert len(deltas) == 1
+    assert deltas[0].verdict == EvidenceVerdict.SUPPORTED
+    assert set(deltas[0].witness_ids) == {"obs-target", "obs-approval"}
+    assert evaluator.assess()[0].verdict == EvidenceVerdict.SUPPORTED
+
+
+@pytest.mark.parametrize("witness_time", [None, datetime(1970, 1, 1, tzinfo=UTC)])
+def test_preceding_undated_target_cannot_be_supported(payment_contract, witness_time):
+    evaluator = StreamingContractEvaluator(contracts=[payment_contract])
+    t0 = datetime(2026, 11, 1, 10, tzinfo=UTC)
+    target = make_test_event(
+        "target", "payments.transfer", t0, "obs-target", {"transaction_id": "tx"}
+    )
+    target = replace(target, time=TemporalInfo(start=None))
+    witness = make_test_event(
+        "approval", "approval.granted", t0, "obs-approval", {"transaction_id": "tx"}
+    )
+    witness = replace(witness, time=TemporalInfo(start=witness_time))
+    assert evaluator.ingest(target) == []
+    assert all(d.verdict != EvidenceVerdict.SUPPORTED for d in evaluator.ingest(witness))
+    assessment = evaluator.assess()[0]
+    assert assessment.verdict == EvidenceVerdict.INCONCLUSIVE
+    assert assessment.support_obs_ids == ()
+
+
+def test_preceding_invalid_candidates_leave_room_for_valid_delayed_witness(payment_contract):
+    evaluator = StreamingContractEvaluator(contracts=[payment_contract])
+    t0 = datetime(2026, 11, 1, 10, tzinfo=UTC)
+    target = make_test_event(
+        "target", "payments.transfer", t0, "obs-target", {"transaction_id": "tx"}
+    )
+    assert evaluator.ingest(target) == []
+    for eid, op, offset, tx in [
+        ("later", "approval.granted", 1, "tx"),
+        ("wrong-op", "other.operation", -1, "tx"),
+        ("wrong-tx", "approval.granted", -1, "other"),
+    ]:
+        assert (
+            evaluator.ingest(
+                make_test_event(
+                    eid, op, t0 + timedelta(seconds=offset), eid, {"transaction_id": tx}
+                )
+            )
+            == []
+        )
+        assert evaluator.pending_count == 1
+    valid = make_test_event(
+        "valid",
+        "approval.granted",
+        t0 - timedelta(seconds=1),
+        "obs-valid",
+        {"transaction_id": "tx"},
+    )
+    deltas = evaluator.ingest(valid)
+    assert len(deltas) == 1
+    assert set(deltas[0].witness_ids) == {"obs-target", "obs-valid"}
+    assert evaluator.ingest(valid) == []
+    assessment = evaluator.assess()[0]
+    assert assessment.verdict == EvidenceVerdict.SUPPORTED
+    assert set(assessment.support_obs_ids) == {"obs-target", "obs-valid"}
+
+
+def test_preceding_each_pending_target_uses_its_own_time(payment_contract):
+    evaluator = StreamingContractEvaluator(contracts=[payment_contract])
+    t0 = datetime(2026, 11, 1, 10, tzinfo=UTC)
+    for eid, offset in [("first", 0), ("second", 2)]:
+        assert (
+            evaluator.ingest(
+                make_test_event(
+                    eid,
+                    "payments.transfer",
+                    t0 + timedelta(seconds=offset),
+                    eid,
+                    {"transaction_id": "tx"},
+                )
+            )
+            == []
+        )
+    deltas = evaluator.ingest(
+        make_test_event(
+            "approval",
+            "approval.granted",
+            t0 + timedelta(seconds=1),
+            "obs-approval",
+            {"transaction_id": "tx"},
+        )
+    )
+    assert [d.target_event_id for d in deltas] == ["second"]
+    assert set(deltas[0].witness_ids) == {"second", "obs-approval"}
+    assert [ob.target_event.event_id for ob in evaluator.get_pending_obligations()] == ["first"]
+    assert evaluator.assess()[0].verdict == EvidenceVerdict.INCONCLUSIVE
+
+
+@pytest.mark.parametrize("operator", list(ContractOperator))
+@pytest.mark.parametrize("offset,supported", [(0, True), (30, True), (30.001, False)])
+def test_temporal_window_expiration_and_future_contracts(
+    email_contract, operator, offset, supported
+):
+    contract = replace(email_contract, rule=replace(email_contract.rule, operator=operator))
+    # Preceding uses a zero-width window here to check equality independently of lateness.
+    if operator == ContractOperator.PRECEDING_EVENT:
+        contract = replace(contract, rule=replace(contract.rule, max_window_seconds=0))
+        supported = offset == 0
+    evaluator = StreamingContractEvaluator(contracts=[contract], lateness_tolerance_seconds=5)
+    t0 = datetime(2026, 11, 1, 10, tzinfo=UTC)
+    target = make_test_event("target", "order.placed", t0, "obs-target", {"order_id": "order"})
+    witness = make_test_event(
+        "witness",
+        "email.sent",
+        t0 + timedelta(seconds=offset),
+        "obs-witness",
+        {"order_id": "order"},
+    )
+    assert evaluator.ingest(target) == []
+    deltas = evaluator.ingest(witness)
+    assert any(d.verdict == EvidenceVerdict.SUPPORTED for d in deltas) == supported
+    tick = make_test_event("tick", "heartbeat", t0 + timedelta(seconds=60))
+    expired = evaluator.ingest(tick)
+    assert evaluator.pending_count == 0
+    if not supported:
+        assert len(expired) + len(deltas) == 1
+        assert (expired + deltas)[0].verdict == EvidenceVerdict.INCONCLUSIVE
+    assessment = evaluator.assess()[0]
+    assert assessment.verdict == (
+        EvidenceVerdict.SUPPORTED if supported else EvidenceVerdict.INCONCLUSIVE
+    )
+    assert set(assessment.support_obs_ids) == (
+        {"obs-target", "obs-witness"} if supported else set()
+    )
