@@ -44,7 +44,7 @@ httpx2==2.16.0
 huggingface_hub==2.4.0
 hyperframe==6.1.0
 idna==3.20
-importlib_metadata==8.9.0
+importlib_metadata==10.1.0
 Jinja2==3.1.6
 jiter==0.18.0
 jmespath==1.1.0
