@@ -1,0 +1,68 @@
+name: Landing page
+
+# Builds agentwatch-landing as a static export and deploys it to GitHub Pages.
+# Runs on pushes that touch the site, daily (the contributors page is built from the GitHub
+# API at build time), and by hand.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "agentwatch-landing/**"
+      - ".github/workflows/landing.yml"
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agentwatch-landing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: agentwatch-landing/package-lock.json
+      - name: Pages base path
+        id: pages
+        uses: actions/configure-pages@v5
+      - run: npm ci
+      - name: Build (static export)
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          NEXT_PUBLIC_SITE_URL: ${{ steps.pages.outputs.base_url }}
+          # read-only, build time only: raises the API rate limit for the contributors page
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # next/font downloads fonts at build time, which fails intermittently on runners
+        run: npm run build || { echo "::warning::build failed, retrying once"; sleep 20; npm run build; }
+      - name: Every page and the demo video are in the export
+        run: |
+          test -f out/index.html && test -f out/demo.webm && test -f out/contributors/index.html
+          touch out/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: agentwatch-landing/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

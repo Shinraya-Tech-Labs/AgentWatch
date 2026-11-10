@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@theme {
+  --font-display: var(--font-archivo), "Arial Black", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
 :root {
   --bg: #0a0a0a;
   --accent: #e8ff47;
@@ -15,21 +20,16 @@
 }
 
 html {
-  background: var(--bg);
-  color: var(--text);
+  background: #fff6da;
+  color: #000;
   scroll-behavior: auto; /* Lenis handles smooth scroll */
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: #fff6da;
+  color: #000;
   font-family: var(--font-inter, 'Inter', sans-serif);
   overflow-x: hidden;
-}
-
-/* Headings use Syne */
-h1, h2, h3, h4 {
-  font-family: var(--font-syne, 'Syne', sans-serif);
 }
 
 /* Code uses JetBrains Mono */

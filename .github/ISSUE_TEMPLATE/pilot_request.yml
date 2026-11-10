@@ -1,0 +1,41 @@
+name: Pilot with us
+description: Run PANOPTIS on your team's agents with help from the maintainers.
+title: "Pilot: <your team or company>"
+labels: ["pilot"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your interest. This issue is public: describe your setup in general terms and leave out anything confidential. We will follow up here.
+  - type: input
+    id: who
+    attributes:
+      label: Team or company
+    validations:
+      required: true
+  - type: textarea
+    id: agents
+    attributes:
+      label: Your agents
+      description: Frameworks (OpenAI Agents SDK, LangGraph, Claude Code, MCP, ...), what tools they call, and roughly how many runs a day.
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: What you want stopped or reviewed
+      description: For example destructive commands, data exfiltration, prompt injection, actions that need a human.
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: Where it would run
+      options:
+        - On developers' machines (panoptis up)
+        - Self-hosted server (Docker Compose)
+        - Kubernetes (Helm)
+        - Not sure yet
+  - type: input
+    id: contact
+    attributes:
+      label: How to reach you (optional)
+      description: Leave it empty to keep the conversation in this issue.

