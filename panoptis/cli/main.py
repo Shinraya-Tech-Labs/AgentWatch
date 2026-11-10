@@ -2012,6 +2012,34 @@ def verify_env() -> None:
     verify_environment()
 
 
+@app.command(name="validate")
+def validate_events(file: Path = typer.Argument(..., help="JSONL file of events")) -> None:
+    """[bold]Validate[/bold] a telemetry event stream envelope and timestamps."""
+    from panoptis.validation.envelope import validate_event_stream
+
+    events = []
+    with file.open("r", encoding="utf-8") as fh:
+        for line_no, raw_line in enumerate(fh, start=1):
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                events.append(json.loads(line))
+            except json.JSONDecodeError as exc:
+                console.print(
+                    f"[red]Invalid JSON on line {line_no}:[/red] {exc.msg}"
+                )
+                raise typer.Exit(1)
+
+    report = validate_event_stream(events)
+    console.print(f"Events: {report.total}")
+    console.print(f"Valid: {report.valid}")
+    for w in report.warnings:
+        console.print(f"[yellow]{w.code}[/yellow] {w.message} (event={w.event_id})")
+    if not report.valid:
+        raise typer.Exit(1)
+
+
 # ─────────────────────────────────────────────
 # redteam command
 # ─────────────────────────────────────────────
