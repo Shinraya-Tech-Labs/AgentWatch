@@ -206,7 +206,8 @@ export default function Home() {
                 <li>
                   {s.evidence.head ? (
                     <span>
-                      Evidence: {s.evidence.segments} sealed segments ·{' '}
+                      Evidence: {s.evidence.segments} sealed segment
+                      {s.evidence.segments === 1 ? '' : 's'} ·{' '}
                       <Link className="text-sky-200 underline" href="/security/evidence">
                         verify
                       </Link>

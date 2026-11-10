@@ -122,11 +122,11 @@ function NavLinks({ pathname, onPick }: { pathname: string; onPick?: () => void 
   );
 }
 
-function ProfileSwitch() {
+function ProfileSwitch({ className = '' }: { className?: string }) {
   const { profiles, active } = useProfiles();
   if (profiles.length < 2) return null;
   return (
-    <label className="flex items-center gap-1.5 text-xs text-zinc-300">
+    <label className={`items-center gap-1.5 text-xs text-zinc-300 ${className}`}>
       <span className="sr-only">Viewing</span>
       <select
         aria-label="viewing"
@@ -186,7 +186,7 @@ export function Chrome({
           </div>
           <div className="ml-auto flex items-center gap-2">
             {toolbar}
-            <ProfileSwitch />
+            <ProfileSwitch className="hidden md:flex" />
             <Connection status={status} hasKey={!!key} />
             {key && !active ? (
               <button
@@ -211,6 +211,7 @@ export function Chrome({
         {menu ? (
           <div id="mobile-nav" className="border-t border-white/10 px-4 pb-3 md:hidden">
             <div className="flex flex-col gap-0.5 pt-2">
+              <ProfileSwitch className="flex px-3 pb-2" />
               <NavLinks pathname={pathname} onPick={() => setMenu(false)} />
               <p className="px-3 pt-3 text-xs uppercase tracking-wider text-zinc-400">Advanced</p>
               {ADVANCED_VIEWS.map((v) => (

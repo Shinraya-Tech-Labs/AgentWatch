@@ -28,12 +28,6 @@ body {
   margin: 0;
   color: #f4f4f5;
   background-color: var(--bg-0);
-  background-image:
-    radial-gradient(60rem 40rem at 8% -10%, rgba(56, 189, 248, 0.22), transparent 60%),
-    radial-gradient(50rem 36rem at 105% 5%, rgba(168, 85, 247, 0.2), transparent 60%),
-    radial-gradient(48rem 40rem at 50% 115%, rgba(16, 185, 129, 0.14), transparent 60%),
-    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 70%);
-  background-attachment: fixed;
   font-family:
     ui-sans-serif,
     system-ui,
@@ -42,6 +36,22 @@ body {
     'Segoe UI',
     sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* the gradient lives on a fixed layer: background-attachment: fixed is ignored on mobile,
+   where the backdrop would otherwise end partway down a long page */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(60rem 40rem at 8% -10%, rgba(56, 189, 248, 0.22), transparent 60%),
+    radial-gradient(50rem 36rem at 105% 5%, rgba(168, 85, 247, 0.2), transparent 60%),
+    radial-gradient(48rem 40rem at 50% 115%, rgba(16, 185, 129, 0.14), transparent 60%),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 70%);
 }
 
 * {
