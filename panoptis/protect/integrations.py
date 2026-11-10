@@ -13,6 +13,8 @@ LangGraph          every tool of a ``ToolNode``            ``ActionBlocked`` (th
                    (via the LangChain wrapper)             error handling decides)
 smolagents         ``Tool.forward``                        ``ActionBlocked`` from the tool
 AutoGen            ``FunctionTool.run_json`` (async)       ``ActionBlocked`` from run_json
+OpenAI Agents SDK  ``FunctionTool.on_invoke_tool``         a refusal text returned to the
+                                                           model (or ``ActionBlocked``)
 =================  =====================================  ==============================
 
 Identity (agent, session, tenant, objective) comes from the arguments given here or from
@@ -250,6 +252,136 @@ def protect_autogen_tool(
     return tool
 
 
+# ── OpenAI Agents SDK (openai-agents) ──────────────────────────────────────────────────
+
+_ON_BLOCK = ("message", "raise")
+
+
+def _blocked_message(blocked: Any) -> str:
+    d = blocked.decision
+    verdict = getattr(d.verdict, "value", str(d.verdict))
+    return (
+        f"PANOPTIS refused this tool call ({verdict}): {d.reason}. "
+        "The tool did not run. Do not retry it; continue with the task another way or stop."
+    )
+
+
+def protect_openai_agents_tool(
+    tool: Any,
+    *,
+    pipeline: ProtectionPipeline | None = None,
+    on_block: str = "message",
+    **ident: Any,
+) -> Any:
+    """Protect an OpenAI Agents SDK ``FunctionTool`` in place.
+
+    The SDK runs a function tool through ``on_invoke_tool(ctx, json_input)``; that is the
+    call wrapped here, so a refused call never reaches the tool body. The model's JSON
+    arguments are decided on (and may be rewritten by a mutating stage) before the tool
+    receives them, and the tool's output is inspected before the model reads it.
+
+    ``on_block="message"`` (default) returns a refusal text to the model, so the run goes on
+    without the call; ``"raise"`` lets :class:`ActionBlocked` end the run. Either way the
+    tool does not run. A call held for approval waits for a person in both modes.
+
+    Hosted tools (web search, file search, computer use, code interpreter) execute on
+    OpenAI's side and have no ``on_invoke_tool``: they cannot be protected here, and
+    :func:`protect_openai_agent` refuses to report them as covered.
+    """
+    import json
+
+    from panoptis.protect.model import ActionBlocked
+
+    if on_block not in _ON_BLOCK:
+        raise ValueError(f"on_block must be one of {_ON_BLOCK}, not {on_block!r}")
+    original = getattr(tool, "on_invoke_tool", None)
+    if not callable(original):
+        raise TypeError(
+            f"{type(tool).__qualname__} has no on_invoke_tool: only FunctionTool can be protected"
+        )
+    if _mark(tool):
+        return tool
+    name = getattr(tool, "name", type(tool).__name__)
+
+    async def on_invoke_tool(ctx: Any, raw: str, *rest: Any, **kw: Any) -> Any:
+        try:
+            parsed = json.loads(raw) if raw else {}
+        except (TypeError, ValueError):
+            parsed = {"_raw": raw}  # still decided on; the tool gets the original text
+        arguments = parsed if isinstance(parsed, dict) else {"_input": parsed}
+
+        async def invoke(decided: dict[str, Any]) -> Any:
+            if decided == arguments:
+                payload = raw
+            elif set(decided) == {"_raw"}:
+                payload = str(decided["_raw"])
+            elif set(decided) == {"_input"}:
+                payload = json.dumps(decided["_input"])
+            else:
+                payload = json.dumps(decided)
+            result = original(ctx, payload, *rest, **kw)
+            return await result if inspect.isawaitable(result) else result
+
+        try:
+            return await aenforce_call(
+                pipeline or get_default_pipeline(),
+                _action(name, arguments, "adapter:openai_agents", ident),
+                invoke,
+            )
+        except ActionBlocked as blocked:
+            if on_block == "raise":
+                raise
+            return _blocked_message(blocked)
+
+    try:
+        object.__setattr__(tool, "on_invoke_tool", on_invoke_tool)
+    except (AttributeError, TypeError) as exc:  # frozen: refuse rather than leave it open
+        raise TypeError(f"cannot protect {name!r}: on_invoke_tool is read-only") from exc
+    return tool
+
+
+def protect_openai_agent(
+    agent: Any,
+    *,
+    pipeline: ProtectionPipeline | None = None,
+    on_block: str = "message",
+    **ident: Any,
+) -> int:
+    """Protect every function tool of an OpenAI Agents SDK ``Agent`` and its handoffs.
+
+    Returns how many tools are now protected. Raises ``ValueError`` if the agent (or a
+    handoff target) holds a tool that cannot be protected, such as a hosted tool, so a
+    caller who asked for enforcement is never left with partial coverage it did not see.
+    MCP servers attached through ``Agent.mcp_servers`` are not tools of the agent: route
+    them through ``panoptis protect mcp-gateway`` instead.
+    """
+    count, seen, unprotectable = 0, set(), []
+
+    def walk(a: Any) -> None:
+        nonlocal count
+        if id(a) in seen:
+            return
+        seen.add(id(a))
+        for t in getattr(a, "tools", None) or []:
+            if callable(getattr(t, "on_invoke_tool", None)):
+                protect_openai_agents_tool(t, pipeline=pipeline, on_block=on_block, **ident)
+                count += 1
+            else:
+                unprotectable.append(getattr(t, "name", type(t).__name__))
+        for h in getattr(a, "handoffs", None) or []:
+            walk(getattr(h, "agent", None) or h)
+
+    walk(agent)
+    if unprotectable:
+        raise ValueError(
+            "these tools run outside this process and cannot be protected: "
+            + ", ".join(sorted(set(unprotectable)))
+        )
+    if count == 0:
+        raise ValueError("protection requested but the agent has no function tools")
+    return count
+
+
 def protect_tools(tools: Any, *, pipeline: ProtectionPipeline | None = None, **ident: Any) -> Any:
     """Protect a tool or a collection of tools from any supported framework."""
     if isinstance(tools, dict):
@@ -267,6 +399,8 @@ def protect_tools(tools: Any, *, pipeline: ProtectionPipeline | None = None, **i
         return protect_smolagents_tool(tools, pipeline=pipeline, **ident)
     if mod.startswith("autogen"):
         return protect_autogen_tool(tools, pipeline=pipeline, **ident)
+    if mod.startswith("agents") and callable(getattr(tools, "on_invoke_tool", None)):
+        return protect_openai_agents_tool(tools, pipeline=pipeline, **ident)
     raise TypeError(
         f"unsupported tool type {type(tools).__qualname__}; use protect_tool() for plain callables"
     )
@@ -308,6 +442,8 @@ def protect_agent(
         items = tools.values() if isinstance(tools, dict) else tools or []
         count = sum(1 for t in items if getattr(t, "name", "") != "final_answer")
         protect_smolagents_agent(agent, pipeline=pipeline, **ident)
+    elif framework in ("openai_agents", "openai-agents"):
+        return protect_openai_agent(agent, pipeline=pipeline, **ident)
     else:
         raise ValueError(
             f"no tool-level enforcement for framework {framework!r}; use protect_tool()"

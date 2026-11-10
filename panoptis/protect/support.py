@@ -163,12 +163,21 @@ MATRIX: tuple[Support, ...] = (
         "observation only; no tool-level enforcement yet",
     ),
     Support(
-        "OpenAI Agents SDK",
+        "OpenAI Agents SDK function tools / agents",
+        PRE,
+        "panoptis.protect.integrations.protect_openai_agent",
+        "FunctionTool.on_invoke_tool (agent tools and handoff targets)",
+        "tests/protect/test_openai_agents_integration.py",
+        "hosted tools (web/file search, computer use, code interpreter) run on OpenAI's side and "
+        "are refused, not covered; Agent.mcp_servers route through the MCP gateway instead",
+    ),
+    Support(
+        "OpenAI Agents SDK adapter (observability)",
         POST,
         "panoptis.adapters.openai_agents",
         "lifecycle hooks",
         None,
-        "observation only",
+        "observation only; use protect_openai_agent for enforcement",
     ),
     Support(
         "AutoGPT", POST, "panoptis.adapters.autogpt", "event translation", None, "observation only"
