@@ -1,4 +1,4 @@
-name: AgentWatch CI
+name: PANOPTIS CI
 
 on:
   push:
@@ -294,7 +294,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - name: Build, clean install (wheel and sdist), smoke test, pip-audit
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build the static dashboard shipped in the wheel
+        working-directory: frontend
+        run: npm ci && npm run build:static
+      - name: Build, clean install (wheel and sdist), smoke test incl. panoptis up, pip-audit
         run: sh scripts/clean_install.sh python
       - name: Metadata check
         run: |

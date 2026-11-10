@@ -26,6 +26,8 @@ REQUIRED_IN_WHEEL = (
     "panoptis/protect/enforce.py",
     "panoptis/protect/claude_hook_entry.py",
     "panoptis/evidence/verifier.py",
+    # the dashboard `panoptis up` serves (frontend: npm run build:static, before the build)
+    "panoptis/_dashboard/index.html",
 )
 FORBIDDEN_IN_SDIST = (
     "agentwatch-landing/",
