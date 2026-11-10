@@ -22,6 +22,7 @@ PACKAGES = ("panoptis", "panopti")
 # import name -> distribution name, where they differ and the distribution is not installed
 KNOWN = {
     "yaml": "pyyaml",
+    "agents": "openai-agents",
     "jwt": "pyjwt",
     "psycopg": "psycopg",
     "google": "protobuf",

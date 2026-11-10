@@ -132,7 +132,7 @@ Nothing expires with time, because an attacker could simply wait. `release_sessi
 
 ### Measured memory
 
-These are operating-system figures from fresh processes at the default limits, on Python 3.12 and Windows 11. They cover the verifier only, not the rest of the API process. Run `python -m benchmarks.trajectory_memory` to measure your own platform. The [full report](../benchmarks/results/trajectory_memory/REPORT.md) has every scenario.
+These are operating-system figures from fresh processes at the default limits, on Python 3.12 and Windows 11. They cover the verifier only, not the rest of the API process. Run `python -m benchmarks.trajectory_memory` to measure your own platform. The [full report](https://github.com/Shinraya-Tech-Labs/AgentWatch/blob/main/benchmarks/results/trajectory_memory/REPORT.md) has every scenario.
 
 | Load | Resident memory added |
 |---|---:|
