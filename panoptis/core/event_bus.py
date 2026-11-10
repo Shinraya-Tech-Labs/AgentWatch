@@ -1,5 +1,5 @@
 """
-AgentWatch Event Bus
+PANOPTIS Event Bus
 Central publish/subscribe system for all agent events.
 Supports sync and async handlers, filtering, and persistence hooks.
 """
@@ -96,7 +96,7 @@ class HandlerRegistration:
 
 class EventBus:
     """
-    Central event bus for AgentWatch.
+    Central event bus for PANOPTIS.
 
     Usage:
         bus = EventBus()

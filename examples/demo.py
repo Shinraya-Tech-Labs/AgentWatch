@@ -4,7 +4,7 @@
 Run it with no setup at all::
 
     pip install panoptis
-    python demo.py
+    python examples/demo.py
 
 No Docker, no ``.env``, no API keys. It uses AgentWatch's built-in safety
 auditor (zero config) to score each step a simulated agent proposes, and stops

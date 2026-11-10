@@ -1,4 +1,4 @@
-"""Configuration for AgentWatch Cloud multi-tenant deployments."""
+"""Configuration for PANOPTIS Cloud multi-tenant deployments."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 
 @dataclass
 class CloudConfig:
-    """AgentWatch Cloud configuration loaded from environment variables."""
+    """PANOPTIS Cloud configuration loaded from environment variables."""
 
     # Deployment
     environment: str = field(default_factory=lambda: os.getenv("AGENTWATCH_ENV", "development"))

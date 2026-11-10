@@ -16,7 +16,7 @@ from panoptis.evidence.model import ClockInfo, ObservationDraft, SensorRef, pars
 
 TRANSLATOR_VERSION = "1"
 
-# v0.2 event types that carry AgentWatch v0.2 *conclusions*, not observations.
+# v0.2 event types that carry PANOPTIS v0.2 *conclusions*, not observations.
 INTERPRETATION_TYPES = frozenset(
     {
         "safety.check",

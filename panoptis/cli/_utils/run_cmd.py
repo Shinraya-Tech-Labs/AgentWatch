@@ -1,5 +1,5 @@
 """
-Central command execution utility for AgentWatch CLI.
+Central command execution utility for PANOPTIS CLI.
 Validates arguments against a strict whitelist to prevent command-injection risks.
 """
 

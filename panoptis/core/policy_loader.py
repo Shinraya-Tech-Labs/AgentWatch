@@ -30,7 +30,7 @@ POLICY_FILENAME = ".agentwatch-safety.yml"
 
 #: Scaffold written by ``safety config generate``. Matches the policy_dsl schema.
 DEFAULT_POLICY_YAML = """\
-# AgentWatch safety policy — customize how commands are treated in this repo.
+# PANOPTIS safety policy — customize how commands are treated in this repo.
 # Rules are evaluated top-to-bottom; the first matching rule wins.
 # Conditions may reference: tool, command, confidence, risk, framework.
 # Actions: allow | block | require_approval | pause_and_alert | log_only
@@ -51,7 +51,7 @@ rules:
 
 
 def config_dir() -> Path:
-    """Return the AgentWatch config directory (``~/.agentwatch`` by default)."""
+    """Return the PANOPTIS config directory (``~/.agentwatch`` by default)."""
     override = os.getenv("AGENTWATCH_CONFIG_DIR")
     return Path(override) if override else Path.home() / ".agentwatch"
 

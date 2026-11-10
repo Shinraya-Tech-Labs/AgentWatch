@@ -2,7 +2,7 @@
 
 Every decision, output inspection, approval request/resolution, kill-switch change,
 policy change and discovery scan is appended as an observation (``source_kind``
-``protect.*``) to the same immutable store the rest of AgentWatch uses. That gives the
+``protect.*``) to the same immutable store the rest of PANOPTIS uses. That gives the
 security trail the store's guarantees with no second mechanism:
 
 * append-only, enforced by database triggers;

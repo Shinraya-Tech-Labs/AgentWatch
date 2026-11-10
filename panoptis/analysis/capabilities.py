@@ -60,8 +60,8 @@ def _define() -> None:
             "events.normalization.otel_extension",
             "1",
             E,
-            "AgentWatch panoptis.* OTel attributes: artifact operations, declared lineage "
-            "(ADR-0018; AgentWatch's own convention, not an OTel standard)",
+            "PANOPTIS panoptis.* OTel attributes: artifact operations, declared lineage "
+            "(ADR-0018; PANOPTIS's own convention, not an OTel standard)",
             ("tests/v3/test_normalizers.py",),
         ),
         (

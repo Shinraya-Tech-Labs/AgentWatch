@@ -1,5 +1,5 @@
 """
-AgentWatch OpenAI Agents SDK Adapter
+PANOPTIS OpenAI Agents SDK Adapter
 """
 
 from __future__ import annotations

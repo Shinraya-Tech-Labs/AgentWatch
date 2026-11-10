@@ -186,7 +186,7 @@ class Store:
                 )
             elif int(existing) > s.SCHEMA_VERSION:
                 raise RuntimeError(
-                    f"store schema {existing} is newer than this AgentWatch ({s.SCHEMA_VERSION})"
+                    f"store schema {existing} is newer than this PANOPTIS ({s.SCHEMA_VERSION})"
                 )
 
     def close(self) -> None:

@@ -1,4 +1,4 @@
-"""AgentWatch security alias for Egress Guard."""
+"""PANOPTIS security alias for Egress Guard."""
 
 from __future__ import annotations
 

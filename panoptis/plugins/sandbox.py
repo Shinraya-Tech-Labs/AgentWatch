@@ -1,4 +1,4 @@
-"""Plugin sandbox for AgentWatch.
+"""Plugin sandbox for PANOPTIS.
 
 Provides PermissionEnforcer: a lightweight runtime guard that enforces
 plugin permission manifests by wrapping subprocess execution, filesystem

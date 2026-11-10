@@ -1,15 +1,15 @@
 """Local agent and MCP discovery (TO-024).
 
 Finds agent runtimes and MCP servers on this machine and says, for each one, whether
-AgentWatch actually enforces on it. Detection is never taken as protection:
+PANOPTIS actually enforces on it. Detection is never taken as protection:
 
 ``MONITORED``    evidence that enforcement is in place: an MCP server whose configured
-                 command runs the AgentWatch gateway, a Claude Code settings file with the
-                 AgentWatch PreToolUse hook, a running AgentWatch gateway process.
+                 command runs the PANOPTIS gateway, a Claude Code settings file with the
+                 PANOPTIS PreToolUse hook, a running PANOPTIS gateway process.
 ``UNMONITORED``  a supported runtime or MCP server without that evidence.
 ``UNKNOWN``      the status cannot be determined (a URL-only server, an unreadable file,
                  a process whose working directory cannot be read).
-``UNSUPPORTED``  a known runtime AgentWatch has no enforcement integration for (its own
+``UNSUPPORTED``  a known runtime PANOPTIS has no enforcement integration for (its own
                  built-in tools run outside any hook; only MCP servers behind the gateway
                  are covered).
 
@@ -197,7 +197,7 @@ def classify_server(runtime: str, name: str, spec: Any, source: str) -> Discover
             MONITORED,
             source,
             0.95,
-            "the configured command runs the AgentWatch MCP gateway",
+            "the configured command runs the PANOPTIS MCP gateway",
             details=details,
         )
     if url:
@@ -208,7 +208,7 @@ def classify_server(runtime: str, name: str, spec: Any, source: str) -> Discover
             UNKNOWN,
             source,
             0.5,
-            "remote server URL: AgentWatch cannot tell whether it is a gateway URL",
+            "remote server URL: PANOPTIS cannot tell whether it is a gateway URL",
             details=details,
         )
     if command:
@@ -219,7 +219,7 @@ def classify_server(runtime: str, name: str, spec: Any, source: str) -> Discover
             UNMONITORED,
             source,
             0.9,
-            "the server is started directly, not through the AgentWatch gateway",
+            "the server is started directly, not through the PANOPTIS gateway",
             details=details,
         )
     return Discovery(
@@ -291,7 +291,7 @@ def scan_configs(home: Path | None = None, projects: Iterable[Path] = ()) -> lis
                     UNSUPPORTED,
                     src,
                     0.8,
-                    f"{runtime}'s built-in agent tools have no AgentWatch hook; only its MCP servers can be put behind the gateway",
+                    f"{runtime}'s built-in agent tools have no PANOPTIS hook; only its MCP servers can be put behind the gateway",
                 )
             )
     if claude_code_seen or hook_files:
@@ -304,7 +304,7 @@ def scan_configs(home: Path | None = None, projects: Iterable[Path] = ()) -> lis
                     MONITORED,
                     hook_files[0],
                     0.85,
-                    "the AgentWatch PreToolUse hook is installed",
+                    "the PANOPTIS PreToolUse hook is installed",
                     details={"hook_files": hook_files},
                 )
             )
@@ -317,7 +317,7 @@ def scan_configs(home: Path | None = None, projects: Iterable[Path] = ()) -> lis
                     UNMONITORED,
                     str(home / ".claude"),
                     0.8,
-                    "Claude Code settings found without the AgentWatch PreToolUse hook",
+                    "Claude Code settings found without the PANOPTIS PreToolUse hook",
                 )
             )
     return out
@@ -447,7 +447,7 @@ def scan_processes(
             "args": redact_args(cmdline[1:])[:40],
         }
         if runtime == "agentwatch-gateway":
-            status, conf, reason = MONITORED, 0.95, "an AgentWatch MCP gateway process"
+            status, conf, reason = MONITORED, 0.95, "a PANOPTIS MCP gateway process"
         elif runtime == "claude-code":
             try:
                 cwd = Path(proc.cwd())
@@ -464,13 +464,13 @@ def scan_processes(
                 status, conf, reason = (
                     MONITORED,
                     0.75,
-                    "a settings file that applies to it has the AgentWatch hook",
+                    "a settings file that applies to it has the PANOPTIS hook",
                 )
             else:
                 status, conf, reason = (
                     UNMONITORED,
                     0.75,
-                    "no applicable settings file has the AgentWatch hook",
+                    "no applicable settings file has the PANOPTIS hook",
                 )
             if cwd is not None:
                 details["cwd"] = str(cwd)
@@ -488,16 +488,16 @@ def scan_processes(
                 ]
             )
             if parent and any(m in pline for m in GATEWAY_MARKERS):
-                status, conf, reason = MONITORED, 0.85, "started by an AgentWatch MCP gateway"
+                status, conf, reason = MONITORED, 0.85, "started by a PANOPTIS MCP gateway"
             elif parent is None:
                 status, conf, reason = UNKNOWN, 0.4, "parent process not readable"
             else:
-                status, conf, reason = UNMONITORED, 0.75, "not started by an AgentWatch MCP gateway"
+                status, conf, reason = UNMONITORED, 0.75, "not started by a PANOPTIS MCP gateway"
         elif runtime in _UNSUPPORTED_RUNTIMES:
             status, conf, reason = (
                 UNSUPPORTED,
                 0.7,
-                f"{runtime}'s own tools have no AgentWatch integration; put its MCP servers behind the gateway",
+                f"{runtime}'s own tools have no PANOPTIS integration; put its MCP servers behind the gateway",
             )
         else:
             status, conf, reason = UNKNOWN, 0.3, "recognised, status unknown"

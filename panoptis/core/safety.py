@@ -1,5 +1,5 @@
 """
-AgentWatch Safety Engine
+PANOPTIS Safety Engine
 Pre-action safety checks, dangerous command blocking, risk scoring,
 capability-based permissions, and policy enforcement.
 """

@@ -89,7 +89,7 @@ def to_pdf_bytes(report: SecurityReport) -> bytes:
 
         buf = io.BytesIO()
         c = canvas.Canvas(buf, pagesize=letter)
-        c.setTitle(f"AgentWatch Security Report — {report.session_id}")
+        c.setTitle(f"PANOPTIS Security Report — {report.session_id}")
         y = 750
         for line in _text_lines(report):
             c.drawString(50, y, line[:90])
@@ -105,7 +105,7 @@ def to_pdf_bytes(report: SecurityReport) -> bytes:
 
 def _text_lines(report: SecurityReport) -> list[str]:
     lines = [
-        "AgentWatch Security Report",
+        "PANOPTIS Security Report",
         f"Session: {report.session_id}",
         f"Generated: {report.generated_at.isoformat()}",
         f"Verdict: {report.summary.get('verdict')}",

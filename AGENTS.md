@@ -1,4 +1,4 @@
-# AgentWatch — Agent Instructions
+# PANOPTIS (formerly AgentWatch) — Agent Instructions
 
 ## Repo Structure
 
@@ -7,10 +7,10 @@ Three independent codebases in one repo:
 | Path | What | Stack |
 |---|---|---|
 | `panoptis/` | Python package (`panoptis`) | FastAPI, SQLAlchemy async, Celery, Pydantic |
-| `frontend/` | Dashboard UI | Next.js 14, React 18, Tailwind, Jest |
+| `frontend/` | Dashboard UI | Next.js 16 (pages router), React 18, Tailwind 3, Jest |
 | `agentwatch-landing/` | Public landing page | Next.js 16, React 19, GSAP, Three.js |
 
-**Critical:** `frontend/` and `agentwatch-landing/` are separate Next.js apps with different versions. Do not mix deps or share components between them.
+**Critical:** `frontend/` and `agentwatch-landing/` are separate Next.js apps (pages router + React 18 vs app router + React 19, Tailwind 3 vs 4). Do not mix deps or share components between them.
 
 ## Formatting (issue #644)
 
@@ -54,6 +54,17 @@ npm run test         # Jest
 
 - API URL defaults to `/api/v1`. Override with `NEXT_PUBLIC_API_URL`.
 - WebSocket endpoint at `/ws/events`.
+- Two builds: `npm run build` (standalone server, Docker Compose) and `npm run build:static`
+  (`output: 'export'`, copied to `panoptis/_dashboard/`, shipped in the wheel and served by
+  `panoptis up`). The static build leaves out `pages/api` (every `.ts` file there).
+
+## Local mode
+
+`panoptis up` runs the API + static dashboard on 127.0.0.1 with the SQLite store under
+`AGENTWATCH_HOME` (`panoptis/local.py`, `panoptis/cli/local_cmds.py`). `/api/local/session` and
+the static mount exist only when `PANOPTIS_LOCAL_UI=1`; that block must stay last in
+`panoptis/api/server.py`. `scripts/smoke_up.py` is the end-to-end check (CI runs it on a clean
+install).
 
 ## Landing Page (`agentwatch-landing/`)
 
@@ -63,6 +74,10 @@ npm run test         # Jest
 cd agentwatch-landing
 npm run dev
 ```
+
+Static export (`output: 'export'`) deployed to GitHub Pages by `.github/workflows/landing.yml`
+(`NEXT_PUBLIC_BASE_PATH` comes from `actions/configure-pages`). No ISR, route handlers that
+read the request, or default image optimization.
 
 ## CI
 
@@ -110,6 +125,8 @@ Copy `.env.example` to `.env`. Key vars:
 ## Gotchas
 
 - `agentwatch-landing/` already has its own `AGENTS.md` (Next.js 16 rules). Do not overwrite it.
+- User-visible text says PANOPTIS; env vars (`AGENTWATCH_*`), `~/.agentwatch` and class names keep the old name on purpose (compatibility).
+- `typer` is capped `<0.28` (vendored click breaks `tests/test_cli_surface.py`).
 - Release: bump version in `pyproject.toml`, then `git tag vX.Y && git push origin vX.Y`. PyPI publish is automatic.
 - CONTRIBUTING.md requires issue assignment before work begins. PRs on unassigned issues may be closed.
 - CLI commands are routed through `panoptis/cli/_utils` — do not shell out directly.

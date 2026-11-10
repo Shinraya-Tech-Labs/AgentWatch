@@ -1,4 +1,4 @@
-"""AgentWatch causality package."""
+"""PANOPTIS causality package."""
 
 from panoptis.causality.decay import (
     CUMULATIVE_CONFIDENCE_COLLAPSE,

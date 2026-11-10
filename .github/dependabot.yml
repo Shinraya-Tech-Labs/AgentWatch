@@ -29,7 +29,7 @@ updates:
       - "dependencies"
       - "npm"
 
-  # Maintain dependencies for pip (assuming Python based on demo.py/pyproject.toml)
+  # Maintain dependencies for pip (pyproject.toml)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:

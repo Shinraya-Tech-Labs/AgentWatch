@@ -1,4 +1,4 @@
-"""Database migration and rollback manager for AgentWatch persistent stores.
+"""Database migration and rollback manager for PANOPTIS persistent stores.
 
 Provides schema verification, migration state reporting, and safe rollback
 tooling for both SQLite and PostgreSQL backends.

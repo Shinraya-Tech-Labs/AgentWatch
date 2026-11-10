@@ -2,7 +2,7 @@
 CMP — Premium entitlement verification and license enforcement.
 
 Premium features are unlocked by an *entitlement token*: a JWT signed by the
-AgentWatch backend with an RS256 private key and verified here against the
+PANOPTIS backend with an RS256 private key and verified here against the
 matching public key. Verification is asymmetric, so the CLI only ever holds the
 public key and cannot mint tokens of its own.
 

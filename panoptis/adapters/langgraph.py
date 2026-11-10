@@ -1,5 +1,5 @@
 """
-AgentWatch LangGraph Adapter (FOUND-004)
+PANOPTIS LangGraph Adapter (FOUND-004)
 
 LangGraph compiles agent graphs into `CompiledGraph` objects exposing
 `invoke`, `ainvoke`, `stream`, and `astream`. We intercept those calls and
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class LangGraphAdapter:
-    """Wrap a LangGraph CompiledGraph with AgentWatch observability."""
+    """Wrap a LangGraph CompiledGraph with PANOPTIS observability."""
 
     def __init__(
         self,

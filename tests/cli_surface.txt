@@ -62,13 +62,13 @@ command: panoptis compliance export-local
     param output kind=TyperOption type=path required=False default='compliance-audit.csv' flags=--output,-o help='Output CSV file path'
 
 command: panoptis cost
-    help: AgentWatch FinOps. Report token usage and API spend across agents and frameworks.
+    help: PANOPTIS FinOps. Report token usage and API spend across agents and frameworks.
     short_help: 
 
 command: panoptis cost report
     help: [bold]Report[/bold] token usage, USD cost, and cost-per-successful-goal.
 
-Aggregates recent sessions from the AgentWatch API over the last [b]--days[/b],
+Aggregates recent sessions from the PANOPTIS API over the last [b]--days[/b],
 grouped by [b]--group-by[/b].
 
 [b]Example Usage:[/b]
@@ -122,7 +122,7 @@ command: panoptis dependents
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
 command: panoptis doctor
-    help: [bold]Doctor[/bold]: Check AgentWatch installation health and manage schema migrations.
+    help: [bold]Doctor[/bold]: Check PANOPTIS installation health and manage schema migrations.
     short_help: 
     param downgrade_schema kind=TyperOption type=int required=False default=None flags=--downgrade-schema help='Roll back schema to a specific prior version (e.g., 1).'
     param rollback_derived kind=TyperOption type=boolean required=False default=False flags=--rollback-derived help='Safely roll back derived interpretation tables without touching raw evidence.'
@@ -146,7 +146,7 @@ command: panoptis effects
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
 command: panoptis eval
-    help: AgentWatch Evaluation. Run an agent against a dataset and score the batch.
+    help: PANOPTIS Evaluation. Run an agent against a dataset and score the batch.
     short_help: 
 
 command: panoptis eval run
@@ -255,7 +255,7 @@ command: panoptis graph
     param view kind=TyperOption type=str required=False default='execution' flags=--view help='execution | information | causal | all'
 
 command: panoptis help
-    help: Show help for AgentWatch / Panoptis or a specific command.
+    help: Show help for PANOPTIS / Panoptis or a specific command.
     short_help: 
     param command kind=TyperArgument type=str required=False default=None flags=command help='The command to show help for.'
 
@@ -287,7 +287,7 @@ command: panoptis legacy compare
     param session_id_2 kind=TyperArgument type=str required=True default=None flags=session_id_2 help='ID of the second session to compare'
 
 command: panoptis mcp
-    help: Run the AgentWatch MCP server over stdio.
+    help: Run the PANOPTIS MCP server over stdio.
     short_help: 
 
 command: panoptis motifs
@@ -305,13 +305,13 @@ command: panoptis observe
     param system kind=TyperOption type=str required=False default=None flags=--system help='System name recorded on the run.'
 
 command: panoptis protect
-    help: AgentWatch security engine, guardrails, compliance, and evidence.
+    help: PANOPTIS security engine, guardrails, compliance, and evidence.
     short_help: 
 
 command: panoptis protect agents
     help: Agents and sessions seen, with counts and suspension state (seen is not protected: see 'discover').
     short_help: 
-    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param api kind=TyperOption type=str required=False default=None flags=--api help='PANOPTIS API URL (default: AGENTWATCH_API_URL; omit for local mode).'
     param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store for local mode (default: AGENTWATCH_STORE).'
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
@@ -323,7 +323,7 @@ command: panoptis protect approvals
 command: panoptis protect approvals approve
     help: Approve exactly the action with this digest.
     short_help: 
-    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param api kind=TyperOption type=str required=False default=None flags=--api help='PANOPTIS API URL (default: AGENTWATCH_API_URL; omit for local mode).'
     param by kind=TyperOption type=str required=False default=None flags=--by help=''
     param comment kind=TyperOption type=str required=False default=None flags=--comment help=''
     param digest kind=TyperOption type=str required=True default=None flags=--digest help="the action_digest shown by 'approvals list' (what you approve)"
@@ -335,7 +335,7 @@ command: panoptis protect approvals approve
 command: panoptis protect approvals list
     help: Approval requests of the tenant.
     short_help: 
-    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param api kind=TyperOption type=str required=False default=None flags=--api help='PANOPTIS API URL (default: AGENTWATCH_API_URL; omit for local mode).'
     param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
     param state kind=TyperOption type=str required=False default='pending' flags=--state help='pending | approved | rejected | expired | cancelled | all'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store for local mode (default: AGENTWATCH_STORE).'
@@ -344,7 +344,7 @@ command: panoptis protect approvals list
 command: panoptis protect approvals reject
     help: Reject the escalated call; it never runs.
     short_help: 
-    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param api kind=TyperOption type=str required=False default=None flags=--api help='PANOPTIS API URL (default: AGENTWATCH_API_URL; omit for local mode).'
     param by kind=TyperOption type=str required=False default=None flags=--by help=''
     param comment kind=TyperOption type=str required=False default=None flags=--comment help=''
     param digest kind=TyperOption type=str required=True default=None flags=--digest help=''
@@ -367,7 +367,7 @@ command: panoptis protect claude-hook
     short_help: 
 
 command: panoptis protect claude-hook install
-    help: Merge the AgentWatch hook into a Claude Code settings file.
+    help: Merge the PANOPTIS hook into a Claude Code settings file.
     short_help: 
     param on_failure_block kind=TyperOption type=boolean required=False default=False flags=--on-failure-block help='Add "onFailure": "block" so a hook that cannot start blocks the call (needs Claude Code 2.1.295 or later).'
     param settings kind=TyperOption type=path required=False default='.claude/settings.local.json' flags=--settings help='Claude Code settings file (default: ./.claude/settings.local.json).'
@@ -379,7 +379,7 @@ command: panoptis protect claude-hook print
     param on_failure_block kind=TyperOption type=boolean required=False default=False flags=--on-failure-block help=''
 
 command: panoptis protect claude-hook uninstall
-    help: Remove the AgentWatch hook from a Claude Code settings file.
+    help: Remove the PANOPTIS hook from a Claude Code settings file.
     short_help: 
     param settings kind=TyperOption type=path required=False default='.claude/settings.local.json' flags=--settings help='Claude Code settings file (default: ./.claude/settings.local.json).'
 
@@ -482,7 +482,7 @@ command: panoptis protect decisions
     help: Recent protection decisions, newest first.
     short_help: 
     param agent kind=TyperOption type=str required=False default=None flags=--agent help=''
-    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param api kind=TyperOption type=str required=False default=None flags=--api help='PANOPTIS API URL (default: AGENTWATCH_API_URL; omit for local mode).'
     param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
     param limit kind=TyperOption type=int required=False default=20 flags=--limit help=''
     param stage kind=TyperOption type=str required=False default=None flags=--stage help='threat | rbac | loop | intent | hitl | killswitch | …'
@@ -492,7 +492,7 @@ command: panoptis protect decisions
     param verdict kind=TyperOption type=str required=False default=None flags=--verdict help='allow | block | escalate_hitl | mutate_and_allow'
 
 command: panoptis protect discover
-    help: Find local agent runtimes and MCP servers, and whether AgentWatch enforces on them.
+    help: Find local agent runtimes and MCP servers, and whether PANOPTIS enforces on them.
     short_help: 
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Print the inventory as JSON.'
     param processes kind=TyperOption type=boolean required=False default=True flags=--processes help='Also scan running processes (needs psutil).'
@@ -502,7 +502,7 @@ command: panoptis protect discover
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help=''
 
 command: panoptis protect discover wrap
-    help: Rewrite one configured stdio MCP server to run behind the AgentWatch gateway.
+    help: Rewrite one configured stdio MCP server to run behind the PANOPTIS gateway.
     short_help: 
     param apply kind=TyperOption type=boolean required=False default=False flags=--apply help='Write the change (a .agentwatch.bak backup is kept). Without it, only show it.'
     param config kind=TyperOption type=path required=True default=None flags=--config help='The MCP config file (mcpServers).'
@@ -605,7 +605,7 @@ command: panoptis protect rbac check
     help: Would this call be authorized? Exit 1 if not (a dry run: no rate budget used).
     short_help: 
     param agent kind=TyperArgument type=str required=True default=None flags=agent help=''
-    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param api kind=TyperOption type=str required=False default=None flags=--api help='PANOPTIS API URL (default: AGENTWATCH_API_URL; omit for local mode).'
     param arguments kind=TyperOption type=str required=False default='{}' flags=--args help='tool arguments as JSON'
     param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
     param policy kind=TyperOption type=path required=False default=None flags=--policy help=''
@@ -616,7 +616,7 @@ command: panoptis protect rbac permissions
     help: What an agent may do (roles, tools, restrictions, rate limits).
     short_help: 
     param agent kind=TyperArgument type=str required=True default=None flags=agent help=''
-    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param api kind=TyperOption type=str required=False default=None flags=--api help='PANOPTIS API URL (default: AGENTWATCH_API_URL; omit for local mode).'
     param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
     param policy kind=TyperOption type=path required=False default=None flags=--policy help=''
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
@@ -634,7 +634,7 @@ command: panoptis protect redteam
 command: panoptis protect status
     help: Protection summary: verdicts, kill switch, suspensions, policy, evidence head.
     short_help: 
-    param api kind=TyperOption type=str required=False default=None flags=--api help='AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode).'
+    param api kind=TyperOption type=str required=False default=None flags=--api help='PANOPTIS API URL (default: AGENTWATCH_API_URL; omit for local mode).'
     param key kind=TyperOption type=str required=False default=None flags=--key help='API key (default: AGENTWATCH_API_KEY). Never printed.'
     param store kind=TyperOption type=str required=False default=None flags=--store help='Evidence store for local mode (default: AGENTWATCH_STORE).'
     param tenant kind=TyperOption type=str required=False default='default' flags=--tenant help='Tenant (local mode; in API mode the key decides).'
@@ -682,7 +682,7 @@ command: panoptis runs
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
 command: panoptis safety
-    help: AgentWatch Safety & Risk Engine. Analyze shell commands against security policies.
+    help: PANOPTIS Safety & Risk Engine. Analyze shell commands against security policies.
     short_help: 
 
 command: panoptis safety check
@@ -718,11 +718,11 @@ command: panoptis safety redteam
     param json_output kind=TyperOption type=boolean required=False default=False flags=--json help='Emit the report as JSON'
 
 command: panoptis server
-    help: Manage the AgentWatch API server
+    help: Manage the PANOPTIS API server
     short_help: 
 
 command: panoptis server start
-    help: [bold]Start[/bold] the AgentWatch API server.
+    help: [bold]Start[/bold] the PANOPTIS API server.
     short_help: 
     param dry_run kind=TyperOption type=boolean required=False default=False flags=--dry-run help='Preview what would happen without starting the server'
     param host kind=TyperOption type=str required=False default='127.0.0.1' flags=--host help=''
@@ -730,7 +730,7 @@ command: panoptis server start
     param reload kind=TyperOption type=boolean required=False default=False flags=--reload help=''
 
 command: panoptis server status
-    help: [bold]Show[/bold] a real-time live dashboard of AgentWatch runtime status.
+    help: [bold]Show[/bold] a real-time live dashboard of PANOPTIS runtime status.
     short_help: 
     param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
     param api_url kind=TyperOption type=str required=False default='http://localhost:8000' flags=--api help=''
@@ -767,7 +767,7 @@ command: panoptis session export-csv
     param session_id kind=TyperArgument type=str required=True default=None flags=session_id help='ID of the session to export'
 
 command: panoptis session list
-    help: [bold]List[/bold] recent agent sessions from the AgentWatch API.
+    help: [bold]List[/bold] recent agent sessions from the PANOPTIS API.
     short_help: 
     param api_key kind=TyperOption type=str required=False default=None flags=--api-key help='API key for protected endpoints (or set AGENTWATCH_API_KEY).'
     param api_url kind=TyperOption type=str required=False default='http://localhost:8000' flags=--api help=''
@@ -857,7 +857,7 @@ command: panoptis up
     param port kind=TyperOption type=int required=False default=8000 flags=--port,-p help='Port for the API and dashboard.'
 
 command: panoptis upgrade
-    help: [bold]Upgrade[/bold] to AgentWatch Premium via the secure web checkout.
+    help: [bold]Upgrade[/bold] to PANOPTIS Premium via the secure web checkout.
     short_help: 
     param activate kind=TyperOption type=str required=False default=None flags=--activate help='Store the entitlement token returned by the checkout page.'
     param base_url kind=TyperOption type=str required=False default=None flags=--checkout-url help='Override the checkout portal base URL.'
@@ -866,7 +866,7 @@ command: panoptis upgrade
     param show_status kind=TyperOption type=boolean required=False default=False flags=--status help='Show the current entitlement status and exit.'
 
 command: panoptis version
-    help: Show AgentWatch version and diagnostics.
+    help: Show PANOPTIS version and diagnostics.
     short_help: 
 
 command: panoptis watch

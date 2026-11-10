@@ -22,7 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _source_checkout() -> bool:
-    """True in an AgentWatch source checkout, where evidence files can be verified. In an
+    """True in a PANOPTIS source checkout, where evidence files can be verified. In an
     installed package REPO_ROOT is site-packages: it has a panoptis/ directory and may
     have an unrelated tests/ directory, so those alone prove nothing."""
     try:

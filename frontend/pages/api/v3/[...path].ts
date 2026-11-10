@@ -1,5 +1,5 @@
 /**
- * Runtime reverse proxy for /api/v3/* (AgentWatch v3 API).
+ * Runtime reverse proxy for /api/v3/* (PANOPTIS v3 API).
  *
  * Reads AGENTWATCH_API_URL at request time (not build time). When AGENTWATCH_API_KEY is
  * set in the frontend's server environment it is attached as X-Api-Key, so the browser
@@ -44,6 +44,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error(`[proxy-v3] ${req.method} ${req.url} →`, message);
     res
       .status(502)
-      .json({ error: 'upstream_unavailable', detail: 'The AgentWatch v3 API is unavailable' });
+      .json({ error: 'upstream_unavailable', detail: 'The PANOPTIS v3 API is unavailable' });
   }
 }

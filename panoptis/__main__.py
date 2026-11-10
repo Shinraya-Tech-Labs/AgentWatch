@@ -1,4 +1,4 @@
-"""Run the AgentWatch CLI with ``python -m panoptis``."""
+"""Run the PANOPTIS CLI with ``python -m panoptis``."""
 
 from panoptis.cli.main import main
 

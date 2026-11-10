@@ -177,7 +177,7 @@ def test_otel_genai_v2_span_events_choice_and_finish_reason(engine):
         "endTimeUnixNano": "1700000001000000000",
         "attributes": [
             {"key": "gen_ai.operation.name", "value": _val("generate_content")},
-            {"key": "gen_ai.request.model", "value": _val("gemini-1.5-pro")},
+            {"key": "gen_ai.request.model", "value": _val("gemini-4-argon")},
         ],
         "events": [
             {

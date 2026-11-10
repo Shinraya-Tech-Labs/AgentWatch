@@ -114,7 +114,7 @@ If one of those ports is already in use, stop the conflicting process before sta
 From the repository root, run:
 
 ```bash
-python demo.py
+python examples/demo.py
 ```
 
 Then open:
@@ -310,7 +310,7 @@ When everything is working, you should be able to complete this flow in order:
 
 1. Install `panoptis`
 2. Start the stack with `docker compose up -d`
-3. Run `python demo.py`
+3. Run `python examples/demo.py`
 4. Open http://localhost:3000
 5. See a live session, a safety block, and a confidence chart update
 

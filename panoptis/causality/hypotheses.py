@@ -1,6 +1,6 @@
 """Conservative causal infrastructure.
 
-AgentWatch does not *discover* causes from a single trace. It keeps four kinds of
+PANOPTIS does not *discover* causes from a single trace. It keeps four kinds of
 statements strictly apart:
 
 * **dependency**  — the effect is in the data/control path of the cause (OBSERVATIONAL

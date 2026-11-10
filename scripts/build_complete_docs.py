@@ -10,7 +10,7 @@ import pathlib
 import subprocess
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-OUTPUT_FILE = REPO_ROOT / "COMPLETE_PROJECT_DOCUMENTATION.md"
+OUTPUT_FILE = REPO_ROOT / "docs" / "archive" / "COMPLETE_PROJECT_DOCUMENTATION.md"
 HISTORICAL_NOTICE = (
     "> **Historical compilation.** This file gathers design documents as written at the time, "
     "and many of its claims were never implemented or have been withdrawn. Current claims are "
@@ -1121,7 +1121,7 @@ def write_part_12(f):
 
     f.write("### 12.4 Render Blueprint & Cloud Infrastructure\n\n")
     f.write(
-        "`render.yaml` provides one-click blueprint deployment provisioning managed PostgreSQL, Redis, API web services, and static frontend sites.\n\n"
+        "The Render blueprint (`render.yaml`) was retired: it could not start a production API (no API key) and pinned a stale hostname. Use `panoptis up` on one machine, Docker Compose or the Helm chart.\n\n"
     )
 
     f.write("### 12.5 GitHub Actions CI/CD Workflows\n\n")

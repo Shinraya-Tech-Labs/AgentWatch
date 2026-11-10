@@ -1,5 +1,5 @@
 """
-AgentWatch Replay Engine
+PANOPTIS Replay Engine
 Step-by-step execution replay, divergence detection, failure root-cause analysis,
 and timeline reconstruction from stored event traces.
 """
@@ -248,7 +248,7 @@ def _generate_summary(analysis: FailureAnalysis) -> str:
     if cause == FailureCause.SAFETY_BLOCK:
         return (
             f"Execution halted: {len(analysis.blocked_actions)} dangerous action(s) "
-            f"blocked by AgentWatch safety engine."
+            f"blocked by PANOPTIS safety engine."
         )
     elif cause == FailureCause.INFINITE_LOOP:
         tools = ", ".join(analysis.repeated_tools)
@@ -296,7 +296,7 @@ def _generate_recommendations(analysis: FailureAnalysis) -> list[str]:
 
 class ReplayEngine:
     """
-    Loads and replays captured AgentWatch sessions.
+    Loads and replays captured PANOPTIS sessions.
     Supports step-by-step navigation, divergence detection,
     and failure root-cause analysis.
     """

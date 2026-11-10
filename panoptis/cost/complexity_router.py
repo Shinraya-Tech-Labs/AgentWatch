@@ -30,13 +30,14 @@ class TaskComplexity(IntEnum):
 # Capability rank per model: the highest TaskComplexity it can serve. A task of
 # complexity C may be routed to any model whose rank is >= C.
 DEFAULT_CAPABILITY: dict[str, TaskComplexity] = {
-    "gemini-1.5-flash": TaskComplexity.SIMPLE,
+    "gemini-3.5-flash-lite": TaskComplexity.SIMPLE,
     "gpt-4o-mini": TaskComplexity.SIMPLE,
     "claude-haiku-4-5": TaskComplexity.SIMPLE,
-    "gemini-1.5-pro": TaskComplexity.STANDARD,
+    "gemini-3.8-flash": TaskComplexity.STANDARD,
     "gpt-4o": TaskComplexity.STANDARD,
     "claude-sonnet-4-5": TaskComplexity.STANDARD,
     "claude-opus-4-5": TaskComplexity.COMPLEX,
+    "gemini-4-argon": TaskComplexity.COMPLEX,
 }
 
 # Rough heuristic: ~4 characters per token.

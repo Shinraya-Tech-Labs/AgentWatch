@@ -1,9 +1,9 @@
 """
-PRT-002 — AgentWatch-Compatible Badge.
+PRT-002 — PANOPTIS-Compatible Badge.
 
 Certification checker — validates that a framework's emitted traces conform
 to ReasoningTrace v1.0. Returns pass/fail with details so frameworks can
-display the AgentWatch-compatible badge.
+display the PANOPTIS-compatible badge.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ class BadgeResult:
 
     @property
     def badge_text(self) -> str:
-        return "AgentWatch-compatible ✓" if self.passed else "Not yet certified"
+        return "PANOPTIS-compatible ✓" if self.passed else "Not yet certified"
 
     def to_dict(self) -> dict[str, Any]:
         return {

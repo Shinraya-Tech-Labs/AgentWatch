@@ -1,7 +1,7 @@
 """
 PLT-005 — Prompt Version Management.
 
-Version-control system prompts inside AgentWatch.
+Version-control system prompts inside PANOPTIS.
 A/B test prompt versions against production traffic.
 Roll back on confidence drop.
 """

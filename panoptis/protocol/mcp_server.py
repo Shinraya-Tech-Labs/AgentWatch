@@ -1,7 +1,7 @@
 """
 PRT-004 — MCP Server Integration.
 
-Expose AgentWatch as an MCP (Model Context Protocol) server.
+Expose PANOPTIS as an MCP (Model Context Protocol) server.
 Claude agents can query their own observability data via MCP tool calls.
 
 Exposed tools:
@@ -90,7 +90,7 @@ class AgentWatchMCPServer:
         self.register(
             MCPTool(
                 name="panoptis_memory_query",
-                description="Query AgentWatch's persistent memory in natural language.",
+                description="Query PANOPTIS's persistent memory in natural language.",
                 input_schema={
                     "type": "object",
                     "required": ["question"],
@@ -151,7 +151,7 @@ class AgentWatchMCPServer:
         self.register(
             MCPTool(
                 name="panoptis_store_memory",
-                description="Store a key fact or decision in AgentWatch's persistent memory.",
+                description="Store a key fact or decision in PANOPTIS's persistent memory.",
                 input_schema={
                     "type": "object",
                     "required": ["key", "value"],
@@ -228,7 +228,7 @@ class AgentWatchMCPServer:
         except (ImportError, ModuleNotFoundError):
             from mcp.server.mcpserver import MCPServer as FastMCP
 
-        mcp = FastMCP("AgentWatch")
+        mcp = FastMCP("PANOPTIS")
 
         @mcp.tool()
         def get_confidence_report(session_id: str) -> list[float]:
@@ -240,7 +240,7 @@ class AgentWatchMCPServer:
 
         @mcp.tool()
         def memory_query(question: str) -> list[dict[str, Any]]:
-            """Query AgentWatch's persistent memory in natural language."""
+            """Query PANOPTIS's persistent memory in natural language."""
             res = self.dispatch("panoptis_memory_query", {"question": question})
             if not res.ok:
                 raise ValueError(res.error)
@@ -283,7 +283,7 @@ class AgentWatchMCPServer:
 
         @mcp.tool()
         def store_memory(key: str, value: str) -> dict[str, Any]:
-            """Store a key fact or decision in AgentWatch's persistent memory."""
+            """Store a key fact or decision in PANOPTIS's persistent memory."""
             res = self.dispatch("panoptis_store_memory", {"key": key, "value": value})
             if not res.ok:
                 raise ValueError(res.error)

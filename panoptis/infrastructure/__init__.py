@@ -1,1 +1,1 @@
-"""Infrastructure layer components for AgentWatch."""
+"""Infrastructure layer components for PANOPTIS."""

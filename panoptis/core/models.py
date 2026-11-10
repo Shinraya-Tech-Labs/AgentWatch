@@ -1,5 +1,5 @@
 """
-AgentWatch Storage Layer
+PANOPTIS Storage Layer
 SQLAlchemy models, database schema, and repository pattern
 for PostgreSQL persistence.
 """
@@ -291,7 +291,7 @@ def _same_owner(row_tenant: Any, new_tenant: Any) -> Any:
 
 class Repository:
     """
-    Data access layer for AgentWatch storage.
+    Data access layer for PANOPTIS storage.
     Uses SQLAlchemy async sessions.
     """
 
@@ -1035,7 +1035,7 @@ def get_database_url(
     if not resolved_password:
         raise RuntimeError(
             "Database password is not configured. "
-            "Set the DB_PASSWORD environment variable before starting AgentWatch."
+            "Set the DB_PASSWORD environment variable before starting PANOPTIS."
         )
 
     return (

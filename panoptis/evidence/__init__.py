@@ -1,7 +1,7 @@
-"""AgentWatch v3 evidence plane.
+"""PANOPTIS v3 evidence plane.
 
 Raw observations are immutable evidence. Nothing in this package imports the rest of
-AgentWatch, so sensors running inside observed applications stay dependency-light.
+PANOPTIS, so sensors running inside observed applications stay dependency-light.
 """
 
 from panoptis.evidence.canonical import canonical_json, sha256_hex

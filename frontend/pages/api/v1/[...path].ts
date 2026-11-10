@@ -65,6 +65,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // no internal address or error text in the response
     res
       .status(502)
-      .json({ error: 'upstream_unavailable', detail: 'The AgentWatch API is unavailable' });
+      .json({ error: 'upstream_unavailable', detail: 'The PANOPTIS API is unavailable' });
   }
 }

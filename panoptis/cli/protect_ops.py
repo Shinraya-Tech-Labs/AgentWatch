@@ -27,7 +27,7 @@ EXIT_DENIED = 3
 EXIT_UNAVAILABLE = 4
 
 API_OPTION = typer.Option(
-    None, "--api", help="AgentWatch API URL (default: AGENTWATCH_API_URL; omit for local mode)."
+    None, "--api", help="PANOPTIS API URL (default: AGENTWATCH_API_URL; omit for local mode)."
 )
 KEY_OPTION = typer.Option(
     None, "--key", help="API key (default: AGENTWATCH_API_KEY). Never printed."

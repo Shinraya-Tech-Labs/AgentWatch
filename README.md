@@ -17,7 +17,7 @@
 
 <br/>
 
-[**Try it**](#-try-it-in-60-seconds) · [**Live demo**](#-see-an-attack-stopped) · [**How it works**](#-how-it-works) · [**Pipeline**](#-the-decision-pipeline) · [**Evidence**](#-evidence-you-can-verify) · [**Benchmarks**](#-benchmarks) · [**Integrations**](#-integrations) · [**Dashboard**](#-dashboard) · [**Roadmap**](#-target-architecture)
+[**Website**](https://shinraya-tech-labs.github.io/AgentWatch/) · [**Try it**](#-try-it-in-60-seconds) · [**Live demo**](#-see-an-attack-stopped) · [**How it works**](#-how-it-works) · [**Pipeline**](#-the-decision-pipeline) · [**Evidence**](#-evidence-you-can-verify) · [**Benchmarks**](#-benchmarks) · [**Integrations**](#-integrations) · [**Dashboard**](#-dashboard) · [**Roadmap**](#-target-architecture)
 
 </div>
 
@@ -46,13 +46,25 @@ An agent acts with its user's privileges while taking direction from whatever it
 
 ## 🚀 Try it in 60 seconds
 
-Requires Python 3.12.
+Requires Python 3.12. `panoptis up` is in 0.4.0 and later.
 
 ```bash
 pip install panoptis
-panopti playground    # local browser playground
-panopti demo          # scripted illustration only: no database, no real pipeline
+panoptis up                    # API + dashboard on http://127.0.0.1:8000, SQLite, opens the browser
 ```
+
+In a second terminal, watch an attack get stopped on the dashboard:
+
+```bash
+panoptis demo live --offline   # scripted agent: no key, no network
+panoptis demo live             # a real OpenAI model (reads OPENAI_API_KEY; pip install "panoptis[openai-agents]")
+```
+
+No Docker or account is needed. `panoptis up` keeps decisions, approvals and evidence in a SQLite store under `~/.agentwatch`, the default store of every protected agent on the machine, so your own agents show up with no extra setup. It also seeds a **demo tenant** of sample data, labelled as such on the dashboard. It binds to 127.0.0.1 and is meant for one person's machine; for a team, use [Docker Compose](#-run-it-for-real).
+
+<p align="center">
+  <img src="docs/screenshots/launch/home-demo-tenant.png" alt="The PANOPTIS home screen: one call waiting for approval, allowed, blocked and waiting counts, a plain-English decision feed, an emergency stop button and the pending approval." width="760"/>
+</p>
 
 Wrap any Python function:
 
@@ -85,17 +97,21 @@ Version 2 adds caching.
 
 ## 🎬 See an attack stopped
 
-A scripted agent reads a poisoned GitHub issue, twice. Without PANOPTIS, it really deletes a throwaway project and sends a fake key to a local "attacker" server. With PANOPTIS, the same attack fails. The demo then shows human approval, MCP interception, a cross-process emergency stop, tamper detection and tenant isolation, checking its own outcome at every step.
+`panoptis demo live` gives an [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) agent a coding task and a poisoned GitHub issue. The issue tells it to upload the repository's `.env` and delete the project. Its tools are protected with `protect_openai_agent`, so with `panoptis up` running you watch each call arrive on the dashboard: the hidden instruction is stripped from the issue before the model reads it, the upload is blocked, and the force-push it was asked to do waits for you to approve it.
+
+What is real and what is staged: the model, the SDK run loop, the pipeline, the approvals and the evidence are real. The issue is a local fixture, the "shell" runs a few commands inside a temporary directory, and the "attacker" is a listener on 127.0.0.1. A model may decline the injected step; the demo then says so and still checks that the fake secret never left and the project is intact. `--offline` runs the same tools with a scripted agent that obeys the issue. The SDK integration is tested by driving the SDK's own `Runner` with a scripted model ([tests](tests/protect/test_openai_agents_integration.py)).
+
+For a longer, scripted presentation that also covers MCP interception, a cross-process emergency stop, tamper detection and tenant isolation:
 
 ```bash
 python examples/walkthrough/live_demo.py
 ```
 
 <p align="center">
-  <img src="examples/walkthrough/output/live-demo/screenshots/terminal.png" alt="Terminal transcript of the live demo: the unprotected attack succeeds, the same attack is blocked, and a scoreboard shows every check passing." width="760"/>
+  <img src="examples/walkthrough/output/live-demo/screenshots/terminal.png" alt="Terminal transcript of the walkthrough: the unprotected attack succeeds, the same attack is blocked, and a scoreboard shows every check passing." width="760"/>
 </p>
 
-No model, API key or external network is needed. Everything is local and runs from a clone. The agent is scripted so the demo is repeatable; the API, pipeline, MCP gateway, evidence store and verifier are the real product. [Presenter guide](examples/walkthrough/README.md#live-demo) · [recorded run](examples/walkthrough/output/live-demo/)
+[Presenter guide](examples/walkthrough/README.md#live-demo) · [recorded run](examples/walkthrough/output/live-demo/)
 
 ---
 
@@ -237,7 +253,8 @@ An integration either **enforces** before a tool runs or only **observes** after
 | smolagents | 🛡️ Enforces | `protect_smolagents_agent` | `CodeAgent`'s interpreter is not a tool call |
 | Claude Code | 🛡️ Enforces | `panoptis protect claude-hook install --on-failure-block` | **Fails open before Claude Code 2.1.295**; real-CLI test not run |
 | MCP servers | 🛡️ Enforces | `panoptis protect mcp-gateway` | Only clients routed through the gateway |
-| CrewAI, OpenAI Agents SDK, AutoGPT, OpenClaw | 👁️ Observes | `panoptis.adapters` | Records events; stops nothing |
+| OpenAI Agents SDK | 🛡️ Enforces | `protect_openai_agent` | Function tools only; hosted tools (web search, code interpreter…) are refused |
+| CrewAI, AutoGPT, OpenClaw | 👁️ Observes | `panoptis.adapters` | Records events; stops nothing |
 | Framework callback adapters, CLI agents | 👁️ Observes | `panoptis.adapters` | Records events; stops nothing |
 
 > [!WARNING]
@@ -249,16 +266,16 @@ Runtime setup is in [`docs/adapters/`](docs/adapters/). `panoptis protect discov
 
 ## 🖥️ Dashboard
 
-Real screens from the security dashboard, driven by real pipeline decisions in the [browser test suite](tests/e2e_dashboard/).
+The home screen answers one question, **is my agent safe?**, with allowed, blocked and waiting counts, a plain-English feed of decisions, pending approvals and a red emergency stop. Decisions, approvals, evidence and controls are one click away; policy, MCP and the forensic Evidence Lab views (map, timeline, lab, genome, compare, query) sit under **Advanced**. It says so when nothing has reported yet and shows its connection state. Screenshots taken from `panoptis up` with real pipeline decisions:
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="docs/screenshots/dashboard/01-overview-acme.png" alt="Security overview for one tenant"/><br/><sub><b>Overview.</b> Verdicts and recent decisions for one tenant.</sub></td>
-    <td width="50%" valign="top"><img src="docs/screenshots/dashboard/02-decisions-blocked-detail.png" alt="Detail of a blocked decision"/><br/><sub><b>Decisions.</b> Why a call was blocked, stage by stage.</sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/launch/home-your-agents.png" alt="Home screen after the offline demo: risky calls stopped, a rejected delete and an approved force-push in the feed"/><br/><sub><b>Home.</b> The offline demo after one rejection and one approval.</sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/launch/decisions.png" alt="Decisions view"/><br/><sub><b>Decisions.</b> Every call, filterable, with why it was decided.</sub></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><img src="docs/screenshots/dashboard/03-approval-pending.png" alt="A tool call waiting for approval"/><br/><sub><b>Approvals.</b> An escalated call waits for its exact action digest to be approved.</sub></td>
-    <td width="50%" valign="top"><img src="docs/screenshots/dashboard/05-emergency-stop-active.png" alt="Emergency stop active"/><br/><sub><b>Emergency stop.</b> New tool calls stop across the deployment.</sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/launch/advanced-menu.png" alt="The Advanced menu"/><br/><sub><b>Advanced.</b> Policy, MCP and the Evidence Lab.</sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/launch/home-mobile.png" alt="Home screen on a phone" width="220"/><br/><sub><b>Mobile.</b> The same home screen at 390 px.</sub></td>
   </tr>
 </table>
 
@@ -300,7 +317,7 @@ Test this on your own workloads first. These stages are heuristic. The steganogr
 </details>
 
 <details>
-<summary><b>Start the full stack</b></summary>
+<summary><b>Start the full stack (teams: Docker Compose)</b></summary>
 
 ```bash
 git clone https://github.com/Shinraya-Tech-Labs/AgentWatch.git
@@ -346,6 +363,7 @@ panoptis session rollback <id>          # restore a filesystem snapshot
 
 ## 🧱 What PANOPTIS does not do
 
+- **`panoptis up` is single-user.** It binds to 127.0.0.1 and hands the dashboard its keys on loopback; anyone with a shell as you can read them in `~/.agentwatch/local.json`.
 - **It is not a sandbox.** It runs in the agent's process or next to it. Use OS or container isolation against code that can modify the agent process.
 - **It only sees routed calls.** A tool reached another way bypasses it, and observe-only integrations stop nothing.
 - **It does not interrupt running tools.** An emergency stop blocks new calls and withdraws pending approvals.

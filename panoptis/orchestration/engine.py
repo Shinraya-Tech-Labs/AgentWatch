@@ -1,5 +1,5 @@
 """
-AgentWatch Multi-Agent Orchestration Engine
+PANOPTIS Multi-Agent Orchestration Engine
 Native coordination of specialized subagents with typed task graphs,
 structured messaging, shared memory bus, and replayable coordination.
 """

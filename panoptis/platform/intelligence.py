@@ -1,5 +1,5 @@
 """
-PLT-009 — AgentWatch Intelligence.
+PLT-009 — PANOPTIS Intelligence.
 
 AI-on-AI: surface patterns in telemetry automatically.
 """
@@ -49,7 +49,7 @@ class AgentWatchIntelligence:
             insights.append(
                 Insight(
                     title="No telemetry yet",
-                    detail="Run a session to begin AgentWatch Intelligence analysis.",
+                    detail="Run a session to begin PANOPTIS Intelligence analysis.",
                     severity="info",
                 )
             )

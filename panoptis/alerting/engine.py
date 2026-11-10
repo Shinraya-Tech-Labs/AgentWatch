@@ -59,17 +59,17 @@ class AlertingEngine:
         return sent
 
     async def send_test_alert(
-        self, summary: str = "AgentWatch Alerting Health Check"
+        self, summary: str = "PANOPTIS Alerting Health Check"
     ) -> dict[str, bool]:
         """Send a diagnostic test alert across configured channels to verify integration."""
         sent = {"slack": False, "pagerduty": False}
         if self._config.slack_webhook_url:
             slack_payload = {
-                "text": f"AgentWatch Test Alert: {summary}",
+                "text": f"PANOPTIS Test Alert: {summary}",
                 "blocks": [
                     {
                         "type": "header",
-                        "text": {"type": "plain_text", "text": "🔔 AgentWatch Channel Test"},
+                        "text": {"type": "plain_text", "text": "🔔 PANOPTIS Channel Test"},
                     },
                     {
                         "type": "section",
@@ -86,7 +86,7 @@ class AlertingEngine:
                 "routing_key": self._config.pagerduty_routing_key or "",
                 "event_action": "trigger",
                 "payload": {
-                    "summary": f"[AgentWatch Diagnostic] {summary}",
+                    "summary": f"[PANOPTIS Diagnostic] {summary}",
                     "severity": "info",
                     "source": "panoptis-doctor",
                 },
@@ -96,7 +96,7 @@ class AlertingEngine:
 
     def _build_abuse_payload(self, event: AbuseEvent) -> dict[str, dict[str, Any]]:
         summary = (
-            f"AgentWatch entitlement abuse: {event.subject} used on "
+            f"PANOPTIS entitlement abuse: {event.subject} used on "
             f"{event.distinct_devices} devices within {event.window_seconds}s"
         )
         devices = ", ".join(f"`{mid}`" for mid in event.machine_ids)
@@ -141,7 +141,7 @@ class AlertingEngine:
         tool = event.tool_call.tool_name if event.tool_call else event.event_type.value
         risk = event.safety.risk_level.value if event.safety else "safe"
         reasons = event.safety.reasons if event.safety else []
-        summary = f"AgentWatch {event.status.value}: {tool} ({risk})"
+        summary = f"PANOPTIS {event.status.value}: {tool} ({risk})"
         return {
             "slack": {
                 "text": summary,

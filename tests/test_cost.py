@@ -62,8 +62,8 @@ def test_comparator_returns_cheapest_model():
     cheap = report.cheapest()
     expensive = report.most_expensive()
     assert cheap.total < expensive.total
-    # gemini-1.5-flash should beat claude-opus-4-5 at these volumes
-    assert cheap.model in {"gemini-1.5-flash", "gpt-4o-mini"}
+    # the cheapest models beat claude-opus-4-5 at these volumes
+    assert cheap.model in {"gemini-3.5-flash-lite", "gpt-4o-mini"}
 
 
 def test_comparator_from_text():

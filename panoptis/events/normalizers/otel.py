@@ -45,7 +45,7 @@ MODEL_OPS = {"chat", "text_completion", "generate_content", "embeddings", "compl
 READ_DB_OPS = {"select", "get", "find", "query", "search", "read", "mget", "hget", "scan"}
 
 
-# AgentWatch OpenTelemetry extension attributes (ADR-0018). These are AgentWatch's own
+# PANOPTIS OpenTelemetry extension attributes (ADR-0018). These are PANOPTIS's own
 # convention, namespaced to say so; they are not part of the OpenTelemetry specification.
 AW_ARTIFACT_OPERATION = "panoptis.artifact.operation"  # create | write | update | delete | read
 AW_ARTIFACT_ID = "panoptis.artifact.id"  # the artifact's name or path
@@ -69,7 +69,7 @@ def _ns(v: Any) -> datetime | None:
 
 class OTelNormalizer(Normalizer):
     name = "otel"
-    # 2: AgentWatch OTel extension attributes (ADR-0018)
+    # 2: PANOPTIS OTel extension attributes (ADR-0018)
     # 3: OpenInference spans are bridged to gen_ai.* before mapping (normalize_otel_span)
     version = "3"
     source_kinds = frozenset({"otel.span"})
@@ -170,7 +170,7 @@ class OTelNormalizer(Normalizer):
             b.kind = EventKind.OPERATION
             b.operation = name
 
-        # AgentWatch extension (ADR-0018; NOT an OpenTelemetry convention): artifact operations
+        # PANOPTIS extension (ADR-0018; NOT an OpenTelemetry convention): artifact operations
         art_op = str(a.get(AW_ARTIFACT_OPERATION) or "").lower()
         if art_op:
             art_id = str(a.get(AW_ARTIFACT_ID) or name)
@@ -317,7 +317,7 @@ class OTelNormalizer(Normalizer):
             b.attributes["service.name"] = service
         if res.get("service.version"):
             b.attributes["code_version"] = res.get("service.version")
-        # AgentWatch extension: declared information identity of outputs and sources of inputs
+        # PANOPTIS extension: declared information identity of outputs and sources of inputs
         instance_ids = _as_list(a.get(AW_INSTANCE_ID))
         for k, iid in enumerate(instance_ids[: len(b.outputs)]):
             b.outputs[k] = replace(b.outputs[k], instance=str(iid))

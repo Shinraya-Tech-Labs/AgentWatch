@@ -1,1 +1,1 @@
-"""AgentWatch protocol — open trace schema, badge, MCP server."""
+"""PANOPTIS protocol — open trace schema, badge, MCP server."""

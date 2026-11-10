@@ -28,7 +28,7 @@ export default function AgentsPage() {
       <h1 className="text-base font-semibold text-zinc-100">Agents and inventory</h1>
       <Card title="Agents with protected calls">
         <p className="mb-2 text-[12px] text-zinc-400">
-          Agents whose tool calls reached the AgentWatch pipeline in this tenant.
+          Agents whose tool calls reached the PANOPTIS pipeline in this tenant.
         </p>
         {action.error ? <ErrorNote error={action.error} /> : null}
         <QueryState

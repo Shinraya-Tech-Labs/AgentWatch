@@ -1,5 +1,5 @@
 """
-AgentWatch Confidence Scoring Engine
+PANOPTIS Confidence Scoring Engine
 Workflow anomaly detection and execution consistency analysis.
 
 NOTE: This is NOT cognition inspection or chain-of-thought extraction.

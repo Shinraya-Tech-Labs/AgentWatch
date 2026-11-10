@@ -3,7 +3,7 @@
 Combines three sources, each producing explainable findings:
 
 1. structured argument analysis (:mod:`panoptis.protect.arguments`);
-2. the existing AgentWatch risk-pattern library (:class:`panoptis.core.safety.RiskScorer`),
+2. the existing PANOPTIS risk-pattern library (:class:`panoptis.core.safety.RiskScorer`),
    so rules users already wrote keep working;
 3. content checks on the arguments themselves: secrets about to leave the process, and
    injection-shaped text an agent is forwarding (to a sub-agent, an email, a ticket).

@@ -1,5 +1,5 @@
 """
-AgentWatch Universal Event Schema
+PANOPTIS Universal Event Schema
 All agent events are normalized into this schema regardless of framework.
 """
 
@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class EventType(str, Enum):
-    """Normalized event kinds emitted by AgentWatch adapters."""
+    """Normalized event kinds emitted by PANOPTIS adapters."""
 
     # Lifecycle
     SESSION_START = "session.start"
@@ -322,7 +322,7 @@ class CheckpointData(BaseModel):
 
 class AgentEvent(BaseModel):
     """
-    Universal event emitted by any AgentWatch adapter.
+    Universal event emitted by any PANOPTIS adapter.
     All framework-specific events are normalized to this schema.
     """
 

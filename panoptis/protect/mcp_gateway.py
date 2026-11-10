@@ -122,7 +122,7 @@ def _key(msg_id: Any) -> str:
 def blocked_result(decision: Any) -> dict[str, Any]:
     """The MCP tool result the client gets for a refused call (the server never saw it)."""
     verdict = decision.verdict.value
-    text = f"AgentWatch {'blocked' if verdict == 'block' else 'did not run'} this tool call: {decision.reason}"
+    text = f"PANOPTIS {'blocked' if verdict == 'block' else 'did not run'} this tool call: {decision.reason}"
     return {
         "content": [{"type": "text", "text": text}],
         "isError": True,
@@ -370,7 +370,7 @@ class MCPGateway:
                             "method": "notifications/cancelled",
                             "params": {
                                 "requestId": fwd["id"],
-                                "reason": "AgentWatch gateway timeout",
+                                "reason": "PANOPTIS gateway timeout",
                             },
                         }
                     )
@@ -383,7 +383,7 @@ class MCPGateway:
                             "method": "notifications/cancelled",
                             "params": {
                                 "requestId": fwd["id"],
-                                "reason": "cancelled by the AgentWatch gateway",
+                                "reason": "cancelled by the PANOPTIS gateway",
                             },
                         }
                     )

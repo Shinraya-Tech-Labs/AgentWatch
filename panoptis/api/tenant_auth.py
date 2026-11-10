@@ -1,4 +1,4 @@
-"""Tenant-aware authentication and API key management for AgentWatch Cloud."""
+"""Tenant-aware authentication and API key management for PANOPTIS Cloud."""
 
 from __future__ import annotations
 

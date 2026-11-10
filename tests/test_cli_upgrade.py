@@ -41,7 +41,7 @@ def test_upgrade_status_premium(mock_entitlement):
     result = runner.invoke(app, ["upgrade", "--status"])
 
     assert result.exit_code == 0
-    assert "AgentWatch Premium" in result.stdout
+    assert "PANOPTIS Premium" in result.stdout
     assert "Premium" in result.stdout
     assert "sid@example.com" in result.stdout
     assert "2027-01-01" in result.stdout

@@ -1,4 +1,4 @@
-"""Active circuit breaker for AgentWatch.
+"""Active circuit breaker for PANOPTIS.
 
 Provides a CLOSED -> OPEN -> PAUSED -> HALF_OPEN -> CLOSED state machine that
 watches agent execution for threshold breaches (tokens, errors, hallucinations),

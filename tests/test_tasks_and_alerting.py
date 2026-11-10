@@ -77,5 +77,5 @@ async def test_send_test_alert(monkeypatch):
     assert res["slack"] is True
     assert res["pagerduty"] is True
     assert len(captured) == 2
-    assert "AgentWatch Channel Test" in str(captured[0])
+    assert "PANOPTIS Channel Test" in str(captured[0])
     assert "panoptis-doctor" in str(captured[1])

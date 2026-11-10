@@ -259,7 +259,7 @@ class ActionBlocked(AgentWatchBlockedError):  # noqa: N818 - public API name
     """Raised by guarded calls when the pipeline does not allow the action.
 
     A subclass of :class:`panoptis.core.watcher.AgentWatchBlockedError`, so code that
-    already handles AgentWatch blocks keeps working.
+    already handles PANOPTIS blocks keeps working.
     """
 
     def __init__(self, decision: Decision) -> None:

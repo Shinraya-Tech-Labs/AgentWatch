@@ -1,6 +1,6 @@
 # pylint: disable=unused-argument,protected-access,broad-exception-caught,too-many-arguments,too-many-instance-attributes,too-few-public-methods,too-many-return-statements,no-else-return,missing-function-docstring,keyword-arg-before-vararg,too-many-positional-arguments
 """
-AgentWatch Claude Code Adapter
+PANOPTIS Claude Code Adapter
 Intercepts Claude Code agent execution, normalizes events to the
 Universal Event Schema, and enforces safety policies.
 
@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 class ClaudeCodeEventParser:
     """
-    Parses Claude Code's JSON streaming output format into AgentWatch events.
+    Parses Claude Code's JSON streaming output format into PANOPTIS events.
     Claude Code emits newline-delimited JSON when run with --output-format stream-json
     """
 
@@ -244,7 +244,7 @@ class ClaudeCodeEventParser:
 
 class ClaudeCodeAdapter:
     """
-    Wraps Claude Code CLI subprocess execution with full AgentWatch
+    Wraps Claude Code CLI subprocess execution with full PANOPTIS
     observability, safety enforcement, and replay capture.
     """
 

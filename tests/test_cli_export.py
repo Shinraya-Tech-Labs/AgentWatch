@@ -87,7 +87,7 @@ def test_export_md(mock_httpx_client, tmp_path):
     with open(out_file, encoding="utf-8") as f:
         content = f.read()
 
-    assert "# AgentWatch Session: abc-123" in content
+    assert "# PANOPTIS Session: abc-123" in content
     assert "**Status**: success" in content
     assert "### Goal" in content
     assert "Test goal" in content

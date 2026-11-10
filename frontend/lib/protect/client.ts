@@ -1,5 +1,5 @@
 /**
- * Client for the AgentWatch protection API (/api/v1/protect, docs/PROTECT_API.md).
+ * Client for the PANOPTIS protection API (/api/v1/protect, docs/PROTECT_API.md).
  *
  * The dashboard holds no credential of its own: the user signs in with their API key
  * (a tenant key, or the operator key), kept in sessionStorage for the tab only, and

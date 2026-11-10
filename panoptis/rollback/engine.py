@@ -1,5 +1,5 @@
 """
-AgentWatch Rollback Engine
+PANOPTIS Rollback Engine
 Framework-agnostic rollback support via filesystem snapshots,
 git-backed checkpoints, and transactional execution tracking.
 """

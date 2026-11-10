@@ -1,7 +1,7 @@
 """
 SAF-010 — Live Safety Sandbox.
 
-A pure-simulation harness: the user types an agent command, AgentWatch
+A pure-simulation harness: the user types an agent command, PANOPTIS
 shows what would be blocked, what would pass, and why. No real agent
 involved. Used in the dashboard's onboarding flow.
 """

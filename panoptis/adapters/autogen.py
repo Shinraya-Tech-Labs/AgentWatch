@@ -1,6 +1,6 @@
 # pylint: disable=unused-argument,protected-access,broad-exception-caught,too-many-arguments,too-many-instance-attributes,too-few-public-methods,too-many-return-statements,no-else-return,missing-function-docstring,keyword-arg-before-vararg,too-many-positional-arguments
 """
-AgentWatch AutoGen Adapter (FOUND-004)
+PANOPTIS AutoGen Adapter (FOUND-004)
 
 Wraps Microsoft AutoGen's ConversableAgent / GroupChat objects.
 AutoGen emits messages through `generate_reply`, `send`, and `receive`.
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class AutoGenAdapter:
-    """Wrap an AutoGen agent or GroupChat with AgentWatch observability."""
+    """Wrap an AutoGen agent or GroupChat with PANOPTIS observability."""
 
     INTERCEPT = (
         "generate_reply",

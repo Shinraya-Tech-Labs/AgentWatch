@@ -89,7 +89,7 @@ class ModelRouter:
 
         primary = config.get("providers", {}).get("primary", "gpt-4o")
         fallbacks = config.get("providers", {}).get(
-            "fallback", ["claude-3-haiku-20240307", "gemini-1.5-flash"]
+            "fallback", ["claude-3-haiku-20240307", "gemini-3.5-flash-lite"]
         )
 
         session_id = kwargs.pop("session_id", None)

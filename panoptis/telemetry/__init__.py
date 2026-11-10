@@ -1,1 +1,1 @@
-"""AgentWatch telemetry — OTEL export and external publishers."""
+"""PANOPTIS telemetry — OTEL export and external publishers."""

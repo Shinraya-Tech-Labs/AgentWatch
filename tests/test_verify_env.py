@@ -12,6 +12,6 @@ runner = CliRunner()
 def test_verify_env_cli():
     result = runner.invoke(app, ["check-env"])
     assert result.exit_code == 0
-    assert "AgentWatch Environment Diagnostics" in result.stdout
+    assert "PANOPTIS Environment Diagnostics" in result.stdout
     assert "Python Runtime" in result.stdout
     assert "Core Dependency" in result.stdout

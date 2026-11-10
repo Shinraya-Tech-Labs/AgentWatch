@@ -1,4 +1,4 @@
-"""Terminal animation and presentation helpers for the AgentWatch CLI.
+"""Terminal animation and presentation helpers for the PANOPTIS CLI.
 
 This module provides clean, cross-platform Rich terminal presentations
 and menus for the interactive command center.
@@ -96,7 +96,7 @@ def print_systematic_menu() -> None:
         ("3", "events", "Inspect normalized event stream for a run"),
         ("4", "doctor", "System health check & installation diagnostics"),
         ("5", "check-env", "Verify environment variables & service dependencies"),
-        ("6", "mcp", "Start AgentWatch MCP server (Claude Desktop / Cursor)"),
+        ("6", "mcp", "Start PANOPTIS MCP server (Claude Desktop / Cursor)"),
         ("7", "status", "Check v3 store & model routing status"),
         ("8", "safety check", "Pre-execution threat check & command risk score"),
         ("0", "exit", "Exit interactive shell"),

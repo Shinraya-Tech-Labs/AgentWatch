@@ -1,4 +1,4 @@
-"""AgentWatch v3 CLI commands: a debugging interface over the canonical v3 model.
+"""PANOPTIS v3 CLI commands: a debugging interface over the canonical v3 model.
 
 All commands read through :class:`panoptis.query.workspace.Workspace`, the same read
 model used by the API and the frontend.

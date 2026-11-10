@@ -1,4 +1,4 @@
-"""AgentWatch v3 HTTP API.
+"""PANOPTIS v3 HTTP API.
 
 Every endpoint reads through :class:`~panoptis.query.workspace.Workspace`, the read model
 shared with the CLI and the frontend. Tenancy comes from the authentication dependency

@@ -1,4 +1,4 @@
-"""Batch evaluation and benchmarking for AgentWatch (issue #342)."""
+"""Batch evaluation and benchmarking for PANOPTIS (issue #342)."""
 
 from panoptis.eval.retrieval_drift import (
     ALERT_RETRIEVAL_PRECISION_DRIFT,

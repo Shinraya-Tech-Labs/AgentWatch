@@ -1,4 +1,4 @@
-"""Panopti CLI: Unified terminal command center for Panopti and AgentWatch."""
+"""Panopti CLI: Unified terminal command center for Panopti and PANOPTIS."""
 
 from __future__ import annotations
 
@@ -88,7 +88,7 @@ def _tolerate_any_console() -> None:
 
 
 def main(args: list[str] | None = None) -> Any:
-    """CLI entrypoint dispatching Panopti-specific commands and delegating to AgentWatch."""
+    """CLI entrypoint dispatching Panopti-specific commands and delegating to PANOPTIS."""
     _tolerate_any_console()
     argv = list(sys.argv[1:] if args is None else args)
 
@@ -115,7 +115,7 @@ def main(args: list[str] | None = None) -> Any:
             print("  replay          Run deterministic shadow replay of an execution tape (.json)")
             print("  synth           Synthesize invariant contracts from trace (.json)\n")
             print("Available Profiles: fintech, devops, healthcare, support\n")
-            print("For all core AgentWatch commands, pass standard subcommands.\n")
+            print("For all core PANOPTIS commands, pass standard subcommands.\n")
 
     if argv and argv[0] == "demo":
         from panopti.demo import run_interactive_demo

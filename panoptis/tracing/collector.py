@@ -1,5 +1,5 @@
 """
-AgentWatch Trace Collector
+PANOPTIS Trace Collector
 Collects, stores, and retrieves agent execution traces.
 Compatible with OpenTelemetry concepts (trace_id, span_id).
 """

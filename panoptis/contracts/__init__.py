@@ -1,4 +1,4 @@
-"""AgentWatch Temporal Contract and Evidence Sufficiency Module (v3.1 EvidenceLab)."""
+"""PANOPTIS Temporal Contract and Evidence Sufficiency Module (v3.1 EvidenceLab)."""
 
 from panoptis.contracts.coverage import (
     CoverageProfileRegistry,

@@ -1,4 +1,4 @@
-"""HTTP event forwarder — cross-process delivery to the AgentWatch API server.
+"""HTTP event forwarder — cross-process delivery to the PANOPTIS API server.
 
 When watch() wraps an agent in a user script, events are published on that
 process's in-memory event bus.  The API server (panoptis serve) has its own
@@ -24,7 +24,7 @@ _HANDLER_ID = "panoptis.http_forwarder"
 
 
 class HttpEventForwarder:
-    """Async event handler that POSTs events to the AgentWatch API server."""
+    """Async event handler that POSTs events to the PANOPTIS API server."""
 
     def __init__(self, api_url: str = _DEFAULT_API_URL, *, backoff_s: float | None = None) -> None:
         self.api_url = api_url.rstrip("/")

@@ -1,5 +1,5 @@
 """
-AgentWatch CLI
+PANOPTIS CLI
 Rich terminal interface for session inspection, replay, safety review, and management.
 """
 
@@ -51,12 +51,10 @@ app.add_typer(mcp_app, name="mcp")
 
 console = Console()
 
-server_app = typer.Typer(
-    name="server", help="Manage the AgentWatch API server", no_args_is_help=True
-)
+server_app = typer.Typer(name="server", help="Manage the PANOPTIS API server", no_args_is_help=True)
 safety_app = typer.Typer(
     name="safety",
-    help="AgentWatch Safety & Risk Engine. Analyze shell commands against security policies.",
+    help="PANOPTIS Safety & Risk Engine. Analyze shell commands against security policies.",
     rich_markup_mode="rich",
     no_args_is_help=True,
 )
@@ -72,21 +70,21 @@ safety_app.add_typer(config_app, name="config")
 
 cost_app = typer.Typer(
     name="cost",
-    help="AgentWatch FinOps. Report token usage and API spend across agents and frameworks.",
+    help="PANOPTIS FinOps. Report token usage and API spend across agents and frameworks.",
     rich_markup_mode="rich",
     no_args_is_help=True,
 )
 
 eval_app = typer.Typer(
     name="eval",
-    help="AgentWatch Evaluation. Run an agent against a dataset and score the batch.",
+    help="PANOPTIS Evaluation. Run an agent against a dataset and score the batch.",
     rich_markup_mode="rich",
     no_args_is_help=True,
 )
 
 protect_app = typer.Typer(
     name="protect",
-    help="AgentWatch security engine, guardrails, compliance, and evidence.",
+    help="PANOPTIS security engine, guardrails, compliance, and evidence.",
     rich_markup_mode="rich",
     no_args_is_help=True,
 )
@@ -125,7 +123,7 @@ def main_callback(
     ctx: typer.Context,
     version: bool = typer.Option(False, "--version", "-V", help="Show version and exit."),
 ):
-    """AgentWatch CLI with ASCII Animation"""
+    """PANOPTIS CLI with ASCII Animation"""
     global _IN_REPL
 
     if version:
@@ -134,7 +132,7 @@ def main_callback(
 
         from panoptis import __version__
 
-        console.print(f"AgentWatch CLI version: {__version__}")
+        console.print(f"PANOPTIS CLI version: {__version__}")
         console.print(f"Python: {sys.version.split()[0]}")
         console.print(f"Platform: {platform.platform()}")
         raise typer.Exit()
@@ -381,7 +379,7 @@ def watch(
                 f"[dim]Policy:[/dim]  {'DISABLED ⚠️' if no_safety else policy}\n"
                 f"[dim]Safety:[/dim]  {'off' if no_safety else 'on'}",
                 border_style="yellow",
-                title="AgentWatch watch --dry-run",
+                title="PANOPTIS watch --dry-run",
             )
         )
         if output:
@@ -406,7 +404,7 @@ def watch(
 
         console.print(
             Panel(
-                f"[bold cyan]AgentWatch[/bold cyan] — watching {agent}\n"
+                f"[bold cyan]PANOPTIS[/bold cyan] — watching {agent}\n"
                 f"[dim]Prompt:[/dim] {prompt[:80]}{'...' if len(prompt) > 80 else ''}",
                 border_style="cyan",
             )
@@ -516,7 +514,7 @@ app.command(name="watch")(watch)
 def help_command(
     command: str | None = typer.Argument(None, help="The command to show help for."),
 ) -> None:
-    """Show help for AgentWatch / Panoptis or a specific command."""
+    """Show help for PANOPTIS / Panoptis or a specific command."""
     if command:
         try:
             app([command, "--help"])
@@ -627,7 +625,7 @@ def sessions(
     framework: str | None = typer.Option(None, "--framework"),
     api_key: str | None = API_KEY_OPTION,
 ) -> None:
-    """[bold]List[/bold] recent agent sessions from the AgentWatch API."""
+    """[bold]List[/bold] recent agent sessions from the PANOPTIS API."""
 
     async def _run() -> None:
         try:
@@ -742,7 +740,7 @@ def export(
             steps = data.get("steps", [])
 
             lines = [
-                f"# AgentWatch Session: {session.get('session_id', session_id)}",
+                f"# PANOPTIS Session: {session.get('session_id', session_id)}",
                 "",
                 "## Session Overview",
                 f"- **Status**: {session.get('status', 'unknown')}",
@@ -876,7 +874,7 @@ def share(
                 "[bold yellow]DRY-RUN MODE[/bold yellow] — Nothing will be uploaded.\n"
                 "[dim]Below is the exact sanitized payload that would be shared.[/dim]",
                 border_style="yellow",
-                title="AgentWatch share --dry-run",
+                title="PANOPTIS share --dry-run",
             )
         )
         console.print_json(data=sanitized)
@@ -937,7 +935,7 @@ def share(
                 f"Link: [link]{safe_url}[/link]"
                 + (f"\n[dim]Expires:[/dim] {safe_expires}" if safe_expires else ""),
                 border_style="green",
-                title="AgentWatch share",
+                title="PANOPTIS share",
             )
         )
 
@@ -1247,7 +1245,7 @@ def cost_report(
     """
     [bold]Report[/bold] token usage, USD cost, and cost-per-successful-goal.
 
-    Aggregates recent sessions from the AgentWatch API over the last [b]--days[/b],
+    Aggregates recent sessions from the PANOPTIS API over the last [b]--days[/b],
     grouped by [b]--group-by[/b].
 
     [b]Example Usage:[/b]
@@ -1455,7 +1453,7 @@ def serve(
         help="Preview what would happen without starting the server",
     ),
 ) -> None:
-    """[bold]Start[/bold] the AgentWatch API server."""
+    """[bold]Start[/bold] the PANOPTIS API server."""
 
     if dry_run:
         console.print(
@@ -1466,7 +1464,7 @@ def serve(
                 f"[dim]Hot-reload:[/dim]    {'enabled' if reload else 'disabled'}\n"
                 f"[dim]App module:[/dim]    panoptis.api.server:app",
                 border_style="yellow",
-                title="AgentWatch serve --dry-run",
+                title="PANOPTIS serve --dry-run",
             )
         )
         _dry_run_print(
@@ -1485,7 +1483,7 @@ def serve(
 
     console.print(
         Panel(
-            f"[bold cyan]AgentWatch API Server[/bold cyan]\n"
+            f"[bold cyan]PANOPTIS API Server[/bold cyan]\n"
             f"[dim]Listening on[/dim] http://{host}:{port}\n"
             f"[dim]Dashboard[/dim]  http://localhost:3000",
             border_style="cyan",
@@ -1560,7 +1558,7 @@ def top(
             if error_msg:
                 return Panel(
                     f"[red]{error_msg}[/red]",
-                    title="AgentWatch Top Error",
+                    title="PANOPTIS Top Error",
                     border_style="red",
                 )
 
@@ -1575,7 +1573,7 @@ def top(
             if not top_sessions:
                 return Panel(
                     "No active agent sessions running.",
-                    title="[cyan]AgentWatch Top[/cyan]",
+                    title="[cyan]PANOPTIS Top[/cyan]",
                     subtitle=breaker_info,
                     border_style="cyan",
                 )
@@ -1591,7 +1589,7 @@ def top(
 
             return Panel(
                 table,
-                title="[cyan]AgentWatch Top - Active Agent Loops[/cyan]",
+                title="[cyan]PANOPTIS Top - Active Agent Loops[/cyan]",
                 subtitle=breaker_info,
                 border_style="cyan",
             )
@@ -1637,7 +1635,7 @@ def status(
     ),
     api_key: str | None = API_KEY_OPTION,
 ) -> None:
-    """[bold]Show[/bold] a real-time live dashboard of AgentWatch runtime status."""
+    """[bold]Show[/bold] a real-time live dashboard of PANOPTIS runtime status."""
 
     async def _run() -> None:
         try:
@@ -1668,7 +1666,7 @@ def status(
             if error_msg:
                 return Panel(
                     f"[red]{error_msg}[/red]",
-                    title="AgentWatch Error",
+                    title="PANOPTIS Error",
                     border_style="red",
                 )
 
@@ -1713,7 +1711,7 @@ def status(
                 Layout(
                     Panel(
                         Align(
-                            "[bold cyan]AgentWatch Live Runtime Dashboard[/bold cyan]\n[dim]Press Ctrl+C to exit[/dim]",
+                            "[bold cyan]PANOPTIS Live Runtime Dashboard[/bold cyan]\n[dim]Press Ctrl+C to exit[/dim]",
                             align="center",
                         )
                     ),
@@ -1844,7 +1842,7 @@ def compare(
             - anomaly_flags
 
             Missing optional fields are rendered as N/A to maintain
-            compatibility with older AgentWatch API versions.
+            compatibility with older PANOPTIS API versions.
             """
             overall = conf.get("overall_score")
             alignment = conf.get("goal_alignment")
@@ -1916,7 +1914,7 @@ def compare(
         def format_score(val):
             return f"{val:.2f}" if val is not None else "N/A"
 
-        console.print("\n[bold]AgentWatch Session Comparison[/bold]")
+        console.print("\n[bold]PANOPTIS Session Comparison[/bold]")
         console.print("────────────────────────────────────\n")
 
         table = Table(box=None, show_header=True, header_style="")
@@ -2040,7 +2038,7 @@ def redteam(
             f"Score:    [{score_color}]{score:.0%}[/{score_color}]\n"
             f"Defended: {report.defended_count}/{report.total} attacks",
             border_style=score_color,
-            title="AgentWatch redteam",
+            title="PANOPTIS redteam",
         )
     )
 
@@ -2157,7 +2155,7 @@ def upgrade(
         False, "--dry-run", help="Preview the handoff without opening a browser."
     ),
 ) -> None:
-    """[bold]Upgrade[/bold] to AgentWatch Premium via the secure web checkout."""
+    """[bold]Upgrade[/bold] to PANOPTIS Premium via the secure web checkout."""
     from panoptis.security.checkout import DEFAULT_CHECKOUT_URL, checkout_url, new_session
 
     if show_status:
@@ -2170,7 +2168,7 @@ def upgrade(
                     f"[dim]Tier:[/dim]    [green]{entitlement.tier}[/green]\n"
                     f"[dim]Account:[/dim] {entitlement.subject}\n"
                     f"[dim]Expires:[/dim] {entitlement.expires_at:%Y-%m-%d}",
-                    title="AgentWatch Premium",
+                    title="PANOPTIS Premium",
                     border_style="green",
                 )
             )
@@ -2206,7 +2204,7 @@ def upgrade(
 
     console.print(
         Panel(
-            "[bold cyan]AgentWatch Premium[/bold cyan]\n"
+            "[bold cyan]PANOPTIS Premium[/bold cyan]\n"
             "Complete checkout in your browser, then run\n"
             "[bold]panoptis upgrade --activate <token>[/bold] with the token shown there.",
             border_style="cyan",
@@ -2361,7 +2359,7 @@ def _print_session_summary(session, events) -> None:
                 else "Anomalies:  none"
             ),
             border_style=sc,
-            title="AgentWatch Summary",
+            title="PANOPTIS Summary",
         )
     )
 
@@ -2672,10 +2670,10 @@ def compliance_export_local(
 
 @app.command()
 def version() -> None:
-    """Show AgentWatch version and diagnostics."""
+    """Show PANOPTIS version and diagnostics."""
     from panoptis import __version__
 
-    table = Table(title="AgentWatch Diagnostics", box=box.ROUNDED)
+    table = Table(title="PANOPTIS Diagnostics", box=box.ROUNDED)
     table.add_column("Key", style="cyan")
     table.add_column("Value")
 
@@ -2734,7 +2732,7 @@ def doctor(
         help="Send a diagnostic test alert to configured Slack/PagerDuty channels.",
     ),
 ) -> None:
-    """[bold]Doctor[/bold]: Check AgentWatch installation health and manage schema migrations."""
+    """[bold]Doctor[/bold]: Check PANOPTIS installation health and manage schema migrations."""
     import asyncio
     import os
     import shutil
@@ -2944,11 +2942,11 @@ def claude_hook_install(
         "(needs Claude Code 2.1.295 or later).",
     ),
 ) -> None:
-    """Merge the AgentWatch hook into a Claude Code settings file."""
+    """Merge the PANOPTIS hook into a Claude Code settings file."""
     from panoptis.protect import claude_hook
 
     claude_hook.install(settings, timeout_s=timeout, on_failure_block=on_failure_block)
-    console.print(f"[green]AgentWatch hook installed in {settings}[/green]")
+    console.print(f"[green]PANOPTIS hook installed in {settings}[/green]")
     if not on_failure_block:
         console.print(
             "[yellow]Claude Code runs the tool if the hook command cannot start or times out. "
@@ -2962,11 +2960,11 @@ def claude_hook_uninstall(
         Path(".claude") / "settings.local.json", "--settings", help=_HOOK_SETTINGS_HELP
     ),
 ) -> None:
-    """Remove the AgentWatch hook from a Claude Code settings file."""
+    """Remove the PANOPTIS hook from a Claude Code settings file."""
     from panoptis.protect import claude_hook
 
     found = claude_hook.uninstall(settings)
-    console.print("Removed." if found else "No AgentWatch hook found.")
+    console.print("Removed." if found else "No PANOPTIS hook found.")
 
 
 @claude_hook_app.command("print")
@@ -3005,7 +3003,7 @@ def protect_mcp_gateway(ctx: typer.Context) -> None:
 
 discover_app = typer.Typer(
     name="discover",
-    help="Find local agent runtimes and MCP servers, and whether AgentWatch enforces on them.",
+    help="Find local agent runtimes and MCP servers, and whether PANOPTIS enforces on them.",
     invoke_without_command=True,
 )
 protect_app.add_typer(discover_app, name="discover")
@@ -3042,7 +3040,7 @@ def protect_discover(
         return
     from rich.table import Table
 
-    table = Table(title="AgentWatch discovery")
+    table = Table(title="PANOPTIS discovery")
     for col in ("Status", "Kind", "Runtime", "Name", "Source", "Why"):
         table.add_column(col)
     colors = {
@@ -3077,7 +3075,7 @@ def protect_discover_wrap(
         help="Write the change (a .agentwatch.bak backup is kept). Without it, only show it.",
     ),
 ) -> None:
-    """Rewrite one configured stdio MCP server to run behind the AgentWatch gateway."""
+    """Rewrite one configured stdio MCP server to run behind the PANOPTIS gateway."""
     from panoptis.protect import discovery
 
     try:
@@ -3199,7 +3197,7 @@ def protect_support(as_json: bool = typer.Option(False, "--json")) -> None:
         return
     from rich.table import Table
 
-    table = Table(title="AgentWatch integration support")
+    table = Table(title="PANOPTIS integration support")
     for col in ("Integration", "Stage", "Entry point", "Limitations"):
         table.add_column(col)
     for s in MATRIX:

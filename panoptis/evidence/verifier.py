@@ -1,6 +1,6 @@
-"""Independent verifier for exported AgentWatch evidence (TO-026).
+"""Independent verifier for exported PANOPTIS evidence (TO-026).
 
-Standard library only, and no AgentWatch imports: copy this one file anywhere and run
+Standard library only, and no PANOPTIS imports: copy this one file anywhere and run
 
     python verifier.py bundle.json [--expect-head SEQ:SEGMENT_HASH]
     python verifier.py --proof proof.json
@@ -85,7 +85,7 @@ def verify_bundle(
 ) -> dict[str, Any]:
     errors: list[str] = []
     if not isinstance(bundle, dict) or bundle.get("format") != FORMAT:
-        return {"ok": False, "errors": [f"not an AgentWatch evidence bundle ({FORMAT})"]}
+        return {"ok": False, "errors": [f"not a PANOPTIS evidence bundle ({FORMAT})"]}
     tenant = bundle.get("tenant_id")
     segments = bundle.get("segments") or []
     observations = bundle.get("observations") or []
@@ -214,7 +214,7 @@ def _head(arg: str | None) -> dict[str, Any] | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Verify exported AgentWatch evidence")
+    ap = argparse.ArgumentParser(description="Verify exported PANOPTIS evidence")
     ap.add_argument("bundle", nargs="?", help="bundle JSON file")
     ap.add_argument("--expect-head", help="SEQ:SEGMENT_HASH of a head known from elsewhere")
     ap.add_argument("--proof", help="verify one record's inclusion proof file instead")

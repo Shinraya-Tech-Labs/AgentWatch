@@ -1,4 +1,4 @@
-"""Tenant, API key, and usage tracking models for AgentWatch Cloud.
+"""Tenant, API key, and usage tracking models for PANOPTIS Cloud.
 
 Architecture
 ~~~~~~~~~~~~

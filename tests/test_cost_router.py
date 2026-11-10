@@ -17,27 +17,27 @@ def test_simple_task_routes_to_cheapest_model():
     """A trivial prompt is routed to the cheapest model overall."""
     d = CostAwareRouter().route(TaskSignals(prompt="format this date please"))
     assert d.complexity is TaskComplexity.SIMPLE
-    assert d.model == "gemini-1.5-flash"
+    assert d.model == "gpt-4o-mini"  # cheapest in DEFAULT_PRICING
     assert d.reason == "cheapest_capable_for_simple"
 
 
 def test_complex_task_reserves_advanced_model():
-    """Reasoning-heavy work is reserved for the most capable model."""
+    """Reasoning-heavy work goes to the cheapest COMPLEX-capable model."""
     d = CostAwareRouter().route(TaskSignals(prompt="x" * 200, requires_reasoning=True))
     assert d.complexity is TaskComplexity.COMPLEX
-    assert d.model == "claude-opus-4-5"
+    assert d.model == "gemini-4-argon"  # cheaper than claude-opus-4-5, both COMPLEX
 
 
 def test_standard_task_picks_cheapest_capable_mid_tier():
     """A standard task skips SIMPLE-only models and takes the cheapest mid-tier one."""
     d = CostAwareRouter().route(complexity=TaskComplexity.STANDARD, input_tokens=2000)
-    assert d.model == "gemini-1.5-pro"  # cheapest with capability >= STANDARD
+    assert d.model == "gemini-3.8-flash"  # cheapest with capability >= STANDARD
 
 
 def test_explicit_complexity_overrides_scorer():
     """An explicit complexity argument bypasses the heuristic scorer."""
     d = CostAwareRouter().route(TaskSignals(prompt="hi"), complexity=TaskComplexity.COMPLEX)
-    assert d.model == "claude-opus-4-5"
+    assert d.model == "gemini-4-argon"
 
 
 def test_override_model_is_honored():
@@ -57,7 +57,7 @@ def test_budget_ceiling_downgrades_when_capable_too_costly():
     """When the cheapest capable model exceeds the ceiling, downgrade to cheapest overall."""
     router = CostAwareRouter(budget_ceiling=0.001)
     d = router.route(complexity=TaskComplexity.COMPLEX, input_tokens=100_000, output_tokens=5_000)
-    assert d.model == "gemini-1.5-flash"
+    assert d.model == "gpt-4o-mini"
     assert d.reason == "budget_ceiling_exceeded_downgraded"
 
 

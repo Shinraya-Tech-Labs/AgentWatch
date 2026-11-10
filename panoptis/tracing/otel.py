@@ -1,1 +1,1 @@
-"""OpenTelemetry tracing integration for AgentWatch."""
+"""OpenTelemetry tracing integration for PANOPTIS."""

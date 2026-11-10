@@ -20,11 +20,11 @@ export default function McpPage() {
   return (
     <SecurityShell title="MCP">
       <h1 className="text-base font-semibold text-zinc-100">MCP gateway</h1>
-      <Card title="Servers behind the AgentWatch gateway">
+      <Card title="Servers behind the PANOPTIS gateway">
         <QueryState
           q={mcp}
           isEmpty={!mcp.data?.servers.length}
-          empty="No tool call has gone through an AgentWatch MCP gateway in this tenant."
+          empty="No tool call has gone through a PANOPTIS MCP gateway in this tenant."
         >
           <Table
             label="gateway servers"

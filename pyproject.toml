@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "panoptis"
-version = "0.3.1"
+version = "0.4.0"
 description = "PANOPTIS (formerly AgentWatch): Pre-Execution Guardrail & Observability Layer for AI Agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.12,<3.13"
 authors = [
-  { name = "AgentWatch Contributors" }
+  { name = "PANOPTIS Contributors" }
 ]
 keywords = ["ai", "agents", "observability", "safety", "llm", "langchain", "claude"]
 classifiers = [
@@ -129,7 +129,7 @@ panopti = "panopti.cli:main"
 panoptis = "panoptis.cli.main:main"
 
 [project.urls]
-Homepage = "https://github.com/Shinraya-Tech-Labs/AgentWatch"
+Homepage = "https://shinraya-tech-labs.github.io/AgentWatch/"
 Repository = "https://github.com/Shinraya-Tech-Labs/AgentWatch"
 Issues = "https://github.com/Shinraya-Tech-Labs/AgentWatch/issues"
 
@@ -142,6 +142,8 @@ artifacts = ["panoptis/_dashboard/**"]
 # The source distribution holds the packages, their tests and the project files only:
 # not the dashboard, the landing site (a separate repository), deployment files or notes.
 [tool.hatch.build.targets.sdist]
+# `python -m build` makes the wheel from the sdist, so the built dashboard rides in both
+artifacts = ["panoptis/_dashboard/**"]
 include = [
   "/panoptis",
   "/panopti",

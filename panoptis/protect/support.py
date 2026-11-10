@@ -98,7 +98,7 @@ MATRIX: tuple[Support, ...] = (
         "end-to-end test not run; per-process loop/rate state",
     ),
     Support(
-        "MCP servers via the AgentWatch gateway (stdio)",
+        "MCP servers via the PANOPTIS gateway (stdio)",
         PRE,
         "panoptis.protect.mcp_gateway.run_stdio",
         "proxies JSON-RPC; tools/call goes through aenforce_call before it is forwarded",
@@ -107,7 +107,7 @@ MATRIX: tuple[Support, ...] = (
         "one gateway process per client connection",
     ),
     Support(
-        "MCP servers via the AgentWatch gateway (Streamable HTTP)",
+        "MCP servers via the PANOPTIS gateway (Streamable HTTP)",
         PRE,
         "panoptis.protect.mcp_gateway.build_http_app",
         "proxies POST/GET/DELETE; tools/call is enforced and answered as JSON",

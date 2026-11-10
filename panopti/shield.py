@@ -1,4 +1,4 @@
-"""Anti-tampering process and audit shield for Panopti & AgentWatch."""
+"""Anti-tampering process and audit shield for Panopti & PANOPTIS."""
 
 from __future__ import annotations
 

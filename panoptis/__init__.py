@@ -1,4 +1,4 @@
-"""AgentWatch — Reliability, Safety, and Observability for AI Agents."""
+"""PANOPTIS — Reliability, Safety, and Observability for AI Agents."""
 
 from panoptis._version import __version__
 from panoptis.core.watcher import (

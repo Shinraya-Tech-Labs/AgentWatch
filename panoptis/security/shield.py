@@ -1,4 +1,4 @@
-"""AgentWatch security alias for Anti-Tamper Shield."""
+"""PANOPTIS security alias for Anti-Tamper Shield."""
 
 from __future__ import annotations
 

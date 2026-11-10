@@ -1,4 +1,4 @@
-"""AgentWatch security — OWASP Agentic Top 10, exfiltration, reports, sandbox."""
+"""PANOPTIS security — OWASP Agentic Top 10, exfiltration, reports, sandbox."""
 
 from panoptis.security.egress import EgressGuard, SSRFBlockedError
 from panoptis.security.shield import AntiTamperShield, TamperAttemptBlocked

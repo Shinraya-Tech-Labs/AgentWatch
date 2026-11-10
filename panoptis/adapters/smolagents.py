@@ -1,5 +1,5 @@
 """
-AgentWatch Smolagents Adapter (FOUND-004)
+PANOPTIS Smolagents Adapter (FOUND-004)
 
 Hugging Face Smolagents — wraps CodeAgent / ToolCallingAgent.
 Entry points: `run`, `step`. Tool calls happen inside `step`.

@@ -1,5 +1,5 @@
 """
-AgentWatch Universal watch() — FOUND-001
+PANOPTIS Universal watch() — FOUND-001
 
 One-line agent instrumentation:
 
@@ -377,7 +377,7 @@ class GenericAdapter:
             )
         return AgentWatchBlockedError(
             f"Tool call '{method_name}' blocked: the safety check failed "
-            f"({type(exc).__name__}); AgentWatch fails closed",
+            f"({type(exc).__name__}); PANOPTIS fails closed",
             tool_name=method_name,
             reasons=[reason],
         )
@@ -907,7 +907,7 @@ class GenericAdapter:
             )
             self.bus.publish_sync(event)
         except Exception as exc:  # noqa: BLE001 — invisible-when-healthy contract
-            logger.debug("AgentWatch emit failed (suppressed): %s", exc)
+            logger.debug("PANOPTIS emit failed (suppressed): %s", exc)
 
     async def _async_emit(
         self,
@@ -931,7 +931,7 @@ class GenericAdapter:
             )
             await self.bus.publish(event)
         except Exception as exc:  # noqa: BLE001
-            logger.debug("AgentWatch async emit failed (suppressed): %s", exc)
+            logger.debug("PANOPTIS async emit failed (suppressed): %s", exc)
 
 
 # ─────────────────────────────────────────────
@@ -1050,7 +1050,7 @@ def watch(
     protection: Any | None = None,
 ) -> Any:
     """
-    Instrument an agent for AgentWatch observability.
+    Instrument an agent for PANOPTIS observability.
 
     Returns the same agent object (or, for some frameworks, a wrapped object
     that quacks identically). Never crashes the host — if instrumentation

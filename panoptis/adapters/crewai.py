@@ -1,7 +1,7 @@
 # pylint: disable=unused-argument,protected-access,broad-exception-caught,too-many-arguments,too-many-instance-attributes,too-few-public-methods,too-many-return-statements,no-else-return,missing-function-docstring,keyword-arg-before-vararg,too-many-positional-arguments
 """
-AgentWatch CrewAI Adapter
-Converts CrewAI lifecycle callbacks into AgentWatch events.
+PANOPTIS CrewAI Adapter
+Converts CrewAI lifecycle callbacks into PANOPTIS events.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ class AgentWatchCrewAIAdapter:
         return self._step
 
     def _emit(self, event: AgentEvent) -> None:
-        """Publish event to AgentWatch event bus."""
+        """Publish event to PANOPTIS event bus."""
         self._bus.publish_sync(event)
 
     def _base(self, event_type: EventType) -> AgentEvent:

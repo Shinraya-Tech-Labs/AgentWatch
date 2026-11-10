@@ -2,7 +2,7 @@
 SAF-008 — Automated Red-Team Safety Test Harness.
 
 Drives a curated corpus of simulated attacks — prompt injection, path
-traversal, credential scans, and tool misuse — through AgentWatch's detection
+traversal, credential scans, and tool misuse — through PANOPTIS's detection
 layer and scores how well the agent's defenses hold up.
 
 Payloads are only ever *scored* by the existing detectors
@@ -164,7 +164,7 @@ def default_corpus() -> list[AttackScenario]:
 
 
 class RedTeamHarness:
-    """Run a corpus of simulated attacks against AgentWatch's detection layer.
+    """Run a corpus of simulated attacks against PANOPTIS's detection layer.
 
     The default target is the offline, deterministic :class:`RiskScorer` /
     prompt-injection scanner — no live agent or LLM is invoked and nothing is

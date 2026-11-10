@@ -1,4 +1,4 @@
-"""Human-in-the-loop ambient integration for AgentWatch.
+"""Human-in-the-loop ambient integration for PANOPTIS.
 
 Adds an escalation layer on top of the existing alerting engine: agent actions
 are triaged by risk level into one of three interaction patterns — NOTIFY

@@ -1,5 +1,5 @@
 """
-AgentWatch API Server
+PANOPTIS API Server
 FastAPI-based REST API for the observability dashboard, CLI, and integrations.
 """
 
@@ -1022,7 +1022,7 @@ async def lifespan(app: FastAPI):
     bus.subscribe_fn(_after_publish, handler_id="api.post_publish")
     _seed_demo_data()
     heartbeat = asyncio.create_task(_loop_heartbeat(), name="api.loop-heartbeat")
-    logger.info("AgentWatch API started")
+    logger.info("PANOPTIS API started")
     yield
     # publishers that do not await are still writing: closing the database now would drop them
     unfinished = await bus.drain(_SHUTDOWN_DRAIN_SECONDS)
@@ -1038,12 +1038,12 @@ async def lifespan(app: FastAPI):
         if engine is not None:
             await engine.dispose()
     heartbeat.cancel()
-    logger.info("AgentWatch API shutdown")
+    logger.info("PANOPTIS API shutdown")
 
 
 app = FastAPI(
-    title="AgentWatch API",
-    description="REST API for the AgentWatch observability platform. "
+    title="PANOPTIS API",
+    description="REST API for the PANOPTIS observability platform. "
     "Handles reasoning trace ingestion, session management, safety policy enforcement, and real-time dashboard updates.",
     version=__version__,
     lifespan=lifespan,
@@ -1126,7 +1126,7 @@ def _v3_tenant(
     return _principal(x_api_key, x_tenant_id).tenant_id
 
 
-# AgentWatch v3: /api/v3/* and the OTLP receiver at /v1/traces (see docs/v3).
+# PANOPTIS v3: /api/v3/* and the OTLP receiver at /v1/traces (see docs/v3).
 app.include_router(build_v3_router(_require_api_key, _v3_tenant))
 
 # Human approval of escalated tool calls (TO-019), scoped to the caller's tenant.
@@ -2003,7 +2003,7 @@ async def eu_ai_act_report(
 ) -> dict[str, Any]:
     """EU AI Act Article 15 conformity export (CMP-004).
 
-    Maps AgentWatch's safety telemetry to the Article 15 requirements and
+    Maps PANOPTIS's safety telemetry to the Article 15 requirements and
     returns the technical documentation plus a conformity assessment as JSON.
     """
     from panoptis.governance.eu_ai_act import (
@@ -2036,7 +2036,7 @@ async def eu_ai_act_report(
         oversight.append("medium-risk actions require human approval")
 
     doc = TechnicalDocumentation(
-        system_name="AgentWatch-monitored AI system",
+        system_name="PANOPTIS-monitored AI system",
         intended_purpose="Observability, safety, and reliability layer for AI agents",
         risk_category="high",
         data_governance={

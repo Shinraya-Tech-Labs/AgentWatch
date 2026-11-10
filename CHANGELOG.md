@@ -10,6 +10,25 @@ file and uses it as the GitHub Release body, so keep each version's notes here.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-10
+
+### Added
+- **`panoptis up`**: the API and the dashboard on localhost with SQLite, no Docker, Postgres or Node. Creates local operator and demo keys in `<home>/local.json`, seeds a labelled demo tenant once, serves the dashboard on the same origin, signs it in automatically (loopback-only `/api/local/session`) and opens the browser. Protected agents on the machine use the same store by default.
+- **`panoptis demo live`**: an OpenAI Agents SDK agent on a real model (`OPENAI_API_KEY` from the environment only) reads a poisoned issue; the injected upload is blocked and the force-push is held for approval, live on the dashboard. `--offline` / `panoptis demo offline` runs the same tools with a scripted agent.
+- **OpenAI Agents SDK enforcement**: `protect_openai_agent()` / `protect_openai_agents_tool()` wrap `FunctionTool.on_invoke_tool`, so refused calls never run, decided arguments reach the tool, tool output is sanitized and held calls wait for a person. New extra: `panoptis[openai-agents]`.
+- Dashboard home screen that answers "is my agent safe?": allowed / blocked / waiting counts, a plain-English decision feed (the decision API returns a truncated `action_preview`), approvals and an emergency stop. Frosted-glass theme; Policy, MCP and the Evidence Lab move under "Advanced"; mobile layout.
+- The wheel ships the static dashboard (`npm run build:static`); CI smoke-tests a clean install of `panoptis up` (health, blocked and allowed calls, an approval, evidence verify).
+- Landing page rebuilt (neo-brutalist) with a recorded demo, deployed to GitHub Pages.
+
+### Changed
+- The product name is PANOPTIS in CLI output, API docs, dashboard and docstrings. Environment variables (`AGENTWATCH_*`), the `~/.agentwatch` home and class names are unchanged.
+- Gemini models in the cost tables: `gemini-3.5-flash-lite`, `gemini-3.8-flash`, `gemini-4-argon` at list prices (Gemini 1.5 is retired).
+- `typer` is capped below 0.28 (its vendored click changes the parameter model).
+
+### Removed
+- `render.yaml`: it could not start a production API (no API key) and pinned a stale hostname.
+- Root planning files moved to `docs/archive/`; `demo.py` and `real_agent.py` moved to `examples/`.
+
 ### Security
 - Rate limits can no longer be bypassed with a made-up `Authorization` token or `X-Forwarded-For` header. The header counts only from proxies listed in the new `AGENTWATCH_TRUSTED_PROXIES`; **a deployment behind a proxy must set it**, or all its clients share one quota.
 - Traffic without a credential can no longer exhaust the global limit for requests that present one.

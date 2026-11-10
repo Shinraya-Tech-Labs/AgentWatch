@@ -1,7 +1,7 @@
 # pylint: disable=unused-argument,protected-access,broad-exception-caught,too-many-arguments,too-many-instance-attributes,too-few-public-methods,too-many-return-statements,no-else-return,missing-function-docstring,keyword-arg-before-vararg,too-many-positional-arguments
 """
-AgentWatch LangChain Adapter
-Hooks into LangChain's callback system to emit normalized AgentWatch events.
+PANOPTIS LangChain Adapter
+Hooks into LangChain's callback system to emit normalized PANOPTIS events.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class AgentWatchCallbackHandler:
     """
-    LangChain callback handler that emits AgentWatch events.
+    LangChain callback handler that emits PANOPTIS events.
     Compatible with LangChain's BaseCallbackHandler interface.
 
     Usage:

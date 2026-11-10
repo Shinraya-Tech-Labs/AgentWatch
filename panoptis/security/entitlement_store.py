@@ -4,7 +4,7 @@ CMP — local entitlement storage for premium licensing.
 After a successful checkout the backend issues a signed entitlement token
 (see :mod:`panoptis.security.license`). The CLI persists that token under
 ``~/.agentwatch/config.toml`` and reloads + verifies it on subsequent premium
-requests. AgentWatch owns this file exclusively, so it is written wholesale
+requests. PANOPTIS owns this file exclusively, so it is written wholesale
 rather than merged.
 
 Storing the token is not the security boundary — the token is verified
@@ -28,7 +28,7 @@ _TOKEN_KEY = "entitlement_token"  # noqa: S105 # nosec B105 — TOML key name, n
 
 
 def config_home() -> Path:
-    """Return the AgentWatch config directory (``~/.agentwatch`` by default)."""
+    """Return the PANOPTIS config directory (``~/.agentwatch`` by default)."""
     override = os.environ.get(_HOME_ENV)
     return Path(override) if override else Path.home() / ".agentwatch"
 
@@ -42,7 +42,7 @@ def store_entitlement_token(token: str, *, path: Path | None = None) -> Path:
     """Persist an entitlement ``token`` to the config file, returning its path."""
     target = path or config_path()
     target.parent.mkdir(parents=True, exist_ok=True)
-    # AgentWatch owns this file; a single string value needs no TOML writer dep.
+    # PANOPTIS owns this file; a single string value needs no TOML writer dep.
     target.write_text(
         f"[{_SECTION}]\n{_TOKEN_KEY} = {_toml_escape(token)}\n",
         encoding="utf-8",

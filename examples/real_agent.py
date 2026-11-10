@@ -6,7 +6,7 @@ Usage:
     panoptis serve
 
     # Terminal 2: run this script
-    python real_agent.py
+    python examples/real_agent.py
 
 Then open http://localhost:3000 (or http://localhost:8000/api/v1/sessions)
 and watch the session appear in real time.

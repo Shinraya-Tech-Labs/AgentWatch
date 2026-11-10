@@ -1,1 +1,1 @@
-"""AgentWatch platform — sharing, cloud, prompts, evals, intelligence."""
+"""PANOPTIS platform — sharing, cloud, prompts, evals, intelligence."""

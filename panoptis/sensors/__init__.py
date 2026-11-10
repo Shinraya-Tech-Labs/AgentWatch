@@ -1,4 +1,4 @@
-"""AgentWatch v3 sensors.
+"""PANOPTIS v3 sensors.
 
 Sensors capture raw observations (payload + identifiers declared by the source) and
 hand them to a sink. They never interpret behaviour, never block and never raise into

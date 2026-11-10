@@ -1,5 +1,5 @@
 """
-AgentWatch Governance Engine
+PANOPTIS Governance Engine
 Policy enforcement, audit logging, capability controls, and RBAC.
 """
 

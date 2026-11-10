@@ -1,5 +1,5 @@
 """
-AgentWatch Telemetry
+PANOPTIS Telemetry
 OpenTelemetry integration for distributed tracing, metrics, and logging.
 Exports spans to OTLP, Jaeger, or stdout.
 """
@@ -66,7 +66,7 @@ OTELConfig = TelemetryConfig
 
 class TelemetryProvider:
     """
-    Wraps OpenTelemetry setup for AgentWatch.
+    Wraps OpenTelemetry setup for PANOPTIS.
     Falls back gracefully when OTel SDK is not installed.
     """
 
@@ -164,10 +164,10 @@ class TelemetryProvider:
             return False
 
     def grafana_dashboard_template(self) -> dict[str, Any]:
-        """Return a basic Grafana dashboard template for AgentWatch."""
+        """Return a basic Grafana dashboard template for PANOPTIS."""
         return {
             "uid": "panoptis-main",
-            "title": "AgentWatch Observability",
+            "title": "PANOPTIS Observability",
             "panels": [
                 {"title": "Confidence (p50 / p95)", "type": "timeseries"},
                 {"title": "Risk Levels", "type": "piechart"},
@@ -473,7 +473,7 @@ def init_telemetry(config: TelemetryConfig) -> TelemetryProvider:
 SPAN_KIND_ATTR = "openinference.span.kind"
 AW_SPAN_KIND_ATTR = "panoptis.span_kind"
 
-# OpenInference span kind -> (AgentWatch event kind, gen_ai.operation.name or None).
+# OpenInference span kind -> (PANOPTIS event kind, gen_ai.operation.name or None).
 # Kinds with no GenAI operation (CHAIN, RETRIEVER) are carried by "panoptis.span_kind".
 OPENINFERENCE_SPAN_KIND_MAP: dict[str, tuple[str, str | None]] = {
     "LLM": ("MODEL_INVOCATION", "chat"),

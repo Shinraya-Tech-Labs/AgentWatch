@@ -35,7 +35,7 @@ def test_status_command_success(mock_sleep):
         result = runner.invoke(app, ["server", "status"])
 
     assert result.exit_code == 0
-    assert "AgentWatch Live Runtime Dashboard" in result.stdout
+    assert "PANOPTIS Live Runtime Dashboard" in result.stdout
     assert "Active Sessions:" in result.stdout
     assert "Total Tokens:" in result.stdout
 

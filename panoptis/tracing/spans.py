@@ -1,7 +1,7 @@
 """
 OBS-001 — Full-Span Trace Collection.
 
-Typed spans for the four span kinds AgentWatch tracks:
+Typed spans for the four span kinds PANOPTIS tracks:
     REASONING   — model "thinking" / planner output
     TOOL_CALL   — outbound side-effecting calls
     MEMORY_READ — episodic/semantic/procedural memory access

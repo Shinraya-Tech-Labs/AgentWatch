@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interactive Application Suite Demos for AgentWatch.
+"""Interactive Application Suite Demos for PANOPTIS.
 
 This module provides step-by-step CLI simulation scenarios demonstrating safety engines,
 session replay mechanisms, real-time model confidence evaluation tracks, episodic causal memory,
@@ -566,7 +566,7 @@ async def run_demo():
     # The banner is fixed-width box art, so the title cannot simply be interpolated — a version
     # string of a different length would push the closing `|` out of alignment and the box would
     # visibly break. The padding is computed from the border instead, so any version renders square.
-    _title = f"AgentWatch - Demo Suite v{__version__}"
+    _title = f"PANOPTIS - Demo Suite v{__version__}"
     _border = "+" + "-" * 62 + "+"
     _interior = len(_border) - 2
     _titled = "|" + " " * 9 + _title + " " * max(_interior - 9 - len(_title), 0) + "|"

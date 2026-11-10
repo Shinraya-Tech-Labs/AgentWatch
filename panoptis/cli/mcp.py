@@ -1,6 +1,6 @@
 """
-AgentWatch MCP CLI
-Runs the AgentWatch Model Context Protocol (MCP) server over standard IO.
+PANOPTIS MCP CLI
+Runs the PANOPTIS Model Context Protocol (MCP) server over standard IO.
 """
 
 from __future__ import annotations
@@ -14,12 +14,12 @@ from rich.console import Console
 from panoptis.protocol.mcp_server import AgentWatchMCPServer
 
 console = Console()
-app = typer.Typer(name="mcp", help="Run the AgentWatch MCP server over stdio.")
+app = typer.Typer(name="mcp", help="Run the PANOPTIS MCP server over stdio.")
 
 
 @app.callback(invoke_without_command=True)
 def mcp_server() -> None:
-    """Run the AgentWatch MCP server over stdio for agents (e.g. Claude Desktop)."""
+    """Run the PANOPTIS MCP server over stdio for agents (e.g. Claude Desktop)."""
     try:
         try:
             import mcp.server.fastmcp  # noqa: F401

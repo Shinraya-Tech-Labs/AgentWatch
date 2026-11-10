@@ -1,5 +1,5 @@
 """
-AgentWatch init command - Project initialization
+PANOPTIS init command - Project initialization
 """
 
 from pathlib import Path
@@ -17,7 +17,7 @@ def init_cmd(
     dry_run: bool = False,
 ):
     """
-    Initialize AgentWatch in a project.
+    Initialize PANOPTIS in a project.
     """
     base_path = Path(project_path).resolve()
     # Validate path exists and is a directory
@@ -28,7 +28,7 @@ def init_cmd(
     if not base_path.is_dir():
         console.print(f"[red]❌ Error: '{base_path}' is not a directory[/red]")
         raise typer.Exit(1)
-    console.print(Panel.fit("[bold blue]🚀 AgentWatch Init[/bold blue]", border_style="blue"))
+    console.print(Panel.fit("[bold blue]🚀 PANOPTIS Init[/bold blue]", border_style="blue"))
 
     console.print(f"📁 Project: {base_path}")
 
@@ -53,11 +53,11 @@ def init_cmd(
     if not dry_run:
         try:
             with open(gitignore_path, "a") as f:
-                f.write("\n# AgentWatch\npanoptis_data/\n*.awlog\n")
+                f.write("\n# PANOPTIS\npanoptis_data/\n*.awlog\n")
             console.print("✅ Updated .gitignore")
         except FileNotFoundError:
             with open(gitignore_path, "w") as f:
-                f.write("# AgentWatch\npanoptis_data/\n*.awlog\n")
+                f.write("# PANOPTIS\npanoptis_data/\n*.awlog\n")
             console.print("✅ Created .gitignore")
 
     # Step 3: Check .env for API keys
@@ -84,13 +84,13 @@ def init_cmd(
             console.print("✅ Created panoptis_data directory")
 
     if failed_steps:
-        console.print("[bold yellow]⚠️ AgentWatch initialized with warnings![/bold yellow]")
+        console.print("[bold yellow]⚠️ PANOPTIS initialized with warnings![/bold yellow]")
         console.print(f"[yellow]Failed steps: {', '.join(failed_steps)}[/yellow]")
         raise typer.Exit(1)
 
     console.print(
         Panel.fit(
-            "[bold green]✅ AgentWatch initialized successfully![/bold green]", border_style="green"
+            "[bold green]✅ PANOPTIS initialized successfully![/bold green]", border_style="green"
         )
     )
     console.print("📝 Next steps:")

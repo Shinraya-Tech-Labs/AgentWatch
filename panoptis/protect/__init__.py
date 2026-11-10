@@ -1,4 +1,4 @@
-"""AgentWatch Protect: unified runtime enforcement for AI agent tool calls.
+"""PANOPTIS Protect: unified runtime enforcement for AI agent tool calls.
 
 Quick start::
 

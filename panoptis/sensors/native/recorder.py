@@ -6,7 +6,7 @@ the context stack (the span that was active when a child started) and from expli
 ``span.link(...)`` calls for multi-parent dependencies.
 
 This module is a sensor: it records, it does not analyse, and it never raises into the
-application because of an AgentWatch failure.
+application because of a PANOPTIS failure.
 """
 
 from __future__ import annotations

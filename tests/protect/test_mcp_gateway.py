@@ -488,7 +488,7 @@ def _check(out: dict[str, Any], tmp_path: Path, source: str, tenant: str = "defa
         "slow",
     ]  # schemas preserved
     assert out["echo"].isError is False and out["echo"].content[0].text == "hello"
-    assert out["blocked"].isError is True and "AgentWatch blocked" in out["blocked"].content[0].text
+    assert out["blocked"].isError is True and "PANOPTIS blocked" in out["blocked"].content[0].text
     doc = out["doc"].content[0].text
     assert "BANANA" not in doc and "Version 2 adds caching." in doc
     assert out["fail"].isError is True

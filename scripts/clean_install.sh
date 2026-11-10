@@ -19,8 +19,8 @@ for kind in whl tar.gz; do
   "$VPY" -m pip install -q "$OUT"/dist/*."$kind"
   (cd "$OUT" && "$VPY" -I "$REPO/scripts/smoke_installed.py")
   # `panoptis up` end to end: health, blocked/allowed calls, an approval, evidence verify.
-  # The wheel carries the static dashboard when it was built first (CI does); the sdist never.
-  if [ "$kind" = whl ] && [ -f "$REPO/panoptis/_dashboard/index.html" ]; then
+  # Both artifacts carry the static dashboard when it was built first (CI does).
+  if [ -f "$REPO/panoptis/_dashboard/index.html" ]; then
     (cd "$OUT" && "$VPY" -I "$REPO/scripts/smoke_up.py" --expect-dashboard)
   else
     (cd "$OUT" && "$VPY" -I "$REPO/scripts/smoke_up.py")

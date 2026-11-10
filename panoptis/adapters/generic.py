@@ -1,5 +1,5 @@
 """
-Generic CLI Adapter for AgentWatch.
+Generic CLI Adapter for PANOPTIS.
 Wraps any command-line agent (e.g. ollama, antigravity) and captures its output.
 """
 

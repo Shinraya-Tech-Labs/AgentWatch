@@ -1,5 +1,5 @@
 """
-AgentWatch Memory Engine
+PANOPTIS Memory Engine
 Layered persistent memory: episodic, semantic, and procedural.
 Cross-session continuity with semantic retrieval and contradiction handling.
 """

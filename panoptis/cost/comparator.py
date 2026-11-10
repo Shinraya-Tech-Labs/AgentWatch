@@ -18,8 +18,11 @@ DEFAULT_PRICING: dict[str, tuple[float, float]] = {
     "claude-opus-4-5": (15.00, 75.00),
     "claude-sonnet-4-5": (3.00, 15.00),
     "claude-haiku-4-5": (1.00, 5.00),
-    "gemini-1.5-pro": (1.25, 5.00),
-    "gemini-1.5-flash": (0.075, 0.30),
+    # Gemini: list prices from ai.google.dev/gemini-api/docs/pricing (checked 2026-11-10),
+    # not the launch promotions that end 2026-12-01 (Argon) and 2027-01-01 (3.8 Flash)
+    "gemini-4-argon": (4.00, 20.00),
+    "gemini-3.8-flash": (1.50, 7.50),
+    "gemini-3.5-flash-lite": (0.30, 2.50),
 }
 
 

@@ -1,4 +1,4 @@
-"""Environment Verification and Diagnostic Utilities for AgentWatch.
+"""Environment Verification and Diagnostic Utilities for PANOPTIS.
 
 This module provides structural system checks, checks for required core python
 dependencies, and verifies system environment variable configurations with
@@ -63,7 +63,7 @@ def verify_environment() -> None:
     console.print()
     console.print(
         Panel(
-            Align.center("[bold cyan]AgentWatch Environment Diagnostics[/bold cyan]"),
+            Align.center("[bold cyan]PANOPTIS Environment Diagnostics[/bold cyan]"),
             border_style="cyan",
         )
     )

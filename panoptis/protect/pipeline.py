@@ -218,7 +218,7 @@ class ProtectionPipeline:
             raise ValueError(f"mode must be 'enforce' or 'observe', not {self.config.mode!r}")
         if self.config.mode == "observe":
             logger.warning(
-                "AgentWatch protection is in OBSERVE mode: calls are recorded, nothing is "
+                "PANOPTIS protection is in OBSERVE mode: calls are recorded, nothing is "
                 "blocked, rewritten or sanitized (except by the kill switch)"
             )
         self.policy = policy or PolicyStore()
