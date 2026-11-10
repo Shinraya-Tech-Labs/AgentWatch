@@ -45,6 +45,6 @@ def test_regenerating_keeps_the_notice_and_restores_no_retired_wording(
 
 
 def test_the_committed_file_carries_the_same_notice(builder):
-    committed = (ROOT / "COMPLETE_PROJECT_DOCUMENTATION.md").read_text(encoding="utf-8")
+    committed = (ROOT / "docs" / "archive" / "COMPLETE_PROJECT_DOCUMENTATION.md").read_text(encoding="utf-8")
     assert committed.startswith(builder.HISTORICAL_NOTICE)
     assert [phrase for phrase in RETIRED if phrase in committed] == []
