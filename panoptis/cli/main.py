@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 app = typer.Typer(
     name="panoptis",
-    help="AgentWatch — Reliability, Safety, and Observability Layer for AI Agents",
+    help="PANOPTIS — decide on AI agent tool calls before they run. Start here: [bold]panoptis up[/bold]",
     add_completion=True,
     rich_markup_mode="rich",
 )
@@ -105,6 +105,10 @@ legacy_app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(legacy_app, hidden=True)
+
+from panoptis.cli.local_cmds import register as _register_local  # noqa: E402
+
+_register_local(app)
 
 
 _IN_REPL = False

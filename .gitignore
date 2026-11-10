@@ -49,3 +49,7 @@ graphify-out/
 
 # brag skill output (generated assets)
 brag-output/
+
+# static dashboard build (npm run build:static) shipped in the wheel
+frontend/out/
+panoptis/_dashboard/

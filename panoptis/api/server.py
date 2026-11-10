@@ -2704,6 +2704,48 @@ async def gdpr_erase(
     return receipt
 
 
+# ── Local mode (`panoptis up`) ─────────────────────────────────────────────────────────
+# Only a server started by `panoptis up` (PANOPTIS_LOCAL_UI=1) has these. The dashboard
+# signs itself in through /api/local/session, which answers loopback clients that used a
+# loopback host name only, and the static dashboard is served on the same origin. This
+# block stays last: the static mount at "/" would otherwise shadow routes defined after it.
+def _local_mode() -> bool:
+    return os.environ.get("PANOPTIS_LOCAL_UI") == "1" and not _IS_PROD and not _CLOUD_MODE
+
+
+if _local_mode():
+    from fastapi.staticfiles import StaticFiles
+
+    from panoptis import local as _local
+
+    @app.get("/api/local/session", include_in_schema=False)
+    async def _local_session(request: Request) -> JSONResponse:
+        client = request.client.host if request.client else None
+        site = request.headers.get("sec-fetch-site")
+        if not _local.is_loopback_request(client, request.headers.get("host")) or (
+            site not in (None, "same-origin", "none")
+        ):
+            raise HTTPException(status_code=404, detail="Not Found")
+        body = _local.local_session(_local.load_or_create_profile())
+        return JSONResponse(body, headers={"Cache-Control": "no-store"})
+
+    class _DashboardFiles(StaticFiles):
+        async def get_response(self, path: str, scope: Any) -> Response:
+            res = await super().get_response(path, scope)
+            res.headers.setdefault("X-Frame-Options", "DENY")
+            res.headers.setdefault("X-Content-Type-Options", "nosniff")
+            res.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+            return res
+
+    _dash = _local.dashboard_dir()
+    if _dash is not None:
+        app.mount("/", _DashboardFiles(directory=str(_dash), html=True), name="dashboard")
+    else:
+        logger.warning(
+            "local mode: no dashboard build found (panoptis/_dashboard); the API runs without it"
+        )
+
+
 def create_app() -> FastAPI:
     return app
 

@@ -1,5 +1,5 @@
 command: panoptis
-    help: AgentWatch — Reliability, Safety, and Observability Layer for AI Agents
+    help: PANOPTIS — decide on AI agent tool calls before they run. Start here: [bold]panoptis up[/bold]
     short_help: 
     param install_completion kind=TyperOption type=boolean required=False default=None flags=--install-completion help='Install completion for the current shell.'
     param show_completion kind=TyperOption type=boolean required=False default=None flags=--show-completion help='Show completion for the current shell, to copy it or customize the installation.'
@@ -89,6 +89,29 @@ command: panoptis counterfactual
     param execute kind=TyperOption type=boolean required=False default=True flags=--execute help=''
     param run kind=TyperArgument type=str required=True default=None flags=run help=''
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
+
+command: panoptis demo
+    help: Watch PANOPTIS stop an agent that read a poisoned GitHub issue.
+    short_help: 
+
+command: panoptis demo live
+    help: A real OpenAI agent reads a poisoned GitHub issue; PANOPTIS blocks or holds what it tries.
+
+The key is read from [bold]OPENAI_API_KEY[/bold] only. Run [bold]panoptis up[/bold] in another
+terminal first to watch the calls arrive on the dashboard and approve the held one.
+    short_help: 
+    param api kind=TyperOption type=str required=False default='http://127.0.0.1:8000' flags=--api help='Where `panoptis up` runs, for the links.'
+    param approval_timeout kind=TyperOption type=float required=False default=300.0 flags=--approval-timeout help='Seconds a held call waits for a person.'
+    param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Print the outcome as JSON.'
+    param model kind=TyperOption type=str required=False default=None flags=--model help='OpenAI model (default: the Agents SDK default).'
+    param offline kind=TyperOption type=boolean required=False default=False flags=--offline help='Scripted agent instead of a model: no key, no network.'
+
+command: panoptis demo offline
+    help: The same attack with a scripted agent: no model, key or network (fallback).
+    short_help: 
+    param api kind=TyperOption type=str required=False default='http://127.0.0.1:8000' flags=--api help=''
+    param approval_timeout kind=TyperOption type=float required=False default=300.0 flags=--approval-timeout help=''
+    param as_json kind=TyperOption type=boolean required=False default=False flags=--json help=''
 
 command: panoptis dependents
     help: Which later events and outputs depend on this node?
@@ -824,6 +847,14 @@ command: panoptis status
 command: panoptis tui
     help: Launch the interactive terminal command center.
     short_help: 
+
+command: panoptis up
+    help: [bold]Start PANOPTIS on this machine[/bold]: API and dashboard on localhost, SQLite, no Docker.
+    short_help: 
+    param host kind=TyperOption type=str required=False default='127.0.0.1' flags=--host help='Interface to bind. Local mode only answers loopback.'
+    param no_browser kind=TyperOption type=boolean required=False default=False flags=--no-browser help='Do not open a browser.'
+    param no_demo kind=TyperOption type=boolean required=False default=False flags=--no-demo help='Do not seed the labelled demo tenant.'
+    param port kind=TyperOption type=int required=False default=8000 flags=--port,-p help='Port for the API and dashboard.'
 
 command: panoptis upgrade
     help: [bold]Upgrade[/bold] to AgentWatch Premium via the secure web checkout.

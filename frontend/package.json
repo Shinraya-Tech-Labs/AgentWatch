@@ -10,7 +10,8 @@
     "type-check": "next typegen && tsc --noEmit",
     "test": "jest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "build:static": "node scripts/build-static.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.1",

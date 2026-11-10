@@ -5,7 +5,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
 import { GraphView } from '../components/v3/GraphView';
-import Live from '../pages/index';
+import Live from '../pages/live';
 import Query from '../pages/query';
 
 jest.mock('next/router', () => ({

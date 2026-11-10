@@ -135,6 +135,9 @@ Issues = "https://github.com/Shinraya-Tech-Labs/AgentWatch/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["panoptis", "panopti"]
+# the static dashboard (`cd frontend && npm run build:static`) is build output, ignored by
+# git, and shipped in the wheel when present; CI and the release build it first
+artifacts = ["panoptis/_dashboard/**"]
 
 # The source distribution holds the packages, their tests and the project files only:
 # not the dashboard, the landing site (a separate repository), deployment files or notes.

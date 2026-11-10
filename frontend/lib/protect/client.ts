@@ -82,7 +82,7 @@ export async function protect<T>(path: string, init?: RequestInit): Promise<T> {
       },
     });
   } catch {
-    throw new ApiError(0, 'The AgentWatch API is unreachable');
+    throw new ApiError(0, 'The PANOPTIS API is unreachable');
   }
   const text = await res.text();
   let body: unknown = null;

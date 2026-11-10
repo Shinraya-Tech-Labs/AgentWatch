@@ -14,13 +14,13 @@ export function Card({
   return (
     <section
       aria-label={typeof title === 'string' ? title : undefined}
-      className="rounded border border-zinc-800 bg-zinc-950/70"
+      className="glass overflow-hidden"
     >
-      <header className="flex items-center justify-between border-b border-zinc-800 px-3 py-1.5">
-        <h2 className="text-[11px] uppercase tracking-wider text-zinc-300">{title}</h2>
+      <header className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-2.5">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-200">{title}</h2>
         {right}
       </header>
-      <div className="p-3">{children}</div>
+      <div className="p-4">{children}</div>
     </section>
   );
 }
@@ -39,12 +39,12 @@ export function QueryState({
 }) {
   if (q.isLoading)
     return (
-      <p className="text-sm text-zinc-400" role="status">
+      <p className="text-sm text-zinc-300" role="status">
         Loading…
       </p>
     );
   if (q.error) return <ErrorNote error={q.error} />;
-  if (isEmpty) return <p className="text-sm text-zinc-400">{empty ?? 'Nothing yet.'}</p>;
+  if (isEmpty) return <div className="text-sm text-zinc-300">{empty ?? 'Nothing yet.'}</div>;
   return <>{children}</>;
 }
 
@@ -52,7 +52,7 @@ export function ErrorNote({ error }: { error: unknown }) {
   const e = error as ApiError;
   const text =
     e?.status === 0
-      ? 'Disconnected: the AgentWatch API cannot be reached. Showing nothing rather than stale data.'
+      ? 'Disconnected: the PANOPTIS API cannot be reached. Showing nothing rather than stale data.'
       : e?.status === 401
         ? 'Your key was not accepted. Sign out and sign in again.'
         : e?.status === 403
@@ -63,7 +63,7 @@ export function ErrorNote({ error }: { error: unknown }) {
   return (
     <p
       role="alert"
-      className="rounded border border-rose-900 bg-rose-950/40 px-2 py-1 text-sm text-rose-300"
+      className="rounded-xl border border-rose-400/40 bg-rose-500/15 px-3 py-2 text-sm text-rose-100"
     >
       {text}
     </p>
@@ -71,15 +71,15 @@ export function ErrorNote({ error }: { error: unknown }) {
 }
 
 const VERDICT: Record<string, string> = {
-  allow: 'border-emerald-700 text-emerald-300',
-  block: 'border-rose-700 text-rose-300',
-  escalate_hitl: 'border-amber-700 text-amber-300',
-  mutate_and_allow: 'border-sky-700 text-sky-300',
+  allow: 'border-emerald-300/40 bg-emerald-400/10 text-emerald-200',
+  block: 'border-rose-300/50 bg-rose-500/15 text-rose-200',
+  escalate_hitl: 'border-amber-300/50 bg-amber-400/15 text-amber-100',
+  mutate_and_allow: 'border-sky-300/40 bg-sky-400/10 text-sky-200',
 };
 
 export const Verdict = ({ v }: { v: string }) => (
   <span
-    className={`rounded border px-1.5 py-px font-mono text-[11px] ${VERDICT[v] ?? 'border-zinc-600 text-zinc-300'}`}
+    className={`rounded-full border px-2 py-0.5 font-mono text-[11px] ${VERDICT[v] ?? 'border-white/20 text-zinc-200'}`}
   >
     {v}
   </span>
@@ -102,10 +102,10 @@ export const MonitorStatus = ({ s }: { s: string }) => (
 );
 
 export const Time = ({ t }: { t?: string | number | null }) => {
-  if (t === null || t === undefined || t === '') return <span className="text-zinc-500">—</span>;
+  if (t === null || t === undefined || t === '') return <span className="text-zinc-400">—</span>;
   const d = typeof t === 'number' ? new Date(t * 1000) : new Date(t);
   return (
-    <time dateTime={d.toISOString()} className="font-mono text-[11px] text-zinc-400">
+    <time dateTime={d.toISOString()} className="font-mono text-[11px] text-zinc-300">
       {d.toISOString().slice(0, 19).replace('T', ' ')}
     </time>
   );
@@ -124,7 +124,7 @@ export function Table({
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-left text-sm" aria-label={label}>
         <thead>
-          <tr className="border-b border-zinc-800 text-[11px] uppercase tracking-wider text-zinc-400">
+          <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-zinc-300">
             {head.map((h) => (
               <th key={h} scope="col" className="px-2 py-1 font-normal">
                 {h}
@@ -140,18 +140,18 @@ export function Table({
 
 export const Td = ({ children, mono = false }: { children: ReactNode; mono?: boolean }) => (
   <td
-    className={`border-b border-zinc-900 px-2 py-1 align-top ${mono ? 'font-mono text-[12px]' : ''}`}
+    className={`border-b border-white/5 px-2 py-1.5 align-top ${mono ? 'font-mono text-[12px]' : ''}`}
   >
     {children}
   </td>
 );
 
 const TONE = {
-  zinc: 'text-zinc-200',
-  rose: 'text-rose-300',
-  amber: 'text-amber-300',
-  emerald: 'text-emerald-300',
-  sky: 'text-sky-300',
+  zinc: 'text-zinc-50',
+  rose: 'text-rose-200',
+  amber: 'text-amber-100',
+  emerald: 'text-emerald-200',
+  sky: 'text-sky-200',
 };
 
 export const Stat = ({
@@ -163,8 +163,8 @@ export const Stat = ({
   value: ReactNode;
   tone?: keyof typeof TONE;
 }) => (
-  <div className="rounded border border-zinc-800 bg-zinc-950/70 px-3 py-2">
-    <div className="text-[11px] uppercase tracking-wider text-zinc-400">{label}</div>
-    <div className={`font-mono text-xl ${TONE[tone]}`}>{value}</div>
+  <div className="glass px-4 py-3">
+    <div className="text-[11px] uppercase tracking-wider text-zinc-300">{label}</div>
+    <div className={`mt-0.5 font-mono text-2xl font-semibold ${TONE[tone]}`}>{value}</div>
   </div>
 );

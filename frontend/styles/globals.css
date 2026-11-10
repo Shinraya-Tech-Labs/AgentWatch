@@ -2,8 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * PANOPTIS dashboard: frosted glass over a dark gradient.
+ * Panels are translucent with a background blur and a thin light border; text stays
+ * high-contrast (zinc-50 / zinc-300 on a near-black backdrop, WCAG AA or better).
+ */
 :root {
   color-scheme: dark;
+  --bg-0: #05060b;
+  --bg-1: #0b0e1a;
+  --glass: rgba(255, 255, 255, 0.055);
+  --glass-strong: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-border-strong: rgba(255, 255, 255, 0.22);
+  --glass-shadow: 0 10px 40px -12px rgba(0, 0, 0, 0.65);
 }
 
 html,
@@ -14,25 +26,99 @@ body,
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(249, 115, 22, 0.14), transparent 24%),
-    linear-gradient(180deg, #0a0b10 0%, #11131a 54%, #0b0c11 100%);
   color: #f4f4f5;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--bg-0);
+  background-image:
+    radial-gradient(60rem 40rem at 8% -10%, rgba(56, 189, 248, 0.22), transparent 60%),
+    radial-gradient(50rem 36rem at 105% 5%, rgba(168, 85, 247, 0.2), transparent 60%),
+    radial-gradient(48rem 40rem at 50% 115%, rgba(16, 185, 129, 0.14), transparent 60%),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 70%);
+  background-attachment: fixed;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
   box-sizing: border-box;
 }
 
-.bg-panoptis {
-  background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(251, 146, 60, 0.12), transparent 22%),
-    #09090b;
-}
-
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+}
+
+@layer components {
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 1rem;
+    box-shadow: var(--glass-shadow);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+  }
+  .glass-strong {
+    background: var(--glass-strong);
+    border: 1px solid var(--glass-border-strong);
+    border-radius: 1rem;
+    box-shadow: var(--glass-shadow);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    backdrop-filter: blur(24px) saturate(150%);
+  }
+  .glass-bar {
+    background: rgba(8, 10, 18, 0.62);
+    border-bottom: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+  }
+  .glass-input {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--glass-border);
+    border-radius: 0.6rem;
+    color: #fafafa;
+  }
+  .glass-input::placeholder {
+    color: #a1a1aa;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 9999px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 0.15rem 0.6rem;
+    font-size: 0.75rem;
+    line-height: 1.1rem;
+  }
+}
+
+/* keyboard focus is always visible on glass */
+:focus-visible {
+  outline: 2px solid #7dd3fc;
+  outline-offset: 2px;
+}
+
+/* without backdrop-filter support, panels get an opaque fallback so text stays readable */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-strong {
+    background: rgba(17, 20, 32, 0.94);
+  }
+  .glass-bar {
+    background: rgba(8, 10, 18, 0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

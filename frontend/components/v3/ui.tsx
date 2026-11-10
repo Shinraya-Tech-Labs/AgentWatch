@@ -13,9 +13,9 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={`rounded border border-zinc-800 bg-zinc-950/70 ${className}`}>
+    <section className={`glass overflow-hidden ${className}`}>
       {title !== undefined && (
-        <header className="flex items-center justify-between border-b border-zinc-800 px-3 py-1.5 text-[11px] uppercase tracking-wider text-zinc-400">
+        <header className="flex items-center justify-between border-b border-white/10 px-3 py-2 text-[11px] uppercase tracking-wider text-zinc-200">
           <span>{title}</span>
           {right}
         </header>
@@ -99,12 +99,12 @@ export function Json({ value, max = 4000 }: { value: unknown; max?: number }) {
 }
 
 export const Empty = ({ children }: { children: ReactNode }) => (
-  <p className="py-6 text-center text-sm text-zinc-500">{children}</p>
+  <p className="py-6 text-center text-sm text-zinc-300">{children}</p>
 );
 
 export const ErrorBox = ({ error }: { error: unknown }) =>
   error ? (
-    <p className="rounded border border-rose-900 bg-rose-950/40 p-2 font-mono text-xs text-rose-300">
+    <p className="rounded-xl border border-rose-400/40 bg-rose-500/15 p-2 font-mono text-xs text-rose-100">
       {error instanceof Error ? error.message : String(error)}
     </p>
   ) : null;

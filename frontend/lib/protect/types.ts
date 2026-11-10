@@ -28,6 +28,7 @@ export interface Decision {
   threat_rules_version?: string | null;
   mutated: boolean;
   approval_state?: string | null;
+  action_preview?: string | null;
   findings: Finding[];
 }
 

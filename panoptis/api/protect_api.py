@@ -91,7 +91,26 @@ class DecisionOut(BaseModel):
     threat_rules_version: str | None = None
     mutated: bool = False
     approval_state: str | None = None
+    # the call's main argument (command, path, URL, query...), truncated, for a readable feed;
+    # the full arguments stay in the call detail and the evidence store
+    action_preview: str | None = None
     findings: list[FindingOut]
+
+
+_PREVIEW_KEYS = ("command", "cmd", "path", "file_path", "url", "query", "sql", "code", "name")
+_PREVIEW_MAX = 160
+
+
+def _preview(arguments: Any) -> str | None:
+    if not isinstance(arguments, dict) or not arguments:
+        return None
+    value = next((arguments[k] for k in _PREVIEW_KEYS if k in arguments), None)
+    if value is None:
+        if len(arguments) != 1:
+            return None
+        value = next(iter(arguments.values()))
+    text = " ".join(str(value).split())
+    return text if len(text) <= _PREVIEW_MAX else text[: _PREVIEW_MAX - 1] + "…"
 
 
 class DecisionPage(BaseModel):
@@ -135,6 +154,7 @@ def _decision(r: dict[str, Any]) -> DecisionOut:
         threat_rules_version=p.get("threat_rules_version"),
         mutated=bool(p.get("arguments_mutated")),
         approval_state=(p.get("approval") or {}).get("state"),
+        action_preview=_preview(a.get("arguments")),
         findings=[_finding(f) for f in p.get("findings") or []],
     )
 

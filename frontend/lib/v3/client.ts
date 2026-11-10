@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 
+import { getKey } from '../protect/client';
 import type {
   CompareResult,
   EventDetail,
@@ -21,9 +22,16 @@ export class ApiError extends Error {
 }
 
 export async function v3<T>(path: string, init?: RequestInit): Promise<T> {
+  // the signed-in key (local mode, or a direct API connection); behind the Compose proxy the
+  // server attaches its own and the browser holds none
+  const key = getKey();
   const res = await fetch(`${V3_BASE}${path}`, {
     ...init,
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+    headers: {
+      'content-type': 'application/json',
+      ...(key ? { 'x-api-key': key } : {}),
+      ...(init?.headers ?? {}),
+    },
   });
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
