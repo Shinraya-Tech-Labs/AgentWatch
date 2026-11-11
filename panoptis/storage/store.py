@@ -13,6 +13,8 @@ import json
 import logging
 import os
 import secrets
+import threading
+import time
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -21,7 +23,7 @@ from typing import Any
 
 from sqlalchemy import create_engine, delete, event, func, insert, select, text, update
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from panoptis.evidence import crypto
 from panoptis.evidence.blobs import BlobStore, FsBlobStore, MemoryBlobStore
@@ -119,6 +121,27 @@ def default_blob_store(url: str, blob_dir: str | Path | None = None) -> BlobStor
     return FsBlobStore(root)
 
 
+SQLITE_BUSY_TIMEOUT_MS = 30_000
+_INIT_ATTEMPTS = 8
+_init_locks: dict[str, threading.Lock] = {}
+_init_locks_guard = threading.Lock()
+
+
+def _init_lock(url: str) -> threading.Lock:
+    with _init_locks_guard:
+        return _init_locks.setdefault(url, threading.Lock())
+
+
+def _transient_init_error(exc: Exception) -> bool:
+    text = str(getattr(exc, "orig", exc)).lower()
+    return (
+        "already exists" in text
+        or "database is locked" in text
+        or "unique constraint failed" in text  # two openers inserted schema_version at once
+        or "duplicate key" in text
+    )
+
+
 class Store:
     def __init__(
         self,
@@ -143,7 +166,10 @@ class Store:
         self.is_sqlite = self.url.startswith("sqlite")
         kwargs: dict[str, Any] = {"future": True}
         if self.is_sqlite:
-            kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
+            kwargs["connect_args"] = {
+                "check_same_thread": False,
+                "timeout": SQLITE_BUSY_TIMEOUT_MS / 1000,
+            }
             path = self.url.split("///", 1)[-1]
             if path and path != ":memory:":
                 Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -154,8 +180,11 @@ class Store:
 
             @event.listens_for(self.engine, "connect")
             def _pragmas(dbapi_conn: Any, _rec: Any) -> None:
+                # per-connection settings only. journal_mode=WAL is a property of the file,
+                # set once in init(): switching it needs an exclusive lock, and doing it on
+                # every new connection made parallel first requests fail "database is locked"
                 cur = dbapi_conn.cursor()
-                cur.execute("PRAGMA journal_mode=WAL")
+                cur.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
                 cur.execute("PRAGMA synchronous=NORMAL")
                 cur.execute("PRAGMA foreign_keys=ON")
                 cur.close()
@@ -167,6 +196,31 @@ class Store:
 
     # ── lifecycle ──────────────────────────────────────────────────────────
     def init(self) -> None:
+        """Create or upgrade the schema; safe when many threads or processes open a new file.
+
+        Openers of one URL in this process take turns. Another process may still be creating
+        the same tables or switching the file to WAL at the same moment: SQLite then answers
+        "already exists" or "database is locked" past the busy timeout, and the whole
+        (idempotent) init is retried after a short wait.
+        """
+        with _init_lock(self.url):
+            delay = 0.05
+            for attempt in range(_INIT_ATTEMPTS):
+                try:
+                    self._init_once()
+                    return
+                except (OperationalError, IntegrityError) as exc:
+                    if attempt + 1 >= _INIT_ATTEMPTS or not _transient_init_error(exc):
+                        raise
+                    logger.debug("store init raced another opener (%s); retrying", exc)
+                    time.sleep(delay)
+                    delay = min(delay * 2, 1.0)
+
+    def _init_once(self) -> None:
+        if self.is_sqlite and ":memory:" not in self.url:
+            with self.engine.connect() as conn:
+                if str(conn.exec_driver_sql("PRAGMA journal_mode").scalar()).lower() != "wal":
+                    conn.exec_driver_sql("PRAGMA journal_mode=WAL")
         s.metadata.create_all(self.engine)
         with self.engine.begin() as conn:
             for stmt in s.SQLITE_TRIGGERS if self.is_sqlite else s.POSTGRES_TRIGGERS:

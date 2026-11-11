@@ -14,7 +14,6 @@ did not see.
 
 from __future__ import annotations
 
-import os
 import threading
 from collections.abc import Callable
 from typing import Any
@@ -23,7 +22,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from panoptis.protect.approvals import ApprovalBroker, ApprovalError
-from panoptis.protect.ledger import ProtectLedger
 
 _broker: ApprovalBroker | None = None
 _lock = threading.Lock()
@@ -33,7 +31,11 @@ def get_broker() -> ApprovalBroker:
     global _broker
     with _lock:
         if _broker is None:
-            _broker = ApprovalBroker(ProtectLedger(os.environ.get("AGENTWATCH_STORE") or None))
+            # the API's one store (decisions, approvals and controls share it): separate
+            # stores opened at once on a fresh file raced each other's schema setup
+            from panoptis.api.protect_api import get_ledger
+
+            _broker = ApprovalBroker(get_ledger())
         return _broker
 
 

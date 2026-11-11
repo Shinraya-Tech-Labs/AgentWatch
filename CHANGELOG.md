@@ -10,6 +10,12 @@ file and uses it as the GitHub Release body, so keep each version's notes here.
 
 ## [Unreleased]
 
+### Fixed
+- The first `panoptis up` on a brand-new store could answer the dashboard's first requests with errors ("table aw3_observations already exists", "database is locked"), reproduced on Windows with Python 3.14 and 3.12. The API's decisions, approvals and controls now share one store instead of opening three at once; the store switches the file to WAL once at initialisation instead of on every connection, sets an explicit 30 s busy timeout on every connection, serialises initialisation within a process and retries it when another process is initialising the same file.
+
+### Added
+- `scripts/repro_first_load.py` (a fresh store, `panoptis up`, the home screen's parallel requests) and a Windows CI job that runs it, the concurrent-initialisation tests and the `panoptis up` smoke test on Python 3.12 and 3.14.
+
 ## [0.4.1] - 2026-11-11
 
 ### Added

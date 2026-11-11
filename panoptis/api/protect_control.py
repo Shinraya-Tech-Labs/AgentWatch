@@ -16,7 +16,6 @@ host see the kill switch immediately through the kill file.
 
 from __future__ import annotations
 
-import os
 import threading
 from collections.abc import Callable
 from typing import Any
@@ -25,7 +24,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from panoptis.protect.control import ControlState
-from panoptis.protect.ledger import ProtectLedger
 
 _state: ControlState | None = None
 _lock = threading.Lock()
@@ -35,9 +33,9 @@ def get_control() -> ControlState:
     global _state
     with _lock:
         if _state is None:
-            _state = ControlState(
-                ProtectLedger(os.environ.get("AGENTWATCH_STORE") or None), refresh_s=0.0
-            )
+            from panoptis.api.protect_api import get_ledger  # the API's one store
+
+            _state = ControlState(get_ledger(), refresh_s=0.0)
         return _state
 
 
