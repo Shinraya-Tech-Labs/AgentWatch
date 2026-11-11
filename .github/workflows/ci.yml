@@ -44,7 +44,11 @@ jobs:
 
   # ─── Python unit tests ────────────────────────────────────────────────────
   python-tests:
-    name: Python Tests
+    name: Python Tests (${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -73,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python }}
           cache: pip
       - name: Install package
         run: pip install -e ".[dev]"
@@ -88,7 +92,7 @@ jobs:
       - name: Upload HTML coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: html-coverage-report
+          name: html-coverage-report-${{ matrix.python }}
           path: htmlcov/
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -287,13 +291,17 @@ jobs:
   # installed package from outside the checkout and audits its dependency set. A known
   # vulnerability fails the build (no continue-on-error): fix it or raise the floor.
   package:
-    name: Package Build, Clean Install & Dependency Audit
+    name: Package Build, Clean Install & Dependency Audit (${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python }}
       - uses: actions/setup-node@v4
         with:
           node-version: "20"

@@ -95,7 +95,7 @@ export default function Home() {
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:py-20">
           <div>
             <p className="mb-5 inline-block -rotate-1 border-[3px] border-black bg-[#8CFF98] px-3 py-1 font-mono text-xs uppercase tracking-[0.18em] shadow-[3px_3px_0_0_#000]">
-              Open source · Apache-2.0 · Python 3.12
+              Open source · Apache-2.0 · Python 3.12+
             </p>
             <h1 className="font-display text-5xl uppercase leading-[0.92] sm:text-6xl lg:text-7xl">
               Stop the tool call{' '}

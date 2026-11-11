@@ -9,7 +9,7 @@
 
 *Covers calls routed through a supported enforcing integration. It is not a sandbox: [see the limits](#-what-panoptis-does-not-do).*
 
-[![PyPI](https://img.shields.io/pypi/v/panoptis?style=flat-square&color=2a6fdb)](https://pypi.org/project/panoptis/) [![Python 3.12](https://img.shields.io/badge/python-3.12-2a6fdb?style=flat-square&logo=python&logoColor=white)](https://python.org) [![License](https://img.shields.io/badge/license-Apache_2.0-2a6fdb?style=flat-square)](LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/UT9uaeY46e) [![Stars](https://img.shields.io/github/stars/Shinraya-Tech-Labs/AgentWatch?style=flat-square&color=d9730d)](https://github.com/Shinraya-Tech-Labs/AgentWatch/stargazers) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Shinraya-Tech-Labs/AgentWatch/blob/main/examples/quickstart_panopti_guardrails.ipynb)
+[![PyPI](https://img.shields.io/pypi/v/panoptis?style=flat-square&color=2a6fdb)](https://pypi.org/project/panoptis/) [![Python 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.12_|_3.13_|_3.14-2a6fdb?style=flat-square&logo=python&logoColor=white)](https://python.org) [![License](https://img.shields.io/badge/license-Apache_2.0-2a6fdb?style=flat-square)](LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/UT9uaeY46e) [![Stars](https://img.shields.io/github/stars/Shinraya-Tech-Labs/AgentWatch?style=flat-square&color=d9730d)](https://github.com/Shinraya-Tech-Labs/AgentWatch/stargazers) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Shinraya-Tech-Labs/AgentWatch/blob/main/examples/quickstart_panopti_guardrails.ipynb)
 
 <br/>
 
@@ -46,7 +46,7 @@ An agent acts with its user's privileges while taking direction from whatever it
 
 ## 🚀 Try it in 60 seconds
 
-Requires Python 3.12. `panoptis up` is in 0.4.0 and later.
+Requires Python 3.12 or later (tested on 3.12, 3.13 and 3.14).
 
 ```bash
 pip install panoptis
