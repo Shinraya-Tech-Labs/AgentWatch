@@ -4,6 +4,10 @@
   ``Content-Length`` exceeds the limit is answered 413 before any of its body is read; a
   chunked (or lying) body is counted as it streams and cut off with 413 once it passes the
   limit, so the server never buffers more than the limit.
+  The same middleware scans JSON bodies as they stream and answers 413 once brackets nest
+  deeper than ``AGENTWATCH_MAX_JSON_DEPTH`` plus room for request envelopes, before any
+  parser sees them: a deep enough body otherwise exhausts the recursion limit of whatever
+  walks it (on Python 3.14 the decoder accepts it and FastAPI's error handler recurses).
 * :func:`check_json_limits`: structural bounds for parsed payloads (item count, nesting
   depth, string length), checked iteratively (no recursion limit to exhaust).
 
@@ -20,6 +24,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -93,6 +98,52 @@ Receive = Callable[[], Awaitable[dict[str, Any]]]
 Send = Callable[[dict[str, Any]], Awaitable[None]]
 
 
+# envelopes ({"observations": [{"payload": ...}]}) nest a few levels above the payload limit
+_ENVELOPE_DEPTH = 64
+_JSON_SPECIAL = re.compile(rb'[\\"\[\]{}]')
+
+
+def raw_json_depth_limit() -> int:
+    return max_json_depth() + _ENVELOPE_DEPTH
+
+
+class _DepthScanner:
+    """Bracket nesting of a JSON byte stream, chunk by chunk, strings and escapes aware."""
+
+    def __init__(self, limit: int) -> None:
+        self.limit = limit
+        self.depth = 0
+        self.in_string = False
+        self.escaped = False  # a backslash ended the previous chunk
+
+    def feed(self, chunk: bytes) -> bool:
+        """True as soon as the nesting goes deeper than the limit."""
+        skip = 0 if self.escaped else -1
+        self.escaped = False
+        for m in _JSON_SPECIAL.finditer(chunk):
+            i = m.start()
+            if i == skip:
+                continue
+            c = chunk[i]
+            if self.in_string:
+                if c == 0x5C:  # backslash: the next byte is escaped
+                    if i + 1 >= len(chunk):
+                        self.escaped = True
+                    else:
+                        skip = i + 1
+                elif c == 0x22:
+                    self.in_string = False
+            elif c == 0x22:
+                self.in_string = True
+            elif c in (0x5B, 0x7B):
+                self.depth += 1
+                if self.depth > self.limit:
+                    return True
+            elif c in (0x5D, 0x7D):
+                self.depth -= 1
+        return False
+
+
 class BodySizeLimitMiddleware:
     """Reject HTTP request bodies larger than ``limit`` bytes with 413, before buffering them."""
 
@@ -109,7 +160,10 @@ class BodySizeLimitMiddleware:
             await self.app(scope, receive, send)
             return
         limit = self.limit
+        scanner: _DepthScanner | None = None
         for name, value in scope.get("headers") or []:
+            if name == b"content-type" and b"json" in value.lower():
+                scanner = _DepthScanner(raw_json_depth_limit())
             if name == b"content-length":
                 try:
                     declared = int(value)
@@ -122,16 +176,26 @@ class BodySizeLimitMiddleware:
         received = 0
         started = False
         overflow = False
+        too_deep = False
 
         async def limited_receive() -> dict[str, Any]:
-            nonlocal received, overflow
+            nonlocal received, overflow, too_deep
             message = await receive()
             if message.get("type") == "http.request":
-                received += len(message.get("body", b""))
+                body = message.get("body", b"")
+                received += len(body)
                 if received > limit:
                     overflow = True
                     raise _BodyTooLargeError
+                if scanner is not None and scanner.feed(body):
+                    too_deep = True
+                    raise _BodyTooLargeError
             return message
+
+        def refusal() -> str:
+            if too_deep:
+                return f"nesting deeper than {raw_json_depth_limit()} levels"
+            return f"request body exceeds {limit} bytes"
 
         async def tracking_send(message: dict[str, Any]) -> None:
             nonlocal started
@@ -143,11 +207,11 @@ class BodySizeLimitMiddleware:
             await self.app(scope, limited_receive, tracking_send)
         except _BodyTooLargeError:
             if not started:
-                await _reply(send, 413, f"request body exceeds {limit} bytes")
+                await _reply(send, 413, refusal())
         except Exception:
-            if overflow and not started:
+            if (overflow or too_deep) and not started:
                 # a handler wrapped our signal in its own exception: still a 413
-                await _reply(send, 413, f"request body exceeds {limit} bytes")
+                await _reply(send, 413, refusal())
                 return
             raise
 

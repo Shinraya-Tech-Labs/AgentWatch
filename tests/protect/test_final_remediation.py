@@ -471,6 +471,13 @@ async def test_a_store_that_cannot_delete_is_a_failure_and_others_still_run(brok
 
 @pytest.fixture
 def api(monkeypatch, tmp_path):
+    import weakref
+
+    from panoptis.memory import governance
+
+    # a fresh registry: stores registered by earlier tests are only dropped when the garbage
+    # collector gets to them, which Python 3.14's incremental collector does later
+    monkeypatch.setattr(governance, "_STORES", weakref.WeakKeyDictionary())
     monkeypatch.setenv("AGENTWATCH_ERASURE_SECRET", "test-erasure-secret")
     monkeypatch.setenv("AGENTWATCH_TENANT_KEYS", "acme=key-acme,globex=key-globex")
     monkeypatch.setattr(server, "_CLOUD_MODE", False)

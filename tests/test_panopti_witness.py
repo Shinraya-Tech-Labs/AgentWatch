@@ -57,3 +57,10 @@ def test_witness_chain_verification_catches_tampered_root_hash() -> None:
     valid, err = WitnessChain.verify_proof(proof)
     assert valid is False
     assert "Root hash mismatch" in (err or "")
+
+
+def test_the_old_court_import_path_still_works():
+    from panopti import court, witness
+
+    assert court.WitnessChain is witness.WitnessChain
+    assert court.WitnessEntry is witness.WitnessEntry

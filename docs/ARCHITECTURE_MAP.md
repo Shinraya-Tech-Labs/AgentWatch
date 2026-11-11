@@ -53,6 +53,7 @@ Not removed: experimental and legacy modules are tested and may be imported by u
 
 | Module | Lines | Test files | Category | Purpose / evidence |
 |---|---|---|---|---|
+| `panopti.court` | 5 | 1 | deprecated shim | old import path of `panopti.witness`, kept so existing imports keep working |
 | `panoptis.adapters.base` | 62 | 1 | internal | base class of the observation adapters |
 | `panoptis.core.loop_detector` | 93 | 1 | legacy (superseded) | earlier loop detector; enforcement uses `protect.loops` (docs/LOOP_DETECTION.md) |
 | `panoptis.core.recursion_depth_detector` | 78 | 1 | legacy (superseded) | superseded by `protect.loops` and the circuit breaker |
