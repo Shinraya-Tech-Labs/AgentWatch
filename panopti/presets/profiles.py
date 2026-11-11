@@ -1,4 +1,4 @@
-"""Panopti Turnkey Domain-Specific Hypervisor Profiles.
+"""Panopti turnkey domain-specific guard profiles.
 
 Pre-packaged guardrail profiles tailored for the top real-world agent archetypes
 identified in industry catalogs (500-AI-Agents-Projects and AI-research-SKILLs).
@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
-class HypervisorProfile:
+class GuardProfile:
     """Pre-configured security policy for an agent domain archetype."""
 
     name: str
@@ -25,7 +25,7 @@ class HypervisorProfile:
 
 
 # 1. FinTech & Financial Operations Profile
-PROFILE_FINTECH = HypervisorProfile(
+PROFILE_FINTECH = GuardProfile(
     name="fintech",
     description="Strict monetary transaction caps, idempotency key verification, and negative-value traps.",
     confidence_floor=0.75,
@@ -38,7 +38,7 @@ PROFILE_FINTECH = HypervisorProfile(
 )
 
 # 2. DevOps & Cloud Infrastructure Profile
-PROFILE_DEVOPS = HypervisorProfile(
+PROFILE_DEVOPS = GuardProfile(
     name="devops",
     description="Protection against unbounded deletions, production database purges, and destructive cloud mutations.",
     confidence_floor=0.50,
@@ -52,7 +52,7 @@ PROFILE_DEVOPS = HypervisorProfile(
 )
 
 # 3. Healthcare & Diagnostic Assistant Profile
-PROFILE_HEALTHCARE = HypervisorProfile(
+PROFILE_HEALTHCARE = GuardProfile(
     name="healthcare",
     description="High epistemic confidence threshold, PII/HIPAA redacting, and hallucinated dosage guards.",
     confidence_floor=0.85,
@@ -63,7 +63,7 @@ PROFILE_HEALTHCARE = HypervisorProfile(
 )
 
 # 4. Customer Support & RAG Retrieval Profile
-PROFILE_SUPPORT_RAG = HypervisorProfile(
+PROFILE_SUPPORT_RAG = GuardProfile(
     name="support",
     description="Anti-jailbreak protection, system prompt extraction defense, and output budget caps.",
     confidence_floor=0.60,
@@ -74,7 +74,7 @@ PROFILE_SUPPORT_RAG = HypervisorProfile(
     max_consecutive_failures=3,
 )
 
-PROFILES: dict[str, HypervisorProfile] = {
+PROFILES: dict[str, GuardProfile] = {
     "fintech": PROFILE_FINTECH,
     "devops": PROFILE_DEVOPS,
     "healthcare": PROFILE_HEALTHCARE,
@@ -82,6 +82,6 @@ PROFILES: dict[str, HypervisorProfile] = {
 }
 
 
-def get_profile(name: str) -> HypervisorProfile:
-    """Retrieve a hypervisor profile by name (defaults to devops if unknown)."""
+def get_profile(name: str) -> GuardProfile:
+    """Retrieve a guard profile by name (defaults to devops if unknown)."""
     return PROFILES.get(name.lower().strip(), PROFILE_DEVOPS)

@@ -1,7 +1,7 @@
 """Panopti Pre-Execution Guardrail Demo Agent.
 
 Simulates an autonomous AI agent interacting with a database under Panopti's
-active runtime hypervisor.
+pre-execution runtime guard.
 """
 
 from panopti.demo import run_interactive_demo

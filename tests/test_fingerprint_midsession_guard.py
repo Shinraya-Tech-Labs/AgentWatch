@@ -2,7 +2,7 @@
 
 Issue #538: detect_mid_session_change() must not flag a mid-session model change
 when one half of the session simply has no PLANNER_OUTPUT events to fingerprint
-(the all-zeros sentinel from fingerprint() means "no signal", not "changed").
+(the all-zeros placeholder from fingerprint() means "no signal", not "changed").
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def _tool() -> AgentEvent:
 
 def test_planner_events_front_loaded_do_not_flag_change():
     # 3 consistent planner outputs, then 5 tool calls with no planner text.
-    # The second half fingerprints to the all-zeros sentinel; that must NOT be
+    # The second half fingerprints to the all-zeros placeholder; that must NOT be
     # read as a mid-session model change (the bug in #538).
     plan = "I will read the file and then analyze the contents carefully."
     events = [_plan(plan) for _ in range(3)] + [_tool() for _ in range(5)]

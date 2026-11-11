@@ -43,7 +43,7 @@ def get_git_log():
 
 
 def get_sub_specs(folder_name):
-    folder = REPO_ROOT / "docs" / "history" / folder_name
+    folder = REPO_ROOT / "docs" / "archive" / "history" / folder_name
     specs = []
     if folder.exists():
         for p in sorted(folder.glob("*.md")):
@@ -444,7 +444,9 @@ def write_part_2(f, commits, v1_specs, v2_specs, v3_specs):
         "The genesis of Panoptis/AgentWatch was the realization that agent execution lacked structured observability. Below are the historical sub-specifications defining Version 1.0:\n\n"
     )
     for s in v1_specs:
-        f.write(f"#### Sub-Specification: {s['title']} (`docs/history/v1/{s['filename']}`)\n\n")
+        f.write(
+            f"#### Sub-Specification: {s['title']} (`docs/archive/history/v1/{s['filename']}`)\n\n"
+        )
         f.write(s["content"])
         f.write("\n\n---\n\n")
 
@@ -453,7 +455,9 @@ def write_part_2(f, commits, v1_specs, v2_specs, v3_specs):
         "Version 2.0 introduced the Active Hypervisor to block catastrophic failures before host execution:\n\n"
     )
     for s in v2_specs:
-        f.write(f"#### Sub-Specification: {s['title']} (`docs/history/v2/{s['filename']}`)\n\n")
+        f.write(
+            f"#### Sub-Specification: {s['title']} (`docs/archive/history/v2/{s['filename']}`)\n\n"
+        )
         f.write(s["content"])
         f.write("\n\n---\n\n")
 
@@ -462,7 +466,9 @@ def write_part_2(f, commits, v1_specs, v2_specs, v3_specs):
         "Version 3.0 introduced formal Metric Temporal Logic and cryptographic audit courts:\n\n"
     )
     for s in v3_specs:
-        f.write(f"#### Sub-Specification: {s['title']} (`docs/history/v3/{s['filename']}`)\n\n")
+        f.write(
+            f"#### Sub-Specification: {s['title']} (`docs/archive/history/v3/{s['filename']}`)\n\n"
+        )
         f.write(s["content"])
         f.write("\n\n---\n\n")
 
@@ -1303,9 +1309,9 @@ def write_part_16(f, modules):
 
     f.write("### 16.4 Historical Document Inventory\n\n")
     f.write("The historical specifications synthesized in this document are preserved in:\n")
-    f.write("- `docs/history/V1_CORE_OBSERVABILITY.md` (10 sub-specifications in `v1/`)\n")
-    f.write("- `docs/history/V2_RUNTIME_GUARDRAILS.md` (10 sub-specifications in `v2/`)\n")
-    f.write("- `docs/history/V3_FORMAL_VERIFICATION.md` (10 sub-specifications in `v3/`)\n")
+    f.write("- `docs/archive/history/V1_CORE_OBSERVABILITY.md` (10 sub-specifications in `v1/`)\n")
+    f.write("- `docs/archive/history/V2_RUNTIME_GUARDRAILS.md` (10 sub-specifications in `v2/`)\n")
+    f.write("- `docs/archive/history/V3_FORMAL_VERIFICATION.md` (10 sub-specifications in `v3/`)\n")
     f.write("- `docs/v3/adr/0001` through `0018`\n")
     f.write(
         "- `docs/v3/CURRENT_ARCHITECTURE.md`, `MIGRATION_MAP.md`, `IMPLEMENTATION_STATE.md`\n\n"

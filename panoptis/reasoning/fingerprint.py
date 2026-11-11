@@ -88,8 +88,8 @@ def detect_mid_session_change(
     cut = int(len(events) * split_ratio)
     first, second = events[:cut], events[cut:]
     # A half with no PLANNER_OUTPUT has no reasoning style to fingerprint:
-    # fingerprint() returns the all-zeros sentinel, which means "no signal",
-    # not a real style. Comparing a genuine fingerprint against that sentinel
+    # fingerprint() returns the all-zeros placeholder, which means "no signal",
+    # not a real style. Comparing a genuine fingerprint against that placeholder
     # yields a large distance and falsely reports a mid-session model change —
     # e.g. for an agent that plans up front and then only calls tools, so the
     # planner events all land in one half. Treat this as "not enough signal to

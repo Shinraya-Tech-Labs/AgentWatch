@@ -35,7 +35,7 @@ ruff format --check panoptis/
 pytest tests/ -v --cov=panoptis --cov-fail-under=70
 ```
 
-- Python 3.12+. Build system: hatchling.
+- Python 3.12+ (supported and tested through 3.14). Build system: hatchling.
 - `tests/conftest.py` mocks sentence-transformers — do not remove; tests will hang downloading models.
 - Coverage gate: 70% minimum (enforced in CI).
 - Ruff ignores `E501` (line length), `S101` (assert), `S104` (0.0.0.0 bind), `S202` (tarfile.extractall). These are intentional.
@@ -61,7 +61,9 @@ npm run test         # Jest
 ## Local mode
 
 `panoptis up` runs the API + static dashboard on 127.0.0.1 with the SQLite store under
-`AGENTWATCH_HOME` (`panoptis/local.py`, `panoptis/cli/local_cmds.py`). `/api/local/session` and
+`AGENTWATCH_HOME` (`panoptis/local.py`, `panoptis/cli/local_cmds.py`). It never writes sample
+data: `panoptis demo` uses a separate workspace (`<home>/demo`, port 8001) that
+`panoptis demo --clear` deletes, and `seed_demo_workspace()` refuses to run outside it. `/api/local/session` and
 the static mount exist only when `PANOPTIS_LOCAL_UI=1`; that block must stay last in
 `panoptis/api/server.py`. `scripts/smoke_up.py` is the end-to-end check (CI runs it on a clean
 install).
@@ -83,7 +85,7 @@ read the request, or default image optimization.
 
 - **CI** (`ci.yml`): lint → tests → integration tests → frontend build → Docker build. Tests and integration tests run with Postgres+Redis service containers.
 - **PR tests** (`test-on-pr.yml`): runs pytest + ruff, but only pytest is a hard gate. Lint is reported but not blocking.
-- Both workflows target Python 3.12.
+- `ci.yml` runs the unit tests and the clean-install smoke test on Python 3.12, 3.13 and 3.14; lint, types and Docker stay on 3.12. `test-on-pr.yml` uses 3.12.
 
 ## Docker
 

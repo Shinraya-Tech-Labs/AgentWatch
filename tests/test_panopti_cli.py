@@ -9,8 +9,8 @@ import pytest
 
 from panopti.attest import AttestationEngine
 from panopti.cli import main
-from panopti.court import WitnessChain
 from panopti.replay import ReplayTape
+from panopti.witness import WitnessChain
 
 
 def test_cli_doctor_command(capsys: pytest.CaptureFixture[str]) -> None:
@@ -23,22 +23,25 @@ def test_cli_doctor_command(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_cli_live_command(capsys: pytest.CaptureFixture[str]) -> None:
-    """panopti top / live prints sentinel monitor."""
+    """panopti top / live prints the live monitor."""
     ret = main(["live"])
     assert ret == 0
     captured = capsys.readouterr().out
-    assert "PANOPTI SENTINEL [LIVE MONITOR" in captured
+    assert "PANOPTI LIVE MONITOR [PROFILE" in captured
 
 
-def test_cli_court_verify_valid(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """panopti court verify confirms valid cryptographic proof."""
-    chain = WitnessChain("test-cli-court")
+def test_cli_witness_verify_valid(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """panopti witness verify confirms valid cryptographic proof."""
+    chain = WitnessChain("test-cli-witness")
     chain.record("agent", "action_1", {"key": "val"})
     proof = chain.export_proof()
 
     proof_file = tmp_path / "test_proof.json"
     proof_file.write_text(json.dumps(proof), encoding="utf-8")
 
+    ret = main(["witness", "verify", str(proof_file)])
+    assert ret == 0
+    # the old command name still works for existing scripts
     ret = main(["court", "verify", str(proof_file)])
     assert ret == 0
     captured = capsys.readouterr().out

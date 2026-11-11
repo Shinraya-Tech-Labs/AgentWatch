@@ -1,8 +1,8 @@
-"""Unit tests for Panopti Court and Merkle Witness Verification."""
+"""Unit tests for the Panopti witness chain and Merkle witness verification."""
 
 from __future__ import annotations
 
-from panopti.court import WitnessChain
+from panopti.witness import WitnessChain
 
 
 def test_witness_chain_records_and_seals() -> None:

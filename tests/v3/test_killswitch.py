@@ -10,7 +10,7 @@ import time
 import unittest
 from pathlib import Path
 
-from panopti.demo import ActiveSentinel
+from panopti.demo import ActiveGuard
 from panopti.guard import PanoptiGuard
 from panopti.killswitch import EmergencyKillSwitch, EmergencyStopTriggered
 from panoptis.runtime.killswitch import (
@@ -22,7 +22,7 @@ from panoptis.runtime.killswitch import (
 
 
 class TestEmergencyKillSwitch(unittest.TestCase):
-    """Verify state transitions, file sentinels, signal trapping, and guardrail fail-closed behavior."""
+    """Verify state transitions, kill files, signal trapping, and guardrail fail-closed behavior."""
 
     def setUp(self) -> None:
         self.tmp_kill = Path(f".panopti_test_{int(time.time() * 1000)}.kill")
@@ -70,16 +70,16 @@ class TestEmergencyKillSwitch(unittest.TestCase):
         self.assertIsNone(ks.tripped_at)
         self.assertEqual(ks.reason, "Manual operator trip")
 
-    def test_file_sentinel_detection(self) -> None:
-        """Creating the sentinel file automatically trips the kill switch."""
+    def test_kill_file_detection(self) -> None:
+        """Creating the kill file automatically trips the kill switch."""
         ks = EmergencyKillSwitch(kill_file=self.tmp_kill, enable_signals=False)
         self.assertFalse(ks.is_tripped())
         self.tmp_kill.touch()
         self.assertTrue(ks.is_tripped())
-        self.assertIn("Kill file sentinel detected", ks.reason)
+        self.assertIn("Kill file detected", ks.reason)
 
-    def test_file_sentinel_with_custom_content(self) -> None:
-        """Sentinel file content is extracted as the forensic trip reason."""
+    def test_kill_file_with_custom_content(self) -> None:
+        """Kill file content is extracted as the forensic trip reason."""
         ks = EmergencyKillSwitch(kill_file=self.tmp_kill, enable_signals=False)
         self.tmp_kill.write_text(
             "CRITICAL: Watchdog daemon stopped agent cluster", encoding="utf-8"
@@ -87,8 +87,8 @@ class TestEmergencyKillSwitch(unittest.TestCase):
         self.assertTrue(ks.is_tripped())
         self.assertEqual(ks.reason, "CRITICAL: Watchdog daemon stopped agent cluster")
 
-    def test_reset_removes_file_sentinel(self) -> None:
-        """Calling reset() removes the sentinel file from disk to prevent immediate re-tripping."""
+    def test_reset_removes_kill_file(self) -> None:
+        """Calling reset() removes the kill file from disk to prevent immediate re-tripping."""
         ks = EmergencyKillSwitch(kill_file=self.tmp_kill, enable_signals=False)
         self.tmp_kill.write_text("Halt", encoding="utf-8")
         self.assertTrue(ks.is_tripped())
@@ -217,19 +217,19 @@ class TestEmergencyKillSwitch(unittest.TestCase):
             execute_action("subsequent_action")
         self.assertEqual(ctx.exception.reason, "Active cyber-attack detected on perimeter")
 
-    def test_panopti_demo_sentinel_integration(self) -> None:
-        """ActiveSentinel hypervisor intercepts tool intent when kill switch is tripped."""
+    def test_panopti_demo_guard_integration(self) -> None:
+        """ActiveGuard intercepts tool intent when kill switch is tripped."""
         ks = EmergencyKillSwitch(kill_file=self.tmp_kill, enable_signals=False)
-        sentinel = ActiveSentinel(kill_switch=ks)
+        guard = ActiveGuard(kill_switch=ks)
 
-        verdict_1 = sentinel.evaluate_intent(
+        verdict_1 = guard.evaluate_intent(
             tool_name="database_query",
             arguments={"query": "SELECT * FROM users LIMIT 10;"},
         )
         self.assertTrue(verdict_1.allowed)
 
-        ks.trip("Sentinel kill-file dropped")
-        verdict_2 = sentinel.evaluate_intent(
+        ks.trip("kill file dropped")
+        verdict_2 = guard.evaluate_intent(
             tool_name="database_query",
             arguments={"query": "SELECT * FROM users LIMIT 10;"},
         )

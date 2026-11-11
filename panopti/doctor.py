@@ -6,8 +6,8 @@ import platform
 import sys
 from typing import Any
 
-from panopti.court import WitnessChain
 from panopti.guard import guard
+from panopti.witness import WitnessChain
 from panoptis.circuit_breaker.loop_detector import LoopDetector
 from panoptis.core.safety import SafetyEngine
 
@@ -39,19 +39,19 @@ def run_diagnostics() -> dict[str, Any]:
         results["components"]["guard"] = {"status": "error", "error": str(e)}
         results["status"] = "degraded"
 
-    # 2. Cryptographic Witness Court
+    # 2. Cryptographic witness chain
     try:
         chain = WitnessChain("doctor-selftest")
         chain.record("doctor", "ping", {"check": "self-test"})
         proof = chain.export_proof()
         valid, err = WitnessChain.verify_proof(proof)
-        results["components"]["court"] = {
+        results["components"]["witness"] = {
             "status": "ok" if valid else "error",
             "merkle_verification": "verified" if valid else "failed",
             "error": err,
         }
     except Exception as e:
-        results["components"]["court"] = {"status": "error", "error": str(e)}
+        results["components"]["witness"] = {"status": "error", "error": str(e)}
         results["status"] = "degraded"
 
     # 3. Storage Layer Check

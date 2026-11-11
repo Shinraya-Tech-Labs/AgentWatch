@@ -1,4 +1,4 @@
-"""Unit tests for panopti demo command and ActiveSentinel simulation."""
+"""Unit tests for panopti demo command and ActiveGuard simulation."""
 
 from __future__ import annotations
 
@@ -6,30 +6,30 @@ import io
 from unittest.mock import patch
 
 from panopti.cli import main
-from panopti.demo import ActiveSentinel, run_interactive_demo
+from panopti.demo import ActiveGuard, run_interactive_demo
 
 
-def test_active_sentinel_nominal():
-    sentinel = ActiveSentinel()
-    verdict = sentinel.evaluate_intent(
+def test_active_guard_nominal():
+    guard = ActiveGuard()
+    verdict = guard.evaluate_intent(
         tool_name="database_query",
         arguments={"query": "SELECT * FROM users;"},
         current_confidence=0.99,
     )
     assert verdict.allowed is True
-    assert sentinel.circuit_breaker_state == "CLOSED"
+    assert guard.circuit_breaker_state == "CLOSED"
     assert verdict.risk_level == "LOW"
 
 
-def test_active_sentinel_destructive_intercept():
-    sentinel = ActiveSentinel()
-    verdict = sentinel.evaluate_intent(
+def test_active_guard_destructive_intercept():
+    guard = ActiveGuard()
+    verdict = guard.evaluate_intent(
         tool_name="database_query",
         arguments={"query": "DROP TABLE users;"},
         current_confidence=0.95,
     )
     assert verdict.allowed is False
-    assert sentinel.circuit_breaker_state == "OPEN"
+    assert guard.circuit_breaker_state == "OPEN"
     assert "Destructive SQL invariant" in verdict.reason
     assert "DROP" in verdict.reason
     assert verdict.risk_level == "CRITICAL"

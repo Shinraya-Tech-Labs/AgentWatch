@@ -10,6 +10,23 @@ file and uses it as the GitHub Release body, so keep each version's notes here.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-11
+
+### Added
+- Python 3.13 and 3.14 support: `requires-python` is `>=3.12` with no upper cap, and CI runs the tests and the clean-install `panoptis up` smoke test on 3.12, 3.13 and 3.14.
+- First-run screen: a workspace nothing has reported to yet shows copy-paste setup for Claude Code, Cursor / MCP and a Python agent, with a live "waiting for your first agent session" status, instead of zero counts.
+- `use_local_dashboard()` (`panoptis.protect`): makes the default pipeline record to the local store and send held calls to dashboard approvals. A bare `protect_tool` enforces but records nothing, so it never showed up on the dashboard.
+- `panoptis demo` seeds sample data into a separate demo workspace (`<home>/demo`, its own store, keys and kill file) and serves it on port 8001; `panoptis demo --clear` deletes it; `--no-serve` seeds and exits.
+
+### Changed
+- `panoptis up` no longer seeds sample data: a fresh install starts empty. `--no-demo` is gone, and the local server no longer creates a demo tenant key.
+- `panoptis demo live` and `demo offline` record in the demo workspace and link to its dashboard (port 8001), never to your own workspace.
+- `panopti court verify` is now `panopti witness verify` (`court` still works), and `panopti.court` moved to `panopti.witness` (the old import path still works). `HypervisorProfile` is now `GuardProfile`, and the `panopti` demo's `ActiveSentinel` is `ActiveGuard`.
+- The v1–v3 design documents moved from `docs/history/` to `docs/archive/history/` and are no longer published with the docs site.
+
+### Removed
+- The old browser playground (`panopti playground`, `panopti/playground.html`) and the landing site's `/playground` page.
+
 ## [0.4.0] - 2026-11-10
 
 ### Added
@@ -78,7 +95,7 @@ file and uses it as the GitHub Release body, so keep each version's notes here.
 ### Added
 - Anti-tampering process and audit shield (`panopti.shield`, `panoptis.security.shield`): intercepts and blocks commands targeting guardians (`pkill`, `killall`) or destroying audit trails (`rm panopti.db`, truncate).
 - Egress network and SSRF guard (`panopti.egress`, `panoptis.security.egress`): prevents SSRF and data exfiltration to private, loopback, and cloud metadata (`169.254.169.254`) ranges for HTTP tool calls.
-- Emergency Kill Switch (`panopti.killswitch`, `panoptis.runtime.killswitch`): POSIX signal (`SIGUSR1`) & file-sentinel (`.panopti.kill`) runtime fail-closed tripwire.
+- Emergency Kill Switch (`panopti.killswitch`, `panoptis.runtime.killswitch`): POSIX signal (`SIGUSR1`) & kill file (`.panopti.kill`) runtime fail-closed tripwire.
 - Deterministic shadow replay (issue #751): `panoptis.replay.shadow` replays a recorded session against a model while every tool call is answered from the recorded evidence (nothing is executed), then classifies the result as `IDENTICAL_REPLAY`, `DETERMINISTIC_CORROBORATION`, `STOCHASTIC_MODEL_DIVERGENCE` or `INSUFFICIENT_EVIDENCE`. Includes `ToolEvidenceStore`, `ShadowReplayRunner`, `PromptCompletionModel` and a `StepFn` adapter. See `docs/v3/SHADOW_REPLAY.md`.
 - Witness attestation (issue #738): `panoptis.evidence.merkle` (domain-separated Merkle tree with `0x00` leaf and `0x01` node prefixes, inclusion proofs, standalone `verify_inclusion`), `panoptis.evidence.attestation` (self-contained signed audit token with HMAC-SHA256, optional Ed25519, and field-level hash commitments) and `panoptis.evidence.shredding` (per-subject AES-256-GCM encryption with leaf hashes over the ciphertext). See `docs/v3/WITNESS_ATTESTATION.md`.
 - `panoptis session export` now also writes `--format jsonl` (one event per line) and `--format csv` (fixed columns `event_type, timestamp, tool_name, confidence, status, session_id` plus a `metadata_json` column), backed by the stdlib-only `panoptis.telemetry.exporter` (`export_to_jsonl`, `export_to_csv`). Text that starts with `=`, `+`, `-` or `@` is prefixed with `'` in CSV so spreadsheets do not run it as a formula (issue #769).

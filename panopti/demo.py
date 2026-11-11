@@ -19,9 +19,9 @@ from typing import Any
 from panopti._banner import print_banner
 from panopti.attest import AttestationEngine
 from panopti.attest_keys import Keyring
-from panopti.court import WitnessChain
 from panopti.killswitch import EmergencyKillSwitch
 from panopti.themes import ThemeManager
+from panopti.witness import WitnessChain
 
 
 def _demo_keyring() -> Keyring:
@@ -51,7 +51,7 @@ class GuardVerdict:
     risk_score: float
 
 
-class ActiveSentinel:
+class ActiveGuard:
     """A three-pattern string matcher for this illustration."""
 
     def __init__(
@@ -163,9 +163,9 @@ def run_interactive_demo(
     )
     time.sleep(delay)
 
-    witness_court = WitnessChain(session_id="session-demo-panopti-01")
+    witness = WitnessChain(session_id="session-demo-panopti-01")
     kill_switch = EmergencyKillSwitch(kill_file=kill_file) if kill_file else None
-    sentinel = ActiveSentinel(
+    guard = ActiveGuard(
         confidence_floor=0.40,
         destructive_patterns=[r"(?i)\b(DROP\s+TABLE|TRUNCATE|DELETE\s+FROM)\b"],
         kill_switch=kill_switch,
@@ -174,7 +174,7 @@ def run_interactive_demo(
     p(f"  • Pre-Execution Intercept : {_c_theme('ONLINE', palette.GREEN, use_color)}")
     p(f"  • Circuit Breaker FSM     : {_c_theme('CLOSED (Nominal)', palette.GREEN, use_color)}")
     p(
-        f"  • Merkle Witness Court    : {_c_theme('ACTIVE (Genesis Hash: ' + witness_court.GENESIS_HASH[:16] + '...)', palette.GREEN, use_color)}"
+        f"  • Merkle Witness Chain    : {_c_theme('ACTIVE (Genesis Hash: ' + witness.GENESIS_HASH[:16] + '...)', palette.GREEN, use_color)}"
     )
     p(
         f"  • Compounding Decay Engine: {_c_theme('ACTIVE (Floor: 0.40, Decay Rate: 0.15)', palette.GREEN, use_color)}"
@@ -213,7 +213,7 @@ def run_interactive_demo(
     )
     time.sleep(delay)
 
-    decision_1 = sentinel.evaluate_intent(
+    decision_1 = guard.evaluate_intent(
         tool_name="database_query",
         arguments={"query": "SELECT id, name, role FROM users WHERE active = true LIMIT 5;"},
         current_confidence=0.95,
@@ -225,7 +225,7 @@ def run_interactive_demo(
     p(
         f"  Execution    : {_c_theme('SUCCESS', palette.GREEN, use_color)} -> 5 rows returned to agent context."
     )
-    entry_1 = witness_court.record(
+    entry_1 = witness.record(
         actor="Agent-Alpha",
         action="database_query",
         payload={
@@ -234,7 +234,7 @@ def run_interactive_demo(
         },
     )
     p(
-        f"  Merkle Leaf  : {_c_theme(entry_1.entry_hash[:16] + '...', palette.DIM, use_color)} (Court entries: {witness_court.length})"
+        f"  Merkle Leaf  : {_c_theme(entry_1.entry_hash[:16] + '...', palette.DIM, use_color)} (Witness entries: {witness.length})"
     )
     time.sleep(delay * 1.5)
 
@@ -283,7 +283,7 @@ def run_interactive_demo(
     )
     time.sleep(delay)
 
-    decision_2 = sentinel.evaluate_intent(
+    decision_2 = guard.evaluate_intent(
         tool_name="database_query",
         arguments={"query": "DROP TABLE users;"},
         current_confidence=0.85,
@@ -303,22 +303,22 @@ def run_interactive_demo(
     )
     time.sleep(delay)
 
-    witness_court.record(
+    witness.record(
         actor="Agent-Alpha",
         action="database_query",
         payload={"query": "DROP TABLE users;", "verdict": "VETO", "reason": decision_2.reason},
     )
 
-    # STEP 4: Forensic Court & Cryptographic Seal
+    # STEP 4: Forensic witness chain & cryptographic seal
     p()
-    p(_c_theme("▶ STEP 3: Cryptographic Witness Court & Attestation Seal", palette.BOLD, use_color))
+    p(_c_theme("▶ STEP 3: Cryptographic Witness Chain & Attestation Seal", palette.BOLD, use_color))
     time.sleep(delay)
 
-    proof = witness_court.export_proof()
+    proof = witness.export_proof()
     seal = AttestationEngine.create_seal(
-        merkle_root=witness_court.root_hash,
-        tool_count=witness_court.length,
-        confidence_floor=sentinel.confidence_floor,
+        merkle_root=witness.root_hash,
+        tool_count=witness.length,
+        confidence_floor=guard.confidence_floor,
         is_compliant=False,
         loop_detected=False,
         # demo only: a random in-process key (never a key published in source)

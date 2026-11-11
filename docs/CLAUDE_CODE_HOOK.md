@@ -70,7 +70,7 @@ Use this on those versions. Older versions do not have this setting.
 | `AGENTWATCH_OBJECTIVE` | session objective, for intent grounding | none |
 | `AGENTWATCH_STORE` | evidence store | `~/.agentwatch/agentwatch.db` |
 | `AGENTWATCH_HOOK_MUTATION` | `ask` or `allow` for redacted arguments | `ask` |
-| `AGENTWATCH_KILL_FILE` | kill-switch sentinel (shared with every enforcement point) | `~/.agentwatch/protect.kill` |
+| `AGENTWATCH_KILL_FILE` | kill-switch file (shared with every enforcement point) | `~/.agentwatch/protect.kill` |
 
 Claude Code tool names are mapped to the names policies use:
 

@@ -25,10 +25,6 @@ from panopti.contracts import (
     MaxFrequency,
     RequiresPrior,
 )
-from panopti.court import (
-    WitnessChain,
-    WitnessEntry,
-)
 from panopti.egress import (
     EgressGuard,
     SSRFBlockedError,
@@ -57,6 +53,10 @@ from panopti.shield import (
 from panopti.synth import (
     PolicySynthesizer,
     SynthesizedInvariant,
+)
+from panopti.witness import (
+    WitnessChain,
+    WitnessEntry,
 )
 
 try:

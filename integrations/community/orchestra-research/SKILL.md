@@ -36,7 +36,6 @@ if decision.blocked:
 **Illustrations**:
 ```bash
 panopti demo        # scripted illustration: no database, no tools, not the real pipeline
-panopti playground  # local browser playground
 ```
 
 `panopti demo` only tells a story. To see the real pipeline, API, MCP gateway and evidence verifier run from a clone of the repository:

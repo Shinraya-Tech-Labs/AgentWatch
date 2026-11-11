@@ -2,7 +2,7 @@
 
 Two channels, both checked before every action:
 
-* the local :class:`panopti.killswitch.EmergencyKillSwitch` (a kill-file sentinel and,
+* the local :class:`panopti.killswitch.EmergencyKillSwitch` (a kill file and,
   on POSIX, ``SIGUSR1``): works with no database and no network;
 * ``protect.control`` records in the ledger, so an operator can stop an agent running in
   another process or on another host from the dashboard or CLI.

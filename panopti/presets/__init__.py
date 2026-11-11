@@ -6,7 +6,7 @@ from panopti.presets.profiles import (
     PROFILE_HEALTHCARE,
     PROFILE_SUPPORT_RAG,
     PROFILES,
-    HypervisorProfile,
+    GuardProfile,
     get_profile,
 )
 from panopti.presets.rules import (
@@ -25,7 +25,7 @@ __all__ = [
     "SHELL_DESTRUCTIVE",
     "SQL_DESTRUCTIVE",
     "get_preset_patterns",
-    "HypervisorProfile",
+    "GuardProfile",
     "PROFILE_FINTECH",
     "PROFILE_DEVOPS",
     "PROFILE_HEALTHCARE",

@@ -8,3 +8,4 @@ product: for what PANOPTIS does today, read the [README](../../README.md) and
 - `COMPLETE_PROJECT_DOCUMENTATION.md` — generated concatenation (scripts/build_complete_docs.py)
 - `VISION.md`, `panoptis_masterlist.md`, `MASTERLIST_STATUS.md`, `PROGRESS.md`, `issues.md` — roadmap and checklists
 - `vault/` — feature notes
+- `history/` — v1–v3 design specifications in the vocabulary of their time, superseded by the current docs

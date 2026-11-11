@@ -1,4 +1,4 @@
-"""Emergency Kill Switch: POSIX signal & file-based sentinel runtime tripwire."""
+"""Emergency kill switch: a POSIX signal and a kill file that stop the guard at runtime."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class EmergencyStopTriggered(Exception):  # noqa: N818
 
 
 class EmergencyKillSwitch:
-    """Thread-safe file-sentinel and POSIX signal emergency kill switch."""
+    """Thread-safe emergency kill switch driven by a kill file and a POSIX signal."""
 
     def __init__(self, kill_file: str | Path | None = None, enable_signals: bool = True) -> None:
         self._lock = threading.RLock()
@@ -67,7 +67,7 @@ class EmergencyKillSwitch:
                     txt = self.kill_file.read_text(encoding="utf-8").strip()
                 except OSError:
                     txt = ""
-                self.trip(txt or f"Kill file sentinel detected: {self.kill_file}")
+                self.trip(txt or f"Kill file detected: {self.kill_file}")
             return self._tripped
 
     def verify(self) -> None:

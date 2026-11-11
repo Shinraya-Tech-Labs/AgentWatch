@@ -1,4 +1,4 @@
-"""Panopti Theme Engine: Customizable ANSI Color Palettes for CLI & Terminal Hypervisor.
+"""Panopti Theme Engine: Customizable ANSI Color Palettes for the CLI and terminal monitor.
 
 Provides customizable aesthetic themes (Cyberpunk, Matrix, Amber, Monochrome/Plain)
 and respects standard NO_COLOR (https://no-color.org) environment variables.

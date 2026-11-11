@@ -1,5 +1,5 @@
 name: Panopti Pre-Execution SQL Guardrail Agent
-description: Autonomous SQL agent with real-time Panopti pre-execution hypervisor intercepting adversarial DROP TABLE injections and sealing Merkle witness receipts.
+description: Autonomous SQL agent with real-time Panopti pre-execution guard intercepting adversarial DROP TABLE injections and sealing Merkle witness receipts.
 category: Observability & Evaluation
 framework: Panopti / AgentWatch
 models: [gpt-4o, claude-3-5-sonnet, llama-3]

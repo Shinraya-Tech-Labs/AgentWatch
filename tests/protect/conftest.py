@@ -7,7 +7,7 @@ from panoptis.protect import ApprovalBroker, PolicyStore, ProtectionPipeline, Pr
 
 @pytest.fixture(autouse=True)
 def _isolated_kill_file(tmp_path, monkeypatch):
-    # every test gets its own kill-file sentinel, so a tripped switch never leaks
+    # every test gets its own kill file, so a tripped switch never leaks
     monkeypatch.setenv("AGENTWATCH_KILL_FILE", str(tmp_path / "protect.kill"))
 
 

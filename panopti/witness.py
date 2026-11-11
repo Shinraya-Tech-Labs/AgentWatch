@@ -1,4 +1,4 @@
-"""Panopti Court: Cryptographic Execution Witness & Merkle Audit Proofs for AI Agents."""
+"""Panopti witness chain: cryptographic execution witnesses and Merkle audit proofs for AI agents."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import time
 from dataclasses import asdict, dataclass
 from typing import Any
 
-logger = logging.getLogger("panopti.court")
+logger = logging.getLogger("panopti.witness")
 
 
 def canonical_json_bytes(data: Any) -> bytes:

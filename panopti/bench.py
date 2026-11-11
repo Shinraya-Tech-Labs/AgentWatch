@@ -73,8 +73,8 @@ def run_bench(iterations: int = DEFAULT_ITERATIONS) -> list[OpResult]:
     if iterations < 1:
         raise ValueError(f"iterations must be at least 1, got {iterations}")
 
-    from panopti.court import WitnessChain
     from panopti.presets.profiles import get_profile
+    from panopti.witness import WitnessChain
     from panoptis.circuit_breaker import CircuitBreaker, CircuitThresholds
     from panoptis.core.schema import AgentEvent, EventType, ExecutionStatus
 

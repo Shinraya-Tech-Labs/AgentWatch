@@ -23,7 +23,7 @@ except PackageNotFoundError:  # pragma: no cover
     # The package is being imported from a source tree that was never installed — running
     # `python -m panoptis` straight out of a clone, for instance. Falling back beats raising on
     # import, which would make the package unusable in exactly the situation a contributor is most
-    # likely to hit. The sentinel is deliberately not a plausible release number, so it can't be
+    # likely to hit. The placeholder is deliberately not a plausible release number, so it can't be
     # mistaken for one in a bug report.
     __version__ = "0.0.0+unknown"
 

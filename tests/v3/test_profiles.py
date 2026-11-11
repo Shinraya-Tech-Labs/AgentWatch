@@ -1,4 +1,4 @@
-"""Unit tests for Panopti hypervisor domain profiles."""
+"""Unit tests for Panopti domain guard profiles."""
 
 from panopti.presets.profiles import PROFILES, get_profile
 

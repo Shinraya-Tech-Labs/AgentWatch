@@ -7,7 +7,7 @@ What runs, from where, and what every module is for (TO-034). Generated evidence
 | Entry point | What | Reaches |
 |---|---|---|
 | `panoptis` console script → `panoptis.cli.main` | 120+ commands (`tests/cli_surface.txt`); the protection commands are in [PROTECT_CLI.md](PROTECT_CLI.md) | CLI, protect, v3 engine, MCP server, gateway, discovery, controls, evidence |
-| `panopti` console script → `panopti.cli` | the Panopti guard CLI (themes, bench, replay, doctor, playground) | `panopti.*` and the `panoptis` engines it wraps |
+| `panopti` console script → `panopti.cli` | the Panopti guard CLI (themes, bench, replay, doctor) | `panopti.*` and the `panoptis` engines it wraps |
 | `python -m panoptis` / `python -m panopti` | the same CLIs | — |
 | `panoptis.api.server:app` (uvicorn, `Dockerfile.api`) | 109 operations on 102 paths: `/api/v1/*` (sessions, events, safety, tenants, GDPR, dashboard), `/api/v1/protect/*` (25: [PROTECT_API.md](PROTECT_API.md)), `/api/v3/*` (v3 evidence engine), `/v1/traces` (OTLP), `/health`, `/metrics` | API, tenancy, protect routers, v3 engine |
 | `panoptis.tasks` (Celery, `Dockerfile.worker`) | sealing, alerting, retention tasks | storage, alerting |

@@ -102,14 +102,13 @@ def main(args: list[str] | None = None) -> Any:
             print(
                 "  demo            Run a scripted terminal illustration (not the real pipeline) [--theme <name>] [--kill-file <path>]"
             )
-            print("  playground      Launch zero-dependency local web interactive playground")
             print("  doctor          Run system, interceptor, and circuit breaker health checks")
             print(
-                "  top / live      Interactive terminal sentinel monitor [--profile <name>]"
+                "  top / live      Interactive terminal live monitor [--profile <name>]"
                 " [--cooldown <s>] [--max-failures <n>]"
             )
             print("  bench           Measure interception latency overhead [--iterations <n>]")
-            print("  court verify    Verify a cryptographic execution witness proof (.json)")
+            print("  witness verify  Verify a cryptographic execution witness proof (.json)")
             print("  attest verify   Verify an immutable cryptographic policy attestation seal")
             print("  attest report   Export a seal as a Markdown or HTML report [--format md|html]")
             print("  replay          Run deterministic shadow replay of an execution tape (.json)")
@@ -133,17 +132,6 @@ def main(args: list[str] | None = None) -> Any:
             if k_idx + 1 < len(argv):
                 kill_file = argv[k_idx + 1]
         return run_interactive_demo(fast=fast, no_color=no_color, theme=theme, kill_file=kill_file)
-
-    if argv and argv[0] == "playground":
-        from panopti.playground import launch_local_playground
-
-        port = 8080
-        if len(argv) >= 3 and argv[1] in ("-p", "--port"):
-            try:
-                port = int(argv[2])
-            except ValueError:
-                pass
-        return launch_local_playground(port=port)
 
     if argv and argv[0] == "doctor":
         from panopti.doctor import format_doctor_report, run_diagnostics
@@ -201,7 +189,7 @@ def main(args: list[str] | None = None) -> Any:
         )
 
         print_banner()
-        print(f"👁️  PANOPTI SENTINEL [LIVE MONITOR - PROFILE: {prof.name.upper()}]")
+        print(f"👁️  PANOPTI LIVE MONITOR [PROFILE: {prof.name.upper()}]")
         print("--------------------------------------------------")
         print(f"Description:        {prof.description}")
         print("Active Interceptor: ONLINE (0.00ms latency)")
@@ -215,11 +203,12 @@ def main(args: list[str] | None = None) -> Any:
         print("Listening on telemetry socket... (Press Ctrl+C to exit)")
         return 0
 
-    if argv and argv[0] == "court":
+    # "court" is the old name of "witness", kept so existing scripts keep working
+    if argv and argv[0] in ("witness", "court"):
         if len(argv) >= 3 and argv[1] == "verify":
             filepath = argv[2]
             try:
-                from panopti.court import WitnessChain
+                from panopti.witness import WitnessChain
 
                 with open(filepath, encoding="utf-8") as f:
                     proof = json.load(f)
@@ -237,7 +226,7 @@ def main(args: list[str] | None = None) -> Any:
             except Exception as e:
                 print(f"Error reading proof file: {e}", file=sys.stderr)
                 return 1
-        print("Usage: panopti court verify <proof_file.json>")
+        print("Usage: panopti witness verify <proof_file.json>")
         return 1
 
     if argv and argv[0] == "attest":
