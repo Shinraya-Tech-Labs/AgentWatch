@@ -53,18 +53,26 @@ pip install panoptis
 panoptis up                    # API + dashboard on http://127.0.0.1:8000, SQLite, opens the browser
 ```
 
-In a second terminal, watch an attack get stopped on the dashboard:
-
-```bash
-panoptis demo live --offline   # scripted agent: no key, no network
-panoptis demo live             # a real OpenAI model (reads OPENAI_API_KEY; pip install "panoptis[openai-agents]")
-```
-
-No Docker or account is needed. `panoptis up` keeps decisions, approvals and evidence in a SQLite store under `~/.agentwatch`, the default store of every protected agent on the machine, so your own agents show up with no extra setup. It also seeds a **demo tenant** of sample data, labelled as such on the dashboard. It binds to 127.0.0.1 and is meant for one person's machine; for a team, use [Docker Compose](#-run-it-for-real).
+A fresh install starts empty. The dashboard shows copy-paste setup for **Claude Code**, **Cursor / MCP** and a **Python agent**, and waits for your first agent session; the home screen takes over as soon as one reports. No Docker or account is needed. Decisions, approvals and evidence go to a SQLite store under `~/.agentwatch`, which the Claude Code hook and the MCP gateway use by default; a Python agent calls `use_local_dashboard()` once (shown on the setup screen).
 
 <p align="center">
-  <img src="docs/screenshots/launch/home-demo-tenant.png" alt="The PANOPTIS home screen: one call waiting for approval, allowed, blocked and waiting counts, a plain-English decision feed, an emergency stop button and the pending approval." width="760"/>
+  <img src="docs/screenshots/launch/first-run.png" alt="The first-run screen: Connect your first agent, a live 'Waiting for your first agent session' status, and tabs for Claude Code, Cursor / MCP and Python agent with copy-paste setup commands." width="760"/>
 </p>
+
+Want to look around first? Sample data lives in a **separate demo workspace** (`~/.agentwatch/demo`, its own store and dashboard on port 8001), never in your own:
+
+```bash
+panoptis demo                  # seed sample data and open the demo dashboard (http://127.0.0.1:8001)
+panoptis demo live --offline   # in another terminal: watch an attack get stopped (scripted agent, no key)
+panoptis demo live             # the same with a real OpenAI model (OPENAI_API_KEY; pip install "panoptis[openai-agents]")
+panoptis demo --clear          # delete the demo workspace (stop `panoptis demo` first)
+```
+
+<p align="center">
+  <img src="docs/screenshots/launch/home-demo-workspace.png" alt="The demo workspace: a banner says it holds sample data kept apart from your own workspace; one call waits for approval, with allowed, blocked and waiting counts, a plain-English decision feed and an emergency stop." width="760"/>
+</p>
+
+`panoptis up` binds to 127.0.0.1 and is meant for one person's machine; for a team, use [Docker Compose](#-run-it-for-real).
 
 Wrap any Python function:
 
@@ -97,7 +105,7 @@ Version 2 adds caching.
 
 ## 🎬 See an attack stopped
 
-`panoptis demo live` gives an [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) agent a coding task and a poisoned GitHub issue. The issue tells it to upload the repository's `.env` and delete the project. Its tools are protected with `protect_openai_agent`, so with `panoptis up` running you watch each call arrive on the dashboard: the hidden instruction is stripped from the issue before the model reads it, the upload is blocked, and the force-push it was asked to do waits for you to approve it.
+`panoptis demo live` gives an [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) agent a coding task and a poisoned GitHub issue. The issue tells it to upload the repository's `.env` and delete the project. Its tools are protected with `protect_openai_agent`, and everything is recorded in the demo workspace, so with `panoptis demo` running you watch each call arrive on the demo dashboard: the hidden instruction is stripped from the issue before the model reads it, the upload is blocked, and the force-push it was asked to do waits for you to approve it.
 
 What is real and what is staged: the model, the SDK run loop, the pipeline, the approvals and the evidence are real. The issue is a local fixture, the "shell" runs a few commands inside a temporary directory, and the "attacker" is a listener on 127.0.0.1. A model may decline the injected step; the demo then says so and still checks that the fake secret never left and the project is intact. `--offline` runs the same tools with a scripted agent that obeys the issue. The SDK integration is tested by driving the SDK's own `Runner` with a scripted model ([tests](tests/protect/test_openai_agents_integration.py)).
 

@@ -86,7 +86,7 @@ beforeEach(() => {
   }) as unknown as typeof fetch;
 });
 
-it('says honestly that nothing has reported yet', async () => {
+it('a fresh workspace shows setup for three agent kinds and waits for the first session', async () => {
   handler = (url) =>
     url.endsWith('/status')
       ? { status: 200, body: statusBody() }
@@ -96,10 +96,53 @@ it('says honestly that nothing has reported yet', async () => {
           ? { status: 200, body: { approvals: [], count: 0 } }
           : undefined;
   wrap(<Home />);
-  expect(await screen.findByText('No protected agent has reported yet')).toBeInTheDocument();
-  expect(screen.getByText('No protected tool calls yet.')).toBeInTheDocument();
-  expect(screen.getByText('No call is waiting for approval.')).toBeInTheDocument();
+  expect(
+    await screen.findByRole('heading', { name: 'Connect your first agent' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('Waiting for your first agent session…')).toBeInTheDocument();
+  const tabs = screen.getAllByRole('tab').map((t) => t.textContent);
+  expect(tabs).toEqual(['Claude Code', 'Cursor / MCP', 'Python agent']);
+  expect(screen.getByText(/claude-hook install --on-failure-block/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: 'Cursor / MCP' }));
+  expect(screen.getByText(/mcp-gateway config --server-name/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: 'Python agent' }));
+  expect(screen.getByText(/use_local_dashboard\(\)/)).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: 'Python agent' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  // no fake numbers: the zero-count home is not shown
+  expect(screen.queryByText('Is my agent safe?')).toBeNull();
 });
+
+it('the first decision replaces the setup screen with the normal home', async () => {
+  let decided = false;
+  handler = (url) =>
+    url.endsWith('/status')
+      ? {
+          status: 200,
+          body: decided
+            ? statusBody({ recent_decisions: 1, verdicts: { allow: 1 } })
+            : statusBody(),
+        }
+      : url.includes('/decisions')
+        ? {
+            status: 200,
+            body: {
+              tenant_id: 'default',
+              decisions: decided ? [decision({ verdict: 'allow', reason: '' })] : [],
+              count: decided ? 1 : 0,
+              next_after: null,
+            },
+          }
+        : url.includes('/approvals')
+          ? { status: 200, body: { approvals: [], count: 0 } }
+          : undefined;
+  wrap(<Home />);
+  await screen.findByText('Waiting for your first agent session…');
+  decided = true; // the next poll (every 5 s) sees the first decision
+  expect(await screen.findByText('Is my agent safe?', {}, { timeout: 8000 })).toBeInTheDocument();
+}, 15000);
 
 it('answers with the pending count, explains blocks in plain English, and approves the exact digest', async () => {
   handler = (url, init) =>
@@ -159,7 +202,7 @@ it('the emergency stop asks for confirmation before stopping', async () => {
   await waitFor(() => expect(calls.some((c) => c.url.endsWith('/control/kill'))).toBe(true));
 });
 
-it('local mode signs in by itself and labels the demo tenant as sample data', async () => {
+it('local mode signs in by itself and labels the demo workspace as sample data', async () => {
   window.sessionStorage.clear();
   handler = (url) =>
     url === '/api/local/session'
@@ -167,33 +210,28 @@ it('local mode signs in by itself and labels the demo tenant as sample data', as
           status: 200,
           body: {
             mode: 'local',
+            workspace: 'demo',
             profiles: [
               {
-                id: 'local',
-                label: 'Your agents',
-                tenant_id: 'default',
-                key: 'k-local',
-                sample_data: false,
-                operator: true,
-              },
-              {
                 id: 'demo',
-                label: 'Demo tenant (sample data)',
-                tenant_id: 'demo',
+                label: 'Demo workspace (sample data)',
+                tenant_id: 'default',
                 key: 'k-demo',
                 sample_data: true,
-                operator: false,
+                operator: true,
               },
             ],
           },
         }
       : url.endsWith('/status')
-        ? { status: 200, body: statusBody() }
+        ? {
+            status: 200,
+            body: statusBody({ recent_decisions: 7, verdicts: { allow: 4, block: 2 } }),
+          }
         : undefined;
   wrap(<Home />);
-  const view = await screen.findByLabelText('viewing');
-  expect(window.sessionStorage.getItem('agentwatch.apiKey')).toBe('k-local');
-  fireEvent.change(view, { target: { value: 'demo' } });
   expect(await screen.findByText(/sample data from a scripted agent/)).toBeInTheDocument();
+  expect(screen.getByText('panoptis demo --clear')).toBeInTheDocument();
   expect(window.sessionStorage.getItem('agentwatch.apiKey')).toBe('k-demo');
+  expect(screen.queryByLabelText('viewing')).toBeNull(); // one workspace per server
 });

@@ -10,6 +10,7 @@ import {
   useStatus,
 } from '../../lib/protect/client';
 import type { Approval, Decision } from '../../lib/protect/types';
+import { GettingStarted } from './GettingStarted';
 import { SecurityShell } from './SecurityShell';
 import { Card, ErrorNote, QueryState, Time } from './ui';
 
@@ -98,6 +99,14 @@ export default function Home() {
   const pending = approvals.data?.approvals.length ?? 0;
   const list = recent.data?.decisions ?? [];
   const a = answer(s, pending, s?.verdicts.block ?? 0);
+  // a workspace nothing has reported to yet: show how to connect an agent instead of zeros
+  if (s && !s.killed && !s.recent_decisions && approvals.data && !pending) {
+    return (
+      <SecurityShell title="Getting started">
+        <GettingStarted />
+      </SecurityShell>
+    );
+  }
   return (
     <SecurityShell title="Home">
       <section

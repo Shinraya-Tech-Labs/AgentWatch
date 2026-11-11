@@ -6,21 +6,23 @@ which is also the default store of every protected agent on the machine. An agen
 uses ``protect_tool`` or a framework integration with no store configured therefore shows
 up on the local dashboard with no further setup.
 
+A fresh install starts empty: ``panoptis up`` never adds sample data, and the dashboard
+shows how to connect a first agent until one reports.
+
+Sample data lives in a separate **demo workspace**, ``<home>/demo/``: its own store, keys,
+kill file and dashboard (``panoptis demo``, port 8001 by default). Nothing in it can reach
+the real workspace, and ``panoptis demo --clear`` deletes the directory.
+
 The dashboard is the static build of ``frontend/`` shipped inside the package
 (``panoptis/_dashboard``) and served by the API on the same origin.
 
-Credentials. ``panoptis up`` creates two random keys and keeps them in
-``<home>/local.json`` (readable by the owner only where the OS supports it):
-
-- the operator key (``AGENTWATCH_API_KEY``): the local user, tenant ``default``, allowed to
-  pull the emergency stop;
-- the demo key (tenant ``demo``): sample data seeded once, labelled as such everywhere.
-
-The dashboard signs in through ``GET /api/local/session``, which answers only when the
-server was started by ``panoptis up`` and only to a loopback client that addressed the
-server by a loopback name (so a web page elsewhere, or a DNS-rebinding page, cannot read
-the keys). Anyone with a shell as this user can read local.json anyway: local mode is for
-one person's machine, not a shared host.
+Credentials. Each workspace has an operator key (``AGENTWATCH_API_KEY``) kept in
+``<workspace>/local.json``, readable by the owner only where the OS supports it. The
+dashboard signs in through ``GET /api/local/session``, which answers only when the server
+was started in local mode and only to a loopback client that addressed the server by a
+loopback name (so a web page elsewhere, or a DNS-rebinding page, cannot read the key).
+Anyone with a shell as this user can read local.json anyway: local mode is for one
+person's machine, not a shared host.
 """
 
 from __future__ import annotations
@@ -28,34 +30,35 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import shutil
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from panoptis.storage.store import panoptis_home
 
-DEMO_TENANT = "demo"
 DEMO_AGENT = "sample-coding-agent"
+DEMO_DIR = "demo"
+DEMO_PORT = 8001
 PROFILE_FILE = "local.json"
+RUNNING_FILE = "running.json"
 LOCAL_FLAG = "PANOPTIS_LOCAL_UI"
+WORKSPACE_ENV = "PANOPTIS_WORKSPACE"
 DASHBOARD_ENV = "PANOPTIS_DASHBOARD_DIR"
+# variables that would point a workspace at another workspace's files
+_WORKSPACE_PATHS = ("AGENTWATCH_STORE", "AGENTWATCH_KILL_FILE", "AGENTWATCH_EVIDENCE_ANCHORS")
 
 
 @dataclass
 class LocalProfile:
     operator_key: str
-    demo_key: str
     created_at: float
 
     @classmethod
     def new(cls) -> LocalProfile:
-        return cls(
-            operator_key="pnl_" + secrets.token_urlsafe(24),
-            demo_key="pnd_" + secrets.token_urlsafe(24),
-            created_at=time.time(),
-        )
+        return cls(operator_key="pnl_" + secrets.token_urlsafe(24), created_at=time.time())
 
 
 def profile_path(home: Path | None = None) -> Path:
@@ -63,14 +66,13 @@ def profile_path(home: Path | None = None) -> Path:
 
 
 def load_or_create_profile(home: Path | None = None) -> LocalProfile:
-    """The keys of this machine's local deployment, created on first use."""
+    """The operator key of this workspace, created on first use."""
     path = profile_path(home)
     if path.exists():
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             return LocalProfile(
                 operator_key=str(data["operator_key"]),
-                demo_key=str(data["demo_key"]),
                 created_at=float(data.get("created_at", 0.0)),
             )
         except (ValueError, KeyError, TypeError) as exc:
@@ -79,10 +81,10 @@ def load_or_create_profile(home: Path | None = None) -> LocalProfile:
             ) from exc
     path.parent.mkdir(parents=True, exist_ok=True)
     profile = LocalProfile.new()
-    # create it owner-only from the start instead of tightening it after writing the keys
+    # create it owner-only from the start instead of tightening it after writing the key
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(asdict(profile), fh, indent=2)
+        json.dump({"operator_key": profile.operator_key, "created_at": profile.created_at}, fh)
     return profile
 
 
@@ -97,49 +99,61 @@ def dashboard_dir() -> Path | None:
     return None
 
 
-def apply_local_env(profile: LocalProfile) -> dict[str, str]:
+# ── workspaces ─────────────────────────────────────────────────────────────────────────
+
+
+def demo_home(home: Path | None = None) -> Path:
+    """The demo workspace of the real workspace ``home`` (default: the current home)."""
+    return (home or panoptis_home()) / DEMO_DIR
+
+
+def current_workspace() -> str:
+    return "demo" if os.environ.get(WORKSPACE_ENV) == "demo" else "local"
+
+
+def enter_demo_workspace(home: Path | None = None) -> Path:
+    """Point this process at the demo workspace: its own home, store and kill file."""
+    if current_workspace() == "demo" and home is None:
+        return panoptis_home()  # already there (demo offline goes through demo live)
+    target = demo_home(home)
+    target.mkdir(parents=True, exist_ok=True)
+    os.environ["AGENTWATCH_HOME"] = str(target)
+    os.environ[WORKSPACE_ENV] = "demo"
+    for name in _WORKSPACE_PATHS:
+        os.environ.pop(name, None)
+    return target
+
+
+def apply_local_env(profile: LocalProfile) -> None:
     """Configure this process for local mode (before the API module is imported).
 
-    Values the user already exported win, except that the demo tenant key is always added
-    to the tenant map. Returns what was set, for display.
+    Values the user already exported win.
     """
     env = os.environ
     env.setdefault("AGENTWATCH_ENV", "development")
     env.setdefault("AGENTWATCH_API_KEY", profile.operator_key)
-    tenants = [t for t in (env.get("AGENTWATCH_TENANT_KEYS") or "").split(",") if t.strip()]
-    if not any(t.split("=", 1)[0].strip() == DEMO_TENANT for t in tenants):
-        tenants.append(f"{DEMO_TENANT}={profile.demo_key}")
-    env["AGENTWATCH_TENANT_KEYS"] = ",".join(tenants)
     env[LOCAL_FLAG] = "1"
     # the local API is its own collector: nothing to forward events to
     env.setdefault("AGENTWATCH_FORWARD_EVENTS", "0")
-    return {
-        "AGENTWATCH_HOME": str(panoptis_home()),
-        "AGENTWATCH_TENANT_KEYS": "demo=<demo key>",
-    }
+    # a polling dashboard makes thousands of requests an hour; the server default is 100
+    env.setdefault("RATE_LIMIT_PER_USER", "50000")
 
 
 def local_session(profile: LocalProfile) -> dict[str, Any]:
     """What the dashboard receives from /api/local/session."""
+    demo = current_workspace() == "demo"
     return {
         "mode": "local",
+        "workspace": "demo" if demo else "local",
         "profiles": [
             {
-                "id": "local",
-                "label": "Your agents",
+                "id": "demo" if demo else "local",
+                "label": "Demo workspace (sample data)" if demo else "This machine",
                 "tenant_id": "default",
                 "key": os.environ.get("AGENTWATCH_API_KEY") or profile.operator_key,
-                "sample_data": False,
+                "sample_data": demo,
                 "operator": True,
-            },
-            {
-                "id": "demo",
-                "label": "Demo tenant (sample data)",
-                "tenant_id": DEMO_TENANT,
-                "key": profile.demo_key,
-                "sample_data": True,
-                "operator": False,
-            },
+            }
         ],
     }
 
@@ -158,9 +172,53 @@ def is_loopback_request(client_host: str | None, host_header: str | None) -> boo
     return name in ("127.0.0.1", "localhost", "::1")
 
 
-# ── demo tenant ────────────────────────────────────────────────────────────────────────
+# ── a running server, recorded so `panoptis demo --clear` does not pull the floor away ──
 
-# (tool, arguments, what a person should read in the feed)
+
+def mark_running(port: int) -> Path:
+    path = panoptis_home() / RUNNING_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"pid": os.getpid(), "port": port}), encoding="utf-8")
+    return path
+
+
+def running_server(home: Path) -> int | None:
+    """The port of a live local server for workspace ``home``, if one answers."""
+    path = home / RUNNING_FILE
+    try:
+        port = int(json.loads(path.read_text(encoding="utf-8"))["port"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    import httpx
+
+    try:
+        if httpx.get(f"http://127.0.0.1:{port}/health", timeout=1.5).status_code < 500:
+            return port
+    except httpx.HTTPError:
+        pass
+    return None
+
+
+def clear_demo_workspace(home: Path | None = None) -> tuple[bool, str]:
+    """Delete the demo workspace. Returns (changed, message); never touches ``home`` itself."""
+    target = demo_home(home)
+    if not target.exists():
+        return False, f"No demo workspace at {target}; nothing to clear."
+    port = running_server(target)
+    if port is not None:
+        return False, (
+            f"The demo workspace is in use by a server on port {port}. "
+            "Stop `panoptis demo` (Ctrl+C) and run `panoptis demo --clear` again."
+        )
+    try:
+        shutil.rmtree(target)
+    except OSError as exc:
+        return False, f"Could not delete {target}: {exc}. Close whatever uses it and retry."
+    return True, f"Removed the demo workspace ({target}). Your own workspace is untouched."
+
+
+# ── sample data (demo workspace only) ──────────────────────────────────────────────────
+
 _DEMO_CALLS: list[tuple[str, dict[str, Any]]] = [
     ("read_file", {"path": "tests/test_login.py"}),
     ("bash", {"command": "pytest tests/test_login.py -q"}),
@@ -172,26 +230,29 @@ _DEMO_CALLS: list[tuple[str, dict[str, Any]]] = [
 _DEMO_HELD = ("bash", {"command": "git push --force origin main"})
 
 
-def demo_seeded(store: str | None = None) -> bool:
+def has_decisions(store: str | None = None) -> bool:
     from panoptis.protect import ProtectLedger
     from panoptis.protect.ledger import KIND_DECISION
 
     ledger = ProtectLedger(store, seal_every=0)
     try:
-        return bool(ledger.query((KIND_DECISION,), limit=1, tenant_id=DEMO_TENANT))
+        return bool(ledger.query((KIND_DECISION,), limit=1, tenant_id="default"))
     except Exception:  # noqa: BLE001 - an unreadable store is reported by the API itself
         return False
     finally:
         ledger.store.close()
 
 
-def seed_demo_tenant(store: str | None = None) -> int:
-    """Run sample calls of a coding agent through the real pipeline, as tenant ``demo``.
+def seed_demo_workspace(store: str | None = None) -> int:
+    """Run sample calls of a coding agent through the real pipeline, in the demo workspace.
 
-    The decisions are real pipeline decisions recorded in the evidence store; only the
-    agent is a script. One risky call is left waiting for approval. Returns how many calls
-    were decided; does nothing if the demo tenant already has decisions.
+    Refuses to run outside the demo workspace, so sample data can never land in the user's
+    own store. The decisions are real pipeline decisions recorded in the evidence store;
+    only the agent is a script. One risky call is left waiting for approval. Returns how
+    many calls were decided; does nothing if the workspace already has decisions.
     """
+    if current_workspace() != "demo":
+        raise RuntimeError("sample data is only written to the demo workspace (panoptis demo)")
     from panoptis.protect import (
         ActionBlocked,
         ApprovalBroker,
@@ -202,7 +263,7 @@ def seed_demo_tenant(store: str | None = None) -> int:
     )
     from panoptis.protect.model import ToolAction
 
-    if demo_seeded(store):
+    if has_decisions(store):
         return 0
     ledger = ProtectLedger(store)
     week = 7 * 24 * 3600.0
@@ -215,7 +276,6 @@ def seed_demo_tenant(store: str | None = None) -> int:
         "pipeline": pipeline,
         "agent_id": DEMO_AGENT,
         "session_id": "sample-fix-login-test",
-        "tenant_id": DEMO_TENANT,
         "objective": "Fix the flaky login test (sample data)",
     }
     tools = {
@@ -240,13 +300,12 @@ def seed_demo_tenant(store: str | None = None) -> int:
                 session_id="sample-release",
                 tool=tool,
                 arguments=args,
-                tenant_id=DEMO_TENANT,
                 objective="Ship the release branch (sample data)",
             ),
             wait_for_approval=False,
         )
         decided += 1
-        ledger.store.seal(DEMO_TENANT)
+        ledger.store.seal("default")
     finally:
         ledger.store.close()
     return decided

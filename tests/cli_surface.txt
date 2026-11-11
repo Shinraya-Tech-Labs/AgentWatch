@@ -91,16 +91,21 @@ command: panoptis counterfactual
     param store kind=TyperOption type=str required=False default=None flags=--store help='Store URL (sqlite:///path or postgresql+psycopg://…). Default: ~/.agentwatch/agentwatch.db'
 
 command: panoptis demo
-    help: Watch PANOPTIS stop an agent that read a poisoned GitHub issue.
+    help: Sample data in a separate demo workspace (never your own). [bold]panoptis demo[/bold] seeds and serves it, [bold]--clear[/bold] removes it, [bold]demo live[/bold] runs an attack against it.
     short_help: 
+    param clear kind=TyperOption type=boolean required=False default=False flags=--clear help='Delete the demo workspace and its sample data.'
+    param no_browser kind=TyperOption type=boolean required=False default=False flags=--no-browser help='Do not open a browser.'
+    param no_serve kind=TyperOption type=boolean required=False default=False flags=--no-serve help='Seed the demo workspace and exit without starting a server.'
+    param port kind=TyperOption type=int required=False default=8001 flags=--port,-p help='Port for the demo dashboard.'
 
 command: panoptis demo live
     help: A real OpenAI agent reads a poisoned GitHub issue; PANOPTIS blocks or holds what it tries.
 
-The key is read from [bold]OPENAI_API_KEY[/bold] only. Run [bold]panoptis up[/bold] in another
-terminal first to watch the calls arrive on the dashboard and approve the held one.
+Everything is recorded in the demo workspace, never your own. The key is read from
+[bold]OPENAI_API_KEY[/bold] only. Run [bold]panoptis demo[/bold] in another terminal first
+to watch the calls arrive on the demo dashboard and approve the held one.
     short_help: 
-    param api kind=TyperOption type=str required=False default='http://127.0.0.1:8000' flags=--api help='Where `panoptis up` runs, for the links.'
+    param api kind=TyperOption type=str required=False default='http://127.0.0.1:8001' flags=--api help='Where `panoptis demo` serves, for the links.'
     param approval_timeout kind=TyperOption type=float required=False default=300.0 flags=--approval-timeout help='Seconds a held call waits for a person.'
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help='Print the outcome as JSON.'
     param model kind=TyperOption type=str required=False default=None flags=--model help='OpenAI model (default: the Agents SDK default).'
@@ -109,7 +114,7 @@ terminal first to watch the calls arrive on the dashboard and approve the held o
 command: panoptis demo offline
     help: The same attack with a scripted agent: no model, key or network (fallback).
     short_help: 
-    param api kind=TyperOption type=str required=False default='http://127.0.0.1:8000' flags=--api help=''
+    param api kind=TyperOption type=str required=False default='http://127.0.0.1:8001' flags=--api help=''
     param approval_timeout kind=TyperOption type=float required=False default=300.0 flags=--approval-timeout help=''
     param as_json kind=TyperOption type=boolean required=False default=False flags=--json help=''
 
@@ -853,7 +858,6 @@ command: panoptis up
     short_help: 
     param host kind=TyperOption type=str required=False default='127.0.0.1' flags=--host help='Interface to bind. Local mode only answers loopback.'
     param no_browser kind=TyperOption type=boolean required=False default=False flags=--no-browser help='Do not open a browser.'
-    param no_demo kind=TyperOption type=boolean required=False default=False flags=--no-demo help='Do not seed the labelled demo tenant.'
     param port kind=TyperOption type=int required=False default=8000 flags=--port,-p help='Port for the API and dashboard.'
 
 command: panoptis upgrade

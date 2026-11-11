@@ -1,4 +1,4 @@
-"""``panoptis up`` (local API + dashboard) and ``panoptis demo`` (live and offline)."""
+"""``panoptis up`` (local API + dashboard) and ``panoptis demo`` (a separate demo workspace)."""
 
 from __future__ import annotations
 
@@ -16,8 +16,12 @@ console = Console()
 
 demo_app = typer.Typer(
     name="demo",
-    help="Watch PANOPTIS stop an agent that read a poisoned GitHub issue.",
-    no_args_is_help=True,
+    help=(
+        "Sample data in a separate demo workspace (never your own). "
+        "[bold]panoptis demo[/bold] seeds and serves it, [bold]--clear[/bold] removes it, "
+        "[bold]demo live[/bold] runs an attack against it."
+    ),
+    invoke_without_command=True,
     rich_markup_mode="rich",
 )
 
@@ -31,20 +35,10 @@ def _port_free(host: str, port: int) -> bool:
     return True
 
 
-def up(
-    port: int = typer.Option(8000, "--port", "-p", help="Port for the API and dashboard."),
-    host: str = typer.Option(
-        "127.0.0.1", "--host", help="Interface to bind. Local mode only answers loopback."
-    ),
-    no_browser: bool = typer.Option(False, "--no-browser", help="Do not open a browser."),
-    no_demo: bool = typer.Option(False, "--no-demo", help="Do not seed the labelled demo tenant."),
-) -> None:
-    """[bold]Start PANOPTIS on this machine[/bold]: API and dashboard on localhost, SQLite, no Docker."""
-    from panoptis import local
-
+def _check_bind(host: str, port: int, what: str) -> None:
     if host not in ("127.0.0.1", "localhost", "::1"):
         console.print(
-            "[red]panoptis up is local mode and binds loopback only.[/red] "
+            f"[red]{what} is local mode and binds loopback only.[/red] "
             "For a shared deployment use Docker Compose (see the README)."
         )
         raise typer.Exit(2)
@@ -54,44 +48,28 @@ def up(
             f"Open http://{host}:{port}/ or pick another port with --port."
         )
         raise typer.Exit(1)
+
+
+def _serve(host: str, port: int, no_browser: bool, lines: list[str]) -> None:
+    """Start the local API + dashboard in the current workspace (blocks until Ctrl+C)."""
+    from panoptis import local
+
     for name in ("DATABASE_URL", "AGENTWATCH_CLOUD_MODE"):
         if os.environ.get(name):
             console.print(f"[yellow]{name} is set; local mode ignores it.[/yellow]")
             os.environ.pop(name, None)
-
-    profile = local.load_or_create_profile()
-    local.apply_local_env(profile)
-    # a polling dashboard makes thousands of requests an hour; the server default is 100
-    os.environ.setdefault("RATE_LIMIT_PER_USER", "50000")
-
-    seeded = 0
-    if not no_demo:
-        try:
-            seeded = local.seed_demo_tenant()
-        except Exception as exc:  # noqa: BLE001 - the demo tenant is optional
-            console.print(f"[yellow]demo tenant not seeded: {escape(str(exc))}[/yellow]")
+    local.apply_local_env(local.load_or_create_profile())
     dash = local.dashboard_dir()
     url = f"http://{'127.0.0.1' if host == 'localhost' else host}:{port}"
-    lines = [
-        "[bold]PANOPTIS is running locally[/bold]",
+    head = [
         f"[dim]Dashboard[/dim]   {url}/" if dash else "[yellow]Dashboard not built[/yellow]",
         f"[dim]API docs[/dim]    {url}/docs",
         f"[dim]Store[/dim]       {escape(str(local.panoptis_home()))} (SQLite)",
-        f"[dim]Demo tenant[/dim] {'seeded now' if seeded else 'ready'} (sample data, labelled)"
-        if not no_demo
-        else "[dim]Demo tenant[/dim] skipped",
-        "",
-        "Protected agents on this machine report here with no extra setup.",
-        "Try: [bold]panoptis demo live[/bold] (needs OPENAI_API_KEY) or "
-        "[bold]panoptis demo live --offline[/bold]",
-        "Stop with Ctrl+C.",
     ]
     if not dash:
-        lines.insert(
-            2,
-            "[dim]  build it: cd frontend && npm ci && npm run build:static[/dim]",
-        )
-    console.print(Panel("\n".join(lines), border_style="cyan", padding=(1, 2)))
+        head.insert(1, "[dim]  build it: cd frontend && npm ci && npm run build:static[/dim]")
+    body = "\n".join([lines[0], *head, "", *lines[1:]])
+    console.print(Panel(body, border_style="cyan", padding=(1, 2)))
     if dash and not no_browser:
         local.open_browser_when_ready(f"{url}/", f"{url}/health")
 
@@ -99,12 +77,86 @@ def up(
 
     from panoptis.api.limits import ws_max_bytes
 
-    uvicorn.run(
-        "panoptis.api.server:app",
-        host=host,
-        port=port,
-        log_level="warning",
-        ws_max_size=ws_max_bytes(),
+    marker = local.mark_running(port)
+    try:
+        uvicorn.run(
+            "panoptis.api.server:app",
+            host=host,
+            port=port,
+            log_level="warning",
+            ws_max_size=ws_max_bytes(),
+        )
+    finally:
+        marker.unlink(missing_ok=True)
+
+
+def up(
+    port: int = typer.Option(8000, "--port", "-p", help="Port for the API and dashboard."),
+    host: str = typer.Option(
+        "127.0.0.1", "--host", help="Interface to bind. Local mode only answers loopback."
+    ),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Do not open a browser."),
+) -> None:
+    """[bold]Start PANOPTIS on this machine[/bold]: API and dashboard on localhost, SQLite, no Docker."""
+    _check_bind(host, port, "panoptis up")
+    _serve(
+        host,
+        port,
+        no_browser,
+        [
+            "[bold]PANOPTIS is running locally[/bold]",
+            "Connect an agent: the dashboard shows the setup for Claude Code, Cursor (MCP)",
+            "and Python agents, and waits for the first session. Protected agents on this",
+            "machine report here with no extra setup.",
+            "Sample data: [bold]panoptis demo[/bold] (a separate workspace on port 8001).",
+            "Stop with Ctrl+C.",
+        ],
+    )
+
+
+@demo_app.callback()
+def demo(
+    ctx: typer.Context,
+    clear: bool = typer.Option(
+        False, "--clear", help="Delete the demo workspace and its sample data."
+    ),
+    port: int = typer.Option(8001, "--port", "-p", help="Port for the demo dashboard."),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Do not open a browser."),
+    no_serve: bool = typer.Option(
+        False, "--no-serve", help="Seed the demo workspace and exit without starting a server."
+    ),
+) -> None:
+    """Seed sample data into the demo workspace and open its dashboard."""
+    from panoptis import local
+
+    if ctx.invoked_subcommand is not None:
+        return
+    home = local.panoptis_home()
+    if clear:
+        changed, message = local.clear_demo_workspace(home)
+        console.print(("[green]" if changed else "[yellow]") + escape(message) + "[/]")
+        raise typer.Exit(0 if changed or "nothing to clear" in message else 1)
+    if not no_serve:
+        _check_bind("127.0.0.1", port, "panoptis demo")
+    target = local.enter_demo_workspace(home)
+    seeded = local.seed_demo_workspace()
+    console.print(
+        f"Demo workspace: {escape(str(target))} "
+        + (f"(seeded {seeded} sample calls)" if seeded else "(sample data already there)")
+    )
+    if no_serve:
+        return
+    _serve(
+        "127.0.0.1",
+        port,
+        no_browser,
+        [
+            "[bold]PANOPTIS demo workspace[/bold] [yellow](sample data, not your agents)[/yellow]",
+            "Watch an attack arrive live: [bold]panoptis demo live --offline[/bold] (no key) or",
+            "[bold]panoptis demo live[/bold] (OPENAI_API_KEY), in another terminal.",
+            "Remove everything with [bold]panoptis demo --clear[/bold] after stopping this server.",
+            "Stop with Ctrl+C.",
+        ],
     )
 
 
@@ -140,18 +192,22 @@ def demo_live(
         300.0, "--approval-timeout", help="Seconds a held call waits for a person."
     ),
     api: str = typer.Option(
-        "http://127.0.0.1:8000", "--api", help="Where `panoptis up` runs, for the links."
+        "http://127.0.0.1:8001", "--api", help="Where `panoptis demo` serves, for the links."
     ),
     as_json: bool = typer.Option(False, "--json", help="Print the outcome as JSON."),
 ) -> None:
     """A real OpenAI agent reads a poisoned GitHub issue; PANOPTIS blocks or holds what it tries.
 
-    The key is read from [bold]OPENAI_API_KEY[/bold] only. Run [bold]panoptis up[/bold] in another
-    terminal first to watch the calls arrive on the dashboard and approve the held one.
+    Everything is recorded in the demo workspace, never your own. The key is read from
+    [bold]OPENAI_API_KEY[/bold] only. Run [bold]panoptis demo[/bold] in another terminal first
+    to watch the calls arrive on the demo dashboard and approve the held one.
     """
     import httpx
 
     from panoptis import demo_live as d
+    from panoptis import local
+
+    local.enter_demo_workspace()
 
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -169,7 +225,7 @@ def demo_live(
                 f"Watch it live: [bold]{api}/[/bold]  (approve the held call under Approvals)"
                 if dashboard
                 else "[yellow]No dashboard found at "
-                f"{escape(api)}[/yellow]. Start [bold]panoptis up[/bold] in another terminal to "
+                f"{escape(api)}[/yellow]. Start [bold]panoptis demo[/bold] in another terminal to "
                 "watch live; decisions are recorded either way, and a held call can be approved "
                 "with [bold]panoptis protect approvals approve <id>[/bold]."
             ),
@@ -235,7 +291,7 @@ def demo_live(
 @demo_app.command("offline")
 def demo_offline(
     approval_timeout: float = typer.Option(300.0, "--approval-timeout"),
-    api: str = typer.Option("http://127.0.0.1:8000", "--api"),
+    api: str = typer.Option("http://127.0.0.1:8001", "--api"),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
     """The same attack with a scripted agent: no model, key or network (fallback)."""

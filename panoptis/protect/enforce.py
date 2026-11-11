@@ -164,6 +164,33 @@ def set_default_pipeline(pipeline: ProtectionPipeline | None) -> None:
         _default = pipeline
 
 
+def use_local_dashboard(
+    store: str | None = None, *, approval_timeout_s: float = 300.0
+) -> ProtectionPipeline:
+    """Make the process-wide pipeline report to the local dashboard (``panoptis up``).
+
+    Without it the default pipeline enforces but records nothing. This one records every
+    decision in the local evidence store (``store``, default: the PANOPTIS home database
+    that ``panoptis up`` reads), honours the emergency stop, and sends calls that need a
+    person to dashboard approvals, waiting up to ``approval_timeout_s`` seconds. Every
+    ``protect_tool`` and framework integration without an explicit ``pipeline=`` uses it.
+    """
+    from panoptis.protect.approvals import ApprovalBroker
+    from panoptis.protect.control import ControlState
+    from panoptis.protect.ledger import ProtectLedger
+    from panoptis.protect.pipeline import ProtectionConfig
+
+    ledger = ProtectLedger(store)
+    pipeline = ProtectionPipeline(
+        ledger=ledger,
+        control=ControlState(ledger),
+        approvals=ApprovalBroker(ledger, timeout_s=approval_timeout_s),
+        config=ProtectionConfig(approval_timeout_s=approval_timeout_s),
+    )
+    set_default_pipeline(pipeline)
+    return pipeline
+
+
 def get_default_pipeline() -> ProtectionPipeline:
     """The process-wide pipeline (created with defaults on first use)."""
     global _default

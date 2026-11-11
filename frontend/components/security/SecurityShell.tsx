@@ -238,16 +238,12 @@ export function Chrome({
         </div>
       ) : null}
       {active?.sample_data ? (
-        <div className="border-b border-amber-300/30 bg-amber-400/15 px-4 py-2 text-center text-sm text-amber-50">
-          You are viewing the <strong>demo tenant</strong>: sample data from a scripted agent, not
-          your agents.{' '}
-          <button
-            type="button"
-            className="underline underline-offset-2"
-            onClick={() => switchProfile('local')}
-          >
-            Show my agents
-          </button>
+        <div
+          role="note"
+          className="border-b border-amber-300/30 bg-amber-400/15 px-4 py-2 text-center text-sm text-amber-50"
+        >
+          <strong>Demo workspace</strong>: sample data from a scripted agent, kept apart from your
+          own workspace. Remove it with <code>panoptis demo --clear</code>.
         </div>
       ) : null}
       <main

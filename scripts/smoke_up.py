@@ -10,7 +10,9 @@ the installed package. It starts `panoptis up` in a throwaway home and checks:
 3. an allowed call runs and a blocked call never runs;
 4. a call held for approval waits, is approved through the API, and runs exactly once;
 5. the decisions are visible through the API the dashboard uses;
-6. the evidence verifies, through the API and through `panoptis protect evidence verify`.
+6. the evidence verifies, through the API and through `panoptis protect evidence verify`;
+7. a fresh install starts empty, and `panoptis demo --no-serve` / `--clear` only touch the
+   separate demo workspace.
 
 Exit status 0 when every check passed. No network beyond 127.0.0.1, no keys.
 """
@@ -94,6 +96,11 @@ def main() -> int:
         check(
             httpx.get(f"{base}/api/v1/protect/status", timeout=5).status_code == 401,
             "the API still requires a key",
+        )
+        first = httpx.get(f"{base}/api/v1/protect/status", headers=key, timeout=10).json()
+        check(
+            session.json().get("workspace") == "local" and first["recent_decisions"] == 0,
+            "a fresh install starts empty (no sample data in the real workspace)",
         )
 
         from panoptis.protect import (
@@ -184,6 +191,35 @@ def main() -> int:
             timeout=120,
         )
         check(cli.returncode == 0, "evidence verifies (panoptis protect evidence verify)")
+
+        before = httpx.get(f"{base}/api/v1/protect/status", headers=key, timeout=10).json()
+        seeded = subprocess.run(  # noqa: S603 - fixed argv
+            [*panoptis_exe(), "demo", "--no-serve"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        after = httpx.get(f"{base}/api/v1/protect/status", headers=key, timeout=10).json()
+        check(
+            seeded.returncode == 0
+            and (home / "demo" / "agentwatch.db").exists()
+            and after["recent_decisions"] == before["recent_decisions"],
+            "panoptis demo seeds a separate demo workspace, not the real one",
+        )
+        cleared = subprocess.run(  # noqa: S603 - fixed argv
+            [*panoptis_exe(), "demo", "--clear"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        check(
+            cleared.returncode == 0
+            and not (home / "demo").exists()
+            and (home / "local.json").exists(),
+            "panoptis demo --clear removes the demo workspace and nothing else",
+        )
     finally:
         server.terminate()
         try:

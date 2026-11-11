@@ -47,6 +47,7 @@ from panoptis.protect.enforce import (
     protect_tool,
     protection_context,
     set_default_pipeline,
+    use_local_dashboard,
 )
 from panoptis.protect.formal_verifier import (
     FormalFinding,
@@ -226,5 +227,6 @@ __all__ = [
     "ProtectedToolRegistry",
     "protection_context",
     "set_default_pipeline",
+    "use_local_dashboard",
     "parse_policy",
 ]
