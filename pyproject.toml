@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "panoptis"
-version = "0.4.1"
+version = "0.4.2"
 description = "PANOPTIS (formerly AgentWatch): Pre-Execution Guardrail & Observability Layer for AI Agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
