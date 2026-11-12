@@ -283,7 +283,7 @@ def test_on_failure_block_is_opt_in():
 def test_the_command_uses_this_interpreter_and_the_entry_script():
     command = claude_hook.hook_command()
     assert Path(sys.executable).as_posix() in command
-    assert 'claude_hook_entry.py" --approvals dashboard' in command
+    assert 'claude_hook_entry.py" --hook-schema 2 --approvals dashboard' in command
 
 
 def test_cli_installs_prints_and_uninstalls(tmp_path):

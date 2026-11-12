@@ -11,6 +11,7 @@ the hook says ``deny``. With the default ``--approvals dashboard`` the hook must
 
 from __future__ import annotations
 
+import importlib
 import io
 import json
 import os
@@ -323,3 +324,141 @@ def test_the_installed_command_waits_for_the_dashboard(tmp_path, approved):
         assert folder.exists() is not approved
     finally:
         ledger.store.close()
+
+
+# ── upgrade path: hooks installed by an older PANOPTIS ─────────────────────────────
+
+
+def run_hook(argv: list[str], payload: dict[str, Any]) -> tuple[int, dict[str, Any], str]:
+    out, err = io.StringIO(), io.StringIO()
+    code = claude_hook.main(io.StringIO(json.dumps(payload)), out, err, argv)
+    return code, json.loads(out.getvalue() or "{}"), err.getvalue()
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        [],  # 0.4.2 and earlier: no options at all
+        ["--approvals", "claude"],  # no --hook-schema: still an older command line
+        ["--hook-schema", "1", "--approvals", "claude"],
+    ],
+)
+@pytest.mark.parametrize(("tool", "command"), DELETES)
+def test_an_outdated_install_denies_escalations_instead_of_asking(
+    workspace, monkeypatch, argv, tool, command
+):
+    for k, v in workspace["env"].items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setenv("AGENTWATCH_HOOK_APPROVALS", "claude")  # the environment cannot opt in
+    host = AutoApprovingHost(workspace["folder"])
+    code, out, err = run_hook(argv, pre(tool, command))
+    host.run(out)
+
+    assert code == 0, err
+    assert answer_of(out) == "deny"
+    why = out["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "older PANOPTIS" in why and "claude-hook install" in why
+    assert workspace["folder"].exists()
+    assert not workspace["ledger"].query((KIND_APPROVAL_REQUEST,)), "an old hook never waits"
+    assert last_decision(workspace["ledger"])["approval"]["state"] == "unavailable"
+
+
+def test_an_outdated_install_still_allows_ordinary_calls(workspace, monkeypatch):
+    for k, v in workspace["env"].items():
+        monkeypatch.setenv(k, v)
+    code, out, err = run_hook([], pre("Bash", "ls -la"))
+    assert code == 0 and out == {}, err
+
+
+def test_a_current_install_with_claude_approvals_asks(workspace, monkeypatch):
+    for k, v in workspace["env"].items():
+        monkeypatch.setenv(k, v)
+    argv = ["--hook-schema", str(claude_hook.HOOK_SCHEMA), "--approvals", "claude"]
+    code, out, err = run_hook(argv, pre("Bash", BASH_DELETE))
+    assert code == 0 and answer_of(out) == "ask", err
+
+
+def old_settings(path: Path, command: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    group = {"matcher": "*", "hooks": [{"type": "command", "command": command, "timeout": 30}]}
+    path.write_text(json.dumps({"hooks": {"PreToolUse": [group]}}), encoding="utf-8")
+    return path
+
+
+OLD_COMMAND = '"C:/Python/python.exe" "D:/x/panoptis/protect/claude_hook_entry.py"'
+
+
+def test_outdated_installs_are_found_in_project_and_user_settings(tmp_path):
+    project, home = tmp_path / "proj", tmp_path / "user"
+    stale = old_settings(project / ".claude" / "settings.local.json", OLD_COMMAND)
+    fresh = home / ".claude" / "settings.json"
+    claude_hook.install(fresh)
+    other = old_settings(project / ".claude" / "settings.json", "my-linter --fast")
+    candidates = claude_hook.settings_candidates(project, home)
+    assert stale in candidates and fresh in candidates and other in candidates
+    assert claude_hook.outdated_installs(candidates) == [stale]
+    claude_hook.install(stale)  # re-installing fixes it
+    assert claude_hook.outdated_installs(candidates) == []
+
+
+def test_the_outdated_warning_names_the_file_and_the_fix(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    local = old_settings(tmp_path / ".claude" / "settings.local.json", OLD_COMMAND)
+    user = old_settings(tmp_path / "user" / ".claude" / "settings.json", OLD_COMMAND)
+    assert claude_hook.outdated_warning(local) == (
+        f"Claude Code hook in {local} is outdated, run panoptis protect claude-hook install again"
+    )
+    assert claude_hook.outdated_warning(user).endswith(f"install --settings {user} again")
+    assert claude_hook.outdated_warnings([local, tmp_path / "missing.json"]) == [
+        claude_hook.outdated_warning(local)
+    ]
+
+
+def test_installed_schema_and_claude_code_versions():
+    assert claude_hook.installed_schema(OLD_COMMAND) == 1
+    assert claude_hook.installed_schema(claude_hook.hook_command()) == claude_hook.HOOK_SCHEMA
+    assert claude_hook.parse_version("2.1.322 (Claude Code)") == (2, 1, 322)
+    assert claude_hook.parse_version("claude: command not found") is None
+    assert claude_hook.supports_on_failure_block((2, 1, 295))
+    assert not claude_hook.supports_on_failure_block((2, 1, 229))
+    assert not claude_hook.supports_on_failure_block(None)
+
+
+@pytest.mark.parametrize(
+    ("version", "flags", "expected"),
+    [
+        ((2, 1, 322), [], True),
+        ((2, 1, 229), [], False),
+        (None, [], False),
+        ((2, 1, 322), ["--no-on-failure-block"], False),
+        (None, ["--on-failure-block"], True),
+    ],
+)
+def test_install_turns_on_failure_block_on_when_claude_code_supports_it(
+    tmp_path, monkeypatch, version, flags, expected
+):
+    from typer.testing import CliRunner
+
+    cli = importlib.import_module("panoptis.cli.main")
+
+    monkeypatch.setattr(cli, "_claude_code_version", lambda: version)
+    settings = tmp_path / "s.json"
+    res = CliRunner().invoke(
+        cli.app, ["protect", "claude-hook", "install", "--settings", str(settings), *flags]
+    )
+    assert res.exit_code == 0, res.output
+    hook = json.loads(settings.read_text())["hooks"]["PreToolUse"][0]["hooks"][0]
+    assert (hook.get("onFailure") == "block") is expected
+
+
+def test_doctor_warns_about_an_outdated_hook(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    cli = importlib.import_module("panoptis.cli.main")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("shutil.which", lambda name: None)  # no docker probe
+    old_settings(tmp_path / ".claude" / "settings.local.json", OLD_COMMAND)
+    res = CliRunner().invoke(cli.app, ["doctor"])
+    text = " ".join(res.output.split())
+    assert "is outdated, run panoptis protect claude-hook install again" in text, res.output

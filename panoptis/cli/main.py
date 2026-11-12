@@ -2838,6 +2838,12 @@ def doctor(
     except Exception as exc:
         logging.getLogger(__name__).debug("Could not inspect schema migration status: %s", exc)
 
+    from panoptis.protect.claude_hook import outdated_warnings
+
+    hook_warnings = outdated_warnings()
+    if hook_warnings:
+        table.add_row("Claude Code hook", "[yellow]Outdated[/yellow]")
+
     from panoptis.cli.v3 import v3_health
 
     colors = {"OK": "green", "WARN": "yellow", "STALE": "yellow", "FAILED": "red", "ERROR": "red"}
@@ -2845,6 +2851,8 @@ def doctor(
         table.add_row(component, f"[{colors.get(state, 'white')}]{state}[/] {detail}")
 
     console.print(table)
+    for warning in hook_warnings:
+        console.print(f"[yellow]{escape(warning)}[/yellow]")
 
 
 # ─────────────────────────────────────────────
@@ -2952,16 +2960,29 @@ def claude_hook_install(
         help="Seconds a held call waits for a decision before it is denied (default 240; "
         "at least 10 s shorter than --timeout).",
     ),
-    on_failure_block: bool = typer.Option(
-        False,
-        "--on-failure-block",
-        help='Add "onFailure": "block" so a hook that cannot start blocks the call '
-        "(needs Claude Code 2.1.295 or later).",
+    on_failure_block: bool | None = typer.Option(
+        None,
+        "--on-failure-block/--no-on-failure-block",
+        help='Add "onFailure": "block" so a hook that cannot start or times out blocks the '
+        "call. Default: on when the installed Claude Code supports it (2.1.295 or later).",
     ),
 ) -> None:
     """Merge the PANOPTIS hook into a Claude Code settings file."""
     from panoptis.protect import claude_hook
 
+    version = None
+    if on_failure_block is None:
+        version = _claude_code_version()
+        on_failure_block = claude_hook.supports_on_failure_block(version)
+        found = ".".join(map(str, version)) if version else "not found"
+        console.print(
+            f"Claude Code {found}: "
+            + (
+                '"onFailure": "block" is on.'
+                if on_failure_block
+                else '"onFailure": "block" is off.'
+            )
+        )
     try:
         claude_hook.install(
             settings,
@@ -2989,6 +3010,23 @@ def claude_hook_install(
             "[yellow]Claude Code runs the tool if the hook command cannot start or times out. "
             "On Claude Code 2.1.295+, re-run with --on-failure-block.[/yellow]"
         )
+
+
+def _claude_code_version() -> tuple[int, int, int] | None:
+    """The installed Claude Code CLI's version, or None when it is not found."""
+    import shutil
+
+    from panoptis.cli._utils.run_cmd import run_validated_command
+    from panoptis.protect.claude_hook import parse_version
+
+    claude = shutil.which("claude")
+    if not claude:
+        return None
+    try:
+        code, out, _ = run_validated_command([claude, "--version"], check=False, timeout=20)
+    except Exception:  # noqa: BLE001 - an unknown version is treated as "not supported"
+        return None
+    return parse_version(out) if code == 0 else None
 
 
 @claude_hook_app.command("uninstall")

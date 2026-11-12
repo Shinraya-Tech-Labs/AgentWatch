@@ -376,7 +376,7 @@ command: panoptis protect claude-hook install
     short_help: 
     param approval_timeout kind=TyperOption type=float required=False default=None flags=--approval-timeout help='Seconds a held call waits for a decision before it is denied (default 240; at least 10 s shorter than --timeout).'
     param approvals kind=TyperOption type=str required=False default='dashboard' flags=--approvals help="Who decides a call PANOPTIS holds for approval: 'dashboard' (default; a person in PANOPTIS, the call is denied on reject, timeout, or when no dashboard is running) or 'claude' (answer 'ask' and let Claude Code's own permission flow decide; in auto mode that may approve it without a person)."
-    param on_failure_block kind=TyperOption type=boolean required=False default=False flags=--on-failure-block help='Add "onFailure": "block" so a hook that cannot start blocks the call (needs Claude Code 2.1.295 or later).'
+    param on_failure_block kind=TyperOption type=boolean required=False default=None flags=--on-failure-block help='Add "onFailure": "block" so a hook that cannot start or times out blocks the call. Default: on when the installed Claude Code supports it (2.1.295 or later).'
     param settings kind=TyperOption type=path required=False default='.claude/settings.local.json' flags=--settings help='Claude Code settings file (default: ./.claude/settings.local.json).'
     param timeout kind=TyperOption type=int required=False default=None flags=--timeout help='Hook timeout in seconds (default 300; 30 with --approvals claude).'
 

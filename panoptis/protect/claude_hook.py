@@ -69,6 +69,17 @@ APPROVAL_MODES = (APPROVALS_DASHBOARD, APPROVALS_CLAUDE)
 DEFAULT_HOOK_TIMEOUT_S = 300  # Claude Code's "timeout" for the hook command
 DEFAULT_APPROVAL_TIMEOUT_S = 240  # how long a held call waits: shorter than the hook's
 CLAUDE_HOOK_TIMEOUT_S = 30  # nothing waits in the hook with --approvals claude
+# The installed command carries --hook-schema N. Bump HOOK_SCHEMA whenever what the
+# installed command must say changes; a lower or missing number is an outdated install.
+# 1: up to 0.4.2 (no options; escalations answered "ask", hook timeout 30 s)
+# 2: 0.4.3 (--approvals, --approval-timeout; held calls wait in the hook)
+HOOK_SCHEMA = 2
+MIN_ON_FAILURE_BLOCK = (2, 1, 295)  # first Claude Code with "onFailure": "block"
+OUTDATED_ENV = "_PANOPTIS_HOOK_OUTDATED"  # set by options() for an outdated command line
+OUTDATED_REASON = (
+    "this Claude Code hook was installed by an older PANOPTIS and cannot hold the call for "
+    "approval (run `panoptis protect claude-hook install` again)"
+)
 
 # Claude Code tool names -> the names the threat analyser and RBAC policies use.
 TOOL_NAMES = {
@@ -159,12 +170,18 @@ def build_pipeline(env: dict[str, str] | None = None) -> ProtectionPipeline:
             ),
         )
     timeout = approval_timeout(env)
+
+    def channel() -> str | None:
+        # an outdated install may have a 30 s hook timeout: waiting could outlast the hook,
+        # and Claude Code may run a call whose hook it killed. Deny at once instead.
+        if env.get(OUTDATED_ENV):
+            return OUTDATED_REASON
+        return dashboard_unreachable(env)
+
     return ProtectionPipeline(
         policy=policy,
         ledger=ledger,
-        approvals=ApprovalBroker(
-            ledger, timeout_s=timeout, channel_check=lambda: dashboard_unreachable(env)
-        ),
+        approvals=ApprovalBroker(ledger, timeout_s=timeout, channel_check=channel),
         # nobody to ask means no: never fall back to the host's own prompt
         config=ProtectionConfig(
             escalate_without_approver=Verdict.BLOCK, approval_timeout_s=timeout
@@ -315,10 +332,96 @@ def hook_command(
     from pathlib import Path
 
     entry = Path(__file__).with_name("claude_hook_entry.py")
-    cmd = f'"{Path(python or sys.executable).as_posix()}" "{entry.as_posix()}" --approvals {approvals}'
+    cmd = (
+        f'"{Path(python or sys.executable).as_posix()}" "{entry.as_posix()}" '
+        f"--hook-schema {HOOK_SCHEMA} --approvals {approvals}"
+    )
     if approvals == APPROVALS_DASHBOARD and approval_timeout_s is not None:
         cmd += f" --approval-timeout {approval_timeout_s:g}"
     return cmd
+
+
+def installed_schema(command: str) -> int:
+    """The ``--hook-schema`` an installed command carries; 1 for installs before it existed."""
+    import re
+
+    m = re.search(r"--hook-schema[ =](\d+)", command)
+    return int(m.group(1)) if m else 1
+
+
+def settings_candidates(cwd: Any = None, home: Any = None) -> list[Any]:
+    """The Claude Code settings files that apply to ``cwd``: project and user level."""
+    from pathlib import Path
+
+    project = Path(cwd or Path.cwd()) / ".claude"
+    user = Path(home or Path.home()) / ".claude"
+    seen: list[Path] = []
+    for p in (
+        project / "settings.local.json",
+        project / "settings.json",
+        user / "settings.local.json",
+        user / "settings.json",
+    ):
+        if p not in seen:
+            seen.append(p)
+    return seen
+
+
+def outdated_installs(paths: Any = None) -> list[Any]:
+    """Settings files holding a PANOPTIS hook written by an older version."""
+    from pathlib import Path
+
+    found = []
+    for path in paths if paths is not None else settings_candidates():
+        path = Path(path)
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8") or "{}")
+        except (OSError, ValueError):
+            continue
+        hooks = doc.get("hooks") if isinstance(doc, dict) else None
+        commands = [
+            str(h.get("command", ""))
+            for groups in (hooks.values() if isinstance(hooks, dict) else [])
+            if isinstance(groups, list)
+            for g in groups
+            if isinstance(g, dict)
+            for h in g.get("hooks", [])
+            if isinstance(h, dict)
+        ]
+        ours = [c for c in commands if _MARKER in c]
+        if ours and min(installed_schema(c) for c in ours) < HOOK_SCHEMA:
+            found.append(path)
+    return found
+
+
+def outdated_warning(path: Any) -> str:
+    from pathlib import Path
+
+    default = (Path.cwd() / ".claude" / "settings.local.json").resolve()
+    hint = "" if Path(path).resolve() == default else f" --settings {path}"
+    return (
+        f"Claude Code hook in {path} is outdated, run "
+        f"panoptis protect claude-hook install{hint} again"
+    )
+
+
+def outdated_warnings(paths: Any = None) -> list[str]:
+    """One warning per settings file whose PANOPTIS hook is outdated (for up and doctor)."""
+    try:
+        return [outdated_warning(p) for p in outdated_installs(paths)]
+    except Exception:  # noqa: BLE001 - a check that cannot run must not stop the command
+        return []
+
+
+def parse_version(text: str) -> tuple[int, int, int] | None:
+    import re
+
+    m = re.search(r"(\d+)\.(\d+)\.(\d+)", text or "")
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else None
+
+
+def supports_on_failure_block(version: tuple[int, int, int] | None) -> bool:
+    return version is not None and version >= MIN_ON_FAILURE_BLOCK
 
 
 def timeouts(
@@ -437,20 +540,34 @@ _FLAGS = {
 
 
 def options(argv: list[str], env: dict[str, str]) -> dict[str, str]:
-    """The environment with the installed command's options applied (they win), validated."""
+    """The environment with the installed command's options applied, validated.
+
+    Only the installed command line chooses ``--approvals claude``: the environment never
+    turns an escalation into "ask". A command without a current ``--hook-schema`` was
+    written by an older version and is marked outdated (its escalations are denied).
+    """
     env = dict(env)
+    env.pop(OUTDATED_ENV, None)
+    env["AGENTWATCH_HOOK_APPROVALS"] = APPROVALS_DASHBOARD
+    schema = 1
     args = list(argv)
     while args:
         arg = args.pop(0)
         name, eq, value = arg.partition("=")
-        if name not in _FLAGS:
+        if name not in (*_FLAGS, "--hook-schema"):
             raise ValueError(f"unknown hook option {arg!r}")
         if not eq:
             if not args:
                 raise ValueError(f"{name} needs a value")
             value = args.pop(0)
-        env[_FLAGS[name]] = value
+        if name == "--hook-schema":
+            schema = int(value)
+        else:
+            env[_FLAGS[name]] = value
     approvals_mode(env)  # a typo must fail (and block) before any decision is made
+    if schema < HOOK_SCHEMA:
+        env[OUTDATED_ENV] = "1"
+        env["AGENTWATCH_HOOK_APPROVALS"] = APPROVALS_DASHBOARD  # never "ask" for these
     approval_timeout(env)
     return env
 

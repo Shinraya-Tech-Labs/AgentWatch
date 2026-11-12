@@ -30,6 +30,14 @@ The dashboard counts as reachable when `AGENTWATCH_APPROVAL_URL` answers `/healt
 
 The feed records the final outcome on the row: *Approved by a person*, *Rejected by a person*, *Approval timed out, blocked*, *Needed approval, no approver: blocked*, or *Handed to the agent's own prompt*. *Held for approval* appears only while a call is in the approval queue.
 
+Only the installed command line can choose `--approvals claude`; no environment variable turns an escalation into `"ask"`.
+
+### Upgrading from 0.4.2 or earlier
+
+The installed command carries `--hook-schema 2`. A hook installed by an older version has no schema marker. It keeps working for ordinary calls, but every call PANOPTIS escalates is **denied at once** with a reason that says to reinstall. It is never answered with `"ask"`, and it does not wait, because those installs have a 30 s hook timeout. `panoptis up` and `panoptis doctor` print `Claude Code hook in <path> is outdated, run panoptis protect claude-hook install again` for each outdated project or user settings file. Re-run the install to fix it.
+
+`install` turns on `"onFailure": "block"` when `claude --version` reports 2.1.295 or later; `--no-on-failure-block` / `--on-failure-block` override the detection.
+
 The command it installs is the absolute path of the current Python interpreter running `panoptis/protect/claude_hook_entry.py`. Re-install after moving or recreating the virtualenv.
 
 ## What the hook answers
@@ -85,7 +93,6 @@ Use this on those versions. Older versions do not have this setting.
 | `AGENTWATCH_OBJECTIVE` | session objective, for intent grounding | none |
 | `AGENTWATCH_STORE` | evidence store | `~/.agentwatch/agentwatch.db` |
 | `AGENTWATCH_HOOK_MUTATION` | `ask` or `allow` for redacted arguments | `ask` |
-| `AGENTWATCH_HOOK_APPROVALS` | `dashboard` or `claude` (the installed `--approvals` wins) | `dashboard` |
 | `AGENTWATCH_HOOK_APPROVAL_TIMEOUT` | seconds a held call waits (the installed `--approval-timeout` wins) | `240` |
 | `AGENTWATCH_APPROVAL_URL` | PANOPTIS server whose dashboard decides approvals | the local `panoptis up` server |
 | `AGENTWATCH_KILL_FILE` | kill-switch file (shared with every enforcement point) | `~/.agentwatch/protect.kill` |
