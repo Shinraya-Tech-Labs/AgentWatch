@@ -17,19 +17,25 @@ import { Card, ErrorNote, QueryState, Time } from './ui';
 const PLAIN: Record<string, { word: string; tone: string; icon: string }> = {
   allow: { word: 'Allowed', tone: 'text-emerald-200', icon: '✓' },
   block: { word: 'Blocked', tone: 'text-rose-200', icon: '✕' },
-  escalate_hitl: { word: 'Held for approval', tone: 'text-amber-100', icon: '⏸' },
+  // an escalation is only "held" when it is in the approval queue (approval_state pending)
+  escalate_hitl: { word: 'Needed approval, not held', tone: 'text-amber-100', icon: '!' },
   mutate_and_allow: { word: 'Allowed after rewriting', tone: 'text-sky-200', icon: '✎' },
 };
 
-function verdictWord(d: Decision): { word: string; tone: string; icon: string } {
-  if (d.verdict === 'escalate_hitl' || d.approval_state) {
-    const s = d.approval_state;
-    if (s === 'approved')
-      return { word: 'Approved by a person', tone: 'text-emerald-200', icon: '✓' };
-    if (s === 'rejected') return { word: 'Rejected by a person', tone: 'text-rose-200', icon: '✕' };
-    if (s === 'expired')
-      return { word: 'Approval expired, blocked', tone: 'text-rose-200', icon: '✕' };
-  }
+export function verdictWord(d: Decision): { word: string; tone: string; icon: string } {
+  const s = d.approval_state;
+  if (s === 'pending') return { word: 'Held for approval', tone: 'text-amber-100', icon: '⏸' };
+  if (s === 'approved')
+    return { word: 'Approved by a person', tone: 'text-emerald-200', icon: '✓' };
+  if (s === 'rejected') return { word: 'Rejected by a person', tone: 'text-rose-200', icon: '✕' };
+  if (s === 'expired')
+    return { word: 'Approval timed out, blocked', tone: 'text-rose-200', icon: '✕' };
+  if (s === 'cancelled')
+    return { word: 'Approval withdrawn, blocked', tone: 'text-rose-200', icon: '✕' };
+  if (s === 'handed_to_host')
+    return { word: "Handed to the agent's own prompt", tone: 'text-amber-100', icon: '↪' };
+  if (s === 'unavailable' && d.verdict === 'block')
+    return { word: 'Needed approval, no approver: blocked', tone: 'text-rose-200', icon: '✕' };
   return PLAIN[d.verdict] ?? { word: d.verdict, tone: 'text-zinc-100', icon: '•' };
 }
 

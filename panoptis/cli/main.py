@@ -2929,12 +2929,29 @@ protect_app.add_typer(claude_hook_app, name="claude-hook")
 _HOOK_SETTINGS_HELP = "Claude Code settings file (default: ./.claude/settings.local.json)."
 
 
+_APPROVALS_HELP = (
+    "Who decides a call PANOPTIS holds for approval: 'dashboard' (default; a person in "
+    "PANOPTIS, the call is denied on reject, timeout, or when no dashboard is running) or "
+    "'claude' (answer 'ask' and let Claude Code's own permission flow decide; in auto mode "
+    "that may approve it without a person)."
+)
+
+
 @claude_hook_app.command("install")
 def claude_hook_install(
     settings: Path = typer.Option(
         Path(".claude") / "settings.local.json", "--settings", help=_HOOK_SETTINGS_HELP
     ),
-    timeout: int = typer.Option(30, "--timeout", help="Hook timeout in seconds."),
+    approvals: str = typer.Option("dashboard", "--approvals", help=_APPROVALS_HELP),
+    timeout: int | None = typer.Option(
+        None, "--timeout", help="Hook timeout in seconds (default 300; 30 with --approvals claude)."
+    ),
+    approval_timeout: float | None = typer.Option(
+        None,
+        "--approval-timeout",
+        help="Seconds a held call waits for a decision before it is denied (default 240; "
+        "at least 10 s shorter than --timeout).",
+    ),
     on_failure_block: bool = typer.Option(
         False,
         "--on-failure-block",
@@ -2945,8 +2962,28 @@ def claude_hook_install(
     """Merge the PANOPTIS hook into a Claude Code settings file."""
     from panoptis.protect import claude_hook
 
-    claude_hook.install(settings, timeout_s=timeout, on_failure_block=on_failure_block)
+    try:
+        claude_hook.install(
+            settings,
+            timeout_s=timeout,
+            on_failure_block=on_failure_block,
+            approvals=approvals,
+            approval_timeout_s=approval_timeout,
+        )
+    except ValueError as exc:
+        console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(2) from exc
     console.print(f"[green]PANOPTIS hook installed in {settings}[/green]")
+    if approvals == claude_hook.APPROVALS_CLAUDE:
+        console.print(
+            "[yellow]--approvals claude: a call PANOPTIS escalates goes to Claude Code's own "
+            "permission flow. In auto or bypass mode it may run without a person deciding.[/yellow]"
+        )
+    else:
+        console.print(
+            "Calls held for approval wait for a decision on the PANOPTIS dashboard "
+            "(`panoptis up`); with no dashboard running they are denied."
+        )
     if not on_failure_block:
         console.print(
             "[yellow]Claude Code runs the tool if the hook command cannot start or times out. "
@@ -2970,11 +3007,24 @@ def claude_hook_uninstall(
 @claude_hook_app.command("print")
 def claude_hook_print(
     on_failure_block: bool = typer.Option(False, "--on-failure-block"),
+    approvals: str = typer.Option("dashboard", "--approvals", help=_APPROVALS_HELP),
+    timeout: int | None = typer.Option(None, "--timeout", help="Hook timeout in seconds."),
+    approval_timeout: float | None = typer.Option(None, "--approval-timeout"),
 ) -> None:
     """Print the settings JSON (for `claude --settings`)."""
     from panoptis.protect import claude_hook
 
-    typer.echo(json.dumps(claude_hook.hook_settings(on_failure_block=on_failure_block), indent=2))
+    try:
+        doc = claude_hook.hook_settings(
+            on_failure_block=on_failure_block,
+            approvals=approvals,
+            timeout_s=timeout,
+            approval_timeout_s=approval_timeout,
+        )
+    except ValueError as exc:
+        console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps(doc, indent=2))
 
 
 # ── MCP gateway (TO-023) ──────────────────────────────────────────────────────────────

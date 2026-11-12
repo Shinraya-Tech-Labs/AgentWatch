@@ -8,8 +8,12 @@ pipeline verdict    hook answer (``hookSpecificOutput.permissionDecision``)
 ==================  ===================================================================
 ALLOW               no decision: Claude Code's own permission rules and prompts apply
 BLOCK               ``deny`` with the reason; the tool does not run
-ESCALATE_HITL       ``ask``: Claude Code's permission prompt is the approval channel
-                    (in ``-p`` runs, where nobody can answer, the CLI denies the call)
+ESCALATE_HITL       approvals ``dashboard`` (default): the hook holds the call until a
+                    person decides in PANOPTIS and answers ``allow`` only if they
+                    approved; ``deny`` on reject or timeout, and when no PANOPTIS
+                    dashboard is reachable to ask.
+                    approvals ``claude`` (opt-in): ``ask``, so Claude Code's own
+                    permission flow decides (in auto mode that may be no person at all)
 MUTATE_AND_ALLOW    ``ask`` with ``updatedInput`` (the redacted arguments); set
                     ``AGENTWATCH_HOOK_MUTATION=allow`` to run them without a prompt
 ==================  ===================================================================
@@ -22,8 +26,14 @@ failure.
 The hook fails closed. Any error while deciding (bad input, policy that does not load,
 an exception in the pipeline) exits with code 2, which Claude Code treats as a block.
 Claude Code itself proceeds when the hook command cannot start or times out, unless
-the hook is installed with ``"onFailure": "block"`` (Claude Code 2.1.295 or later).
+the hook is installed with ``"onFailure": "block"`` (Claude Code 2.1.295 or later), so
+the approval timeout is always shorter than the hook's own timeout.
 See docs/CLAUDE_CODE_HOOK.md.
+
+Options (the installed command line; the environment variable when it is not given):
+
+``--approvals``         ``AGENTWATCH_HOOK_APPROVALS``          ``dashboard`` (default) or ``claude``
+``--approval-timeout``  ``AGENTWATCH_HOOK_APPROVAL_TIMEOUT``   seconds a held call waits (240)
 
 Settings (environment):
 
@@ -31,7 +41,9 @@ Settings (environment):
 ``AGENTWATCH_TENANT_ID``       tenant (default ``default``)
 ``AGENTWATCH_OBJECTIVE``       the session's objective, for intent grounding
 ``AGENTWATCH_POLICY_FILE``     RBAC policy (YAML/JSON); no file means no RBAC stage
-``AGENTWATCH_STORE``       evidence store (default: the PANOPTIS home database)
+``AGENTWATCH_STORE``           evidence store (default: the PANOPTIS home database)
+``AGENTWATCH_APPROVAL_URL``    PANOPTIS server whose dashboard decides approvals (default:
+                               the ``panoptis up`` server of ``AGENTWATCH_HOME``)
 ``AGENTWATCH_HOOK_MUTATION``   ``ask`` (default) or ``allow``
 """
 
@@ -42,12 +54,21 @@ import os
 import sys
 from typing import Any
 
+from panoptis.protect.approvals import ApprovalBroker
 from panoptis.protect.ledger import ProtectLedger
-from panoptis.protect.model import ToolAction, Verdict
+from panoptis.protect.model import Stage, ToolAction, Verdict
 from panoptis.protect.pipeline import ProtectionConfig, ProtectionPipeline
 from panoptis.protect.rbac import PolicyStore
 
 SOURCE = "hook:claude-code"
+HOST = "claude-code"
+
+APPROVALS_DASHBOARD = "dashboard"  # a person decides in PANOPTIS (default)
+APPROVALS_CLAUDE = "claude"  # opt-in: Claude Code's own permission flow decides
+APPROVAL_MODES = (APPROVALS_DASHBOARD, APPROVALS_CLAUDE)
+DEFAULT_HOOK_TIMEOUT_S = 300  # Claude Code's "timeout" for the hook command
+DEFAULT_APPROVAL_TIMEOUT_S = 240  # how long a held call waits: shorter than the hook's
+CLAUDE_HOOK_TIMEOUT_S = 30  # nothing waits in the hook with --approvals claude
 
 # Claude Code tool names -> the names the threat analyser and RBAC policies use.
 TOOL_NAMES = {
@@ -73,15 +94,81 @@ def tool_name(claude_tool: str) -> str:
     return TOOL_NAMES.get(claude_tool, claude_tool)
 
 
+def approvals_mode(env: dict[str, str]) -> str:
+    mode = (env.get("AGENTWATCH_HOOK_APPROVALS") or APPROVALS_DASHBOARD).strip().lower()
+    if mode not in APPROVAL_MODES:
+        raise ValueError(f"approvals must be one of {', '.join(APPROVAL_MODES)}, not {mode!r}")
+    return mode
+
+
+def approval_timeout(env: dict[str, str]) -> float:
+    raw = env.get("AGENTWATCH_HOOK_APPROVAL_TIMEOUT")
+    value = float(raw) if raw else float(DEFAULT_APPROVAL_TIMEOUT_S)
+    if not value > 0:
+        raise ValueError("the approval timeout must be a positive number of seconds")
+    return value
+
+
+def _answers(url: str) -> bool:
+    import httpx
+
+    try:
+        return httpx.get(url, timeout=2.0).status_code < 500
+    except httpx.HTTPError:
+        return False
+
+
+def dashboard_unreachable(env: dict[str, str]) -> str | None:
+    """Why no person can approve a call in PANOPTIS right now; None when someone can.
+
+    ``AGENTWATCH_APPROVAL_URL`` names the server. Without it, the ``panoptis up`` server of
+    this ``AGENTWATCH_HOME`` must be running (it reads the same store). With an explicit
+    ``AGENTWATCH_STORE`` and no URL, that shared store is the channel: any PANOPTIS server
+    or ``panoptis protect approvals`` using it can decide.
+    """
+    url = (env.get("AGENTWATCH_APPROVAL_URL") or "").strip().rstrip("/")
+    if url:
+        return (
+            None if _answers(f"{url}/health") else f"the PANOPTIS server at {url} does not answer"
+        )
+    if env.get("AGENTWATCH_STORE"):
+        return None
+    from pathlib import Path
+
+    from panoptis.local import running_server
+
+    home = Path(env.get("AGENTWATCH_HOME") or Path.home() / ".agentwatch")
+    if running_server(home) is not None:
+        return None
+    return f"no PANOPTIS dashboard is running for {home} (start one with `panoptis up`)"
+
+
 def build_pipeline(env: dict[str, str] | None = None) -> ProtectionPipeline:
     env = dict(os.environ if env is None else env)
     policy_file = env.get("AGENTWATCH_POLICY_FILE")
+    policy = PolicyStore(path=policy_file) if policy_file else None
+    ledger = ProtectLedger(env.get("AGENTWATCH_STORE") or None)
+    if approvals_mode(env) == APPROVALS_CLAUDE:
+        # opt-in: an escalation is answered "ask" and Claude Code's permission flow decides.
+        # It is recorded as handed to the host, never as held: PANOPTIS does not hold it.
+        return ProtectionPipeline(
+            policy=policy,
+            ledger=ledger,
+            config=ProtectionConfig(
+                escalate_without_approver=Verdict.ESCALATE_HITL, host_approval=HOST
+            ),
+        )
+    timeout = approval_timeout(env)
     return ProtectionPipeline(
-        policy=PolicyStore(path=policy_file) if policy_file else None,
-        ledger=ProtectLedger(env.get("AGENTWATCH_STORE") or None),
-        # Claude Code's permission prompt is the approval channel: an escalation is
-        # answered with "ask", never silently allowed.
-        config=ProtectionConfig(escalate_without_approver=Verdict.ESCALATE_HITL),
+        policy=policy,
+        ledger=ledger,
+        approvals=ApprovalBroker(
+            ledger, timeout_s=timeout, channel_check=lambda: dashboard_unreachable(env)
+        ),
+        # nobody to ask means no: never fall back to the host's own prompt
+        config=ProtectionConfig(
+            escalate_without_approver=Verdict.BLOCK, approval_timeout_s=timeout
+        ),
     )
 
 
@@ -111,16 +198,48 @@ def action_for(payload: dict[str, Any], env: dict[str, str] | None = None) -> To
     return action
 
 
+_NOT_APPROVED = {
+    "rejected": "was rejected in PANOPTIS",
+    "expired": "was not approved in PANOPTIS before the deadline",
+    "cancelled": "was withdrawn before anyone approved it",
+}
+
+
 def _pre(payload: dict[str, Any], pipeline: ProtectionPipeline, env: dict[str, str]) -> dict:
     action = action_for(payload, env)
-    decision = pipeline.evaluate(action, wait_for_approval=False)
+    # an escalation is held here until a person decides (or handed to the host, if opted in)
+    decision = pipeline.evaluate(action, wait_for_approval=True)
     out: dict[str, Any] = {"hookEventName": "PreToolUse"}
     reason = f"PANOPTIS: {decision.reason}" if decision.reason else "PANOPTIS policy"
+    state = (decision.approval or {}).get("state")
+    hitl = next((f for f in reversed(decision.findings) if f.stage is Stage.HITL), None)
+    if state == "approved" and decision.verdict in (Verdict.ALLOW, Verdict.MUTATE_AND_ALLOW):
+        # a person approved this exact call in PANOPTIS: run it without a second prompt
+        out.update(
+            permissionDecision="allow",
+            permissionDecisionReason=f"PANOPTIS: {hitl.message if hitl else 'approved'}",
+        )
+        if decision.verdict is Verdict.MUTATE_AND_ALLOW and decision.mutated_arguments:
+            out["updatedInput"] = {**payload["tool_input"], **decision.mutated_arguments}
+        return {"hookSpecificOutput": out}
     if decision.verdict is Verdict.ALLOW:
         return {}
     if decision.verdict is Verdict.BLOCK:
+        if state in _NOT_APPROVED:
+            reason = (
+                f"PANOPTIS held this call for approval and it {_NOT_APPROVED[state]}"
+                + (f" ({hitl.message})" if hitl else "")
+                + f". {reason}"
+            )
+        elif state == "unavailable" and hitl is not None:
+            # the finding's message already names what is missing; add what was escalated
+            why = [f.message for f in decision.findings if f.recommends is Verdict.ESCALATE_HITL]
+            reason = f"PANOPTIS denied this call: {hitl.message.rsplit(';', 1)[0]}." + (
+                f" It needs approval because: {why[0]}" if why else ""
+            )
         out.update(permissionDecision="deny", permissionDecisionReason=reason)
-    elif decision.verdict is Verdict.ESCALATE_HITL:
+    elif decision.verdict is Verdict.ESCALATE_HITL and state == "handed_to_host":
+        # --approvals claude only: Claude Code's own permission flow decides
         out.update(permissionDecision="ask", permissionDecisionReason=reason)
     elif decision.verdict is Verdict.MUTATE_AND_ALLOW and decision.mutated_arguments is not None:
         mode = (env.get("AGENTWATCH_HOOK_MUTATION") or "ask").lower()
@@ -129,7 +248,7 @@ def _pre(payload: dict[str, Any], pipeline: ProtectionPipeline, env: dict[str, s
             permissionDecisionReason=reason,
             updatedInput={**payload["tool_input"], **decision.mutated_arguments},
         )
-    else:  # an unknown verdict is never treated as permission
+    else:  # an unknown verdict, or an escalation no one decided, is never permission
         out.update(permissionDecision="deny", permissionDecisionReason=reason)
     return {"hookSpecificOutput": out}
 
@@ -186,26 +305,72 @@ HOOK_EVENTS = ("PreToolUse", "PostToolUse", "PostToolUseFailure")
 _MARKER = "claude_hook_entry.py"
 
 
-def hook_command(python: str | None = None) -> str:
+def hook_command(
+    python: str | None = None,
+    *,
+    approvals: str = APPROVALS_DASHBOARD,
+    approval_timeout_s: float | None = None,
+) -> str:
     """The command Claude Code runs: this interpreter, the stdlib-only entry script."""
     from pathlib import Path
 
     entry = Path(__file__).with_name("claude_hook_entry.py")
-    return f'"{Path(python or sys.executable).as_posix()}" "{entry.as_posix()}"'
+    cmd = f'"{Path(python or sys.executable).as_posix()}" "{entry.as_posix()}" --approvals {approvals}'
+    if approvals == APPROVALS_DASHBOARD and approval_timeout_s is not None:
+        cmd += f" --approval-timeout {approval_timeout_s:g}"
+    return cmd
+
+
+def timeouts(
+    approvals: str, timeout_s: int | None, approval_timeout_s: float | None
+) -> tuple[int, float | None]:
+    """The hook timeout and the approval timeout for an install, checked.
+
+    A held call waits inside the hook, and Claude Code may run a call whose hook it had to
+    kill, so the approval must time out (and deny) well before the hook does.
+    """
+    if approvals not in APPROVAL_MODES:
+        raise ValueError(f"approvals must be one of {', '.join(APPROVAL_MODES)}, not {approvals!r}")
+    if approvals == APPROVALS_CLAUDE:
+        return timeout_s or CLAUDE_HOOK_TIMEOUT_S, None
+    hook = timeout_s or DEFAULT_HOOK_TIMEOUT_S
+    if approval_timeout_s is None:
+        approval_timeout_s = (
+            DEFAULT_APPROVAL_TIMEOUT_S
+            if timeout_s is None
+            else (hook - 60 if hook > 120 else hook / 2)
+        )
+    if not 0 < approval_timeout_s <= hook - 10:
+        raise ValueError(
+            f"the approval timeout ({approval_timeout_s:g}s) must be positive and at least 10s "
+            f"shorter than the hook timeout ({hook}s); raise --timeout or lower --approval-timeout"
+        )
+    return hook, approval_timeout_s
 
 
 def hook_settings(
-    *, python: str | None = None, timeout_s: int = 30, on_failure_block: bool = False
+    *,
+    python: str | None = None,
+    timeout_s: int | None = None,
+    on_failure_block: bool = False,
+    approvals: str = APPROVALS_DASHBOARD,
+    approval_timeout_s: float | None = None,
 ) -> dict[str, Any]:
     """Claude Code settings that route every tool call through the hook.
+
+    ``approvals="dashboard"`` (default): a held call waits in the hook for a decision in
+    PANOPTIS; the hook timeout defaults to 300 s and the approval timeout to 240 s (or the
+    hook timeout minus 60 s). ``approvals="claude"``: escalations are answered "ask" and
+    Claude Code's own permission flow decides; the hook timeout defaults to 30 s.
 
     ``on_failure_block`` adds ``"onFailure": "block"`` (Claude Code 2.1.295 or later), so a
     hook that cannot start or times out blocks the call instead of letting it run.
     """
+    hook_timeout, approval_timeout_s = timeouts(approvals, timeout_s, approval_timeout_s)
     entry: dict[str, Any] = {
         "type": "command",
-        "command": hook_command(python),
-        "timeout": timeout_s,
+        "command": hook_command(python, approvals=approvals, approval_timeout_s=approval_timeout_s),
+        "timeout": hook_timeout,
     }
     if on_failure_block:
         entry["onFailure"] = "block"
@@ -265,13 +430,41 @@ def uninstall(settings_path: Any) -> bool:
     return found
 
 
-def main(stdin: Any = None, stdout: Any = None, stderr: Any = None) -> int:
+_FLAGS = {
+    "--approvals": "AGENTWATCH_HOOK_APPROVALS",
+    "--approval-timeout": "AGENTWATCH_HOOK_APPROVAL_TIMEOUT",
+}
+
+
+def options(argv: list[str], env: dict[str, str]) -> dict[str, str]:
+    """The environment with the installed command's options applied (they win), validated."""
+    env = dict(env)
+    args = list(argv)
+    while args:
+        arg = args.pop(0)
+        name, eq, value = arg.partition("=")
+        if name not in _FLAGS:
+            raise ValueError(f"unknown hook option {arg!r}")
+        if not eq:
+            if not args:
+                raise ValueError(f"{name} needs a value")
+            value = args.pop(0)
+        env[_FLAGS[name]] = value
+    approvals_mode(env)  # a typo must fail (and block) before any decision is made
+    approval_timeout(env)
+    return env
+
+
+def main(
+    stdin: Any = None, stdout: Any = None, stderr: Any = None, argv: list[str] | None = None
+) -> int:
     stdin, stdout, stderr = stdin or sys.stdin, stdout or sys.stdout, stderr or sys.stderr
     try:
+        env = options(argv or [], dict(os.environ))
         payload = json.loads(stdin.read() or "null")
         if not isinstance(payload, dict):
             raise ValueError("hook input is not a JSON object")
-        answer = handle(payload)
+        answer = handle(payload, env=env)
     except Exception as exc:  # noqa: BLE001 - every failure blocks
         print(f"PANOPTIS hook failed, blocking the tool call: {exc}", file=stderr)
         return 2
@@ -281,4 +474,4 @@ def main(stdin: Any = None, stdout: Any = None, stderr: Any = None) -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover - exercised through the bootstrap
-    sys.exit(main())
+    sys.exit(main(argv=sys.argv[1:]))

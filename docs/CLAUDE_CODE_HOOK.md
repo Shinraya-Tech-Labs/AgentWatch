@@ -16,6 +16,20 @@ panoptis protect claude-hook uninstall
 
 Install merges into an existing settings file. Your other settings and hooks are kept, and re-installing replaces the AgentWatch entries instead of duplicating them. The hook runs on `PreToolUse`, `PostToolUse` and `PostToolUseFailure` for every tool (`"matcher": "*"`), including MCP tools.
 
+### Who approves a held call
+
+```bash
+panoptis up                                       # the dashboard that approves held calls
+panoptis protect claude-hook install              # --approvals dashboard (default)
+panoptis protect claude-hook install --approvals claude   # opt in to Claude Code's own prompt
+```
+
+With the default `--approvals dashboard`, a call PANOPTIS escalates (for example `rm -rf ./dir` or `Remove-Item -Recurse -Force dir`) waits inside the hook until someone decides it under *Waiting for approval* on the dashboard. The hook is installed with `"timeout": 300` and the command carries `--approval-timeout 240`; the approval timeout must be at least 10 s shorter than the hook timeout (`--timeout`, `--approval-timeout`), because Claude Code may run a call whose hook it had to kill. On Claude Code 2.1.295+ also pass `--on-failure-block`.
+
+The dashboard counts as reachable when `AGENTWATCH_APPROVAL_URL` answers `/health`, or, without it, when the `panoptis up` server of the same `AGENTWATCH_HOME` is running. With an explicit `AGENTWATCH_STORE` and no URL, the shared store is the channel (any PANOPTIS server or CLI on it can decide).
+
+The feed records the final outcome on the row: *Approved by a person*, *Rejected by a person*, *Approval timed out, blocked*, *Needed approval, no approver: blocked*, or *Handed to the agent's own prompt*. *Held for approval* appears only while a call is in the approval queue.
+
 The command it installs is the absolute path of the current Python interpreter running `panoptis/protect/claude_hook_entry.py`. Re-install after moving or recreating the virtualenv.
 
 ## What the hook answers
@@ -24,7 +38,8 @@ The command it installs is the absolute path of the current Python interpreter r
 |---|---|---|
 | `ALLOW` | no decision | Claude Code's own permission rules and prompts apply unchanged. The hook never widens permissions. |
 | `BLOCK` | `permissionDecision: "deny"` with the reason | The tool does not run, and Claude sees the reason. |
-| `ESCALATE_HITL` | `permissionDecision: "ask"` | Claude Code's permission prompt is the approval channel. In `-p` runs, where nobody can answer, the CLI denies the call. |
+| `ESCALATE_HITL` (default, `--approvals dashboard`) | waits, then `"allow"` or `"deny"` | The call is held in the PANOPTIS approval queue and the hook waits. It answers `allow` only if a person approved it on the dashboard (or via the approvals API/CLI); `deny` on reject, timeout or withdrawal. With no PANOPTIS dashboard reachable it answers `deny` at once, with the reason. It never falls back to `"ask"`. |
+| `ESCALATE_HITL` (`--approvals claude`, opt-in) | `permissionDecision: "ask"` | Claude Code's own permission flow decides. **In auto or bypass mode that may approve the call with no person involved.** The row is recorded as *handed to the agent's own prompt*, not as held. |
 | `MUTATE_AND_ALLOW` | `"ask"` with `updatedInput` | The user sees and approves the redacted arguments. Set `AGENTWATCH_HOOK_MUTATION=allow` to run them without a prompt. |
 
 **After the tool runs:**
@@ -52,7 +67,7 @@ The entry script uses only the standard library until it imports AgentWatch, so 
 
 > **Fail-open warning.** Before Claude Code 2.1.295, a hook that fails to start or times out lets the tool run. Do not describe this integration as fail-closed unless the CLI is 2.1.295 or later and the hook was installed with `--on-failure-block`. The hook contract is tested, but no end-to-end run against a real signed-in CLI has been done on any version. The development machine used for this release has Claude Code 2.1.229, which is in the fail-open range.
 
-**What the hook cannot control:** if the hook command cannot start at all (the interpreter was deleted) or times out (default 30 s), Claude Code runs the tool anyway. Claude Code 2.1.295 and later support `"onFailure": "block"`:
+**What the hook cannot control:** if the hook command cannot start at all (the interpreter was deleted) or times out (default 300 s), Claude Code runs the tool anyway. Claude Code 2.1.295 and later support `"onFailure": "block"`:
 
 ```bash
 panoptis protect claude-hook install --on-failure-block
@@ -70,6 +85,9 @@ Use this on those versions. Older versions do not have this setting.
 | `AGENTWATCH_OBJECTIVE` | session objective, for intent grounding | none |
 | `AGENTWATCH_STORE` | evidence store | `~/.agentwatch/agentwatch.db` |
 | `AGENTWATCH_HOOK_MUTATION` | `ask` or `allow` for redacted arguments | `ask` |
+| `AGENTWATCH_HOOK_APPROVALS` | `dashboard` or `claude` (the installed `--approvals` wins) | `dashboard` |
+| `AGENTWATCH_HOOK_APPROVAL_TIMEOUT` | seconds a held call waits (the installed `--approval-timeout` wins) | `240` |
+| `AGENTWATCH_APPROVAL_URL` | PANOPTIS server whose dashboard decides approvals | the local `panoptis up` server |
 | `AGENTWATCH_KILL_FILE` | kill-switch file (shared with every enforcement point) | `~/.agentwatch/protect.kill` |
 
 Claude Code tool names are mapped to the names policies use:
