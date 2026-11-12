@@ -49,9 +49,13 @@ An agent acts with its user's privileges while taking direction from whatever it
 Requires Python 3.12 or later (tested on 3.12, 3.13 and 3.14).
 
 ```bash
-pip install panoptis
+pipx install panoptis          # or, in a virtualenv: python -m venv .venv && .venv/bin/pip install panoptis
 panoptis up                    # API + dashboard on http://127.0.0.1:8000, SQLite, opens the browser
 ```
+
+Install it with [pipx](https://pipx.pypa.io/) or into its own virtualenv rather than into a Python you use for other tools: PANOPTIS pins its web and MCP dependencies (for example `mcp<2`), and pip resolves those pins by changing packages other tools depend on. On Windows the venv's pip is `.venv\Scripts\pip`. Model routing (`panoptis.infrastructure.router`) needs `pip install "panoptis[router]"` since 0.4.3.
+
+Upgrading from 0.4.2 or earlier with the Claude Code hook installed? Re-run `panoptis protect claude-hook install`: until you do, calls PANOPTIS escalates are denied (`panoptis up` and `panoptis doctor` point out each outdated settings file).
 
 A fresh install starts empty. The dashboard shows copy-paste setup for **Claude Code**, **Cursor / MCP** and a **Python agent**, and waits for your first agent session; the home screen takes over as soon as one reports. No Docker or account is needed. Decisions, approvals and evidence go to a SQLite store under `~/.agentwatch`, which the Claude Code hook and the MCP gateway use by default; a Python agent calls `use_local_dashboard()` once (shown on the setup screen).
 

@@ -118,3 +118,30 @@ def test_the_real_project_is_releasable_at_its_own_version():
     ]
     errs = rc.check_tag(f"v{version}")
     assert not [e for e in errs if "pyproject" in e]  # the tag/version gate agrees with itself
+
+
+def _stamped(tmp_path: Path, stamp: str | None) -> Path:
+    dist = tmp_path / "dist"
+    dist.mkdir(parents=True)
+    with zipfile.ZipFile(dist / "panoptis-1.2.3-py3-none-any.whl", "w") as z:
+        for f in rc.REQUIRED_IN_WHEEL:
+            z.writestr(f, "x")
+        if stamp is not None:
+            z.writestr(rc.DASHBOARD_BUILD, stamp)
+    _sdist(dist, "panoptis-1.2.3.tar.gz", ["panoptis/__init__.py", "pyproject.toml"])
+    return dist
+
+
+def test_the_dashboard_must_be_rebuilt_from_the_release_commit(tmp_path):
+    ok = _stamped(tmp_path / "ok", '{"commit": "abc123", "frontend_changes_uncommitted": false}')
+    assert rc.check_artifacts(ok, "v1.2.3", "abc123") == []
+    old = _stamped(tmp_path / "old", '{"commit": "0ld0ld"}')
+    assert any("built from '0ld0ld'" in e for e in rc.check_artifacts(old, "v1.2.3", "abc123"))
+    none = _stamped(tmp_path / "none", None)
+    assert any("not rebuilt" in e for e in rc.check_artifacts(none, "v1.2.3", "abc123"))
+    dirty = _stamped(
+        tmp_path / "dirty", '{"commit": "abc123", "frontend_changes_uncommitted": true}'
+    )
+    assert any("uncommitted" in e for e in rc.check_artifacts(dirty, "v1.2.3", "abc123"))
+    # without a commit (local checks) the stamp is not required
+    assert rc.check_artifacts(none, "v1.2.3") == []

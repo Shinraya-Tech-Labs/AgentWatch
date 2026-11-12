@@ -95,7 +95,8 @@ jobs:
           python -m build --outdir dist .
           twine check --strict dist/*
       - name: Artifact contents and SHA256SUMS
-        run: python scripts/release_check.py artifacts dist "${{ needs.gates.outputs.tag }}"
+        # the dashboard in the wheel must have been rebuilt from this very commit
+        run: python scripts/release_check.py artifacts dist "${{ needs.gates.outputs.tag }}" "$(git rev-parse HEAD)"
       - name: Build provenance attestation
         uses: actions/attest-build-provenance@v2
         with:

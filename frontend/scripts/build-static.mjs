@@ -28,4 +28,22 @@ if (!existsSync(join(out, 'index.html'))) {
 rmSync(target, { recursive: true, force: true });
 cpSync(out, target, { recursive: true });
 writeFileSync(join(target, '.gitignore'), '*\n');
-console.log(`dashboard copied to ${target}`);
+// which commit this dashboard was built from: the release gate refuses a wheel whose
+// dashboard was not rebuilt from the tagged commit (a stale copy would ship old labels)
+const git = (args) => spawnSync('git', args, { cwd: app, encoding: 'utf8' });
+const head = git(['rev-parse', 'HEAD']);
+const commit = head.status === 0 ? head.stdout.trim() : null;
+const dirty = git(['status', '--porcelain', '--', '.']);
+writeFileSync(
+  join(target, 'build.json'),
+  JSON.stringify(
+    {
+      commit,
+      frontend_changes_uncommitted: dirty.status === 0 ? dirty.stdout.trim() !== '' : null,
+      built_at: new Date().toISOString(),
+    },
+    null,
+    2,
+  ) + '\n',
+);
+console.log(`dashboard copied to ${target} (built from ${commit ?? 'an unknown commit'})`);

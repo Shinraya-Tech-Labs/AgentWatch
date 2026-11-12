@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 
 import { EventInspector } from '../components/v3/EventInspector';
 import { ProofAndGapsVisualizer } from '../components/v3/ProofAndGapsVisualizer';
+import { localTime } from '../components/security/ui';
 import { Shell } from '../components/v3/Shell';
 import {
   Empty,
@@ -80,7 +81,7 @@ export default function Timeline() {
               right={<Status s={d.run.status} />}
             >
               <div className="flex flex-wrap gap-x-4 font-mono text-[11px] text-zinc-400">
-                <span>{d.run.started_at?.replace('T', ' ').slice(0, 23)}</span>
+                <span>{localTime(d.run.started_at)}</span>
                 <span>duration {fmtMs(d.run.duration_ms)}</span>
                 <span>{d.run.event_count} events</span>
                 <span>errors {d.run.error_events}</span>

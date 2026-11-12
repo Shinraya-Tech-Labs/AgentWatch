@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { getKey } from '../protect/client';
+import { fetchWithKey } from '../protect/client';
 import type {
   CompareResult,
   EventDetail,
@@ -24,15 +24,14 @@ export class ApiError extends Error {
 export async function v3<T>(path: string, init?: RequestInit): Promise<T> {
   // the signed-in key (local mode, or a direct API connection); behind the Compose proxy the
   // server attaches its own and the browser holds none
-  const key = getKey();
-  const res = await fetch(`${V3_BASE}${path}`, {
-    ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(key ? { 'x-api-key': key } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
+  // (a stale local key is refreshed once, as on every other page)
+  let res: Response;
+  try {
+    res = await fetchWithKey(`${V3_BASE}${path}`, init);
+  } catch (e) {
+    const err = e as { status?: number; message?: string };
+    throw new ApiError(err.status ?? 0, err.message ?? 'The PANOPTIS API is unreachable');
+  }
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
   if (!res.ok) {

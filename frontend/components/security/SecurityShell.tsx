@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Component, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { switchProfile, tryLocalSignIn, useProfiles } from '../../lib/local';
-import { ApiError, useApiKey, useStatus } from '../../lib/protect/client';
+import { ApiError, STALE_LOCAL_KEY, useApiKey, useStatus } from '../../lib/protect/client';
 
 export const PRIMARY_VIEWS = [
   { href: '/', label: 'Home' },
@@ -289,7 +289,9 @@ function Connection({ status, hasKey }: { status: ReturnType<typeof useStatus>; 
       err.status === 0
         ? 'disconnected'
         : err.status === 401
-          ? 'key rejected'
+          ? err.message === STALE_LOCAL_KEY
+            ? 'key rejected: restart panoptis up'
+            : 'key rejected'
           : `error ${err.status}`;
     return (
       <span role="status" className="pill border-rose-400/40 text-rose-200">

@@ -225,7 +225,7 @@ it('approval sends the exact action digest shown to the user', async () => {
     ),
   );
   fireEvent.change(screen.getByLabelText('your name'), { target: { value: 'alice' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+  fireEvent.click(screen.getByRole('button', { name: /approve anyway/i }));
   await waitFor(() => expect(calls.some((c) => c.init?.method === 'POST')).toBe(true));
   const post = calls.find((c) => c.init?.method === 'POST')!;
   expect(JSON.parse(String(post.init!.body))).toEqual({

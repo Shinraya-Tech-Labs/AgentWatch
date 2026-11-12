@@ -10,6 +10,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
+import { refreshLocalSession } from '../local';
 import type {
   Agents,
   Approval,
@@ -69,11 +70,18 @@ export function useApiKey(): [string | null, (k: string | null) => void] {
   return [key, setKey];
 }
 
-export async function protect<T>(path: string, init?: RequestInit): Promise<T> {
-  const key = getKey();
-  let res: Response;
-  try {
-    res = await fetch(`${PROTECT_BASE}${path}`, {
+export const STALE_LOCAL_KEY =
+  'PANOPTIS rejected this dashboard’s key. Restart panoptis up, then reload this page.';
+
+/**
+ * Fetch with the stored key. On a 401 in local mode the key may be stale (an earlier
+ * `panoptis up`, another workspace): re-fetch /api/local/session and retry once. A second
+ * 401 there throws STALE_LOCAL_KEY. Every API client of the dashboard goes through here.
+ */
+export async function fetchWithKey(url: string, init?: RequestInit): Promise<Response> {
+  const send = () => {
+    const key = getKey();
+    return fetch(url, {
       ...init,
       headers: {
         'content-type': 'application/json',
@@ -81,9 +89,25 @@ export async function protect<T>(path: string, init?: RequestInit): Promise<T> {
         ...(init?.headers ?? {}),
       },
     });
+  };
+  let res: Response;
+  try {
+    res = await send();
   } catch {
     throw new ApiError(0, 'The PANOPTIS API is unreachable');
   }
+  if (res.status !== 401 || !(await refreshLocalSession())) return res;
+  try {
+    res = await send();
+  } catch {
+    throw new ApiError(0, 'The PANOPTIS API is unreachable');
+  }
+  if (res.status === 401) throw new ApiError(401, STALE_LOCAL_KEY);
+  return res;
+}
+
+export async function protect<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetchWithKey(`${PROTECT_BASE}${path}`, init);
   const text = await res.text();
   let body: unknown = null;
   try {
