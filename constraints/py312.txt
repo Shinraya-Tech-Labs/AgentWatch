@@ -92,7 +92,7 @@ tiktoken==0.14.0
 tokenizers==0.23.3
 tqdm==4.70.1
 truststore==0.10.5
-typer==0.27.3
+typer==0.29.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 tzdata==2026.6
