@@ -5,7 +5,10 @@ from collections import deque
 from enum import Enum, auto
 from typing import Any
 
-import litellm
+try:  # optional since 0.4.3: pip install "panoptis[router]"
+    import litellm
+except ImportError:  # pragma: no cover - exercised only without the extra
+    litellm = None
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from panoptis.core.schema import AgentEvent, EventType, TokenUsage
@@ -85,6 +88,10 @@ class ModelRouter:
         return litellm.completion(model=model, messages=messages, timeout=timeout, **kwargs)
 
     def completion(self, messages: list[dict[str, Any]], **kwargs) -> Any:
+        if litellm is None:
+            raise ImportError(
+                "ModelRouter needs litellm, which is optional: pip install 'panoptis[router]'"
+            )
         config = self.config_provider.get_config()
 
         primary = config.get("providers", {}).get("primary", "gpt-4o")

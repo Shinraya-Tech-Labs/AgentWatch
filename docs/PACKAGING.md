@@ -20,6 +20,7 @@ Python: `>=3.12,<3.13` (CI target 3.12). The test suite also passes on 3.14, but
 - **Extras:**
   - `embeddings`, `otel`, `crypto`, `redaction`, `langchain`, `docs`, `postgres`;
   - `reports`, `groq`, `discovery` (`psutil`);
+  - `router` (`litellm`, for `panoptis.infrastructure.router`): a core dependency up to 0.4.2. Its pins conflicted with tools installed next to PANOPTIS (python-dotenv with fastmcp), and nothing else imports it;
   - `dev`; and `all`, which combines `embeddings`, `otel`, `crypto`, `langchain`, `postgres` and `discovery`.
 - **Security floors** (`pyproject.toml`):
   - `fastapi>=0.162` / `starlette>=1.3.1`: Starlette 0.52.1 had PYSEC-2026-161, -248, -249, -2280 and -2281. All API, protect and v3 tests (1265) pass on FastAPI 0.162 / Starlette 1.10.

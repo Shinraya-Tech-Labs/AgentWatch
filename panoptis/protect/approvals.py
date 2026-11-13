@@ -135,8 +135,11 @@ class ApprovalBroker:
         timeout_s: float = 120.0,
         poll_s: float = 0.25,
         approver: Approver | None = None,
+        channel_check: Callable[[], str | None] | None = None,
     ) -> None:
         self.ledger = ledger
+        # returns why no human can decide right now (no dashboard is running), else None
+        self.channel_check = channel_check
         self.timeout_s = timeout_s
         self.poll_s = poll_s
         self.approver = approver
@@ -145,6 +148,15 @@ class ApprovalBroker:
         self._cond = threading.Condition()
 
     # ── agent side ─────────────────────────────────────────────────────────────────
+    def unavailable_reason(self) -> str | None:
+        """Why no one can answer a request now (checked before one is made), or None."""
+        if self.approver is not None or self.channel_check is None:
+            return None
+        try:
+            return self.channel_check()
+        except Exception as exc:  # noqa: BLE001 - an unknown channel is an unavailable one
+            return f"the approval channel could not be checked ({exc})"
+
     def request(self, decision: Decision, *, timeout_s: float | None = None) -> ApprovalRequest:
         a = decision.action
         req = ApprovalRequest(

@@ -70,6 +70,10 @@ def _serve(host: str, port: int, no_browser: bool, lines: list[str]) -> None:
         head.insert(1, "[dim]  build it: cd frontend && npm ci && npm run build:static[/dim]")
     body = "\n".join([lines[0], *head, "", *lines[1:]])
     console.print(Panel(body, border_style="cyan", padding=(1, 2)))
+    from panoptis.protect.claude_hook import outdated_warnings
+
+    for warning in outdated_warnings():
+        console.print(f"[yellow]{escape(warning)}[/yellow]")
     if dash and not no_browser:
         local.open_browser_when_ready(f"{url}/", f"{url}/health")
 

@@ -1,7 +1,9 @@
 """Release gates that run before anything is published (TO-033).
 
     python scripts/release_check.py tag v0.3.1                # tag format, pyproject version, changelog
-    python scripts/release_check.py artifacts dist/ v0.3.1    # wheel/sdist names, contents, SHA256SUMS
+    python scripts/release_check.py artifacts dist/ v0.3.1 [COMMIT]
+        # wheel/sdist names, contents, SHA256SUMS; with COMMIT, the shipped dashboard must
+        # have been rebuilt from that commit (panoptis/_dashboard/build.json)
     python scripts/release_check.py verify-sums dist/         # the files still match SHA256SUMS
 
 Each command exits 1 with the reasons when a gate fails. The release workflow calls them;
@@ -64,7 +66,10 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def check_artifacts(dist: Path, tag: str) -> list[str]:
+DASHBOARD_BUILD = "panoptis/_dashboard/build.json"
+
+
+def check_artifacts(dist: Path, tag: str, commit: str | None = None) -> list[str]:
     version = tag[1:]
     errors = []
     wheels = sorted(dist.glob("*.whl"))
@@ -84,6 +89,8 @@ def check_artifacts(dist: Path, tag: str) -> list[str]:
                 errors.append(f"{w.name} lacks {req}")
         if any(n.startswith("tests/") or "__pycache__" in n for n in names):
             errors.append(f"{w.name} contains tests or caches")
+        if commit:
+            errors += _dashboard_built_from(w, names, commit)
     for s in sdists:
         with tarfile.open(s) as t:
             names = t.getnames()
@@ -95,6 +102,27 @@ def check_artifacts(dist: Path, tag: str) -> list[str]:
     if not errors:
         sums = "".join(f"{_sha256(p)}  {p.name}\n" for p in [*wheels, *sdists])
         (dist / "SHA256SUMS").write_text(sums, encoding="utf-8")
+    return errors
+
+
+def _dashboard_built_from(wheel: Path, names: set[str], commit: str) -> list[str]:
+    """The dashboard in the wheel was rebuilt from ``commit``, not copied from an old build."""
+    import json
+
+    if DASHBOARD_BUILD not in names:
+        return [f"{wheel.name} lacks {DASHBOARD_BUILD}: the dashboard was not rebuilt"]
+    try:
+        stamp = json.loads(zipfile.ZipFile(wheel).read(DASHBOARD_BUILD))
+    except ValueError:
+        return [f"{wheel.name}: {DASHBOARD_BUILD} is not JSON"]
+    errors = []
+    if stamp.get("commit") != commit:
+        errors.append(
+            f"{wheel.name}: the dashboard was built from {stamp.get('commit')!r}, not the "
+            f"release commit {commit!r}; run npm run build:static on the tagged commit"
+        )
+    if stamp.get("frontend_changes_uncommitted"):
+        errors.append(f"{wheel.name}: the dashboard was built with uncommitted frontend changes")
     return errors
 
 
@@ -124,7 +152,7 @@ def main(argv: list[str]) -> int:
     if len(argv) >= 2 and argv[0] == "tag":
         errors = check_tag(argv[1])
     elif len(argv) >= 3 and argv[0] == "artifacts":
-        errors = check_artifacts(Path(argv[1]), argv[2])
+        errors = check_artifacts(Path(argv[1]), argv[2], argv[3] if len(argv) >= 4 else None)
     elif len(argv) >= 2 and argv[0] == "verify-sums":
         errors = verify_sums(Path(argv[1]))
     else:

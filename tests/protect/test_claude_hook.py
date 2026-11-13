@@ -37,8 +37,12 @@ def pre(command: str, tool: str = "Bash", **extra: Any) -> dict[str, Any]:
 
 @pytest.fixture
 def pipeline(ledger) -> ProtectionPipeline:
+    # the --approvals claude pipeline: escalations go to Claude Code's own prompt
     return ProtectionPipeline(
-        ledger=ledger, config=ProtectionConfig(escalate_without_approver=Verdict.ESCALATE_HITL)
+        ledger=ledger,
+        config=ProtectionConfig(
+            escalate_without_approver=Verdict.ESCALATE_HITL, host_approval="claude-code"
+        ),
     )
 
 
@@ -62,9 +66,19 @@ def test_blocked_call_is_denied_with_the_reason(pipeline, ledger):
     assert rec["payload"]["action"]["session_id"] == "sess-1"
 
 
-def test_escalation_asks_through_claude_codes_prompt(pipeline):
+def test_escalation_asks_through_claude_codes_prompt_only_when_opted_in(pipeline, ledger):
     out = claude_hook.handle(pre("git push --force origin main"), pipeline, env={})
     assert decision(out) == "ask"
+    rec = ledger.query((KIND_DECISION,))[0]["payload"]
+    assert rec["approval"]["state"] == "handed_to_host"
+
+
+def test_an_escalation_no_one_holds_is_denied_not_asked(ledger):
+    # escalate_hitl with no approval channel and no opted-in host: never "ask"
+    p = ProtectionPipeline(
+        ledger=ledger, config=ProtectionConfig(escalate_without_approver=Verdict.ESCALATE_HITL)
+    )
+    assert decision(claude_hook.handle(pre("git push --force origin main"), p, env={})) == "deny"
 
 
 def test_without_the_hook_config_an_escalation_is_denied(ledger):
@@ -261,7 +275,7 @@ def test_install_merges_is_idempotent_and_uninstalls(tmp_path):
 
 def test_on_failure_block_is_opt_in():
     entry = claude_hook.hook_settings()["hooks"]["PreToolUse"][0]["hooks"][0]
-    assert "onFailure" not in entry and entry["timeout"] == 30
+    assert "onFailure" not in entry and entry["timeout"] == 300
     strict = claude_hook.hook_settings(on_failure_block=True)["hooks"]["PreToolUse"][0]["hooks"][0]
     assert strict["onFailure"] == "block"
 
@@ -269,7 +283,7 @@ def test_on_failure_block_is_opt_in():
 def test_the_command_uses_this_interpreter_and_the_entry_script():
     command = claude_hook.hook_command()
     assert Path(sys.executable).as_posix() in command
-    assert command.endswith('claude_hook_entry.py"')
+    assert 'claude_hook_entry.py" --hook-schema 2 --approvals dashboard' in command
 
 
 def test_cli_installs_prints_and_uninstalls(tmp_path):

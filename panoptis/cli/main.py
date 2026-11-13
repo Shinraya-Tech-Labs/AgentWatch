@@ -2838,6 +2838,12 @@ def doctor(
     except Exception as exc:
         logging.getLogger(__name__).debug("Could not inspect schema migration status: %s", exc)
 
+    from panoptis.protect.claude_hook import outdated_warnings
+
+    hook_warnings = outdated_warnings()
+    if hook_warnings:
+        table.add_row("Claude Code hook", "[yellow]Outdated[/yellow]")
+
     from panoptis.cli.v3 import v3_health
 
     colors = {"OK": "green", "WARN": "yellow", "STALE": "yellow", "FAILED": "red", "ERROR": "red"}
@@ -2845,6 +2851,8 @@ def doctor(
         table.add_row(component, f"[{colors.get(state, 'white')}]{state}[/] {detail}")
 
     console.print(table)
+    for warning in hook_warnings:
+        console.print(f"[yellow]{escape(warning)}[/yellow]")
 
 
 # ─────────────────────────────────────────────
@@ -2929,29 +2937,96 @@ protect_app.add_typer(claude_hook_app, name="claude-hook")
 _HOOK_SETTINGS_HELP = "Claude Code settings file (default: ./.claude/settings.local.json)."
 
 
+_APPROVALS_HELP = (
+    "Who decides a call PANOPTIS holds for approval: 'dashboard' (default; a person in "
+    "PANOPTIS, the call is denied on reject, timeout, or when no dashboard is running) or "
+    "'claude' (answer 'ask' and let Claude Code's own permission flow decide; in auto mode "
+    "that may approve it without a person)."
+)
+
+
 @claude_hook_app.command("install")
 def claude_hook_install(
     settings: Path = typer.Option(
         Path(".claude") / "settings.local.json", "--settings", help=_HOOK_SETTINGS_HELP
     ),
-    timeout: int = typer.Option(30, "--timeout", help="Hook timeout in seconds."),
-    on_failure_block: bool = typer.Option(
-        False,
-        "--on-failure-block",
-        help='Add "onFailure": "block" so a hook that cannot start blocks the call '
-        "(needs Claude Code 2.1.295 or later).",
+    approvals: str = typer.Option("dashboard", "--approvals", help=_APPROVALS_HELP),
+    timeout: int | None = typer.Option(
+        None, "--timeout", help="Hook timeout in seconds (default 300; 30 with --approvals claude)."
+    ),
+    approval_timeout: float | None = typer.Option(
+        None,
+        "--approval-timeout",
+        help="Seconds a held call waits for a decision before it is denied (default 240; "
+        "at least 10 s shorter than --timeout).",
+    ),
+    on_failure_block: bool | None = typer.Option(
+        None,
+        "--on-failure-block/--no-on-failure-block",
+        help='Add "onFailure": "block" so a hook that cannot start or times out blocks the '
+        "call. Default: on when the installed Claude Code supports it (2.1.295 or later).",
     ),
 ) -> None:
     """Merge the PANOPTIS hook into a Claude Code settings file."""
     from panoptis.protect import claude_hook
 
-    claude_hook.install(settings, timeout_s=timeout, on_failure_block=on_failure_block)
+    version = None
+    if on_failure_block is None:
+        version = _claude_code_version()
+        on_failure_block = claude_hook.supports_on_failure_block(version)
+        found = ".".join(map(str, version)) if version else "not found"
+        console.print(
+            f"Claude Code {found}: "
+            + (
+                '"onFailure": "block" is on.'
+                if on_failure_block
+                else '"onFailure": "block" is off.'
+            )
+        )
+    try:
+        claude_hook.install(
+            settings,
+            timeout_s=timeout,
+            on_failure_block=on_failure_block,
+            approvals=approvals,
+            approval_timeout_s=approval_timeout,
+        )
+    except ValueError as exc:
+        console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(2) from exc
     console.print(f"[green]PANOPTIS hook installed in {settings}[/green]")
+    if approvals == claude_hook.APPROVALS_CLAUDE:
+        console.print(
+            "[yellow]--approvals claude: a call PANOPTIS escalates goes to Claude Code's own "
+            "permission flow. In auto or bypass mode it may run without a person deciding.[/yellow]"
+        )
+    else:
+        console.print(
+            "Calls held for approval wait for a decision on the PANOPTIS dashboard "
+            "(`panoptis up`); with no dashboard running they are denied."
+        )
     if not on_failure_block:
         console.print(
             "[yellow]Claude Code runs the tool if the hook command cannot start or times out. "
             "On Claude Code 2.1.295+, re-run with --on-failure-block.[/yellow]"
         )
+
+
+def _claude_code_version() -> tuple[int, int, int] | None:
+    """The installed Claude Code CLI's version, or None when it is not found."""
+    import shutil
+
+    from panoptis.cli._utils.run_cmd import run_validated_command
+    from panoptis.protect.claude_hook import parse_version
+
+    claude = shutil.which("claude")
+    if not claude:
+        return None
+    try:
+        code, out, _ = run_validated_command([claude, "--version"], check=False, timeout=20)
+    except Exception:  # noqa: BLE001 - an unknown version is treated as "not supported"
+        return None
+    return parse_version(out) if code == 0 else None
 
 
 @claude_hook_app.command("uninstall")
@@ -2970,11 +3045,24 @@ def claude_hook_uninstall(
 @claude_hook_app.command("print")
 def claude_hook_print(
     on_failure_block: bool = typer.Option(False, "--on-failure-block"),
+    approvals: str = typer.Option("dashboard", "--approvals", help=_APPROVALS_HELP),
+    timeout: int | None = typer.Option(None, "--timeout", help="Hook timeout in seconds."),
+    approval_timeout: float | None = typer.Option(None, "--approval-timeout"),
 ) -> None:
     """Print the settings JSON (for `claude --settings`)."""
     from panoptis.protect import claude_hook
 
-    typer.echo(json.dumps(claude_hook.hook_settings(on_failure_block=on_failure_block), indent=2))
+    try:
+        doc = claude_hook.hook_settings(
+            on_failure_block=on_failure_block,
+            approvals=approvals,
+            timeout_s=timeout,
+            approval_timeout_s=approval_timeout,
+        )
+    except ValueError as exc:
+        console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps(doc, indent=2))
 
 
 # ── MCP gateway (TO-023) ──────────────────────────────────────────────────────────────

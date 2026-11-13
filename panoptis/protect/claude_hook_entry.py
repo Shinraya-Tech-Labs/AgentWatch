@@ -18,4 +18,4 @@ except BaseException as exc:  # noqa: BLE001 - every failure blocks
     sys.stderr.write(f"PANOPTIS hook could not load, blocking the tool call: {exc!r}\n")
     sys.exit(2)
 
-sys.exit(main())
+sys.exit(main(argv=sys.argv[1:]))

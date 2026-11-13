@@ -101,15 +101,87 @@ export const MonitorStatus = ({ s }: { s: string }) => (
   </span>
 );
 
-export const Time = ({ t }: { t?: string | number | null }) => {
-  if (t === null || t === undefined || t === '') return <span className="text-zinc-400">—</span>;
-  const d = typeof t === 'number' ? new Date(t * 1000) : new Date(t);
+/**
+ * A timestamp (epoch seconds, or an ISO string; one without a zone is UTC, as the API
+ * writes them) as a Date. Null for nothing or garbage.
+ */
+export function toDate(t?: string | number | null): Date | null {
+  if (t === null || t === undefined || t === '') return null;
+  let d: Date;
+  if (typeof t === 'number') d = new Date(t * 1000);
+  else {
+    const zoned = /([zZ]|[+-]\d\d:?\d\d)$/.test(t) || !/\dT\d|\d \d/.test(t);
+    d = new Date(zoned ? t : `${t.replace(' ', 'T')}Z`);
+  }
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** "2026-11-12 09:14:03" in the viewer's own time zone. */
+export function localTime(t?: string | number | null): string {
+  const d = toDate(t);
+  if (!d) return '';
   return (
-    <time dateTime={d.toISOString()} className="font-mono text-[11px] text-zinc-300">
-      {d.toISOString().slice(0, 19).replace('T', ' ')}
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+}
+
+export const Time = ({ t }: { t?: string | number | null }) => {
+  const d = toDate(t);
+  if (!d) return <span className="text-zinc-400">—</span>;
+  return (
+    <time
+      dateTime={d.toISOString()}
+      title={`${d.toISOString().slice(0, 19).replace('T', ' ')} UTC`}
+      className="font-mono text-[11px] text-zinc-300"
+    >
+      {localTime(t)}
     </time>
   );
 };
+
+/** Approve / Reject. For a high-risk call, Approve is outlined in red and says so. */
+export function DecisionButtons({
+  high,
+  busy,
+  onDecide,
+}: {
+  high: boolean;
+  busy: boolean;
+  onDecide: (approved: boolean) => void;
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onDecide(false)}
+        className={
+          high
+            ? 'rounded-lg bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-950 hover:bg-white disabled:opacity-50'
+            : 'rounded-lg border border-rose-300/50 px-3 py-1 text-sm text-rose-100 hover:bg-rose-500/20 disabled:opacity-50'
+        }
+      >
+        Reject
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onDecide(true)}
+        data-risk={high ? 'high' : 'normal'}
+        className={
+          high
+            ? 'rounded-lg border-2 border-rose-400 bg-rose-600/30 px-3 py-1 text-sm font-semibold text-rose-50 hover:bg-rose-600/50 disabled:opacity-50'
+            : 'rounded-lg bg-emerald-400 px-3 py-1 text-sm font-semibold text-zinc-950 hover:bg-emerald-300 disabled:opacity-50'
+        }
+      >
+        {high ? '⚠ Approve anyway' : 'Approve'}
+      </button>
+    </div>
+  );
+}
 
 export function Table({
   head,

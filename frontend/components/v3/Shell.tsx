@@ -5,6 +5,7 @@ import { tryLocalSignIn } from '../../lib/local';
 import { useApiKey } from '../../lib/protect/client';
 import { useRuns } from '../../lib/v3/client';
 import { ADVANCED_VIEWS, Chrome } from '../security/SecurityShell';
+import { localTime } from '../security/ui';
 import { short } from './ui';
 
 /** The Advanced (Evidence Lab) views, listed under "Advanced" in the main navigation. */
@@ -40,7 +41,7 @@ export function Shell({
       <option value="">select run…</option>
       {runs.data?.runs.map((r) => (
         <option key={r.run_id} value={r.run_id}>
-          {short(r.run_id)} · {r.name} · {r.status} · {r.started_at?.slice(5, 19).replace('T', ' ')}
+          {short(r.run_id)} · {r.name} · {r.status} · {localTime(r.started_at).slice(5)}
         </option>
       ))}
     </select>

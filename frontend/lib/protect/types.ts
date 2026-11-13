@@ -159,6 +159,14 @@ export interface Approval {
   expires_at: number;
   state: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled' | string;
   outcome?: Record<string, unknown> | null;
+  findings?: ApprovalFinding[];
+}
+
+export interface ApprovalFinding {
+  code: string;
+  message?: string;
+  severity?: string;
+  evidence?: Record<string, unknown>;
 }
 
 export interface PolicyView {

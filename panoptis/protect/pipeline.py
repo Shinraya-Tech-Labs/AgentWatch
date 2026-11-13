@@ -81,6 +81,10 @@ class ProtectionConfig:
     mode: str = "enforce"
     # what to do when a finding asks for human approval but no approval channel exists
     escalate_without_approver: Verdict = Verdict.BLOCK
+    # set when an ESCALATE_HITL verdict without an approval channel is handed back to the
+    # host's own permission flow (e.g. "claude-code"): recorded as approval state
+    # "handed_to_host", never as a call held in the approval queue
+    host_approval: str | None = None
     approval_timeout_s: float = 120.0
     require_registered_agents: bool = False
     bind_sessions: bool = True  # a session id belongs to the first agent that uses it
@@ -798,23 +802,32 @@ class ProtectionPipeline:
         return []
 
     def _escalate(self, decision: Decision, mutated: dict[str, Any] | None, *, wait: bool) -> None:
-        if self.approvals is None:
+        broker = self.approvals  # a local, so the type checker sees it narrowed below
+        missing = (
+            "no approval channel is configured" if broker is None else broker.unavailable_reason()
+        )
+        if broker is None or missing:
             v = self.config.escalate_without_approver
+            host = self.config.host_approval if v is Verdict.ESCALATE_HITL else None
             decision.findings.append(
                 Finding(
                     Stage.HITL,
                     "NO_APPROVAL_CHANNEL",
                     Severity.HIGH,
-                    f"Human approval required but no approval channel is configured; {v.value}",
+                    f"Human approval required but {missing}; "
+                    + (f"handed to {host}'s own permission prompt" if host else v.value),
                     {},
                     None,
                     v,
                 )
             )
             decision.verdict = v
-            decision.approval = {"state": "unavailable"}
+            # nothing is held: "unavailable" (no approver) or "handed_to_host"
+            decision.approval = (
+                {"state": "handed_to_host", "host": host} if host else {"state": "unavailable"}
+            )
             return
-        req = self.approvals.request(decision, timeout_s=self.config.approval_timeout_s)
+        req = broker.request(decision, timeout_s=self.config.approval_timeout_s)
         decision.approval = {
             "request_id": req.request_id,
             "state": "pending",
@@ -827,7 +840,7 @@ class ProtectionPipeline:
             stop = self._emergency(decision.action)
             return stop[0].message if stop else None
 
-        outcome = self.approvals.wait(req, abort=abort)
+        outcome = broker.wait(req, abort=abort)
         decision.approval = {
             "request_id": req.request_id,
             "state": "approved"

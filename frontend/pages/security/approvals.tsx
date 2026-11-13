@@ -1,8 +1,9 @@
 import { useState } from 'react';
 
 import { SecurityShell } from '../../components/security/SecurityShell';
-import { Card, ErrorNote, QueryState, Time } from '../../components/security/ui';
+import { Card, DecisionButtons, ErrorNote, QueryState, Time } from '../../components/security/ui';
 import { useApprovals, useDecideApproval } from '../../lib/protect/client';
+import { describeRisk, shownAction } from '../../lib/protect/risk';
 import type { Approval } from '../../lib/protect/types';
 
 export default function Approvals() {
@@ -58,22 +59,38 @@ function ApprovalCard({ a }: { a: Approval }) {
       decided_by: name || 'dashboard',
       comment,
     });
+  const risk = describeRisk(a);
   return (
     <Card title={`${a.tool} · ${a.state}`} right={<Time t={a.created_at} />}>
       <div className="space-y-2 text-sm" data-testid={`approval-${a.request_id}`}>
-        <p>
+        <p className="text-base font-semibold text-zinc-50" data-testid="risk-sentence">
+          {risk.high ? '⚠ ' : ''}
+          {risk.sentence}
+        </p>
+        <code
+          aria-label="command to approve"
+          className={`block break-all rounded-lg border px-2.5 py-2 font-mono text-sm text-zinc-50 ${
+            risk.high ? 'border-rose-300/50 bg-rose-500/10' : 'border-white/15 bg-black/40'
+          }`}
+        >
+          {shownAction(a)}
+        </code>
+        <p className="text-[12px] text-zinc-300">{a.reason}</p>
+        <p className="text-[12px]">
           <span className="text-zinc-400">agent</span>{' '}
           <code className="font-mono">{a.agent_id}</code>{' '}
           <span className="text-zinc-400">session</span>{' '}
           <code className="font-mono">{a.session_id}</code>
         </p>
-        <p>{a.reason}</p>
-        <pre
-          className="max-h-48 overflow-auto rounded border border-zinc-800 bg-zinc-900 p-2 font-mono text-[12px]"
-          aria-label="arguments to approve"
-        >
-          {JSON.stringify(a.arguments, null, 2)}
-        </pre>
+        <details>
+          <summary className="cursor-pointer text-[12px] text-zinc-400">all arguments</summary>
+          <pre
+            className="mt-1 max-h-48 overflow-auto rounded border border-zinc-800 bg-zinc-900 p-2 font-mono text-[12px]"
+            aria-label="arguments to approve"
+          >
+            {JSON.stringify(a.arguments, null, 2)}
+          </pre>
+        </details>
         <p className="break-all font-mono text-[11px] text-zinc-400">digest {a.action_digest}</p>
         {pending ? (
           <>
@@ -100,24 +117,7 @@ function ApprovalCard({ a }: { a: Approval }) {
                 />
               </label>
             </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={decide.isPending}
-                onClick={() => send(true)}
-                className="rounded bg-emerald-700 px-3 py-1 text-sm text-white hover:bg-emerald-600 disabled:opacity-50"
-              >
-                Approve
-              </button>
-              <button
-                type="button"
-                disabled={decide.isPending}
-                onClick={() => send(false)}
-                className="rounded bg-rose-700 px-3 py-1 text-sm text-white hover:bg-rose-600 disabled:opacity-50"
-              >
-                Reject
-              </button>
-            </div>
+            <DecisionButtons high={risk.high} busy={decide.isPending} onDecide={send} />
           </>
         ) : (
           <p className="text-[12px] text-zinc-300">

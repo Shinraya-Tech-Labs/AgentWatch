@@ -17,6 +17,17 @@ import {
   type DecisionFilters,
 } from '../../lib/protect/client';
 
+const STAGES: [string, string][] = [
+  ['threat', 'threat check'],
+  ['rbac', 'permissions (RBAC)'],
+  ['loop', 'repeated calls'],
+  ['intent', 'off the stated task'],
+  ['hitl', 'human approval'],
+  ['killswitch', 'emergency stop'],
+  ['identity', 'agent identity'],
+  ['output', 'tool output'],
+];
+
 export default function Decisions() {
   const [filters, setFilters] = useState<DecisionFilters>({});
   const [selected, setSelected] = useState<string | undefined>();
@@ -54,13 +65,11 @@ export default function Decisions() {
               onChange={(e) => set('stage', e.target.value)}
             >
               <option value="">any</option>
-              {['threat', 'rbac', 'loop', 'intent', 'hitl', 'killswitch', 'identity', 'output'].map(
-                (s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ),
-              )}
+              {STAGES.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="flex items-center gap-1">
@@ -126,10 +135,17 @@ export default function Decisions() {
         </Card>
         <CallPanel callId={selected} />
       </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <StagePanel title="Loop detection" q={loops} empty="No loops detected." />
-        <StagePanel title="Intent grounding" q={intent} empty="No intent mismatches." />
-      </div>
+      {/* shown only when there is something to see: an empty panel explained nothing */}
+      {loops.data?.events.length || intent.data?.events.length ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {loops.data?.events.length ? (
+            <StagePanel title="Repeated calls" q={loops} empty="" />
+          ) : null}
+          {intent.data?.events.length ? (
+            <StagePanel title="Calls off the stated task" q={intent} empty="" />
+          ) : null}
+        </div>
+      ) : null}
     </SecurityShell>
   );
 }

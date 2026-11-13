@@ -9,34 +9,41 @@ import {
   useDecisions,
   useStatus,
 } from '../../lib/protect/client';
+import { describeRisk, shownAction } from '../../lib/protect/risk';
 import type { Approval, Decision } from '../../lib/protect/types';
 import { GettingStarted } from './GettingStarted';
 import { SecurityShell } from './SecurityShell';
-import { Card, ErrorNote, QueryState, Time } from './ui';
+import { Card, DecisionButtons, ErrorNote, QueryState, Time, toDate } from './ui';
 
 const PLAIN: Record<string, { word: string; tone: string; icon: string }> = {
   allow: { word: 'Allowed', tone: 'text-emerald-200', icon: '✓' },
   block: { word: 'Blocked', tone: 'text-rose-200', icon: '✕' },
-  escalate_hitl: { word: 'Held for approval', tone: 'text-amber-100', icon: '⏸' },
+  // an escalation is only "held" when it is in the approval queue (approval_state pending)
+  escalate_hitl: { word: 'Needed approval, not held', tone: 'text-amber-100', icon: '!' },
   mutate_and_allow: { word: 'Allowed after rewriting', tone: 'text-sky-200', icon: '✎' },
 };
 
-function verdictWord(d: Decision): { word: string; tone: string; icon: string } {
-  if (d.verdict === 'escalate_hitl' || d.approval_state) {
-    const s = d.approval_state;
-    if (s === 'approved')
-      return { word: 'Approved by a person', tone: 'text-emerald-200', icon: '✓' };
-    if (s === 'rejected') return { word: 'Rejected by a person', tone: 'text-rose-200', icon: '✕' };
-    if (s === 'expired')
-      return { word: 'Approval expired, blocked', tone: 'text-rose-200', icon: '✕' };
-  }
+export function verdictWord(d: Decision): { word: string; tone: string; icon: string } {
+  const s = d.approval_state;
+  if (s === 'pending') return { word: 'Held for approval', tone: 'text-amber-100', icon: '⏸' };
+  if (s === 'approved')
+    return { word: 'Approved by a person', tone: 'text-emerald-200', icon: '✓' };
+  if (s === 'rejected') return { word: 'Rejected by a person', tone: 'text-rose-200', icon: '✕' };
+  if (s === 'expired')
+    return { word: 'Approval timed out, blocked', tone: 'text-rose-200', icon: '✕' };
+  if (s === 'cancelled')
+    return { word: 'Approval withdrawn, blocked', tone: 'text-rose-200', icon: '✕' };
+  if (s === 'handed_to_host')
+    return { word: "Handed to the agent's own prompt", tone: 'text-amber-100', icon: '↪' };
+  if (s === 'unavailable' && d.verdict === 'block')
+    return { word: 'Needed approval, no approver: blocked', tone: 'text-rose-200', icon: '✕' };
   return PLAIN[d.verdict] ?? { word: d.verdict, tone: 'text-zinc-100', icon: '•' };
 }
 
 function ago(at?: string | number | null): string {
-  if (at === null || at === undefined || at === '') return '';
-  const t = typeof at === 'number' ? at * 1000 : Date.parse(at);
-  if (Number.isNaN(t)) return '';
+  const d = toDate(at);
+  if (!d) return '';
+  const t = d.getTime();
   const s = Math.max(0, Math.round((Date.now() - t) / 1000));
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.round(s / 60)} min ago`;
@@ -303,34 +310,28 @@ function PendingApproval({ a }: { a: Approval }) {
       action_digest: a.action_digest,
       decided_by: 'dashboard',
     });
-  const shown =
-    typeof a.arguments?.command === 'string' ? a.arguments.command : JSON.stringify(a.arguments);
+  const risk = describeRisk(a);
   return (
-    <li className="rounded-xl border border-amber-300/30 bg-amber-400/10 p-3">
-      <p className="text-sm text-zinc-100">
-        <span className="font-mono">{a.agent_id}</span> wants to use{' '}
-        <span className="font-mono">{a.tool}</span>
+    <li
+      className={`rounded-xl border p-3 ${
+        risk.high ? 'border-rose-300/50 bg-rose-500/10' : 'border-amber-300/30 bg-amber-400/10'
+      }`}
+    >
+      <p className="text-base font-semibold text-zinc-50" data-testid="risk-sentence">
+        {risk.high ? '⚠ ' : ''}
+        {risk.sentence}
       </p>
-      <code className="mt-1 block break-all font-mono text-[12px] text-amber-50">{shown}</code>
-      <p className="mt-1 text-xs text-zinc-300">{a.reason}</p>
-      <div className="mt-2 flex gap-2">
-        <button
-          type="button"
-          disabled={decide.isPending}
-          onClick={() => send(true)}
-          className="rounded-lg bg-emerald-400 px-3 py-1 text-sm font-semibold text-zinc-950 hover:bg-emerald-300 disabled:opacity-50"
-        >
-          Approve
-        </button>
-        <button
-          type="button"
-          disabled={decide.isPending}
-          onClick={() => send(false)}
-          className="rounded-lg border border-rose-300/50 px-3 py-1 text-sm text-rose-100 hover:bg-rose-500/20 disabled:opacity-50"
-        >
-          Reject
-        </button>
-      </div>
+      <code
+        aria-label="command to approve"
+        className="mt-2 block break-all rounded-lg border border-white/15 bg-black/40 px-2.5 py-2 font-mono text-sm text-zinc-50"
+      >
+        {shownAction(a)}
+      </code>
+      <p className="mt-2 text-xs text-zinc-300">
+        <span className="font-mono">{a.agent_id}</span> ·{' '}
+        <span className="font-mono">{a.tool}</span> · {a.reason}
+      </p>
+      <DecisionButtons high={risk.high} busy={decide.isPending} onDecide={send} />
       {decide.error ? <ErrorNote error={decide.error} /> : null}
     </li>
   );

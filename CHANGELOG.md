@@ -10,6 +10,28 @@ file and uses it as the GitHub Release body, so keep each version's notes here.
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-11-12
+
+### Security
+- **Claude Code hook: a call held for approval is decided by a person in PANOPTIS, not by Claude Code.** Up to 0.4.2 the hook answered an escalated call (for example `rm -rf ./dir`) with `permissionDecision: "ask"`. In Claude Code's auto mode that approved it without anyone seeing it, and the folder was deleted while the dashboard said "Held for approval". The hook now holds the call in the approval queue and waits. It answers `allow` only after someone approves it on the dashboard, and `deny` on reject, on timeout, or when no PANOPTIS dashboard is reachable. Verified with Claude Code 2.1.322 in auto mode on Windows.
+- Hooks installed by 0.4.2 or earlier deny escalated calls at once (never `"ask"`) until `panoptis protect claude-hook install` is run again. `panoptis up` and `panoptis doctor` print `Claude Code hook in <path> is outdated, run panoptis protect claude-hook install again`.
+
+### Added
+- `panoptis protect claude-hook install --approvals dashboard|claude`: `dashboard` is the default, and `claude` is the explicit opt-in to Claude Code's own prompt. Also `--approval-timeout` (default 240 s, always at least 10 s shorter than the hook timeout, which now defaults to 300 s). The installed command carries `--hook-schema 2`.
+- `install` turns on `"onFailure": "block"` when the installed Claude Code supports it (2.1.295 or later); `--no-on-failure-block` turns it off.
+- `panoptis[router]` extra for `litellm`.
+- The release gate checks that the dashboard shipped in the wheel was rebuilt from the tagged commit (`panoptis/_dashboard/build.json`).
+
+### Changed
+- The dashboard says "Held for approval" only for a call that is waiting in the approval queue. Rows record how each call ended: approved, rejected, timed out, withdrawn, no approver, or handed to the agent's own prompt.
+- Approval cards lead with the command and a plain-English line such as "This deletes ./project and everything inside it". For high-risk calls the Approve button is outlined in red and reads "Approve anyway".
+- The Decisions page no longer shows empty "Loop detection" / "Intent grounding" panels. When they have events they are titled "Repeated calls" and "Calls off the stated task", and the stage filter uses plain names.
+- Timestamps are shown in the viewer's local time zone (UTC on hover).
+- In local mode a rejected key (left over from an earlier `panoptis up` or another workspace) is refreshed from `/api/local/session` and the request retried once. If the key is still rejected, the dashboard says to restart `panoptis up`. Every page uses this, including the Advanced views.
+- `rich` is no longer capped below 14 (`<16`). The cap downgraded rich 15 in shared environments and broke twine.
+- `litellm` moved from the core dependencies to the `router` extra.
+- README: install with pipx or into a virtualenv.
+
 ## [0.4.2] - 2026-11-11
 
 ### Fixed

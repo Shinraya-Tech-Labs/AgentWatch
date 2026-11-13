@@ -75,22 +75,33 @@ export function switchProfile(id: string): void {
 }
 
 let attempted = false;
+// null until /api/local/session answered once; false on a server without local mode
+let isLocal: boolean | null = null;
+let inflight: Promise<boolean> | null = null;
 
-/** Ask the server for local keys once per page load; true when local mode signed us in. */
-export async function tryLocalSignIn(): Promise<boolean> {
-  if (attempted || typeof window === 'undefined') return false;
-  attempted = true;
+/** Fetch the local session and adopt its key. True when the server is in local mode. */
+async function loadLocalSession(): Promise<boolean> {
   try {
     const res = await fetch('/api/local/session', { headers: { accept: 'application/json' } });
-    if (!res.ok) return false;
+    if (!res.ok) {
+      isLocal = false;
+      return false;
+    }
     const body = (await res.json()) as { mode?: string; profiles?: LocalProfile[] };
     const profiles = Array.isArray(body?.profiles) ? body.profiles : [];
-    if (body?.mode !== 'local' || !profiles.length) return false;
+    if (body?.mode !== 'local' || !profiles.length) {
+      isLocal = false;
+      return false;
+    }
+    isLocal = true;
     write(PROFILES, profiles);
     const current = getKey();
-    const keep = profiles.find((p) => p.key === current);
-    write(ACTIVE, (keep ?? profiles[0]).id);
-    if (!keep) setKey(profiles[0].key);
+    const activeId = read<string>(ACTIVE);
+    // keep the profile the user picked; a key that changed under it is replaced
+    const keep = profiles.find((p) => p.key === current) ?? profiles.find((p) => p.id === activeId);
+    const pick = keep ?? profiles[0];
+    write(ACTIVE, pick.id);
+    if (pick.key !== current) setKey(pick.key);
     window.dispatchEvent(new Event(EVENT));
     return true;
   } catch {
@@ -98,7 +109,29 @@ export async function tryLocalSignIn(): Promise<boolean> {
   }
 }
 
+/** Ask the server for local keys once per page load; true when local mode signed us in. */
+export async function tryLocalSignIn(): Promise<boolean> {
+  if (attempted || typeof window === 'undefined') return false;
+  attempted = true;
+  return loadLocalSession();
+}
+
+/**
+ * After a 401: re-fetch /api/local/session (the key in this tab may belong to an earlier
+ * `panoptis up` or another workspace). True when local mode answered, so the caller retries
+ * once with the key now stored. Concurrent callers share one request.
+ */
+export async function refreshLocalSession(): Promise<boolean> {
+  if (typeof window === 'undefined' || isLocal === false) return false;
+  inflight ??= loadLocalSession().finally(() => {
+    inflight = null;
+  });
+  return inflight;
+}
+
 /** Test hook: let the next page load try again. */
 export function resetLocalSignIn(): void {
   attempted = false;
+  isLocal = null;
+  inflight = null;
 }
