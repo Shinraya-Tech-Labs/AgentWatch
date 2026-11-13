@@ -802,12 +802,11 @@ class ProtectionPipeline:
         return []
 
     def _escalate(self, decision: Decision, mutated: dict[str, Any] | None, *, wait: bool) -> None:
+        broker = self.approvals  # a local, so the type checker sees it narrowed below
         missing = (
-            "no approval channel is configured"
-            if self.approvals is None
-            else self.approvals.unavailable_reason()
+            "no approval channel is configured" if broker is None else broker.unavailable_reason()
         )
-        if missing:
+        if broker is None or missing:
             v = self.config.escalate_without_approver
             host = self.config.host_approval if v is Verdict.ESCALATE_HITL else None
             decision.findings.append(
@@ -828,7 +827,7 @@ class ProtectionPipeline:
                 {"state": "handed_to_host", "host": host} if host else {"state": "unavailable"}
             )
             return
-        req = self.approvals.request(decision, timeout_s=self.config.approval_timeout_s)
+        req = broker.request(decision, timeout_s=self.config.approval_timeout_s)
         decision.approval = {
             "request_id": req.request_id,
             "state": "pending",
@@ -841,7 +840,7 @@ class ProtectionPipeline:
             stop = self._emergency(decision.action)
             return stop[0].message if stop else None
 
-        outcome = self.approvals.wait(req, abort=abort)
+        outcome = broker.wait(req, abort=abort)
         decision.approval = {
             "request_id": req.request_id,
             "state": "approved"
