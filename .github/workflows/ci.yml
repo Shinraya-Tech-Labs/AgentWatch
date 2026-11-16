@@ -15,17 +15,21 @@ jobs:
   python-lint:
     name: Python Lint & Type Check
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
       - name: Install deps
         run: pip install ruff mypy pydantic && pip install -e .
       - name: Ruff lint
-        run: ruff check agentwatch/
+        run: ruff check agentwatch/ panopti/
       - name: Ruff format check
-        run: ruff format --check agentwatch/
+        run: ruff format --check agentwatch/ panopti/
       - name: Type check (v3 modules)
         run: make typecheck
 
@@ -33,6 +37,10 @@ jobs:
   python-tests:
     name: Python Tests
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -60,7 +68,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install package
         run: pip install -e ".[dev]"
@@ -69,7 +77,7 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://agentwatch:agentwatch@localhost:5432/agentwatch_test
           REDIS_URL: redis://localhost:6379/0
           AGENTWATCH_TEST_PG_URL: postgresql+psycopg://agentwatch:agentwatch@localhost:5432/agentwatch_test
-        run: pytest tests/ -v --cov=agentwatch --cov-report=xml --cov-report=html --cov-report=term-missing --cov-fail-under=70
+        run: pytest tests/ -v --cov=agentwatch --cov=panopti --cov-report=xml --cov-report=html --cov-report=term-missing --cov-fail-under=70
       - name: Upload HTML coverage report
         uses: actions/upload-artifact@v4
         with:
@@ -85,6 +93,10 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
     needs: [python-tests]
     services:
       postgres:
@@ -108,7 +120,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install package
         run: pip install -e ".[dev]"

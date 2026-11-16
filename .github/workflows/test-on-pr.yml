@@ -12,16 +12,20 @@ jobs:
   test:
     name: Test & lint
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"] 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       # 2. Crucial Fix: Include 'crypto' extra so pip-audit can evaluate cryptography
@@ -39,14 +43,16 @@ jobs:
         continue-on-error: true
         run: |
           pytest tests/ -v --tb=short \
-            --cov=agentwatch \
-            --cov-report=term-missing \
-            --cov-report=json
+          --cov=agentwatch \
+          --cov=panopti \
+          --cov-fail-under=70 \
+          --cov-report=term-missing \
+          --cov-report=json 
 
       - name: Ruff lint
         id: ruff
         continue-on-error: true
-        run: ruff check .
+        run: ruff check agentwatch/ panopti/
 
       - name: Save PR info and results
         if: always()
