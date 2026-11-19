@@ -39,7 +39,7 @@ dependencies = [
   "redis[hiredis]>=5.3.0,<6.0.0",
   "celery[redis]>=5.5.0,<6.0.0",
   "httpx>=0.28.0,<1.0.0",
-  "typer>=0.12.0,<0.28.0",  # 0.28 vendors click with a new parameter model (CLI surface test); rich and shellingham are declared below (typer[all] no longer exists)
+  "typer>=0.12.0,<0.30.0",  # 0.28 vendors click with a new parameter model (CLI surface test); rich and shellingham are declared below (typer[all] no longer exists)
   # no <14 cap: it downgraded rich 15 in shared environments and broke twine (0.4.3)
   "rich>=13.9.0,<16.0.0",
   "shellingham>=1.5.0,<2.0.0",
