@@ -43,7 +43,7 @@ jobs:
         continue-on-error: true
         run: |
           pytest tests/ -v --tb=short \
-          --cov=agentwatch \
+          --cov=panoptis \
           --cov=panopti \
           --cov-fail-under=70 \
           --cov-report=term-missing \
@@ -52,7 +52,7 @@ jobs:
       - name: Ruff lint
         id: ruff
         continue-on-error: true
-        run: ruff check agentwatch/ panopti/
+        run: ruff check  panoptis/ panopti/
 
       - name: Save PR info and results
         if: always()
